@@ -9,7 +9,8 @@
     "lint": "oxlint",
     "preview": "vite preview",
     "format": "prettier --write \"src/**/*.{ts,tsx,css}\"",
-    "format:check": "prettier --check \"src/**/*.{ts,tsx,css}\""
+    "format:check": "prettier --check \"src/**/*.{ts,tsx,css}\"",
+    "prebuild": "node -e \"require('fs').rmSync('../internal/web/dist/assets',{recursive:true,force:true})\""
   },
   "dependencies": {
     "react": "^19.2.8",

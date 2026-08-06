@@ -8,7 +8,10 @@ export default defineConfig({
   plugins: [react(), tailwindcss()],
   build: {
     outDir: '../internal/web/dist',
-    emptyOutDir: true,
+    // Not emptied: internal/web/dist/.gitkeep is committed so that go:embed
+    // has a file to match in a fresh clone, and emptying deletes it. The
+    // prebuild script clears stale output instead.
+    emptyOutDir: false,
   },
   server: {
     port: 5410,
