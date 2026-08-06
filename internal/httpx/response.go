@@ -1,0 +1,145 @@
+// Package httpx implements the wire format described in
+// docs/api-conventions.md: a {code, message, data} envelope, with the HTTP
+// status and the envelope code always agreeing on success vs failure.
+package httpx
+
+import (
+	"encoding/json"
+	"log/slog"
+	"net/http"
+)
+
+// CodeSuccess is the envelope code for every successful response.
+const CodeSuccess = "SUCCESS"
+
+// Envelope is the response body shape used by every JSON endpoint.
+type Envelope struct {
+	Code    string `json:"code"`
+	Message string `json:"message"`
+	// Data is always present, and is null (not {} or []) when there is no
+	// result to return.
+	Data any `json:"data"`
+}
+
+// OK writes a 200 response carrying data.
+func OK(w http.ResponseWriter, data any) {
+	write(w, http.StatusOK, Envelope{Code: CodeSuccess, Message: "", Data: data})
+}
+
+// Error is a failure that carries both an HTTP status and a stable,
+// machine-readable code. It implements error so it can be returned through
+// service layers and rendered once at the HTTP boundary.
+type Error struct {
+	// Status is the HTTP status code. Always 4xx for expected failures;
+	// 5xx is reserved for bugs and infrastructure problems.
+	Status int
+	// Code is a SCREAMING_SNAKE_CASE identifier, e.g. USER_NOT_FOUND.
+	Code string
+	// Message is human-readable and safe to show to an end user.
+	Message string
+	// cause is the underlying error, logged but never sent to the client.
+	cause error
+}
+
+func (e *Error) Error() string {
+	if e.cause != nil {
+		return e.Code + ": " + e.cause.Error()
+	}
+	return e.Code + ": " + e.Message
+}
+
+func (e *Error) Unwrap() error { return e.cause }
+
+// WithCause attaches an underlying error for logging without changing what
+// the client sees.
+func (e *Error) WithCause(err error) *Error {
+	clone := *e
+	clone.cause = err
+	return &clone
+}
+
+// NewError builds an Error. Prefer the constructors below for the common
+// statuses so the status/code pairing stays consistent.
+func NewError(status int, code, message string) *Error {
+	return &Error{Status: status, Code: code, Message: message}
+}
+
+// BadRequest reports a malformed request: missing field, wrong type,
+// invalid JSON. Not for requests that are well-formed but rejected.
+func BadRequest(code, message string) *Error {
+	return NewError(http.StatusBadRequest, code, message)
+}
+
+// Unauthorized reports that the caller could not be identified: missing,
+// invalid, or expired credentials.
+func Unauthorized(code, message string) *Error {
+	return NewError(http.StatusUnauthorized, code, message)
+}
+
+// Forbidden reports that the caller is known but not allowed to perform
+// this action.
+func Forbidden(code, message string) *Error {
+	return NewError(http.StatusForbidden, code, message)
+}
+
+// NotFound reports that the addressed resource does not exist.
+func NotFound(code, message string) *Error {
+	return NewError(http.StatusNotFound, code, message)
+}
+
+// Conflict reports a well-formed request that clashes with current state,
+// such as reusing a username that already exists.
+func Conflict(code, message string) *Error {
+	return NewError(http.StatusConflict, code, message)
+}
+
+// UnprocessableEntity reports a well-formed, non-conflicting request that a
+// business rule rejects, such as registering while registration is closed.
+func UnprocessableEntity(code, message string) *Error {
+	return NewError(http.StatusUnprocessableEntity, code, message)
+}
+
+// Internal reports a server-side failure. The cause is logged; the client
+// gets a generic message so internals are not leaked.
+func Internal(err error) *Error {
+	return &Error{
+		Status:  http.StatusInternalServerError,
+		Code:    "INTERNAL_ERROR",
+		Message: "An unexpected error occurred.",
+		cause:   err,
+	}
+}
+
+// Fail renders err to the client. Any error that is not an *Error is
+// treated as an internal failure, so handlers can return raw errors without
+// risking a detail leak.
+func Fail(w http.ResponseWriter, r *http.Request, err error) {
+	apiErr, ok := err.(*Error)
+	if !ok {
+		apiErr = Internal(err)
+	}
+
+	if apiErr.Status >= http.StatusInternalServerError {
+		slog.ErrorContext(r.Context(), "request failed",
+			"code", apiErr.Code,
+			"method", r.Method,
+			"path", r.URL.Path,
+			"error", apiErr.Error(),
+		)
+	}
+
+	write(w, apiErr.Status, Envelope{
+		Code:    apiErr.Code,
+		Message: apiErr.Message,
+		Data:    nil,
+	})
+}
+
+func write(w http.ResponseWriter, status int, body Envelope) {
+	w.Header().Set("Content-Type", "application/json; charset=utf-8")
+	w.WriteHeader(status)
+	if err := json.NewEncoder(w).Encode(body); err != nil {
+		// The status line is already sent, so this can only be logged.
+		slog.Error("write response body", "error", err)
+	}
+}
