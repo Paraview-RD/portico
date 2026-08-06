@@ -1,0 +1,93 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+permissions:
+  contents: read
+
+jobs:
+  backend:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-go@v5
+        with:
+          go-version: "1.26"
+          cache: true
+
+      - name: Verify formatting
+        run: |
+          unformatted=$(gofmt -l . | grep -v '^internal/store/sqlcgen/' || true)
+          if [ -n "$unformatted" ]; then
+            echo "These files need gofmt:"
+            echo "$unformatted"
+            exit 1
+          fi
+
+      - run: go vet ./...
+      - run: go test -race ./...
+
+      - uses: golangci/golangci-lint-action@v6
+        with:
+          version: latest
+
+  frontend:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: web
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+          cache: npm
+          cache-dependency-path: web/package-lock.json
+
+      - run: npm ci
+      - run: npx prettier --check "src/**/*.{ts,tsx,css}"
+      - run: npm run lint
+      - run: npm run build
+
+      # A known-vulnerable dependency should fail the build, not sit in the
+      # lockfile until someone happens to run audit locally.
+      - run: npm audit --audit-level=high
+
+  # The end-to-end check: the frontend must actually compile into the binary,
+  # which is the shape users deploy.
+  single-binary:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+          cache: npm
+          cache-dependency-path: web/package-lock.json
+      - uses: actions/setup-go@v5
+        with:
+          go-version: "1.26"
+          cache: true
+
+      - run: npm ci
+        working-directory: web
+      - run: npm run build
+        working-directory: web
+      - run: CGO_ENABLED=0 go build -o keylite ./cmd/server
+
+      - name: Smoke test the built binary
+        run: |
+          KEYLITE_ADDR=:8410 KEYLITE_DB_DSN=/tmp/ci.db \
+          KEYLITE_JWT_SECRET=ci-secret \
+          KEYLITE_INITIAL_ADMIN_PASSWORD=ci-admin-password ./keylite &
+          for _ in $(seq 1 30); do
+            curl -sf http://localhost:8410/api/v1/health && break
+            sleep 1
+          done
+          # The API answers...
+          curl -sf http://localhost:8410/api/v1/health | grep -q '"status":"ok"'
+          # ...and the embedded UI is really in there.
+          curl -sf http://localhost:8410/ | grep -qi '<div id="root">'
