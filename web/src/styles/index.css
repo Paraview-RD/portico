@@ -1,0 +1,39 @@
+@import "tailwindcss";
+@import "./theme.css";
+
+/*
+ * Global resets and defaults. Everything visual references a token from
+ * theme.css — see docs/design-principles.md for why no literal colors
+ * appear outside that file.
+ */
+
+html {
+  font-family: var(--font-family);
+  font-size: 16px;
+  color: var(--color-fg);
+  background-color: var(--color-bg);
+  -webkit-font-smoothing: antialiased;
+}
+
+body {
+  margin: 0;
+  font-size: var(--font-size-base);
+}
+
+/* Every focusable element keeps a visible focus ring. Removing it without a
+   replacement makes the app unusable by keyboard. */
+:focus-visible {
+  outline: 2px solid var(--color-primary);
+  outline-offset: 2px;
+}
+
+button {
+  font: inherit;
+  cursor: pointer;
+}
+
+input,
+select,
+textarea {
+  font: inherit;
+}

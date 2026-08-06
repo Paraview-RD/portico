@@ -11,7 +11,11 @@
 
 # Frontend
 web/node_modules/
-web/dist/
+
+# Built frontend: the directory must exist for go:embed, but its contents
+# are build output. See internal/web/embed.go.
+internal/web/dist/*
+!internal/web/dist/.gitkeep
 
 # OS / editor
 .DS_Store

@@ -2,10 +2,12 @@ package server
 
 import (
 	"net/http"
+	"strings"
 
 	"github.com/go-chi/chi/v5"
 
 	"github.com/paraview/keylite/internal/httpx"
+	"github.com/paraview/keylite/internal/web"
 )
 
 // Version is the running build's version, overridden at link time:
@@ -82,8 +84,16 @@ func (s *Server) routes() http.Handler {
 		})
 	})
 
+	// Anything outside /api/v1 is the single-page app. API 404s keep
+	// returning the JSON envelope; only non-API paths fall through to the
+	// UI, so a mistyped endpoint never returns HTML to an API client.
+	uiHandler := web.Handler()
 	r.NotFound(func(w http.ResponseWriter, r *http.Request) {
-		httpx.Fail(w, r, httpx.NotFound("ROUTE_NOT_FOUND", "No such endpoint."))
+		if strings.HasPrefix(r.URL.Path, "/api/") {
+			httpx.Fail(w, r, httpx.NotFound("ROUTE_NOT_FOUND", "No such endpoint."))
+			return
+		}
+		uiHandler.ServeHTTP(w, r)
 	})
 	r.MethodNotAllowed(func(w http.ResponseWriter, r *http.Request) {
 		httpx.Fail(w, r, httpx.NewError(

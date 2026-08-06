@@ -1,122 +1,78 @@
-import { useState } from 'react'
-import reactLogo from './assets/react.svg'
-import viteLogo from './assets/vite.svg'
-import heroImg from './assets/hero.png'
-import './App.css'
+import { useEffect } from "react";
 
-function App() {
-  const [count, setCount] = useState(0)
+import { Layout } from "./components/Layout";
+import { useT } from "./i18n";
+import { AuditLogsPage } from "./pages/AuditLogsPage";
+import { LoginPage } from "./pages/LoginPage";
+import { OrganizationsPage } from "./pages/OrganizationsPage";
+import { ProfilePage } from "./pages/ProfilePage";
+import { RegisterPage } from "./pages/RegisterPage";
+import { SettingsPage } from "./pages/SettingsPage";
+import { UsersPage } from "./pages/UsersPage";
+import { useRouter } from "./router";
+import { useSession } from "./session";
+
+export function App() {
+  const t = useT();
+  const { user, loading } = useSession();
+  const { route, navigate } = useRouter();
+
+  // Signed-out visitors may only reach sign-in and registration; everyone
+  // else lands on sign-in. This mirrors the server's rules so the UI never
+  // renders a screen whose data it cannot fetch.
+  useEffect(() => {
+    if (loading) return;
+    const publicRoutes = ["/login", "/register"];
+    if (!user && !publicRoutes.includes(route)) {
+      navigate("/login");
+    } else if (user && publicRoutes.includes(route)) {
+      navigate(user.role === "SUPER_ADMIN" ? "/users" : "/profile");
+    }
+  }, [user, loading, route, navigate]);
+
+  if (loading) {
+    return (
+      <div className="flex min-h-dvh items-center justify-center text-[var(--color-fg-muted)]">
+        {t("common.loading")}
+      </div>
+    );
+  }
+
+  if (!user) {
+    return route === "/register" ? <RegisterPage /> : <LoginPage />;
+  }
 
   return (
-    <>
-      <section id="center">
-        <div className="hero">
-          <img src={heroImg} className="base" width="170" height="179" alt="" />
-          <img src={reactLogo} className="framework" alt="React logo" />
-          <img src={viteLogo} className="vite" alt="Vite logo" />
-        </div>
-        <div>
-          <h1>Get started</h1>
-          <p>
-            Edit <code>src/App.tsx</code> and save to test <code>HMR</code>
-          </p>
-        </div>
-        <button
-          type="button"
-          className="counter"
-          onClick={() => setCount((count) => count + 1)}
-        >
-          Count is {count}
-        </button>
-      </section>
-
-      <div className="ticks"></div>
-
-      <section id="next-steps">
-        <div id="docs">
-          <svg className="icon" role="presentation" aria-hidden="true">
-            <use href="/icons.svg#documentation-icon"></use>
-          </svg>
-          <h2>Documentation</h2>
-          <p>Your questions, answered</p>
-          <ul>
-            <li>
-              <a href="https://vite.dev/" target="_blank">
-                <img className="logo" src={viteLogo} alt="" />
-                Explore Vite
-              </a>
-            </li>
-            <li>
-              <a href="https://react.dev/" target="_blank">
-                <img className="button-icon" src={reactLogo} alt="" />
-                Learn more
-              </a>
-            </li>
-          </ul>
-        </div>
-        <div id="social">
-          <svg className="icon" role="presentation" aria-hidden="true">
-            <use href="/icons.svg#social-icon"></use>
-          </svg>
-          <h2>Connect with us</h2>
-          <p>Join the Vite community</p>
-          <ul>
-            <li>
-              <a href="https://github.com/vitejs/vite" target="_blank">
-                <svg
-                  className="button-icon"
-                  role="presentation"
-                  aria-hidden="true"
-                >
-                  <use href="/icons.svg#github-icon"></use>
-                </svg>
-                GitHub
-              </a>
-            </li>
-            <li>
-              <a href="https://chat.vite.dev/" target="_blank">
-                <svg
-                  className="button-icon"
-                  role="presentation"
-                  aria-hidden="true"
-                >
-                  <use href="/icons.svg#discord-icon"></use>
-                </svg>
-                Discord
-              </a>
-            </li>
-            <li>
-              <a href="https://x.com/vite_js" target="_blank">
-                <svg
-                  className="button-icon"
-                  role="presentation"
-                  aria-hidden="true"
-                >
-                  <use href="/icons.svg#x-icon"></use>
-                </svg>
-                X.com
-              </a>
-            </li>
-            <li>
-              <a href="https://bsky.app/profile/vite.dev" target="_blank">
-                <svg
-                  className="button-icon"
-                  role="presentation"
-                  aria-hidden="true"
-                >
-                  <use href="/icons.svg#bluesky-icon"></use>
-                </svg>
-                Bluesky
-              </a>
-            </li>
-          </ul>
-        </div>
-      </section>
-
-      <div className="ticks"></div>
-      <section id="spacer"></section>
-    </>
-  )
+    <Layout>
+      <AuthenticatedRoute route={route} isAdmin={user.role === "SUPER_ADMIN"} />
+    </Layout>
+  );
 }
 
-export default App
+function AuthenticatedRoute({
+  route,
+  isAdmin,
+}: {
+  route: string;
+  isAdmin: boolean;
+}) {
+  // A normal user who types an admin URL gets their own profile rather than
+  // a screen that would only produce 403s. The server enforces the same
+  // rule; this just avoids showing them a wall of permission errors.
+  if (!isAdmin) {
+    return <ProfilePage />;
+  }
+
+  switch (route) {
+    case "/organizations":
+      return <OrganizationsPage />;
+    case "/audit-logs":
+      return <AuditLogsPage />;
+    case "/settings":
+      return <SettingsPage />;
+    case "/profile":
+      return <ProfilePage />;
+    default:
+      return <UsersPage />;
+  }
+}
