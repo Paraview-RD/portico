@@ -63,6 +63,11 @@ func (s *Server) routes() http.Handler {
 				r.Post("/{id}/enable", h.EnableUser)
 				r.Post("/{id}/disable", h.DisableUser)
 				r.Post("/{id}/password", h.ResetUserPassword)
+
+				// Bulk import (§3.1). The template is generated from the
+				// same column list the parser reads, so the two cannot drift.
+				r.Post("/import", h.ImportUsers)
+				r.Get("/import/template", h.ImportTemplate)
 			})
 
 			r.Post("/organizations", h.CreateOrganization)

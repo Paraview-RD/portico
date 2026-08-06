@@ -4,6 +4,8 @@ import (
 	"bytes"
 	"context"
 	"encoding/json"
+	"io"
+	"log/slog"
 	"net/http"
 	"net/http/httptest"
 	"path/filepath"
@@ -27,6 +29,7 @@ const (
 
 func newAPITest(t *testing.T) *apiTest {
 	t.Helper()
+	silenceLogs(t)
 
 	cfg, err := config.Load()
 	if err != nil {
@@ -47,6 +50,15 @@ func newAPITest(t *testing.T) *apiTest {
 	}
 
 	return &apiTest{t: t, srv: srv}
+}
+
+// silenceLogs suppresses the server's structured logging for the duration of
+// a test, so a failure message is not buried in access-log lines.
+func silenceLogs(t *testing.T) {
+	t.Helper()
+	previous := slog.Default()
+	slog.SetDefault(slog.New(slog.NewTextHandler(io.Discard, nil)))
+	t.Cleanup(func() { slog.SetDefault(previous) })
 }
 
 // response is a decoded envelope with the raw data left for the caller.
