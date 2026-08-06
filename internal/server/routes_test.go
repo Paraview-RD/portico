@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"net/http"
 	"net/http/httptest"
+	"path/filepath"
 	"testing"
 
 	"github.com/paraview/keylite/internal/config"
@@ -17,6 +18,9 @@ func newTestServer(t *testing.T) *server.Server {
 	if err != nil {
 		t.Fatalf("load config: %v", err)
 	}
+	// Each test gets its own database file so runs stay independent.
+	cfg.DatabaseDSN = filepath.Join(t.TempDir(), "test.db")
+
 	srv, err := server.New(cfg)
 	if err != nil {
 		t.Fatalf("new server: %v", err)

@@ -1,0 +1,25 @@
+version: "2"
+sql:
+  - engine: "sqlite"
+    schema: "migrations"
+    queries: "internal/store/queries"
+    gen:
+      go:
+        package: "sqlcgen"
+        out: "internal/store/sqlcgen"
+        emit_pointers_for_null_types: true
+        emit_empty_slices: true
+        overrides:
+          # Timestamps are stored as ISO 8601 text. The sqlite driver returns
+          # that as a string and refuses to scan it into a time.Time, so
+          # dbtime.Time carries the conversion instead.
+          - column: "*.created_at"
+            go_type:
+              import: "github.com/paraview/keylite/internal/store/dbtime"
+              package: "dbtime"
+              type: "Time"
+          - column: "*.updated_at"
+            go_type:
+              import: "github.com/paraview/keylite/internal/store/dbtime"
+              package: "dbtime"
+              type: "Time"
