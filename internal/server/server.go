@@ -2,17 +2,25 @@
 package server
 
 import (
+	"context"
+	"log/slog"
 	"net/http"
 
+	"github.com/paraview/keylite/internal/auth"
 	"github.com/paraview/keylite/internal/config"
+	"github.com/paraview/keylite/internal/handler"
+	"github.com/paraview/keylite/internal/service"
 	"github.com/paraview/keylite/internal/store"
 )
 
 // Server owns every long-lived dependency the HTTP layer needs.
 type Server struct {
-	cfg    *config.Config
-	store  *store.Store
-	router http.Handler
+	cfg        *config.Config
+	store      *store.Store
+	handler    *handler.Handler
+	middleware *auth.Middleware
+	users      *service.UserService
+	router     http.Handler
 }
 
 // New builds a Server from cfg, opening the database and applying any
@@ -23,9 +31,45 @@ func New(cfg *config.Config) (*Server, error) {
 		return nil, err
 	}
 
-	s := &Server{cfg: cfg, store: st}
+	tokens := auth.NewTokenService(cfg.JWTSecret)
+	audit := service.NewAuditService(st)
+	settings := service.NewSettingsService(st, cfg.TokenTTL)
+	users := service.NewUserService(st, audit, settings, tokens)
+	orgs := service.NewOrganizationService(st, audit)
+
+	s := &Server{
+		cfg:        cfg,
+		store:      st,
+		handler:    handler.New(users, orgs, audit, settings),
+		middleware: auth.NewMiddleware(tokens, users),
+		users:      users,
+	}
 	s.router = s.routes()
 	return s, nil
+}
+
+// Bootstrap performs the one-time setup a brand-new instance needs. It is
+// separate from New so tests can skip it.
+func (s *Server) Bootstrap(ctx context.Context) error {
+	created, generatedPassword, err := s.users.EnsureInitialAdmin(
+		ctx, s.cfg.InitialAdminUsername, s.cfg.InitialAdminPassword)
+	if err != nil {
+		return err
+	}
+
+	if created && generatedPassword != "" {
+		// Printed once, never stored. The operator is expected to sign in
+		// and change it.
+		slog.Warn("created the initial administrator account",
+			"username", s.cfg.InitialAdminUsername,
+			"password", generatedPassword,
+			"note", "this password is shown only once — sign in and change it")
+	} else if created {
+		slog.Info("created the initial administrator account",
+			"username", s.cfg.InitialAdminUsername)
+	}
+
+	return nil
 }
 
 // Handler returns the root HTTP handler.

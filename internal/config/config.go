@@ -45,6 +45,12 @@ type Config struct {
 	// ShutdownTimeout bounds how long in-flight requests may finish during
 	// graceful shutdown.
 	ShutdownTimeout time.Duration
+
+	// InitialAdminUsername and InitialAdminPassword bootstrap the first
+	// administrator on an empty database (§3.10). When the password is
+	// empty a random one is generated and logged once.
+	InitialAdminUsername string
+	InitialAdminPassword string
 }
 
 // Load reads configuration from the environment, applying defaults.
@@ -55,6 +61,9 @@ func Load() (*Config, error) {
 		DatabaseDSN:     envString("KEYLITE_DB_DSN", "keylite.db"),
 		LogLevel:        envString("KEYLITE_LOG_LEVEL", "info"),
 		ShutdownTimeout: 15 * time.Second,
+
+		InitialAdminUsername: envString("KEYLITE_INITIAL_ADMIN_USERNAME", "admin"),
+		InitialAdminPassword: os.Getenv("KEYLITE_INITIAL_ADMIN_PASSWORD"),
 	}
 
 	ttl, err := envDuration("KEYLITE_TOKEN_TTL", 2*time.Hour)

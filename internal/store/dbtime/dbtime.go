@@ -74,7 +74,7 @@ func (t *Time) parse(s string) error {
 
 // Value implements driver.Valuer.
 func (t Time) Value() (driver.Value, error) {
-	if t.Time.IsZero() {
+	if t.IsZero() {
 		return nil, nil
 	}
 	return t.Time.UTC().Format(layout), nil
@@ -91,6 +91,6 @@ func (t *Time) UnmarshalJSON(b []byte) error {
 	if err := t.Time.UnmarshalJSON(b); err != nil {
 		return err
 	}
-	t.Time = t.Time.UTC()
+	t.Time = t.UTC()
 	return nil
 }

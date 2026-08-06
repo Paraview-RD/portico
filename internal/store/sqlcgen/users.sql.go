@@ -276,26 +276,22 @@ func (q *Queries) UpdateUserProfile(ctx context.Context, arg UpdateUserProfilePa
 
 const updateUserStatus = `-- name: UpdateUserStatus :exec
 UPDATE users
-SET status = ?,
-    token_version = CASE WHEN ? = 'DISABLED' THEN token_version + 1 ELSE token_version END,
-    updated_at = ?
-WHERE id = ?
+SET status = ?1,
+    token_version = CASE WHEN ?1 = 'DISABLED'
+                         THEN token_version + 1
+                         ELSE token_version END,
+    updated_at = ?2
+WHERE id = ?3
 `
 
 type UpdateUserStatusParams struct {
 	Status    string
-	Column2   interface{}
 	UpdatedAt dbtime.Time
 	ID        string
 }
 
 // Disabling bumps token_version so any live session stops working at once.
 func (q *Queries) UpdateUserStatus(ctx context.Context, arg UpdateUserStatusParams) error {
-	_, err := q.db.ExecContext(ctx, updateUserStatus,
-		arg.Status,
-		arg.Column2,
-		arg.UpdatedAt,
-		arg.ID,
-	)
+	_, err := q.db.ExecContext(ctx, updateUserStatus, arg.Status, arg.UpdatedAt, arg.ID)
 	return err
 }

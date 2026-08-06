@@ -24,10 +24,12 @@ WHERE id = ?;
 -- name: UpdateUserStatus :exec
 -- Disabling bumps token_version so any live session stops working at once.
 UPDATE users
-SET status = ?,
-    token_version = CASE WHEN ? = 'DISABLED' THEN token_version + 1 ELSE token_version END,
-    updated_at = ?
-WHERE id = ?;
+SET status = sqlc.arg(status),
+    token_version = CASE WHEN sqlc.arg(status) = 'DISABLED'
+                         THEN token_version + 1
+                         ELSE token_version END,
+    updated_at = sqlc.arg(updated_at)
+WHERE id = sqlc.arg(id);
 
 -- name: UpdateUserPassword :exec
 -- Changing a password invalidates every token issued before it.

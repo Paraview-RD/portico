@@ -20,8 +20,61 @@ func (s *Server) routes() http.Handler {
 	r.Use(httpx.Recover)
 	r.Use(httpx.AccessLog)
 
+	h := s.handler
+	mw := s.middleware
+
 	r.Route("/api/v1", func(r chi.Router) {
+		// --- Public ---------------------------------------------------
 		r.Get("/health", s.handleHealth)
+		r.Post("/auth/login", h.Login)
+		r.Post("/auth/register", h.Register)
+		// Lets the sign-in screen decide whether to offer registration.
+		r.Get("/auth/registration-status", h.RegistrationStatus)
+
+		// --- Any signed-in user ---------------------------------------
+		r.Group(func(r chi.Router) {
+			r.Use(mw.RequireAuth)
+
+			r.Post("/auth/logout", h.Logout)
+			r.Get("/users/me", h.Me)
+			r.Post("/users/me/password", h.ChangeOwnPassword)
+
+			// Open endpoints for downstream systems (§3.7). They are
+			// deliberately readable by any authenticated caller: a
+			// downstream service acts with the user's own token.
+			r.Get("/auth/permission-check", h.CheckPermission)
+
+			// Reading the organization list is needed by the profile
+			// screen; writing is administrator-only, below.
+			r.Get("/organizations", h.ListOrganizations)
+			r.Get("/organizations/{id}", h.GetOrganization)
+		})
+
+		// --- Administrators only --------------------------------------
+		r.Group(func(r chi.Router) {
+			r.Use(mw.RequireAuth)
+			r.Use(mw.RequireAdmin)
+
+			r.Route("/users", func(r chi.Router) {
+				r.Get("/", h.ListUsers)
+				r.Post("/", h.CreateUser)
+				r.Get("/{id}", h.GetUser)
+				r.Put("/{id}", h.UpdateUser)
+				r.Post("/{id}/enable", h.EnableUser)
+				r.Post("/{id}/disable", h.DisableUser)
+				r.Post("/{id}/password", h.ResetUserPassword)
+			})
+
+			r.Post("/organizations", h.CreateOrganization)
+			r.Put("/organizations/{id}", h.UpdateOrganization)
+			r.Post("/organizations/{id}/enable", h.EnableOrganization)
+			r.Post("/organizations/{id}/disable", h.DisableOrganization)
+
+			r.Get("/audit-logs", h.ListAuditLogs)
+
+			r.Get("/settings", h.GetSettings)
+			r.Put("/settings", h.UpdateSettings)
+		})
 	})
 
 	r.NotFound(func(w http.ResponseWriter, r *http.Request) {

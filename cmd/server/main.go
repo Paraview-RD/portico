@@ -39,7 +39,11 @@ func run() error {
 	if err != nil {
 		return err
 	}
-	defer srv.Close()
+	defer func() { _ = srv.Close() }()
+
+	if err := srv.Bootstrap(context.Background()); err != nil {
+		return err
+	}
 
 	httpServer := &http.Server{
 		Addr:              cfg.Addr,
