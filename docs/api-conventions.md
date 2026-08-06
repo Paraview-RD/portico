@@ -30,7 +30,12 @@ standard verb behavior:
 | POST | Create, or an action with side effects that isn't idempotent |
 | PUT | Full replace of a resource |
 | PATCH | Partial update |
-| DELETE | Remove (or soft-disable, where the resource is never physically deleted — see below) |
+
+`DELETE` is intentionally absent. Nothing in this system is destroyed —
+users and organizations are disabled instead, so the audit trail stays
+complete. Disabling is a state change with its own endpoint
+(`POST /{id}/disable`), not a deletion, and naming it accurately keeps
+clients from assuming the row is gone.
 
 Query params are for filtering/sorting/pagination on GET only. Everything
 else — including all POST/PUT/PATCH bodies — is JSON in the request body,
@@ -66,8 +71,8 @@ else — including all POST/PUT/PATCH bodies — is JSON in the request body,
 
 ## Status codes and error semantics
 
-- Success is always HTTP 200 for JSON responses (204 is fine for a
-  genuinely empty body, e.g. some DELETEs).
+- Success is always HTTP 200 for JSON responses. A 204 is acceptable only
+  for a genuinely empty non-JSON body; no endpoint currently returns one.
 - The HTTP status and the body's `code` must agree on failure vs success —
   never HTTP 200 with a body that signals an error. A client should be
   able to branch on the transport-layer status alone and get the right
@@ -96,9 +101,12 @@ without needing a lookup table: `USER_NOT_FOUND`, `INVALID_CREDENTIALS`,
 this project's size, a flat, descriptive namespace is easier for
 contributors to extend correctly than a registry of numeric codes.
 
-## Deletion semantics
+## Disable, never delete
 
 Per the MVP requirements ([docs/requirements/mvp-requirements.md](requirements/mvp-requirements.md)),
-users are never physically deleted — `DELETE`/disable endpoints flip a
-status flag. Document this explicitly per resource in its handler; don't
-assume DELETE means "gone" project-wide.
+records are never physically removed. `POST /{resource}/{id}/disable` flips
+a status flag; the row, and every audit entry referencing it, stays.
+
+Disabling a user also revokes their live sessions. Disabling an
+organization blocks new members but keeps existing ones — the two are not
+symmetric, so each is documented on its own endpoint rather than assumed.
