@@ -5,13 +5,11 @@ binary with the web UI compiled in, a SQLite file for storage, and no
 external services — built for the "we just need accounts, sign-in, and two
 roles" case that full IAM platforms over-serve.
 
-```
-curl -LO <release-url>/keylite && chmod +x keylite && ./keylite
-```
-
-That is the whole install. The server creates its database, applies its
-migrations, prints an administrator password once, and serves the UI on
-<http://localhost:8410>.
+Once a release is published, installing it is downloading one file and
+running it: the server creates its database, applies its migrations, prints
+an administrator password once, and serves the UI on
+<http://localhost:8410>. Until then, build it yourself — see
+[Running it](#running-it).
 
 ## What it does
 
@@ -44,12 +42,21 @@ for the full scope and the post-MVP direction.
 
 ### Binary
 
+The frontend has to be built first — it is compiled into the binary, so a
+Go-only build produces a working API with no UI (the server says so rather
+than serving a blank page).
+
 ```bash
+cd web && npm ci && npm run build && cd ..
 go build -o keylite ./cmd/server
 KEYLITE_JWT_SECRET=$(openssl rand -hex 32) ./keylite
 ```
 
+Requires Go 1.25.7+ (a dependency sets that floor) and Node 22+.
+
 ### Docker
+
+Nothing to install but Docker — the image build runs both steps itself.
 
 ```bash
 export KEYLITE_JWT_SECRET=$(openssl rand -hex 32)
