@@ -1,0 +1,54 @@
+/*
+ * Design tokens — single source of truth for color/spacing/typography.
+ * Values below are placeholders (TODO: replace with this project's own
+ * palette before shipping any real UI — do not carry over another
+ * project's brand colors). The semantic structure (roles, not raw hex,
+ * one file owns all values) is the part worth keeping fixed.
+ */
+
+:root {
+  /* Color — semantic roles, not raw palette steps. Components reference
+     these, never a hex value directly. */
+  --color-primary: #4f46e5; /* TODO */
+  --color-primary-hover: #4338ca; /* TODO */
+  --color-bg: #ffffff; /* TODO */
+  --color-bg-soft: #f8fafc; /* TODO */
+  --color-fg: #0f172a; /* TODO */
+  --color-fg-muted: #64748b; /* TODO */
+  --color-border: #e2e8f0; /* TODO */
+  --color-success: #16a34a; /* TODO */
+  --color-warning: #d97706; /* TODO */
+  --color-danger: #dc2626; /* TODO */
+
+  /* Typography */
+  --font-family: system-ui, -apple-system, "Segoe UI", sans-serif;
+  --font-size-sm: 0.8125rem;
+  --font-size-base: 0.9375rem;
+  --font-size-lg: 1.125rem;
+  --font-weight-normal: 400;
+  --font-weight-medium: 500;
+  --font-weight-bold: 600;
+
+  /* Spacing scale */
+  --space-1: 0.25rem;
+  --space-2: 0.5rem;
+  --space-3: 0.75rem;
+  --space-4: 1rem;
+  --space-6: 1.5rem;
+  --space-8: 2rem;
+
+  /* Radius / shadow */
+  --radius-sm: 4px;
+  --radius-md: 8px;
+  --radius-lg: 12px;
+  --shadow-sm: 0 1px 2px 0 rgb(0 0 0 / 0.05);
+  --shadow-md: 0 4px 6px -1px rgb(0 0 0 / 0.1);
+}
+
+[data-theme="dark"] {
+  --color-bg: #0f172a; /* TODO */
+  --color-bg-soft: #1e293b; /* TODO */
+  --color-fg: #f1f5f9; /* TODO */
+  --color-fg-muted: #94a3b8; /* TODO */
+  --color-border: #334155; /* TODO */
+}
