@@ -35,6 +35,10 @@ type AuditEntry struct {
 	IP     string
 }
 
+// auditWriteTimeout bounds a write that has been detached from its request's
+// cancellation.
+const auditWriteTimeout = 5 * time.Second
+
 // AuditService writes and queries the audit trail.
 type AuditService struct {
 	store *store.Store
@@ -55,6 +59,17 @@ func (s *AuditService) Record(ctx context.Context, tenantID string, e AuditEntry
 	if e.Result == "" {
 		e.Result = model.LogSuccess
 	}
+
+	// The write outlives the request that caused it. Cancellation propagates
+	// from the caller's connection, and a client that closes the tab —
+	// exactly what someone does after submitting a form they expect an email
+	// from — would otherwise take the audit entry with it. The event happened
+	// whether or not anyone is still listening, so the record has to be made.
+	//
+	// The deadline is dropped along with the cancellation, so a bounded one
+	// is put back: an audit write must not become the thing that hangs.
+	ctx, cancel := context.WithTimeout(context.WithoutCancel(ctx), auditWriteTimeout)
+	defer cancel()
 
 	var actorID *string
 	if e.ActorID != "" {

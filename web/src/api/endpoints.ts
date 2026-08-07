@@ -67,12 +67,16 @@ export const authApi = {
       signal,
     }),
 
-  /** Which recovery channels this deployment can actually use. */
+  /**
+   * Which recovery channels this deployment can actually use, and how long
+   * a link lasts. The lifetime comes from the server so the copy on screen
+   * cannot drift from the constant that enforces it.
+   */
   recoveryChannels: (signal?: AbortSignal) =>
-    request<{ channels: RecoveryChannel[] }>("/auth/recovery-channels", {
-      anonymous: true,
-      signal,
-    }),
+    request<{ channels: RecoveryChannel[]; tokenTtlMinutes: number }>(
+      "/auth/recovery-channels",
+      { anonymous: true, signal },
+    ),
 
   /**
    * Asks for a reset link. The response is the same whether or not an

@@ -18,6 +18,7 @@ export function ForgotPasswordPage() {
       "",
   );
   const [channels, setChannels] = useState<RecoveryChannel[]>([]);
+  const [ttlMinutes, setTtlMinutes] = useState(30);
   const [channel, setChannel] = useState<RecoveryChannel>("EMAIL");
   const [destination, setDestination] = useState("");
   const [error, setError] = useState("");
@@ -32,8 +33,9 @@ export function ForgotPasswordPage() {
     const controller = new AbortController();
     authApi
       .recoveryChannels(controller.signal)
-      .then(({ channels: available }) => {
+      .then(({ channels: available, tokenTtlMinutes }) => {
         setChannels(available);
+        setTtlMinutes(tokenTtlMinutes);
         if (available.length > 0) setChannel(available[0]);
       })
       .catch(() => setChannels([]));
@@ -77,7 +79,7 @@ export function ForgotPasswordPage() {
           <div className="flex flex-col gap-4">
             {/* Says "if", not "we sent": the server will not reveal whether
                 an account matched, and neither may this screen. */}
-            <Alert tone="success">{t("recovery.sent")}</Alert>
+            <Alert tone="success">{t("recovery.sent", ttlMinutes)}</Alert>
             <Button onClick={() => navigate("/login")}>
               {t("recovery.backToSignIn")}
             </Button>

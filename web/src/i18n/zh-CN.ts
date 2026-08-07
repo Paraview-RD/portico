@@ -181,7 +181,7 @@ export const zhCN: Record<keyof typeof enUS, string> = {
   "recovery.phone": "手机号",
   "recovery.submit": "发送链接",
   "recovery.sending": "发送中…",
-  "recovery.sent": "如果该信息对应某个账号，重置链接已发出，30 分钟内有效。",
+  "recovery.sent": "如果该信息对应某个账号，重置链接已发出，{0} 分钟内有效。",
   "recovery.unavailable": "本部署未配置任何发送渠道，请联系管理员重置密码。",
   "recovery.backToSignIn": "返回登录",
   "reset.title": "设置新密码",

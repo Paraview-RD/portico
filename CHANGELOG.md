@@ -31,6 +31,9 @@ Working toward 0.1.0 — the first release. Nothing has been published yet.
   registration toggle are each a tenant's own.
 - Tokens carry the tenant, and it is checked against the account record on
   every request, so a token cannot act outside the tenant it was issued in.
+- Audit writes no longer inherit the request's cancellation. A client that
+  closed the tab used to take the entry with it, which was worst for exactly
+  the events worth recording.
 - The `filters` builder used by list endpoints now binds the tenant as `$1`;
   callers write `WHERE tenant_id = $1` into their own SQL so the constraint
   is visible and testable.
@@ -51,10 +54,11 @@ Working toward 0.1.0 — the first release. Nothing has been published yet.
 
 - **Password recovery** by email, with a single-use link that expires in 30
   minutes and invalidates any earlier one. The request endpoint answers
-  identically whether or not an account matched, and resolves against the
-  channel's own column rather than the sign-in lookup — resolving across
-  columns and then sending a token is how one account's reset ends up
-  delivered on another account's identifier.
+  identically whether or not an account matched — in body and in timing,
+  since everything past the account lookup happens after the response — and
+  resolves against the channel's own column rather than the sign-in lookup.
+  Resolving across columns and then sending a token is how one account's
+  reset ends up delivered on another account's identifier.
 - Delivery goes through plain SMTP (`PORTICO_SMTP_*`), so a deployment
   points at whatever relay it already has and no vendor is involved. SMS
   recovery is defined as an interface with no provider in this version;

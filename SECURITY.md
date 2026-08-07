@@ -141,12 +141,38 @@ the account has bound rather than the one in the request. Both matter: if one
 account's email address equals another's username, resolving across columns
 would deliver a reset for the second account to whoever typed that address.
 
-Two things this deliberately does not do. It does not rate-limit — that is
-the reverse proxy's job, along with the rest of `/api/v1/auth/*` — and it
-does not verify a changed email address, so a user may point their own
-recovery at an inbox they do not read. That locks them out rather than
-letting anyone in, and the per-tenant unique index stops them taking an
-address another account holds.
+None of that work happens on the request path. A hit writes two rows and
+dials an SMTP server while a miss does neither, so doing it before replying
+would leak through response time — seconds, not microseconds — whatever the
+body said. Everything past the account lookup is detached, and a test
+measures the gap.
+
+Three things this deliberately does not do. It does not rate-limit — that is
+the reverse proxy's job, along with the rest of `/api/v1/auth/*`. It does not
+verify a changed email address, so a user may point their own recovery at an
+inbox they do not read; that locks them out rather than letting anyone in,
+and the per-tenant unique index stops them taking an address another account
+holds. And it does not report a delivery failure to the caller, since "we
+could not send it" is only reachable once an account has been found, which
+would put the oracle back.
+
+### Registration does disclose what recovery conceals
+
+`POST /auth/register` returns `EMAIL_TAKEN` or `USERNAME_TAKEN`, which tells
+an anonymous caller that an identifier is in use. That is a real asymmetry
+with the endpoint above and it is deliberate: a sign-up form that refuses
+without saying why is unusable, and every system with self-service
+registration makes the same trade.
+
+Two things bound it. Registration is off by default, so a deployment that
+has not enabled it discloses nothing. And enabling it is a decision to accept
+public sign-ups, which is the same decision as accepting that the form will
+say when a name is taken.
+
+Closing it properly means not creating the account until the address is
+verified, which is a V0.2 item. Until then, a deployment that cannot afford
+the disclosure should leave registration off and create accounts
+administratively.
 
 ### Federation protocols
 

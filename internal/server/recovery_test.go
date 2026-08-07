@@ -7,6 +7,7 @@ import (
 	"strings"
 	"sync"
 	"testing"
+	"time"
 
 	"github.com/paraview/portico/internal/config"
 	"github.com/paraview/portico/internal/notify"
@@ -35,14 +36,43 @@ func (m *recordingMailer) sent() []notify.Message {
 	return append([]notify.Message(nil), m.messages...)
 }
 
-// last returns the most recent message, failing if none was sent.
+// last waits for the next message and returns it.
+//
+// Delivery happens after the response so that a hit and a miss are
+// indistinguishable to whoever asked, which means a test cannot read the
+// mailbox the instant the call returns. Polling for the arrival is the
+// honest way to express "and then a message shows up"; a fixed sleep would
+// either be flaky or slow.
 func (m *recordingMailer) last(t *testing.T) notify.Message {
 	t.Helper()
-	sent := m.sent()
-	if len(sent) == 0 {
-		t.Fatal("no message was sent")
+	return m.waitFor(t, len(m.sent())+1)
+}
+
+// waitFor blocks until at least count messages have been recorded.
+func (m *recordingMailer) waitFor(t *testing.T, count int) notify.Message {
+	t.Helper()
+	deadline := time.Now().Add(5 * time.Second)
+	for {
+		sent := m.sent()
+		if len(sent) >= count {
+			return sent[count-1]
+		}
+		if time.Now().After(deadline) {
+			t.Fatalf("waited for message %d; only %d were sent", count, len(sent))
+		}
+		time.Sleep(5 * time.Millisecond)
 	}
-	return sent[len(sent)-1]
+}
+
+// quiet asserts that no further message arrives, which is what a miss must
+// look like. It has to wait, since a message that was going to be sent would
+// arrive shortly after the response rather than before it.
+func (m *recordingMailer) quiet(t *testing.T, was int) {
+	t.Helper()
+	time.Sleep(300 * time.Millisecond)
+	if now := len(m.sent()); now != was {
+		t.Errorf("a message was sent when none should have been (%d -> %d)", was, now)
+	}
 }
 
 // tokenFrom pulls the reset token out of the link in a message body.
@@ -284,8 +314,10 @@ func TestRecoveryResponseRevealsNothing(t *testing.T) {
 			}
 			bodies = append(bodies, string(res.Data))
 
-			if sentNow := len(mailer.sent()) > before; sentNow != tc.wantSent {
-				t.Errorf("message sent = %v, want %v", sentNow, tc.wantSent)
+			if tc.wantSent {
+				mailer.waitFor(t, before+1)
+			} else {
+				mailer.quiet(t, before)
 			}
 		})
 	}
@@ -295,6 +327,86 @@ func TestRecoveryResponseRevealsNothing(t *testing.T) {
 			t.Errorf("responses differ between cases:\n  %s\n  %s", bodies[0], bodies[i])
 		}
 	}
+}
+
+// slowMailer takes a noticeable time to send, standing in for a real relay.
+type slowMailer struct {
+	recordingMailer
+	delay time.Duration
+}
+
+func (m *slowMailer) Send(ctx context.Context, msg notify.Message) error {
+	time.Sleep(m.delay)
+	return m.recordingMailer.Send(ctx, msg)
+}
+
+// Identical response bodies are not enough. A hit writes two rows and dials
+// an SMTP server; a miss does neither. If that work happened before the
+// response, the difference would be seconds — measurable from anywhere, and
+// a far cheaper oracle than the one the wording is careful to avoid.
+//
+// So everything past the account lookup is detached, and this is the test
+// that says so. It fails if the delivery ever moves back onto the request
+// path.
+func TestRecoveryAnswersInTheSameTimeWhetherOrNotItMatched(t *testing.T) {
+	silenceLogs(t)
+
+	cfg, err := config.Load()
+	if err != nil {
+		t.Fatalf("load config: %v", err)
+	}
+	cfg.DatabaseDriver = "postgres"
+	cfg.DatabaseDSN = testdb.DSN(t)
+	cfg.InitialAdminUsername = adminUsername
+	cfg.InitialAdminPassword = adminPassword
+
+	const sendDelay = 500 * time.Millisecond
+	mailer := &slowMailer{delay: sendDelay}
+
+	srv, err := server.New(cfg, server.WithMailer(mailer))
+	if err != nil {
+		t.Fatalf("new server: %v", err)
+	}
+	t.Cleanup(func() { _ = srv.Close() })
+	if err := srv.Bootstrap(context.Background()); err != nil {
+		t.Fatalf("bootstrap: %v", err)
+	}
+	api := &apiTest{t: t, srv: srv, dsn: cfg.DatabaseDSN}
+
+	admin := api.adminToken()
+	api.do(http.MethodPost, "/api/v1/users", admin, map[string]string{
+		"username": "timed", "displayName": "Timed", "password": "timing-pass-1",
+		"email": "timed@example.com",
+	})
+
+	measure := func(destination string) time.Duration {
+		start := time.Now()
+		res := api.requestRecovery("EMAIL", destination)
+		elapsed := time.Since(start)
+		if res.Status != http.StatusOK {
+			t.Fatalf("%s: status = %d", destination, res.Status)
+		}
+		return elapsed
+	}
+
+	// Warm the connection pool so the first call does not carry setup cost.
+	measure("warmup@example.com")
+
+	hit := measure("timed@example.com")
+	miss := measure("nobody@example.com")
+
+	// Generous, because a loaded CI machine is noisy. The point is that the
+	// gap is nothing like the delay a synchronous send would add — with the
+	// work back on the request path this is 500ms against ~1ms.
+	const tolerance = sendDelay / 2
+	if difference := hit - miss; difference > tolerance || -difference > tolerance {
+		t.Errorf("hit took %v and miss took %v; a gap of %v tells a caller "+
+			"whether the address is registered", hit, miss, difference)
+	}
+
+	// And the message really was sent, so the test is not passing because
+	// nothing happened at all.
+	mailer.waitFor(t, 1)
 }
 
 // The account is resolved against the channel's own column, never the

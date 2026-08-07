@@ -5,6 +5,7 @@ import (
 
 	"github.com/paraview/portico/internal/httpx"
 	"github.com/paraview/portico/internal/model"
+	"github.com/paraview/portico/internal/service"
 )
 
 type recoveryRequest struct {
@@ -97,5 +98,11 @@ func (h *Handler) RecoveryChannels(w http.ResponseWriter, r *http.Request) {
 		httpx.Fail(w, r, err)
 		return
 	}
-	httpx.OK(w, map[string]any{"channels": h.recovery.AvailableChannels()})
+	// The lifetime travels with the channel list so the screen can say how
+	// long a link lasts without hardcoding a number that would quietly stop
+	// matching if the constant moved.
+	httpx.OK(w, map[string]any{
+		"channels":        h.recovery.AvailableChannels(),
+		"tokenTtlMinutes": int(service.RecoveryTokenTTL.Minutes()),
+	})
 }

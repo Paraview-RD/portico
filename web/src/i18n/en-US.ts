@@ -186,7 +186,7 @@ export const enUS = {
   "recovery.submit": "Send the link",
   "recovery.sending": "Sending…",
   "recovery.sent":
-    "If that matches an account, a reset link is on its way. It expires in 30 minutes.",
+    "If that matches an account, a reset link is on its way. It expires in {0} minutes.",
   "recovery.unavailable":
     "This deployment has no way to send a reset link. Ask an administrator to reset your password.",
   "recovery.backToSignIn": "Back to sign in",

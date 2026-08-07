@@ -48,6 +48,19 @@ services:
       # Required: without it a random secret is generated at startup and
       # every session dies on restart.
       PORTICO_JWT_SECRET: ${PORTICO_JWT_SECRET:?set PORTICO_JWT_SECRET to a long random string}
+      # Where people reach this deployment. Password-recovery links are built
+      # from it, so it has to be the address a browser actually uses — not
+      # the container's idea of itself.
+      PORTICO_PUBLIC_URL: ${PORTICO_PUBLIC_URL:-http://localhost:8410}
+      # Mail relay for password recovery. Leave the host empty and recovery
+      # reports itself unavailable rather than accepting requests it cannot
+      # fulfil.
+      PORTICO_SMTP_HOST: ${PORTICO_SMTP_HOST:-}
+      PORTICO_SMTP_PORT: ${PORTICO_SMTP_PORT:-587}
+      PORTICO_SMTP_USERNAME: ${PORTICO_SMTP_USERNAME:-}
+      PORTICO_SMTP_PASSWORD: ${PORTICO_SMTP_PASSWORD:-}
+      PORTICO_SMTP_FROM: ${PORTICO_SMTP_FROM:-}
+      PORTICO_SMTP_ENCRYPTION: ${PORTICO_SMTP_ENCRYPTION:-starttls}
       PORTICO_INITIAL_ADMIN_USERNAME: ${PORTICO_INITIAL_ADMIN_USERNAME:-admin}
       PORTICO_INITIAL_ADMIN_PASSWORD: ${PORTICO_INITIAL_ADMIN_PASSWORD:-}
       PORTICO_LOG_LEVEL: ${PORTICO_LOG_LEVEL:-info}

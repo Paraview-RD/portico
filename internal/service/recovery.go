@@ -6,7 +6,6 @@ import (
 	"crypto/sha256"
 	"encoding/base64"
 	"encoding/hex"
-	"errors"
 	"fmt"
 	"log/slog"
 	"net/url"
@@ -21,6 +20,11 @@ import (
 	"github.com/paraview/portico/internal/store"
 	"github.com/paraview/portico/internal/store/sqlcgen"
 )
+
+// recoveryDeliveryTimeout bounds the work that continues after the response.
+// A relay that accepts a connection and then stops talking would otherwise
+// hold a goroutine indefinitely.
+const recoveryDeliveryTimeout = 30 * time.Second
 
 // RecoveryTokenTTL is how long a reset link stays usable.
 //
@@ -107,20 +111,51 @@ func (s *RecoveryService) Request(ctx context.Context, tenant model.Tenant, chan
 		return httpx.BadRequest("INVALID_CHANNEL", "Channel must be EMAIL or SMS.")
 	}
 
-	if err != nil {
-		if store.IsNoRows(err) {
-			// No account, or one with nothing bound on this channel. Recorded
-			// so a burst of these is visible to whoever reads the trail, and
-			// answered exactly as a success is.
-			s.audit.Log(ctx, tenant.ID, AuditEntry{
-				Kind: model.LogOperation, Action: model.ActionPasswordRecoveryRequest,
-				Result: model.LogFailure,
-				Detail: fmt.Sprintf("no account for a %s recovery request", channel),
-				IP:     ip,
-			})
-			return nil
-		}
+	if err != nil && !store.IsNoRows(err) {
 		return fmt.Errorf("resolve recovery destination: %w", err)
+	}
+
+	// Everything past the lookup happens after the response, including the
+	// writes. That is what makes the answer say nothing.
+	//
+	// Comparing response bodies is not enough: a hit does two writes and an
+	// SMTP dial, a miss does nothing, and the difference is seconds rather
+	// than microseconds — measurable from anywhere. A failure on either
+	// would be worse still, because a 500 or a 502 is only reachable once an
+	// account has been found, which turns a flaky relay into an enumeration
+	// oracle. Detaching all of it leaves exactly one indexed SELECT between
+	// the request and the reply, whether or not it matched.
+	//
+	// The cost is that a delivery or storage failure can no longer be
+	// reported to the caller. That is the right trade: "we could not send
+	// it" is information this endpoint has already decided not to give, and
+	// the reason belongs in the process log where an operator will see it.
+	found := err == nil
+	go s.completeRequest(context.WithoutCancel(ctx), tenant, channel, row, found, ip)
+
+	return nil
+}
+
+// completeRequest does the part of a recovery request that must not be
+// visible in the response: the audit entry, the token, and delivery.
+//
+// It runs on a detached context so that a caller closing the tab — which is
+// exactly what someone does after submitting a form they expect an email
+// from — does not lose the audit entry or the message.
+func (s *RecoveryService) completeRequest(ctx context.Context, tenant model.Tenant, channel model.RecoveryChannel, row sqlcgen.User, found bool, ip string) {
+	ctx, cancel := context.WithTimeout(ctx, recoveryDeliveryTimeout)
+	defer cancel()
+
+	if !found {
+		// No account, or one with nothing bound on this channel. Recorded so
+		// a burst of these is visible to whoever reads the trail.
+		s.audit.Log(ctx, tenant.ID, AuditEntry{
+			Kind: model.LogOperation, Action: model.ActionPasswordRecoveryRequest,
+			Result: model.LogFailure,
+			Detail: fmt.Sprintf("no account for a %s recovery request", channel),
+			IP:     ip,
+		})
+		return
 	}
 
 	if model.Status(row.Status) != model.StatusActive {
@@ -132,19 +167,24 @@ func (s *RecoveryService) Request(ctx context.Context, tenant model.Tenant, chan
 			ActorID: row.ID, ActorName: row.Username,
 			Detail: "account is disabled", IP: ip,
 		})
-		return nil
+		return
 	}
+
+	q := s.store.ForTenant(tenant.ID)
 
 	token, hash, err := newRecoveryToken()
 	if err != nil {
-		return err
+		slog.ErrorContext(ctx, "failed to generate a password recovery token", "error", err)
+		return
 	}
 
 	now := store.Now()
 	// Asking again invalidates the previous link, so only the most recent
 	// message works and an older one someone else has read does not.
 	if err := q.SupersedePasswordResets(ctx, row.ID, now); err != nil {
-		return fmt.Errorf("supersede outstanding resets: %w", err)
+		slog.ErrorContext(ctx, "failed to supersede outstanding password resets",
+			"tenant", tenant.Code, "error", err)
+		return
 	}
 	err = q.CreatePasswordReset(ctx, sqlcgen.CreatePasswordResetParams{
 		ID:        uuid.NewString(),
@@ -155,14 +195,18 @@ func (s *RecoveryService) Request(ctx context.Context, tenant model.Tenant, chan
 		CreatedAt: now,
 	})
 	if err != nil {
-		return fmt.Errorf("record password reset: %w", err)
+		slog.ErrorContext(ctx, "failed to record a password reset",
+			"tenant", tenant.Code, "error", err)
+		return
 	}
 
 	// The destination is the account's stored field, never the submitted
 	// one. They are equal here by construction, but taking it from the row
 	// is what keeps that true if the lookup ever changes.
 	if err := s.deliver(ctx, tenant, channel, row, token); err != nil {
-		return err
+		slog.ErrorContext(ctx, "failed to deliver a password recovery message",
+			"channel", channel, "tenant", tenant.Code, "error", err)
+		return
 	}
 
 	s.audit.Log(ctx, tenant.ID, AuditEntry{
@@ -171,7 +215,6 @@ func (s *RecoveryService) Request(ctx context.Context, tenant model.Tenant, chan
 		TargetType: "USER", TargetID: row.ID, TargetName: row.Username,
 		Detail: fmt.Sprintf("sent over %s", channel), IP: ip,
 	})
-	return nil
 }
 
 // Confirm redeems a reset token and sets a new password.
@@ -257,6 +300,8 @@ func (s *RecoveryService) channelAvailable(channel model.RecoveryChannel) error 
 	return nil
 }
 
+// deliver sends the message. Its error is for the process log — by the time
+// it runs the caller has already been answered.
 func (s *RecoveryService) deliver(ctx context.Context, tenant model.Tenant, channel model.RecoveryChannel, row sqlcgen.User, token string) error {
 	link := s.resetLink(tenant.Code, token)
 
@@ -283,21 +328,9 @@ action is needed — the password has not changed.
 			tenant.Name, link, int(RecoveryTokenTTL.Minutes())))
 	}
 
-	if err != nil {
-		if errors.Is(err, notify.ErrNotConfigured) {
-			return ErrRecoveryUnavailable
-		}
-		// The token is already recorded, so a delivery failure leaves an
-		// unusable row that expires on its own. The caller is told the
-		// request failed rather than being left to wait for a message that
-		// is not coming — and the reason stays in the process log, since it
-		// is about the deployment's mail relay and not about them.
-		slog.ErrorContext(ctx, "failed to deliver a password recovery message",
-			"channel", channel, "tenant", tenant.Code, "error", err)
-		return httpx.NewError(502, "RECOVERY_DELIVERY_FAILED",
-			"The message could not be sent. Try again, or contact an administrator.")
-	}
-	return nil
+	// The token is already recorded, so a delivery failure leaves an unusable
+	// row that expires on its own.
+	return err
 }
 
 // resetLink builds the URL in the message.
