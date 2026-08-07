@@ -4,11 +4,13 @@ import (
 	"context"
 	"crypto/rand"
 	"crypto/rsa"
+	"crypto/sha256"
 	"crypto/x509"
 	"crypto/x509/pkix"
 	"encoding/base64"
 	"encoding/xml"
 	"html"
+	"io"
 	"math/big"
 	"net/http"
 	"net/url"
@@ -689,4 +691,84 @@ func attributeValues(assertion *saml.Assertion) map[string]string {
 		}
 	}
 	return values
+}
+
+// The POST-binding page is the one response in this application allowed to
+// post a form to another origin and run an inline script — which is exactly
+// what its Content-Security-Policy forbids everywhere else.
+//
+// This is here because every other SAML test passed while it was broken. A
+// test client does not enforce CSP; a browser refuses to submit the form and
+// refuses to run the script, and the person is left looking at a page that
+// does nothing.
+func TestThePostBindingPageIsAllowedToDoItsJob(t *testing.T) {
+	f := newFederationTest(t)
+
+	sp := newTestSP(t, "https://csp.example.com/saml")
+	f.registerSP(model.DefaultTenantCode, sp.metadata())
+	sp.configure(f, samlp.TenantMount(model.DefaultTenantCode))
+
+	request, _ := sp.sp.MakeAuthenticationRequest(
+		sp.sp.GetSSOBindingLocation(saml.HTTPRedirectBinding),
+		saml.HTTPRedirectBinding, saml.HTTPPostBinding)
+	authURL, _ := request.Redirect("", sp.sp)
+
+	client := &http.Client{CheckRedirect: func(*http.Request, []*http.Request) error {
+		return http.ErrUseLastResponse
+	}}
+	res, _ := client.Get(authURL.String())
+	_ = res.Body.Close()
+	loginURL, _ := url.Parse(res.Header.Get("Location"))
+	requestID := loginURL.Query().Get("saml_request")
+
+	token := f.post("/api/v1/auth/login", "", map[string]string{
+		"identifier": adminUsername, "password": adminPassword,
+	})["token"].(string)
+	redirectTo := f.post("/api/v1/saml/authenticate", token, map[string]string{
+		"samlRequestId": requestID,
+	})["redirectTo"].(string)
+
+	page, err := http.Get(redirectTo)
+	if err != nil {
+		t.Fatalf("callback: %v", err)
+	}
+	defer func() { _ = page.Body.Close() }()
+
+	policy := page.Header.Get("Content-Security-Policy")
+
+	// form-action has to name the assertion consumer service. The
+	// application's own policy says 'self', under which the browser refuses
+	// to submit the form at all.
+	if !strings.Contains(policy, "form-action "+sp.sp.AcsURL.String()) {
+		t.Errorf("form-action does not name the assertion consumer service.\npolicy: %s", policy)
+	}
+	if strings.Contains(policy, "form-action 'self'") {
+		t.Error("the page inherited the application's form-action, which blocks the whole binding")
+	}
+
+	// And the script that submits it has to be permitted, by hash rather
+	// than by opening the page to any inline script.
+	if !strings.Contains(policy, "script-src 'sha256-") {
+		t.Errorf("the submit script is not permitted by hash.\npolicy: %s", policy)
+	}
+	if strings.Contains(policy, "'unsafe-inline'") {
+		t.Error("the page permits any inline script, which is more than the binding needs")
+	}
+
+	// The hash has to be the hash of the script that is actually on the
+	// page — a policy naming a different one is a policy that blocks it.
+	body, err := io.ReadAll(page.Body)
+	if err != nil {
+		t.Fatalf("read page: %v", err)
+	}
+	script := regexp.MustCompile(`<script>([^<]*)</script>`).FindSubmatch(body)
+	if script == nil {
+		t.Fatalf("the page carries no script to submit the form:\n%s", body)
+	}
+	sum := sha256.Sum256(script[1])
+	want := "'sha256-" + base64.StdEncoding.EncodeToString(sum[:]) + "'"
+	if !strings.Contains(policy, want) {
+		t.Errorf("the policy names a different script than the page carries.\nwant %s\npolicy: %s",
+			want, policy)
+	}
 }

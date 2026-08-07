@@ -162,6 +162,10 @@ func (p *Providers) build(ctx context.Context, tenant model.Tenant, mount string
 		// to and is not offered: a signature algorithm nobody should accept
 		// is not one to make available in case somebody wants it.
 		SignatureMethod: signatureMethodRSASHA256,
+		// Portico's own POST-binding page, so that the inline script the
+		// Content-Security-Policy names by hash is one this repository
+		// controls rather than one a patch release could change.
+		ResponseFormTemplate: postFormTemplate,
 		ServiceProviderProvider: &providerLookup{
 			tenantID:  tenant.ID,
 			providers: p.providers,

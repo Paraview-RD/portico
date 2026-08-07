@@ -133,6 +133,15 @@ func (p *Providers) serveCallback(w http.ResponseWriter, r *http.Request, idp *s
 		return
 	}
 
+	// The one response in this application that is allowed to post a form to
+	// another origin and run an inline script. Set before WriteResponse,
+	// because headers cannot be changed once a body has begun.
+	acs := ""
+	if req.ACSEndpoint != nil {
+		acs = req.ACSEndpoint.Location
+	}
+	applyPostBindingHeaders(w, acs)
+
 	if err := req.WriteResponse(w); err != nil {
 		// WriteResponse has already begun writing an HTML form by the time
 		// most failures happen, so there is nothing useful left to say to
