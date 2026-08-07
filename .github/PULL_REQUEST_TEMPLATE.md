@@ -17,6 +17,8 @@
 - [ ] Frontend changes: `npm run build` and `npx prettier --check "src/**/*.{ts,tsx,css}"` pass
 - [ ] Behavior changes have tests
 - [ ] User-facing strings go through i18n (both `web/src/i18n/en-US.ts` and `zh-CN.ts`)
+- [ ] Schema changes follow [docs/database-conventions.md](../docs/database-conventions.md)
+      and add a migration rather than editing a released one
 - [ ] Docs updated if this changes setup, configuration, or the API
 
 ## Security

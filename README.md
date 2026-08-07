@@ -145,8 +145,9 @@ That costs one indexed read and buys immediate revocation without a denylist
 to keep consistent.
 
 Conventions this project holds itself to:
-[docs/api-conventions.md](docs/api-conventions.md) and
-[docs/design-principles.md](docs/design-principles.md).
+[API](docs/api-conventions.md) ·
+[database](docs/database-conventions.md) ·
+[UI](docs/design-principles.md).
 
 ## Contributing
 
