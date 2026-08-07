@@ -136,11 +136,18 @@ func (p *Providers) serveCallback(w http.ResponseWriter, r *http.Request, idp *s
 	// The one response in this application that is allowed to post a form to
 	// another origin and run an inline script. Set before WriteResponse,
 	// because headers cannot be changed once a body has begun.
-	acs := ""
-	if req.ACSEndpoint != nil {
-		acs = req.ACSEndpoint.Location
+	//
+	// Validate resolves the assertion consumer service or fails, so a nil
+	// endpoint here should be unreachable. It is checked anyway: an empty
+	// form-action is a malformed directive, under which the browser blocks
+	// the form exactly as it did before this policy existed — and "should be
+	// unreachable, so it does not matter what happens" is the reasoning that
+	// produced that bug in the first place.
+	if req.ACSEndpoint == nil {
+		http.Error(w, "the assertion has nowhere to be delivered", http.StatusInternalServerError)
+		return
 	}
-	applyPostBindingHeaders(w, acs)
+	applyPostBindingHeaders(w, req.ACSEndpoint.Location)
 
 	if err := req.WriteResponse(w); err != nil {
 		// WriteResponse has already begun writing an HTML form by the time

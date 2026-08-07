@@ -9,6 +9,7 @@ import (
 
 	"github.com/crewjam/saml"
 	"github.com/google/uuid"
+	xrv "github.com/mattermost/xml-roundtrip-validator"
 
 	"github.com/paraview/portico/internal/httpx"
 	"github.com/paraview/portico/internal/model"
@@ -154,6 +155,16 @@ func parseSPMetadata(document string) (*saml.EntityDescriptor, error) {
 	if document == "" {
 		return nil, httpx.BadRequest("METADATA_REQUIRED",
 			"A service provider metadata document is required.")
+	}
+
+	// Go's XML parser silently re-writes some namespace constructs, which is
+	// how signature-wrapping bugs get in. The protocol library runs this
+	// check before parsing anything it will act on; a metadata document is
+	// operator-supplied rather than attacker-supplied, but it is the same
+	// parser and the validator is already here.
+	if err := xrv.Validate(strings.NewReader(document)); err != nil {
+		return nil, httpx.BadRequest("METADATA_INVALID",
+			"That document does not survive an XML round trip, so it cannot be parsed safely.")
 	}
 
 	var descriptor saml.EntityDescriptor

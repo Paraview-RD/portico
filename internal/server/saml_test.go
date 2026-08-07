@@ -404,6 +404,12 @@ func TestSigningInSlowlyStillWorks(t *testing.T) {
 	// Two minutes pass between the request arriving and the sign-in
 	// finishing — a person reaching for a password manager. The clock is
 	// moved rather than the test waiting.
+	//
+	// saml.TimeNow is a package global, read by the server's own handlers in
+	// this same process. Nothing in this file may run in parallel: a request
+	// from another test overlapping this one would see a clock two minutes
+	// ahead and fail for a reason that has nothing to do with what it is
+	// testing.
 	restore := saml.TimeNow
 	t.Cleanup(func() { saml.TimeNow = restore })
 

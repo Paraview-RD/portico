@@ -19,12 +19,31 @@ internal/
   httpx/           HTTP plumbing: envelope, errors, middleware
   store/           database access; sqlcgen/ is generated
   auth/            passwords, tokens, authentication middleware
+  notify/          message delivery: SMTP, and an SMS interface
   service/         business rules
+  oidcp/           the OpenID Provider adapter
+  samlp/           the SAML identity provider adapter
+  casp/            the CAS protocol
+  provision/       a second composition root, for the operations with no
+                   HTTP surface: tenants, clients, service providers
   handler/         HTTP handlers
   server/          wiring: builds everything and mounts routes
   web/             embeds the built frontend
 migrations/        schema, embedded
 ```
+
+The three protocol packages sit **beside** the API rather than inside it.
+Each answers the questions its protocol asks about accounts, clients, and
+keys, and each is driven by that protocol's own router rather than by
+`handler`. They may reach `service` and `store`; they must not reach
+`handler`, `httpx`, or `server` — an endpoint one of them needed from there
+would mean the protocol was leaking into Portico's own API surface rather
+than sitting alongside it.
+
+Each has exactly one seam back into the API: an authenticated endpoint the
+sign-in screen calls to say who is at the keyboard, since a protocol
+endpoint reached by a plain browser navigation carries no credential this
+application can read.
 
 Packages are named for **what they are**, not what kind of thing they
 contain. There is no `utils`, `common`, or `helpers` package — those
@@ -45,7 +64,8 @@ handler ──→ service ──→ store
         └──→ model
 
 model, httpx, config: no project dependencies at all
-store: only its own subpackages (dbtime, sqlcgen) and migrations
+store: only its own subpackages (sqlcgen) and migrations
+oidcp, samlp, casp: service, store, auth, model — never the web stack
 ```
 
 The rules that matter:
@@ -61,6 +81,11 @@ The rules that matter:
   `migrations`. They are the leaves; keeping them that way is what makes
   them testable in isolation and is why a change to business rules cannot
   ripple into them.
+
+These are the rules `internal/server/layering_test.go` enforces. It reads
+its own table, so this document and that test can drift apart in one
+direction: a package added there and not here. If you add one, add it in
+both.
 
 `service` importing `auth` is deliberate: authentication is a domain
 concept here (who the actor is, whether their session is still valid), not
