@@ -36,6 +36,11 @@ func TestLayeringRules(t *testing.T) {
 		// test substitute a recorder for it, and what would let someone add
 		// an SMS provider without reading anything else.
 		"notify": {"handler", "service", "store", "auth", "httpx", "server", "config", "model"},
+		// The OpenID Provider adapter is glue between the protocol library and
+		// the service layer. It must not reach into the web stack: an endpoint
+		// it needed from there would mean the protocol was leaking into
+		// Portico's own API surface rather than sitting beside it.
+		"oidcp": {"handler", "httpx", "server", "config"},
 		// Provisioning is a second composition root, for the operations that
 		// have no HTTP surface. It builds services directly and must not
 		// reach for the web stack: anything it needed from there would mean
