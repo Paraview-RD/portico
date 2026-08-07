@@ -145,6 +145,8 @@ That costs one indexed read and buys immediate revocation without a denylist
 to keep consistent.
 
 Conventions this project holds itself to — all in [docs/](docs/):
+[code](docs/code-conventions.md) ·
+[config](docs/configuration-conventions.md) ·
 [API](docs/api-conventions.md) ·
 [database](docs/database-conventions.md) ·
 [errors](docs/error-conventions.md) ·

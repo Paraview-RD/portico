@@ -13,6 +13,10 @@
 Conventions this project holds itself to. They describe what the code
 actually does, so a reviewer can check a change against them:
 
+- **[code-conventions.md](code-conventions.md)** — package layout, which
+  direction dependencies run, and how tests are organized. Start here.
+- **[configuration-conventions.md](configuration-conventions.md)** —
+  environment variables, defaults, failing fast, and handling secrets.
 - **[api-conventions.md](api-conventions.md)** — URL shape, the
   `{code, message, data}` envelope, and which status code means what.
 - **[database-conventions.md](database-conventions.md)** — schema naming,
