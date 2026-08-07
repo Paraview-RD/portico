@@ -26,6 +26,8 @@ type Provisioner struct {
 	store   *store.Store
 	tenants *service.TenantService
 	users   *service.UserService
+	clients *service.OAuthClientService
+	keys    *service.SigningKeyService
 }
 
 // Open connects to the database named by cfg and applies any pending
@@ -46,6 +48,8 @@ func Open(cfg *config.Config) (*Provisioner, error) {
 		store:   st,
 		tenants: service.NewTenantService(st),
 		users:   service.NewUserService(st, audit, settings, tokens),
+		clients: service.NewOAuthClientService(st),
+		keys:    service.NewSigningKeyService(st),
 	}, nil
 }
 
@@ -103,4 +107,53 @@ func (p *Provisioner) ListTenants(ctx context.Context) ([]model.Tenant, error) {
 // sign-in but keeps every record, so it is reversible.
 func (p *Provisioner) SetTenantStatus(ctx context.Context, code string, status model.Status) (model.Tenant, error) {
 	return p.tenants.SetStatus(ctx, code, status)
+}
+
+// --- relying parties ------------------------------------------------------
+//
+// Registered here for the same reason tenants are: deciding who may ask this
+// server for tokens about its users is an administrative act, and V0.1 has
+// no role that could be authorized to perform it over HTTP. Dynamic client
+// registration is deliberately absent.
+
+// RegisterClient adds a relying party to a tenant.
+func (p *Provisioner) RegisterClient(ctx context.Context, tenantCode string, in service.RegisterClientInput) (service.RegisteredClient, error) {
+	tenant, err := p.tenants.Resolve(ctx, tenantCode)
+	if err != nil {
+		return service.RegisteredClient{}, err
+	}
+	return p.clients.Register(ctx, tenant.ID, in)
+}
+
+// ListClients returns every relying party in a tenant.
+func (p *Provisioner) ListClients(ctx context.Context, tenantCode string) ([]model.OAuthClient, error) {
+	tenant, err := p.tenants.Resolve(ctx, tenantCode)
+	if err != nil {
+		return nil, err
+	}
+	return p.clients.List(ctx, tenant.ID)
+}
+
+// SetClientStatus enables or disables a relying party.
+func (p *Provisioner) SetClientStatus(ctx context.Context, tenantCode, clientID string, status model.Status) (model.OAuthClient, error) {
+	tenant, err := p.tenants.Resolve(ctx, tenantCode)
+	if err != nil {
+		return model.OAuthClient{}, err
+	}
+	return p.clients.SetStatus(ctx, tenant.ID, clientID, status)
+}
+
+// RotateSigningKey retires a tenant's current signing key and generates a
+// replacement. The old key stays in the published key set until the tokens
+// it signed have expired.
+func (p *Provisioner) RotateSigningKey(ctx context.Context, tenantCode string) (string, error) {
+	tenant, err := p.tenants.Resolve(ctx, tenantCode)
+	if err != nil {
+		return "", err
+	}
+	key, err := p.keys.Rotate(ctx, tenant.ID)
+	if err != nil {
+		return "", err
+	}
+	return key.ID, nil
 }
