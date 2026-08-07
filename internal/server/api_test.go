@@ -11,8 +11,8 @@ import (
 	"path/filepath"
 	"testing"
 
-	"github.com/paraview/keylite/internal/config"
-	"github.com/paraview/keylite/internal/server"
+	"github.com/paraview/portico/internal/config"
+	"github.com/paraview/portico/internal/server"
 )
 
 // apiTest drives the whole stack — router, middleware, services, database —
@@ -465,7 +465,7 @@ func TestRegistrationRespectsTheToggle(t *testing.T) {
 
 	// Open it.
 	res = api.do(http.MethodPut, "/api/v1/settings", token, map[string]any{
-		"tokenTtlMinutes": 120, "registrationEnabled": true, "systemName": "Keylite",
+		"tokenTtlMinutes": 120, "registrationEnabled": true, "systemName": "Portico",
 	})
 	if res.Status != http.StatusOK {
 		t.Fatalf("update settings failed: %d %s %s", res.Status, res.Code, res.Message)
@@ -497,7 +497,7 @@ func TestRegistrationCannotSelfPromote(t *testing.T) {
 	token := api.adminToken()
 
 	api.do(http.MethodPut, "/api/v1/settings", token, map[string]any{
-		"tokenTtlMinutes": 120, "registrationEnabled": true, "systemName": "Keylite",
+		"tokenTtlMinutes": 120, "registrationEnabled": true, "systemName": "Portico",
 	})
 
 	res := api.do(http.MethodPost, "/api/v1/auth/register", "", map[string]string{

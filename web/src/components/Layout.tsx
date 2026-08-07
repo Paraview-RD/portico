@@ -39,7 +39,7 @@ export function Layout({ children }: { children: ReactNode }) {
     <div className="flex min-h-dvh bg-[var(--color-bg-soft)]">
       <nav className="flex w-56 flex-col border-r border-[var(--color-border)] bg-[var(--color-bg)] p-3">
         <div className="px-2 py-3 text-[length:var(--font-size-lg)] font-[weight:var(--font-weight-bold)] text-[var(--color-fg)]">
-          Keylite
+          Portico
         </div>
 
         <ul className="flex flex-1 flex-col gap-0.5">

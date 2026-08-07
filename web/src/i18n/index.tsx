@@ -23,7 +23,7 @@ export const languageNames: Record<Language, string> = {
   "zh-CN": "简体中文",
 };
 
-const STORAGE_KEY = "keylite.language";
+const STORAGE_KEY = "portico.language";
 
 /** Picks the initial language from storage, then the browser, then English. */
 function detectLanguage(): Language {

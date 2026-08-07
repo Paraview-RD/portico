@@ -5,7 +5,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/paraview/keylite/internal/store/dbtime"
+	"github.com/paraview/portico/internal/store/dbtime"
 )
 
 func TestNewNormalizesToUTCSeconds(t *testing.T) {

@@ -6,12 +6,7 @@ follow [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
-Nothing yet.
-
-## [0.1.0] - 2026-08-07
-
-The initial release: the MVP scope, complete and verified end to end. Not yet
-used in production anywhere — treat it as early software.
+Working toward 0.1.0 — the first release. Nothing has been published yet.
 
 ### Added
 
@@ -49,7 +44,7 @@ used in production anywhere — treat it as early software.
   including `none`.
 - The last active administrator cannot be disabled or demoted, and no account
   can disable itself.
-- `KEYLITE_JWT_SECRET` must be at least 32 bytes; the server refuses to start
+- `PORTICO_JWT_SECRET` must be at least 32 bytes; the server refuses to start
   with a shorter one, because HS256 with a low-entropy key can be
   brute-forced offline from a single captured token.
 - Security headers on every response: Content-Security-Policy,
@@ -63,9 +58,7 @@ used in production anywhere — treat it as early software.
 
 ### Known limitations
 
-Keylite has no TLS and no rate limiting, both deliberately. It must run
+Portico has no TLS and no rate limiting, both deliberately. It must run
 behind a reverse proxy that provides them — see
 [SECURITY.md](SECURITY.md) and
 [docs/access-guide.md](docs/access-guide.md).
-
-[0.1.0]: https://github.com/paraview/keylite/releases/tag/v0.1.0

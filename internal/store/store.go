@@ -15,9 +15,9 @@ import (
 	"github.com/pressly/goose/v3"
 	_ "modernc.org/sqlite" // pure-Go driver: no cgo, so the binary cross-compiles
 
-	"github.com/paraview/keylite/internal/store/dbtime"
-	"github.com/paraview/keylite/internal/store/sqlcgen"
-	"github.com/paraview/keylite/migrations"
+	"github.com/paraview/portico/internal/store/dbtime"
+	"github.com/paraview/portico/internal/store/sqlcgen"
+	"github.com/paraview/portico/migrations"
 )
 
 // Store holds the database handle and the generated query set.

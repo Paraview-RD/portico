@@ -1,6 +1,6 @@
 # Access Guide
 
-How to reach a running Keylite instance, where credentials come from, and
+How to reach a running Portico instance, where credentials come from, and
 what each role can actually do.
 
 ## Entry points
@@ -11,20 +11,20 @@ what each role can actually do.
 | API | `http://<host>:8410/api/v1/` | See [api-conventions.md](api-conventions.md) |
 | Health check | `http://<host>:8410/api/v1/health` | No authentication; safe for load balancers |
 
-The port is `KEYLITE_ADDR` (default `:8410`). In development the frontend
+The port is `PORTICO_ADDR` (default `:8410`). In development the frontend
 also runs a Vite server on `:5410` that proxies `/api` to `:8410`; in
 production there is only the one port.
 
 ## Credentials
 
-Keylite stores its own accounts — there is no external identity provider in
+Portico stores its own accounts — there is no external identity provider in
 the MVP.
 
 | Credential | Where it comes from |
 |---|---|
-| Bootstrap administrator | Created on first start against an empty database. Username from `KEYLITE_INITIAL_ADMIN_USERNAME` (default `admin`). |
-| Bootstrap password | `KEYLITE_INITIAL_ADMIN_PASSWORD` if set. Otherwise a random one is generated and **printed once** in the startup log — capture it then, it is stored nowhere. |
-| JWT signing secret | `KEYLITE_JWT_SECRET`. If unset, a random secret is generated per start, which silently invalidates every session on restart. Set it. |
+| Bootstrap administrator | Created on first start against an empty database. Username from `PORTICO_INITIAL_ADMIN_USERNAME` (default `admin`). |
+| Bootstrap password | `PORTICO_INITIAL_ADMIN_PASSWORD` if set. Otherwise a random one is generated and **printed once** in the startup log — capture it then, it is stored nowhere. |
+| JWT signing secret | `PORTICO_JWT_SECRET`. If unset, a random secret is generated per start, which silently invalidates every session on restart. Set it. |
 | Everyone else's password | Set by an administrator at creation, or chosen by the user at self-registration. |
 
 No credential values belong in this file, in the repository, or in a
@@ -32,7 +32,7 @@ committed `.env`. `.env.example` lists the variable names only.
 
 ## First run
 
-1. Start the server (`./keylite`, or `docker compose -f deploy/docker-compose.yml up -d`).
+1. Start the server (`./portico`, or `docker compose -f deploy/docker-compose.yml up -d`).
 2. Read the startup log for the generated administrator password, unless you
    set one.
 3. Open the UI, sign in, and change that password from **My profile**.
@@ -69,7 +69,7 @@ sign-up.
 
 ## Before you expose this
 
-Keylite serves plain HTTP and does not rate-limit sign-in attempts. Both are
+Portico serves plain HTTP and does not rate-limit sign-in attempts. Both are
 deliberate — it delegates them to the reverse proxy rather than
 reimplementing them — but that makes the proxy mandatory, not optional, for
 anything reachable beyond localhost. See [SECURITY.md](../SECURITY.md) for
@@ -81,7 +81,7 @@ is not directly reachable.
 ### nginx
 
 ```nginx
-limit_req_zone $binary_remote_addr zone=keylite_auth:10m rate=10r/m;
+limit_req_zone $binary_remote_addr zone=portico_auth:10m rate=10r/m;
 
 server {
     listen 443 ssl http2;
@@ -94,7 +94,7 @@ server {
     # Throttle the credential endpoints; everything else is already
     # authenticated.
     location ~ ^/api/v1/auth/(login|register)$ {
-        limit_req zone=keylite_auth burst=5 nodelay;
+        limit_req zone=portico_auth burst=5 nodelay;
         proxy_pass http://127.0.0.1:8410;
         include /etc/nginx/proxy_params;
     }
@@ -112,7 +112,7 @@ server {
 id.example.com {
     @auth path /api/v1/auth/login /api/v1/auth/register
     rate_limit @auth {
-        zone keylite_auth {
+        zone portico_auth {
             key    {remote_host}
             events 10
             window 1m
@@ -122,7 +122,7 @@ id.example.com {
 }
 ```
 
-With either in place, set `KEYLITE_TRUST_PROXY_HEADERS=true` so the audit log
+With either in place, set `PORTICO_TRUST_PROXY_HEADERS=true` so the audit log
 records real client addresses rather than the proxy's. Do **not** set it
 without a proxy: callers could then forge the IP attributed to their own
 actions.

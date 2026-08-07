@@ -20,8 +20,8 @@ ARG VERSION=dev
 # CGO is off because the sqlite driver is pure Go; that is what allows a
 # scratch image with no libc.
 RUN CGO_ENABLED=0 go build \
-    -ldflags "-s -w -X github.com/paraview/keylite/internal/server.Version=${VERSION}" \
-    -o /keylite ./cmd/server
+    -ldflags "-s -w -X github.com/paraview/portico/internal/server.Version=${VERSION}" \
+    -o /portico ./cmd/server
 
 FROM scratch
 
@@ -31,12 +31,12 @@ USER 65534:65534
 # Certificates are not needed today (no outbound TLS), but time zone data is:
 # without it the container reports UTC only, which is fine, and adding tzdata
 # would mean leaving scratch. Timestamps are stored in UTC for this reason.
-COPY --from=build /keylite /keylite
+COPY --from=build /portico /portico
 
 # The database is a file; mount a volume here to keep it across restarts.
 VOLUME ["/data"]
-ENV KEYLITE_DB_DSN=/data/keylite.db
-ENV KEYLITE_ADDR=:8410
+ENV PORTICO_DB_DSN=/data/portico.db
+ENV PORTICO_ADDR=:8410
 
 EXPOSE 8410
-ENTRYPOINT ["/keylite"]
+ENTRYPOINT ["/portico"]

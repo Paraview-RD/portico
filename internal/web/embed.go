@@ -1,5 +1,5 @@
 // Package web serves the built single-page application from inside the
-// binary, so deploying Keylite means copying one file.
+// binary, so deploying Portico means copying one file.
 //
 // The embedded directory must exist at compile time even when the frontend
 // has not been built, which is why web/dist carries a committed .gitkeep and
@@ -78,7 +78,7 @@ func notBuilt(w http.ResponseWriter, _ *http.Request) {
 	w.Header().Set("Content-Type", "text/plain; charset=utf-8")
 	w.WriteHeader(http.StatusNotFound)
 	_, _ = w.Write([]byte(
-		"The Keylite web UI was not included in this build.\n\n" +
+		"The Portico web UI was not included in this build.\n\n" +
 			"Build it with:\n" +
 			"  cd web && npm install && npm run build\n" +
 			"then rebuild the server binary.\n\n" +

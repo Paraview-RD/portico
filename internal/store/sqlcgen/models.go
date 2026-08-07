@@ -5,7 +5,7 @@
 package sqlcgen
 
 import (
-	dbtime "github.com/paraview/keylite/internal/store/dbtime"
+	dbtime "github.com/paraview/portico/internal/store/dbtime"
 )
 
 type AuditLog struct {

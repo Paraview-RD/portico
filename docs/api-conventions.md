@@ -1,6 +1,6 @@
 # API Conventions
 
-These are Keylite's own conventions for its HTTP API. They're written from
+These are Portico's own conventions for its HTTP API. They're written from
 general REST API design practice — consistency, predictable error
 semantics, and being easy for an external client to integrate against —
 not derived from or tied to any particular company's internal standard.
@@ -103,7 +103,7 @@ contributors to extend correctly than a registry of numeric codes.
 
 ## Disable, never delete
 
-Per the MVP requirements ([docs/requirements/mvp-requirements.md](requirements/mvp-requirements.md)),
+Per the MVP requirements ([docs/requirements/v0.1-requirements.md](requirements/v0.1-requirements.md)),
 records are never physically removed. `POST /{resource}/{id}/disable` flips
 a status flag; the row, and every audit entry referencing it, stays.
 

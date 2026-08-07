@@ -17,11 +17,11 @@ program starts, product settings decide how it behaves.
 
 ## Naming
 
-- **`KEYLITE_` prefix on everything**, so the program's variables are
+- **`PORTICO_` prefix on everything**, so the program's variables are
   distinguishable from the rest of the environment at a glance.
 - **`SCREAMING_SNAKE_CASE`**, naming the thing rather than its type:
-  `KEYLITE_DB_DSN`, not `KEYLITE_DATABASE_CONNECTION_STRING_VALUE`.
-- **Grouped by subject**: `KEYLITE_DB_DRIVER` and `KEYLITE_DB_DSN` share a
+  `PORTICO_DB_DSN`, not `PORTICO_DATABASE_CONNECTION_STRING_VALUE`.
+- **Grouped by subject**: `PORTICO_DB_DRIVER` and `PORTICO_DB_DSN` share a
   prefix because they belong together.
 - **A boolean is `true` or `false`**, compared exactly. Not `1`, not `yes`,
   not case-insensitive matching — a value that is neither is a mistake, and
@@ -35,7 +35,7 @@ Adding one means updating all three, in the same commit:
    explaining what it does and what happens at the edges.
 2. **`.env.example`** — the documented example, with the same explanation
    in prose.
-3. **`keylite --help`** — the summary an operator sees without a browser.
+3. **`portico --help`** — the summary an operator sees without a browser.
 
 Missing any of these is how a setting becomes discoverable only by reading
 source code.
@@ -70,7 +70,7 @@ diagnose than one that refused.
 The signing secret is the case that matters:
 
 ```
-KEYLITE_JWT_SECRET is 9 bytes; it must be at least 32.
+PORTICO_JWT_SECRET is 9 bytes; it must be at least 32.
 Generate one with: openssl rand -hex 32
 ```
 
@@ -95,7 +95,7 @@ configured it wrongly and believes they are done.
   does not enter the log pipeline.
 - **No secret goes in a URL.** They end up in access logs, proxy logs, and
   browser history.
-- **Rotating `KEYLITE_JWT_SECRET` signs everyone out.** Expected, and worth
+- **Rotating `PORTICO_JWT_SECRET` signs everyone out.** Expected, and worth
   knowing before doing it in the middle of a working day.
 
 ## Parsing

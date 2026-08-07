@@ -3,7 +3,7 @@ package auth
 import (
 	"context"
 
-	"github.com/paraview/keylite/internal/model"
+	"github.com/paraview/portico/internal/model"
 )
 
 type contextKey string

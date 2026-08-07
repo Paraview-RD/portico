@@ -7,9 +7,9 @@ import (
 	"path/filepath"
 	"testing"
 
-	"github.com/paraview/keylite/internal/config"
-	"github.com/paraview/keylite/internal/httpx"
-	"github.com/paraview/keylite/internal/server"
+	"github.com/paraview/portico/internal/config"
+	"github.com/paraview/portico/internal/httpx"
+	"github.com/paraview/portico/internal/server"
 )
 
 func newTestServer(t *testing.T) *server.Server {

@@ -155,7 +155,7 @@ hand:
 
 ## What is deliberately absent
 
-- **No multi-tenancy.** There is no `tenant_id` anywhere. Keylite is
+- **No multi-tenancy.** There is no `tenant_id` anywhere. Portico is
   single-tenant by design; a deployment serves one organization's users.
   Adding tenancy later is a schema-wide change, not a column.
 - **No optimistic-locking `version` column.** Nothing in the current

@@ -8,8 +8,8 @@ import (
 
 	"github.com/golang-jwt/jwt/v5"
 
-	"github.com/paraview/keylite/internal/auth"
-	"github.com/paraview/keylite/internal/model"
+	"github.com/paraview/portico/internal/auth"
+	"github.com/paraview/portico/internal/model"
 )
 
 var testSecret = []byte("test-secret-not-used-anywhere-real")

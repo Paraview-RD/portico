@@ -17,7 +17,7 @@ export function LoginPage() {
   const [error, setError] = useState("");
   const [submitting, setSubmitting] = useState(false);
   const [registrationOpen, setRegistrationOpen] = useState(false);
-  const [systemName, setSystemName] = useState("Keylite");
+  const [systemName, setSystemName] = useState("Portico");
 
   // The sign-in screen only offers registration when the server says it is
   // open, so a closed instance does not advertise a dead end.

@@ -5,10 +5,10 @@
 *.out
 
 # Build artifact and database from the README's own instructions
-/keylite
-/keylite.db
-/keylite.db-shm
-/keylite.db-wal
+/portico
+/portico.db
+/portico.db-shm
+/portico.db-wal
 
 # Env / secrets
 .env

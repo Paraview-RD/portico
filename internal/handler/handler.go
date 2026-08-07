@@ -4,7 +4,7 @@
 package handler
 
 import (
-	"github.com/paraview/keylite/internal/service"
+	"github.com/paraview/portico/internal/service"
 )
 
 // Handler holds the services the HTTP layer delegates to.

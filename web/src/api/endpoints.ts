@@ -111,7 +111,7 @@ export const userApi = {
   importUsers: (file: File) => upload<ImportResult>("/users/import", file),
 
   downloadTemplate: () =>
-    download("/users/import/template", "keylite-user-import-template.xlsx"),
+    download("/users/import/template", "portico-user-import-template.xlsx"),
 };
 
 export const organizationApi = {

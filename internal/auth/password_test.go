@@ -4,7 +4,7 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/paraview/keylite/internal/auth"
+	"github.com/paraview/portico/internal/auth"
 )
 
 func TestHashPasswordThenCheck(t *testing.T) {

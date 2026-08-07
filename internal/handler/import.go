@@ -3,9 +3,9 @@ package handler
 import (
 	"net/http"
 
-	"github.com/paraview/keylite/internal/auth"
-	"github.com/paraview/keylite/internal/httpx"
-	"github.com/paraview/keylite/internal/service"
+	"github.com/paraview/portico/internal/auth"
+	"github.com/paraview/portico/internal/httpx"
+	"github.com/paraview/portico/internal/service"
 )
 
 // maxUploadBytes caps an import upload. Large enough for the row limit the
@@ -59,7 +59,7 @@ func (h *Handler) ImportTemplate(w http.ResponseWriter, r *http.Request) {
 
 	w.Header().Set("Content-Type",
 		"application/vnd.openxmlformats-officedocument.spreadsheetml.sheet")
-	w.Header().Set("Content-Disposition", `attachment; filename="keylite-user-import-template.xlsx"`)
+	w.Header().Set("Content-Disposition", `attachment; filename="portico-user-import-template.xlsx"`)
 
 	if err := file.Write(w); err != nil {
 		// The headers are already sent, so this can only be logged; Fail

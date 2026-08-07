@@ -82,13 +82,13 @@ jobs:
         working-directory: web
       - run: npm run build
         working-directory: web
-      - run: CGO_ENABLED=0 go build -o keylite ./cmd/server
+      - run: CGO_ENABLED=0 go build -o portico ./cmd/server
 
       - name: Smoke test the built binary
         run: |
-          KEYLITE_ADDR=:8410 KEYLITE_DB_DSN=/tmp/ci.db \
-          KEYLITE_JWT_SECRET=$(openssl rand -hex 32) \
-          KEYLITE_INITIAL_ADMIN_PASSWORD=ci-admin-password ./keylite &
+          PORTICO_ADDR=:8410 PORTICO_DB_DSN=/tmp/ci.db \
+          PORTICO_JWT_SECRET=$(openssl rand -hex 32) \
+          PORTICO_INITIAL_ADMIN_PASSWORD=ci-admin-password ./portico &
           for _ in $(seq 1 30); do
             curl -sf http://localhost:8410/api/v1/health && break
             sleep 1

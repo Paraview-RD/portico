@@ -1,5 +1,5 @@
 /**
- * The single place that speaks to the Keylite API.
+ * The single place that speaks to the Portico API.
  *
  * Every response is the `{code, message, data}` envelope described in
  * docs/api-conventions.md. `request` unwraps it and throws on failure, so a
@@ -26,7 +26,7 @@ export class ApiError extends Error {
   }
 }
 
-const TOKEN_KEY = "keylite.token";
+const TOKEN_KEY = "portico.token";
 
 /**
  * Error codes that mean the stored token is no longer usable. Any of them

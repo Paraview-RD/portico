@@ -4,7 +4,7 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/paraview/keylite/internal/config"
+	"github.com/paraview/portico/internal/config"
 )
 
 // A weak signing secret is the difference between "signed" and "forgeable":
@@ -20,7 +20,7 @@ func TestLoadRejectsShortJWTSecret(t *testing.T) {
 
 	for _, secret := range tooShort {
 		t.Run(secret, func(t *testing.T) {
-			t.Setenv("KEYLITE_JWT_SECRET", secret)
+			t.Setenv("PORTICO_JWT_SECRET", secret)
 
 			_, err := config.Load()
 			if err == nil {
@@ -36,7 +36,7 @@ func TestLoadRejectsShortJWTSecret(t *testing.T) {
 }
 
 func TestLoadAcceptsSufficientJWTSecret(t *testing.T) {
-	t.Setenv("KEYLITE_JWT_SECRET", strings.Repeat("a", config.MinJWTSecretLength))
+	t.Setenv("PORTICO_JWT_SECRET", strings.Repeat("a", config.MinJWTSecretLength))
 
 	cfg, err := config.Load()
 	if err != nil {
@@ -50,7 +50,7 @@ func TestLoadAcceptsSufficientJWTSecret(t *testing.T) {
 // An unset secret still starts — first-run friction matters — but must be
 // randomly generated and flagged, never silently weak.
 func TestLoadGeneratesSecretWhenUnset(t *testing.T) {
-	t.Setenv("KEYLITE_JWT_SECRET", "")
+	t.Setenv("PORTICO_JWT_SECRET", "")
 
 	first, err := config.Load()
 	if err != nil {
@@ -76,8 +76,8 @@ func TestLoadGeneratesSecretWhenUnset(t *testing.T) {
 // Proxy headers must be opt-in: believing them by default lets any caller
 // forge the IP recorded in the audit log.
 func TestTrustProxyHeadersDefaultsOff(t *testing.T) {
-	t.Setenv("KEYLITE_JWT_SECRET", strings.Repeat("a", config.MinJWTSecretLength))
-	t.Setenv("KEYLITE_TRUST_PROXY_HEADERS", "")
+	t.Setenv("PORTICO_JWT_SECRET", strings.Repeat("a", config.MinJWTSecretLength))
+	t.Setenv("PORTICO_TRUST_PROXY_HEADERS", "")
 
 	cfg, err := config.Load()
 	if err != nil {
@@ -89,8 +89,8 @@ func TestTrustProxyHeadersDefaultsOff(t *testing.T) {
 }
 
 func TestTrustProxyHeadersOptIn(t *testing.T) {
-	t.Setenv("KEYLITE_JWT_SECRET", strings.Repeat("a", config.MinJWTSecretLength))
-	t.Setenv("KEYLITE_TRUST_PROXY_HEADERS", "true")
+	t.Setenv("PORTICO_JWT_SECRET", strings.Repeat("a", config.MinJWTSecretLength))
+	t.Setenv("PORTICO_TRUST_PROXY_HEADERS", "true")
 
 	cfg, err := config.Load()
 	if err != nil {
@@ -102,7 +102,7 @@ func TestTrustProxyHeadersOptIn(t *testing.T) {
 }
 
 func TestTokenTTLParsing(t *testing.T) {
-	t.Setenv("KEYLITE_JWT_SECRET", strings.Repeat("a", config.MinJWTSecretLength))
+	t.Setenv("PORTICO_JWT_SECRET", strings.Repeat("a", config.MinJWTSecretLength))
 
 	tests := []struct {
 		value       string
@@ -117,7 +117,7 @@ func TestTokenTTLParsing(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.value, func(t *testing.T) {
-			t.Setenv("KEYLITE_TOKEN_TTL", tt.value)
+			t.Setenv("PORTICO_TOKEN_TTL", tt.value)
 
 			cfg, err := config.Load()
 			if tt.wantError {

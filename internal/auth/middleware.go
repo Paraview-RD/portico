@@ -6,8 +6,8 @@ import (
 	"net/http"
 	"strings"
 
-	"github.com/paraview/keylite/internal/httpx"
-	"github.com/paraview/keylite/internal/model"
+	"github.com/paraview/portico/internal/httpx"
+	"github.com/paraview/portico/internal/model"
 )
 
 // Account is the subset of a user record the middleware needs in order to

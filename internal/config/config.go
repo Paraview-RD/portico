@@ -2,7 +2,7 @@
 //
 // Every setting has a usable default so that running the binary with no
 // environment at all starts a working single-node instance. The only
-// exception is KEYLITE_JWT_SECRET: a random secret is generated at startup
+// exception is PORTICO_JWT_SECRET: a random secret is generated at startup
 // when it is unset, which is fine for a first run but invalidates all
 // tokens on restart, so production deployments must set it explicitly.
 package config
@@ -67,24 +67,24 @@ type Config struct {
 // Load reads configuration from the environment, applying defaults.
 func Load() (*Config, error) {
 	cfg := &Config{
-		Addr:            envString("KEYLITE_ADDR", ":8410"),
-		DatabaseDriver:  envString("KEYLITE_DB_DRIVER", "sqlite"),
-		DatabaseDSN:     envString("KEYLITE_DB_DSN", "keylite.db"),
-		LogLevel:        envString("KEYLITE_LOG_LEVEL", "info"),
+		Addr:            envString("PORTICO_ADDR", ":8410"),
+		DatabaseDriver:  envString("PORTICO_DB_DRIVER", "sqlite"),
+		DatabaseDSN:     envString("PORTICO_DB_DSN", "portico.db"),
+		LogLevel:        envString("PORTICO_LOG_LEVEL", "info"),
 		ShutdownTimeout: 15 * time.Second,
 
-		InitialAdminUsername: envString("KEYLITE_INITIAL_ADMIN_USERNAME", "admin"),
-		InitialAdminPassword: os.Getenv("KEYLITE_INITIAL_ADMIN_PASSWORD"),
-		TrustProxyHeaders:    os.Getenv("KEYLITE_TRUST_PROXY_HEADERS") == "true",
+		InitialAdminUsername: envString("PORTICO_INITIAL_ADMIN_USERNAME", "admin"),
+		InitialAdminPassword: os.Getenv("PORTICO_INITIAL_ADMIN_PASSWORD"),
+		TrustProxyHeaders:    os.Getenv("PORTICO_TRUST_PROXY_HEADERS") == "true",
 	}
 
-	ttl, err := envDuration("KEYLITE_TOKEN_TTL", 2*time.Hour)
+	ttl, err := envDuration("PORTICO_TOKEN_TTL", 2*time.Hour)
 	if err != nil {
 		return nil, err
 	}
 	cfg.TokenTTL = ttl
 
-	secret := os.Getenv("KEYLITE_JWT_SECRET")
+	secret := os.Getenv("PORTICO_JWT_SECRET")
 	if secret == "" {
 		generated, err := randomSecret()
 		if err != nil {
@@ -101,7 +101,7 @@ func Load() (*Config, error) {
 		// — that would hide the misconfiguration instead of surfacing it.
 		if len(secret) < MinJWTSecretLength {
 			return nil, fmt.Errorf(
-				"KEYLITE_JWT_SECRET is %d bytes; it must be at least %d. Generate one with: openssl rand -hex 32",
+				"PORTICO_JWT_SECRET is %d bytes; it must be at least %d. Generate one with: openssl rand -hex 32",
 				len(secret), MinJWTSecretLength)
 		}
 		cfg.JWTSecret = []byte(secret)

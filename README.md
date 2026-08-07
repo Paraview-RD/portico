@@ -1,60 +1,53 @@
-# Keylite
+# Portico
 
-A lightweight, self-hostable Identity & Access Management system. One Go
-binary with the web UI compiled in, a SQLite file for storage, and no
-external services — built for the "we just need accounts, sign-in, and two
-roles" case that full IAM platforms over-serve.
+A self-hostable identity platform: standard single sign-on, multi-tenant
+isolation, and a complete self-service flow — deployable as one Go binary
+with the web UI compiled in.
 
-Installing it is downloading one file and running it. The server creates its
-database, applies its migrations, prints an administrator password once, and
-serves the UI on <http://localhost:8410>.
+> **Status: pre-release, under active development.** Nothing has been
+> published yet, and the protocol support described below is being built.
+> See [CHANGELOG.md](CHANGELOG.md) for what actually exists today.
 
-```bash
-# Pick the build for your platform from the releases page
-curl -LO https://github.com/paraview/keylite/releases/latest/download/keylite_0.1.0_linux_amd64.tar.gz
-tar -xzf keylite_0.1.0_linux_amd64.tar.gz
-KEYLITE_JWT_SECRET=$(openssl rand -hex 32) ./keylite
-```
+## What it does
 
-Releases ship binaries for Linux, macOS, and Windows on amd64 and arm64, each
-with an SPDX SBOM, plus a multi-architecture image at
-`ghcr.io/paraview/keylite`. The checksum file is signed through Sigstore —
-[verification instructions](https://github.com/paraview/keylite/releases/latest)
-are on every release.
+**Standard single sign-on** — OAuth 2.1, OpenID Connect 1.0, SAML 2.0, and
+CAS, so existing business systems integrate without a bespoke protocol.
 
-> **Before exposing this to a network:** Keylite serves plain HTTP and does
+**Multi-tenant** — every table carries a tenant, and isolation is enforced
+in the query layer rather than left to reviewer discipline. Each tenant has
+its own administrators; tenants are provisioned from the command line, so no
+role exists that can see across all of them.
+
+**Accounts and organizations** — create, edit, enable/disable, bulk-import
+from a spreadsheet. Accounts are disabled, never deleted, so the audit trail
+stays intact. Users belong to one organization.
+
+**Sign in three ways** — username, phone, or email, all producing the same
+credential.
+
+**Self-service** — registration (optional, off by default), password change,
+password recovery by email or SMS, and profile maintenance, with no
+administrator in the loop.
+
+**Sessions that actually revoke** — logout, a password change, and disabling
+an account each invalidate live sessions immediately, not at token expiry.
+
+**Audit log** — sign-ins, operations, authorization, registrations, and
+organization changes, filterable by type and time range.
+
+**Bilingual UI** — English and 简体中文, switchable at runtime.
+
+Deliberately **not** in this version: custom roles and permissions (there are
+two fixed roles), third-party and social login, SCIM, webhooks, MFA, and rate
+limiting. The roadmap for those is in
+[docs/requirements/v0.1-requirements.md](docs/requirements/v0.1-requirements.md).
+
+> **Before exposing this to a network:** Portico serves plain HTTP and does
 > not rate-limit sign-in attempts, both deliberately. It must run behind a
 > reverse proxy that terminates TLS and throttles `/api/v1/auth/*` — see
 > [SECURITY.md](SECURITY.md) for why and
 > [docs/access-guide.md](docs/access-guide.md) for working nginx and Caddy
 > configurations.
-
-## What it does
-
-- **Accounts** — create, edit, enable/disable, reset passwords, search.
-  Accounts are never deleted, so the audit trail stays intact.
-- **Bulk import** — migrate existing users from an `.xlsx` file. Rows are
-  independent: valid rows import even when others fail, and you get a
-  per-row report of what to fix.
-- **Self-registration** — optional, off by default, toggled at runtime.
-- **Two fixed roles** — administrator and user. No RBAC to configure.
-- **Organizations** — a single flat tier for grouping users.
-- **Sign-in and sessions** — self-issued JWTs. Logout, a password change,
-  and disabling an account all revoke live sessions immediately.
-- **Audit log** — sign-ins, operations, authorization, registrations, and
-  organization changes, filterable by type and time range.
-- **Downstream integration** — two endpoints let a business system identify
-  the caller and sync their profile and organization.
-- **Bilingual UI** — English and 简体中文, switchable at runtime.
-
-Deliberately **not** included: OAuth2/OIDC/SAML, multi-application
-isolation, third-party or LDAP sign-in, custom roles and permissions, MFA,
-and rate limiting. See
-[docs/requirements/mvp-requirements.md](docs/requirements/mvp-requirements.md)
-for the full scope and the post-MVP direction.
-
-> **Status:** feature-complete against the MVP scope and verified end to
-> end, but not yet used in production anywhere. Treat it as early software.
 
 ## Running it
 
@@ -66,8 +59,8 @@ than serving a blank page).
 
 ```bash
 cd web && npm ci && npm run build && cd ..
-go build -o keylite ./cmd/server
-KEYLITE_JWT_SECRET=$(openssl rand -hex 32) ./keylite
+go build -o portico ./cmd/server
+PORTICO_JWT_SECRET=$(openssl rand -hex 32) ./portico
 ```
 
 Requires Go 1.25.7+ (a dependency sets that floor) and Node 22+.
@@ -77,13 +70,13 @@ Requires Go 1.25.7+ (a dependency sets that floor) and Node 22+.
 Nothing to install but Docker — the image build runs both steps itself.
 
 ```bash
-export KEYLITE_JWT_SECRET=$(openssl rand -hex 32)
+export PORTICO_JWT_SECRET=$(openssl rand -hex 32)
 docker compose -f deploy/docker-compose.yml up -d
 ```
 
 Configuration is entirely environment variables — see
 [.env.example](.env.example) for the full list. Every one has a working
-default except `KEYLITE_JWT_SECRET`, which you should set explicitly:
+default except `PORTICO_JWT_SECRET`, which you should set explicitly:
 without it a random secret is generated per start and every session dies on
 restart.
 
@@ -164,7 +157,7 @@ Participation is governed by our
 [Code of Conduct](CODE_OF_CONDUCT.md).
 
 **Found a security problem?** Do not open an issue — report it privately
-through [Security → Report a vulnerability](https://github.com/paraview/keylite/security/advisories/new).
+through [Security → Report a vulnerability](https://github.com/paraview/portico/security/advisories/new).
 See [SECURITY.md](SECURITY.md).
 
 ## License

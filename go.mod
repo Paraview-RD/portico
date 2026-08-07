@@ -1,4 +1,4 @@
-module github.com/paraview/keylite
+module github.com/paraview/portico
 
 go 1.25.7
 

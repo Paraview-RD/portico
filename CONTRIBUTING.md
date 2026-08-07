@@ -1,4 +1,4 @@
-# Contributing to Keylite
+# Contributing to Portico
 
 Thanks for your interest in contributing. This project is licensed under
 [Apache License 2.0](./LICENSE); by submitting a contribution you agree it
@@ -63,14 +63,14 @@ Prerequisites: **Go 1.25.7+** (a dependency sets that floor), **Node 22+**,
 and — only if you change a SQL query — [`sqlc`](https://sqlc.dev).
 
 ```bash
-git clone https://github.com/paraview/keylite.git
-cd keylite
+git clone https://github.com/paraview/portico.git
+cd portico
 
 # The frontend compiles into the binary, so build it first. A Go-only build
 # produces a working API and no UI.
 cd web && npm ci && npm run build && cd ..
 
-go build -o keylite ./cmd/server
+go build -o portico ./cmd/server
 go test ./...
 ```
 
@@ -78,7 +78,7 @@ Run it with a real signing secret — the server refuses to start with a weak
 one:
 
 ```bash
-KEYLITE_JWT_SECRET=$(openssl rand -hex 32) ./keylite
+PORTICO_JWT_SECRET=$(openssl rand -hex 32) ./portico
 ```
 
 It prints a generated administrator password on first start. The UI is on

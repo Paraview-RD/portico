@@ -5,7 +5,7 @@ import (
 	"net/http/httptest"
 	"testing"
 
-	"github.com/paraview/keylite/internal/httpx"
+	"github.com/paraview/portico/internal/httpx"
 )
 
 func TestSecurityHeadersAreSet(t *testing.T) {

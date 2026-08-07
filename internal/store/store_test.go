@@ -7,8 +7,8 @@ import (
 	"testing"
 	"time"
 
-	"github.com/paraview/keylite/internal/store"
-	"github.com/paraview/keylite/internal/store/sqlcgen"
+	"github.com/paraview/portico/internal/store"
+	"github.com/paraview/portico/internal/store/sqlcgen"
 )
 
 // newTestStore opens a throwaway database on disk. A file (rather than

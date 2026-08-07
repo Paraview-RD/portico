@@ -1,4 +1,4 @@
-// Command server runs the Keylite API and serves the embedded web UI.
+// Command server runs the Portico API and serves the embedded web UI.
 package main
 
 import (
@@ -12,8 +12,8 @@ import (
 	"syscall"
 	"time"
 
-	"github.com/paraview/keylite/internal/config"
-	"github.com/paraview/keylite/internal/server"
+	"github.com/paraview/portico/internal/config"
+	"github.com/paraview/portico/internal/server"
 )
 
 func main() {
@@ -24,13 +24,13 @@ func main() {
 	if len(os.Args) > 1 {
 		switch os.Args[1] {
 		case "--version", "-v", "version":
-			fmt.Println("keylite", server.Version)
+			fmt.Println("portico", server.Version)
 			return
 		case "--help", "-h", "help":
 			usage()
 			return
 		default:
-			fmt.Fprintf(os.Stderr, "keylite: unknown argument %q\n\n", os.Args[1])
+			fmt.Fprintf(os.Stderr, "portico: unknown argument %q\n\n", os.Args[1])
 			usage()
 			os.Exit(2)
 		}
@@ -45,32 +45,32 @@ func main() {
 // usage prints the whole interface, which is environment variables — there
 // are no flags beyond the two above.
 func usage() {
-	fmt.Printf(`keylite %s — lightweight identity and access management
+	fmt.Printf(`portico %s — lightweight identity and access management
 
 Usage:
-  keylite              start the server
-  keylite --version    print the version
-  keylite --help       print this message
+  portico              start the server
+  portico --version    print the version
+  portico --help       print this message
 
 Configuration is entirely environment variables:
 
-  KEYLITE_ADDR                     listen address (default ":8410")
-  KEYLITE_DB_DRIVER                storage driver (default "sqlite")
-  KEYLITE_DB_DSN                   database file (default "keylite.db")
-  KEYLITE_JWT_SECRET               token signing secret; at least %d bytes.
+  PORTICO_ADDR                     listen address (default ":8410")
+  PORTICO_DB_DRIVER                storage driver (default "sqlite")
+  PORTICO_DB_DSN                   database file (default "portico.db")
+  PORTICO_JWT_SECRET               token signing secret; at least %d bytes.
                                    Generate with: openssl rand -hex 32
-  KEYLITE_TOKEN_TTL                token lifetime, e.g. "2h" (default "2h")
-  KEYLITE_TRUST_PROXY_HEADERS      trust X-Forwarded-For (default false; only
+  PORTICO_TOKEN_TTL                token lifetime, e.g. "2h" (default "2h")
+  PORTICO_TRUST_PROXY_HEADERS      trust X-Forwarded-For (default false; only
                                    enable behind a proxy you control)
-  KEYLITE_INITIAL_ADMIN_USERNAME   bootstrap admin name (default "admin")
-  KEYLITE_INITIAL_ADMIN_PASSWORD   bootstrap admin password; generated and
+  PORTICO_INITIAL_ADMIN_USERNAME   bootstrap admin name (default "admin")
+  PORTICO_INITIAL_ADMIN_PASSWORD   bootstrap admin password; generated and
                                    printed once if unset
-  KEYLITE_LOG_LEVEL                debug | info | warn | error (default "info")
+  PORTICO_LOG_LEVEL                debug | info | warn | error (default "info")
 
-Keylite serves plain HTTP and does not rate-limit sign-in attempts. Run it
+Portico serves plain HTTP and does not rate-limit sign-in attempts. Run it
 behind a reverse proxy that terminates TLS and throttles /api/v1/auth/*.
 
-Documentation: https://github.com/paraview/keylite
+Documentation: https://github.com/paraview/portico
 `, server.Version, config.MinJWTSecretLength)
 }
 
@@ -83,7 +83,7 @@ func run() error {
 	setupLogging(cfg.LogLevel)
 
 	if cfg.JWTSecretGenerated {
-		slog.Warn("KEYLITE_JWT_SECRET is not set; generated a random one. " +
+		slog.Warn("PORTICO_JWT_SECRET is not set; generated a random one. " +
 			"All sessions will be invalidated on restart — set it explicitly in production.")
 	}
 
@@ -158,5 +158,5 @@ func setupLogging(level string) {
 
 	// service_name is attached once rather than at each call site, so it can
 	// never be forgotten.
-	slog.SetDefault(slog.New(handler).With("service_name", "keylite"))
+	slog.SetDefault(slog.New(handler).With("service_name", "portico"))
 }

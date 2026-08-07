@@ -1,19 +1,19 @@
 name: Feature request
-description: Suggest something Keylite should do
+description: Suggest something Portico should do
 labels: ["enhancement", "needs triage"]
 body:
   - type: markdown
     attributes:
       value: |
-        Keylite is deliberately small. Several things are **out of scope on
-        purpose** — OAuth 2.0 / OIDC / SAML, multi-application isolation,
-        third-party and LDAP sign-in, custom roles and permissions, MFA, and
-        rate limiting. See the README and
-        [the requirements document](https://github.com/paraview/keylite/blob/main/docs/requirements/mvp-requirements.md).
+        Some things are **out of scope on purpose** for the current version —
+        custom roles and permissions, third-party and social sign-in, SCIM,
+        webhooks, MFA, and rate limiting. Several are already scheduled; see
+        the roadmap in
+        [the requirements document](https://github.com/paraview/portico/blob/main/docs/requirements/v0.1-requirements.md).
 
-        That does not make them permanently off the table, but a request to add
-        one needs to argue why it belongs in a project whose pitch is
-        minimalism.
+        That does not make anything permanently off the table, but a request
+        for something already on the roadmap is more useful as a comment on
+        the existing plan than as a new issue.
 
   - type: textarea
     id: problem
@@ -37,7 +37,7 @@ body:
     attributes:
       label: What have you considered instead?
       description: >
-        Including working around it outside Keylite — at the reverse proxy, or
+        Including working around it outside Portico — at the reverse proxy, or
         in the system consuming it. If that is possible but unpleasant, say why.
 
   - type: checkboxes

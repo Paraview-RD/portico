@@ -15,11 +15,11 @@ sql:
           # dbtime.Time carries the conversion instead.
           - column: "*.created_at"
             go_type:
-              import: "github.com/paraview/keylite/internal/store/dbtime"
+              import: "github.com/paraview/portico/internal/store/dbtime"
               package: "dbtime"
               type: "Time"
           - column: "*.updated_at"
             go_type:
-              import: "github.com/paraview/keylite/internal/store/dbtime"
+              import: "github.com/paraview/portico/internal/store/dbtime"
               package: "dbtime"
               type: "Time"

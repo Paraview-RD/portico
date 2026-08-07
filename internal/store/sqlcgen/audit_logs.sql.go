@@ -8,7 +8,7 @@ package sqlcgen
 import (
 	"context"
 
-	dbtime "github.com/paraview/keylite/internal/store/dbtime"
+	dbtime "github.com/paraview/portico/internal/store/dbtime"
 )
 
 const createAuditLog = `-- name: CreateAuditLog :exec

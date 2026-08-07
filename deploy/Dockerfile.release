@@ -5,7 +5,7 @@
 # `docker build` and for docker-compose.
 FROM scratch
 
-# GoReleaser lays the build context out as <os>/<arch>/keylite, so the copy
+# GoReleaser lays the build context out as <os>/<arch>/portico, so the copy
 # has to be platform-aware for the multi-platform build to pick the right one.
 ARG TARGETPLATFORM
 
@@ -13,12 +13,12 @@ ARG TARGETPLATFORM
 # (nobody); the /data volume below is writable by it.
 USER 65534:65534
 
-COPY $TARGETPLATFORM/keylite /keylite
+COPY $TARGETPLATFORM/portico /portico
 
 # The database is a file; mount a volume here to keep it across restarts.
 VOLUME ["/data"]
-ENV KEYLITE_DB_DSN=/data/keylite.db
-ENV KEYLITE_ADDR=:8410
+ENV PORTICO_DB_DSN=/data/portico.db
+ENV PORTICO_ADDR=:8410
 
 EXPOSE 8410
-ENTRYPOINT ["/keylite"]
+ENTRYPOINT ["/portico"]

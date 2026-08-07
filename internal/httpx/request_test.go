@@ -7,7 +7,7 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/paraview/keylite/internal/httpx"
+	"github.com/paraview/portico/internal/httpx"
 )
 
 type payload struct {

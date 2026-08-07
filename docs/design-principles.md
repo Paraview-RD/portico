@@ -1,7 +1,7 @@
 # Design Principles
 
 Rules for how the frontend is styled, not what it should look like.
-Keylite's actual color palette, type choices, and spacing values live in
+Portico's actual color palette, type choices, and spacing values live in
 [`web/src/styles/theme.css`](../web/src/styles/theme.css) — this document
 never repeats a concrete value, so it can't drift out of sync with the
 code. If you're deciding what a color should *be*, edit that file. If

@@ -7,7 +7,7 @@ runtime.
 
 **None.**
 
-That is deliberate rather than an omission. Keylite has no external
+That is deliberate rather than an omission. Portico has no external
 identity provider, no message broker, no cache, no object store, and no
 separate database server — the database is a file, and the frontend is
 compiled into the binary. A deployment is one process with one volume.

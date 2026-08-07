@@ -6,7 +6,7 @@
 # README once shipped.
 version: 2
 
-project_name: keylite
+project_name: portico
 
 before:
   hooks:
@@ -15,9 +15,9 @@ before:
     - sh -c "cd web && npm run build"
 
 builds:
-  - id: keylite
+  - id: portico
     main: ./cmd/server
-    binary: keylite
+    binary: portico
     # Pure-Go sqlite driver, so cgo stays off and every target
     # cross-compiles from one machine.
     env:
@@ -31,11 +31,11 @@ builds:
       - arm64
     ldflags:
       - -s -w
-      - -X github.com/paraview/keylite/internal/server.Version={{ .Version }}
+      - -X github.com/paraview/portico/internal/server.Version={{ .Version }}
     mod_timestamp: "{{ .CommitTimestamp }}"
 
 archives:
-  - id: keylite
+  - id: portico
     formats: [tar.gz]
     format_overrides:
       - goos: windows
@@ -65,7 +65,7 @@ signs:
   # rotate, and the signature is tied to the GitHub Actions identity that
   # produced it. Verify with:
   #   cosign verify-blob --certificate <file>.pem --signature <file>.sig \
-  #     --certificate-identity-regexp 'https://github.com/paraview/keylite' \
+  #     --certificate-identity-regexp 'https://github.com/paraview/portico' \
   #     --certificate-oidc-issuer https://token.actions.githubusercontent.com <file>
   - cmd: cosign
     signature: "${artifact}.sig"
@@ -83,10 +83,10 @@ signs:
 # publish phase. The build context is a temp tree laid out per platform, not
 # the source tree — see deploy/Dockerfile.release.
 dockers_v2:
-  - id: keylite
+  - id: portico
     dockerfile: deploy/Dockerfile.release
     images:
-      - "ghcr.io/paraview/keylite"
+      - "ghcr.io/paraview/portico"
     tags:
       - "{{ .Version }}"
       - "{{ if not .Prerelease }}latest{{ end }}"
@@ -99,7 +99,7 @@ dockers_v2:
       org.opencontainers.image.version: "{{ .Version }}"
       org.opencontainers.image.revision: "{{ .FullCommit }}"
       org.opencontainers.image.created: "{{ .Date }}"
-      org.opencontainers.image.source: "https://github.com/paraview/keylite"
+      org.opencontainers.image.source: "https://github.com/paraview/portico"
       org.opencontainers.image.licenses: "Apache-2.0"
 
 changelog:
@@ -111,7 +111,7 @@ release:
   draft: false
   prerelease: auto
   header: |
-    ## Keylite {{ .Version }}
+    ## Portico {{ .Version }}
 
     A lightweight, self-hostable Identity & Access Management system —
     one binary, one SQLite file, no external services.
@@ -128,12 +128,12 @@ release:
     cosign verify-blob \
       --certificate checksums.txt.pem \
       --signature checksums.txt.sig \
-      --certificate-identity-regexp 'https://github.com/paraview/keylite' \
+      --certificate-identity-regexp 'https://github.com/paraview/portico' \
       --certificate-oidc-issuer https://token.actions.githubusercontent.com \
       checksums.txt
     ```
 
-    **Before you deploy:** Keylite serves plain HTTP and does not rate-limit
+    **Before you deploy:** Portico serves plain HTTP and does not rate-limit
     sign-in attempts. It must sit behind a reverse proxy that terminates TLS
     and throttles `/api/v1/auth/*` — see
-    [SECURITY.md](https://github.com/paraview/keylite/blob/main/SECURITY.md).
+    [SECURITY.md](https://github.com/paraview/portico/blob/main/SECURITY.md).

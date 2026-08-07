@@ -8,11 +8,11 @@ import (
 
 	"github.com/google/uuid"
 
-	"github.com/paraview/keylite/internal/auth"
-	"github.com/paraview/keylite/internal/httpx"
-	"github.com/paraview/keylite/internal/model"
-	"github.com/paraview/keylite/internal/store"
-	"github.com/paraview/keylite/internal/store/sqlcgen"
+	"github.com/paraview/portico/internal/auth"
+	"github.com/paraview/portico/internal/httpx"
+	"github.com/paraview/portico/internal/model"
+	"github.com/paraview/portico/internal/store"
+	"github.com/paraview/portico/internal/store/sqlcgen"
 )
 
 // Session is what a successful login returns.

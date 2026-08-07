@@ -8,9 +8,9 @@ import (
 	"testing"
 	"time"
 
-	"github.com/paraview/keylite/internal/auth"
-	"github.com/paraview/keylite/internal/httpx"
-	"github.com/paraview/keylite/internal/model"
+	"github.com/paraview/portico/internal/auth"
+	"github.com/paraview/portico/internal/httpx"
+	"github.com/paraview/portico/internal/model"
 )
 
 // stubLookup returns a fixed account, or ErrUserNotFound when absent.

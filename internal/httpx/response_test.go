@@ -7,7 +7,7 @@ import (
 	"net/http/httptest"
 	"testing"
 
-	"github.com/paraview/keylite/internal/httpx"
+	"github.com/paraview/portico/internal/httpx"
 )
 
 func decode(t *testing.T, rec *httptest.ResponseRecorder) httpx.Envelope {

@@ -7,11 +7,11 @@ import (
 
 	"github.com/golang-jwt/jwt/v5"
 
-	"github.com/paraview/keylite/internal/model"
+	"github.com/paraview/portico/internal/model"
 )
 
 // Issuer is the iss claim on every token this system mints.
-const Issuer = "keylite"
+const Issuer = "portico"
 
 // Errors returned by Verify. Callers map these to the API error codes that
 // distinguish an expired session from a revoked one.

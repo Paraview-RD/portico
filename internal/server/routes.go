@@ -6,13 +6,13 @@ import (
 
 	"github.com/go-chi/chi/v5"
 
-	"github.com/paraview/keylite/internal/httpx"
-	"github.com/paraview/keylite/internal/web"
+	"github.com/paraview/portico/internal/httpx"
+	"github.com/paraview/portico/internal/web"
 )
 
 // Version is the running build's version, overridden at link time:
 //
-//	go build -ldflags "-X github.com/paraview/keylite/internal/server.Version=v0.1.0"
+//	go build -ldflags "-X github.com/paraview/portico/internal/server.Version=v0.1.0"
 var Version = "dev"
 
 func (s *Server) routes() http.Handler {

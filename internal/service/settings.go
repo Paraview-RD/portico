@@ -11,9 +11,9 @@ import (
 	"sync"
 	"time"
 
-	"github.com/paraview/keylite/internal/httpx"
-	"github.com/paraview/keylite/internal/store"
-	"github.com/paraview/keylite/internal/store/sqlcgen"
+	"github.com/paraview/portico/internal/httpx"
+	"github.com/paraview/portico/internal/store"
+	"github.com/paraview/portico/internal/store/sqlcgen"
 )
 
 // Setting keys. These are the runtime-tunable values from §3.10.
@@ -75,7 +75,7 @@ func NewSettingsService(st *store.Store, defaultTokenTTL time.Duration) *Setting
 			// Registration is off by default: an instance that is exposed
 			// before anyone configures it should not accept sign-ups.
 			RegistrationEnabled: false,
-			SystemName:          "Keylite",
+			SystemName:          "Portico",
 		},
 	}
 }

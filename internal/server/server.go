@@ -8,12 +8,12 @@ import (
 	"net/http"
 	"os"
 
-	"github.com/paraview/keylite/internal/auth"
-	"github.com/paraview/keylite/internal/config"
-	"github.com/paraview/keylite/internal/handler"
-	"github.com/paraview/keylite/internal/httpx"
-	"github.com/paraview/keylite/internal/service"
-	"github.com/paraview/keylite/internal/store"
+	"github.com/paraview/portico/internal/auth"
+	"github.com/paraview/portico/internal/config"
+	"github.com/paraview/portico/internal/handler"
+	"github.com/paraview/portico/internal/httpx"
+	"github.com/paraview/portico/internal/service"
+	"github.com/paraview/portico/internal/store"
 )
 
 // Server owns every long-lived dependency the HTTP layer needs.
@@ -84,7 +84,7 @@ func (s *Server) Bootstrap(ctx context.Context) error {
 
   This password is shown once and stored nowhere. Sign in and
   change it. To choose it yourself instead, set
-  KEYLITE_INITIAL_ADMIN_PASSWORD before first start.
+  PORTICO_INITIAL_ADMIN_PASSWORD before first start.
 ────────────────────────────────────────────────────────────────
 
 `, s.cfg.InitialAdminUsername, generatedPassword)

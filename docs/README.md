@@ -1,11 +1,11 @@
 # Documentation
 
-## Using and operating Keylite
+## Using and operating Portico
 
 - **[access-guide.md](access-guide.md)** — entry points, where credentials
-  come from, what each role can do, and how to put Keylite behind a reverse
+  come from, what each role can do, and how to put Portico behind a reverse
   proxy. Start here to deploy it.
-- **[integrations.md](integrations.md)** — external services Keylite depends
+- **[integrations.md](integrations.md)** — external services Portico depends
   on at runtime (there are none, deliberately) and what that implies.
 
 ## Contributing
@@ -32,7 +32,10 @@ actually does, so a reviewer can check a change against them:
 
 ## Background
 
-- **[requirements/mvp-requirements.md](requirements/mvp-requirements.md)** —
-  the original requirements the MVP was built against, including what was
-  deliberately excluded and the intended direction afterwards. Written in
-  Simplified Chinese.
+- **[requirements/v0.1-requirements.md](requirements/v0.1-requirements.md)** —
+  the requirements for the current version, including what is deliberately
+  excluded and the V0.2–V0.4 roadmap. Written in Simplified Chinese.
+- **[requirements/v0.1-baseline-mvp.md](requirements/v0.1-baseline-mvp.md)** —
+  the earlier, narrower scope the first working version was built against.
+  Kept because the code still reflects many of its decisions, and because it
+  records why things like "disable, never delete" exist.
