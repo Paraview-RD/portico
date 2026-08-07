@@ -27,8 +27,8 @@
 | 0 | 改名 Portico + 定位重写 + 版本回退 | ✅ `9245b6c` |
 | 1 | 迁移 PostgreSQL | ✅ `22b2b6c` |
 | 2 | 多租户隔离 | ✅ `d16a2a8`（前置修复 `5f879c4`） |
-| 3 | 多凭证登录 + 自服务闭环 | 🔄 下一步 |
-| 4 | OIDC + OAuth 2.1 | ⬜ |
+| 3 | 多凭证登录 + 自服务闭环 | ✅ `5e29d2f` + `08f0086` |
+| 4 | OIDC + OAuth 2.1 | 🔄 下一步 |
 | 5 | SAML 2.0 | ⬜ |
 | 6 | CAS | ⬜ |
 
@@ -38,6 +38,10 @@
 - **已认证请求的租户只来自 principal**：`X-Portico-Tenant` 仅公开端点可读（`handler/resolvePublicTenant`），认证后忽略
 - **改了 `00001_init.sql` 本地库不会自动更新**：goose 已记 00001 为已应用，须 drop/create 库；测试不受影响（每个测试独立库），所以 `go test` 全绿也不代表本地库是新的
 - **租户开通走 CLI**：`portico tenant create|list|enable|disable`（`internal/provision`），无 API
+- **登录 vs 找回密码用不同查询，勿合并**：登录 `GetUserByIdentifier`（三列并集 + 用户名优先），找回密码 `GetUserByEmail`/`GetUserByPhone`（单列）。合并 = 账号接管（一个账号的用户名等于另一个账号的邮箱时，重置令牌会发错人），有测试守着
+- **users 三个租户内唯一约束**：username/email/phone，后两个是 partial index（空 = 未绑定）。约束名在迁移里显式声明，service 按 `pgErr.ConstraintName` 判断哪个字段冲突
+- **本地联调邮件**：Mailpit container `portico-mailpit`（SMTP 1026 / UI 8426），`PORTICO_SMTP_ENCRYPTION=none`
+- **测试替换发信**：`server.New(cfg, server.WithMailer(...))`
 - **分层守卫已存在**：`internal/server/layering_test.go`，改包结构时会失败，这是有意的
 - **前端编译进二进制**：Vite 输出到 `internal/web/dist`，`tsc --noEmit` 检查 0 文件（根 tsconfig 是 references 存根），必须用 `npm run typecheck`
 - **规范文档 8 份在 `docs/`**：改行为要同步改对应规范，文档描述的是代码实际行为
