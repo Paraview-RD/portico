@@ -169,6 +169,34 @@ export const enUS = {
   "profile.newPassword": "New password",
   "profile.confirmNewPassword": "Confirm new password",
   "profile.passwordChanged": "Password changed. Please sign in again.",
+  "login.forgotPassword": "Forgot your password?",
+  "profile.details": "Your details",
+  "profile.detailsSaved": "Saved.",
+  "profile.email": "Email",
+  "profile.phone": "Phone",
+  "profile.contactHint":
+    "Also works as a sign-in identifier, and is where a reset link would go.",
+  "recovery.title": "Reset your password",
+  "recovery.subtitle": "We will send you a link to choose a new one.",
+  "recovery.channel": "Send it by",
+  "recovery.channel.EMAIL": "Email",
+  "recovery.channel.SMS": "SMS",
+  "recovery.email": "Email address",
+  "recovery.phone": "Phone number",
+  "recovery.submit": "Send the link",
+  "recovery.sending": "Sending…",
+  "recovery.sent":
+    "If that matches an account, a reset link is on its way. It expires in 30 minutes.",
+  "recovery.unavailable":
+    "This deployment has no way to send a reset link. Ask an administrator to reset your password.",
+  "recovery.backToSignIn": "Back to sign in",
+  "reset.title": "Choose a new password",
+  "reset.submit": "Set the password",
+  "reset.saving": "Saving…",
+  "reset.done": "Your password has been changed. Sign in with it.",
+  "reset.missingToken":
+    "This link is incomplete. Open the one from your message, or ask for a new link.",
+  "reset.requestAnother": "Request a new link",
 } as const;
 
 export type TranslationKey = keyof typeof enUS;

@@ -84,6 +84,9 @@ export interface ImportResult {
   errors: ImportRowError[];
 }
 
+/** How a password-reset link reaches its owner. */
+export type RecoveryChannel = "EMAIL" | "SMS";
+
 export interface RegistrationStatus {
   registrationEnabled: boolean;
   systemName: string;

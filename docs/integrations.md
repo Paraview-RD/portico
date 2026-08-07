@@ -28,6 +28,22 @@ company relay, Amazon SES, Postmark, Resend, or a local Postfix.
 
 There is no vendor account to create and no API key held by this project.
 
+| Setting | Meaning |
+|---|---|
+| `PORTICO_SMTP_HOST` | Relay hostname. Empty means email recovery is unavailable, which is the default. |
+| `PORTICO_SMTP_PORT` | Default `587`. |
+| `PORTICO_SMTP_USERNAME` / `PORTICO_SMTP_PASSWORD` | Omit both to connect without authentication, which is normal for a relay on a private network. |
+| `PORTICO_SMTP_FROM` | Envelope and header sender. Required once a host is set. |
+| `PORTICO_SMTP_ENCRYPTION` | `starttls` (default), `tls`, or `none`. |
+| `PORTICO_PUBLIC_URL` | Where the links in those messages point. |
+
+STARTTLS is required rather than opportunistic. Opportunistic STARTTLS can be
+stripped by anyone on the path, and the message carries a password-reset
+link, so a silent downgrade is the whole threat.
+
+No credential belongs in the repository. `.env.example` lists the variable
+names only.
+
 ### SMS — optional
 
 Password recovery by phone needs an SMS gateway, and unlike email there is
@@ -57,7 +73,8 @@ deployment.
 
 | Dependency | Why it matters |
 |---|---|
-| `modernc.org/sqlite` | A pure-Go SQLite driver. No cgo means the binary cross-compiles freely and runs in a `scratch` container with no libc. A cgo-based driver would forfeit both. |
+| `github.com/jackc/pgx/v5` | The PostgreSQL driver, used through `database/sql`. Pure Go, so the binary still cross-compiles freely and runs in a `scratch` container with no libc. |
+| `github.com/wneessen/go-mail` | Builds and sends the recovery messages. Chosen over `net/smtp` for correct address and header encoding — getting that wrong is how a crafted recipient turns into extra envelope commands. |
 | `github.com/pressly/goose/v3` | Used as a library, not a CLI, so migrations run at startup and there is no separate tool to ship or run. |
 | `github.com/xuri/excelize/v2` | Reads and writes the bulk-import workbooks. |
 | `github.com/golang-jwt/jwt/v5` | Signs and verifies access tokens. |

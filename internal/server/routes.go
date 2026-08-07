@@ -34,12 +34,20 @@ func (s *Server) routes() http.Handler {
 		// Lets the sign-in screen decide whether to offer registration.
 		r.Get("/auth/registration-status", h.RegistrationStatus)
 
+		// Password recovery (§3.5). All three are public by necessity: the
+		// caller is someone who cannot sign in. None reveals whether an
+		// account exists.
+		r.Get("/auth/recovery-channels", h.RecoveryChannels)
+		r.Post("/auth/password-recovery", h.RequestPasswordRecovery)
+		r.Post("/auth/password-recovery/confirm", h.ConfirmPasswordRecovery)
+
 		// --- Any signed-in user ---------------------------------------
 		r.Group(func(r chi.Router) {
 			r.Use(mw.RequireAuth)
 
 			r.Post("/auth/logout", h.Logout)
 			r.Get("/users/me", h.Me)
+			r.Put("/users/me", h.UpdateOwnProfile)
 			r.Post("/users/me/password", h.ChangeOwnPassword)
 
 			// Open endpoints for downstream systems (§3.7). They are

@@ -1,0 +1,26 @@
+-- name: CreatePasswordReset :exec
+INSERT INTO password_resets (
+    id, tenant_id, user_id, token_hash, channel, expires_at, created_at
+) VALUES ($1, $2, $3, $4, $5, $6, $7);
+
+-- name: GetLivePasswordReset :one
+-- A token is usable only if it is unspent and unexpired. Both conditions are
+-- in the query rather than checked afterwards, so a caller cannot act on a
+-- row it forgot to validate — there is no way to fetch a dead one.
+SELECT * FROM password_resets
+WHERE tenant_id = $1
+  AND token_hash = $2
+  AND used_at IS NULL
+  AND expires_at > $3
+LIMIT 1;
+
+-- name: SpendPasswordReset :exec
+UPDATE password_resets SET used_at = $1 WHERE tenant_id = $2 AND id = $3;
+
+-- name: SupersedePasswordResets :exec
+-- Marks a user's outstanding requests spent, so asking again invalidates the
+-- previous link. Without this, every request a user ever made stays live
+-- until it expires, and someone who has read one old message can use it.
+UPDATE password_resets
+SET used_at = $1
+WHERE tenant_id = $2 AND user_id = $3 AND used_at IS NULL;

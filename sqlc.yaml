@@ -24,6 +24,15 @@ sql:
             go_type:
               type: "string"
               pointer: true
+          # Same reasoning for a nullable timestamp: *time.Time keeps
+          # "never happened" distinguishable from the zero time without
+          # sql.NullTime ceremony at every call site.
+          - db_type: "timestamptz"
+            nullable: true
+            go_type:
+              import: "time"
+              type: "Time"
+              pointer: true
         # No timestamp override. PostgreSQL has a real timestamptz that the
         # driver scans straight into time.Time, so the conversion shim SQLite
         # required is gone.

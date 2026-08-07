@@ -3,10 +3,12 @@ import { useEffect } from "react";
 import { Layout } from "./components/Layout";
 import { useT } from "./i18n";
 import { AuditLogsPage } from "./pages/AuditLogsPage";
+import { ForgotPasswordPage } from "./pages/ForgotPasswordPage";
 import { LoginPage } from "./pages/LoginPage";
 import { OrganizationsPage } from "./pages/OrganizationsPage";
 import { ProfilePage } from "./pages/ProfilePage";
 import { RegisterPage } from "./pages/RegisterPage";
+import { ResetPasswordPage } from "./pages/ResetPasswordPage";
 import { SettingsPage } from "./pages/SettingsPage";
 import { UsersPage } from "./pages/UsersPage";
 import { useRouter } from "./router";
@@ -22,7 +24,12 @@ export function App() {
   // renders a screen whose data it cannot fetch.
   useEffect(() => {
     if (loading) return;
-    const publicRoutes = ["/login", "/register"];
+    const publicRoutes = [
+      "/login",
+      "/register",
+      "/forgot-password",
+      "/reset-password",
+    ];
     if (!user && !publicRoutes.includes(route)) {
       navigate("/login");
     } else if (user && publicRoutes.includes(route)) {
@@ -39,7 +46,16 @@ export function App() {
   }
 
   if (!user) {
-    return route === "/register" ? <RegisterPage /> : <LoginPage />;
+    switch (route) {
+      case "/register":
+        return <RegisterPage />;
+      case "/forgot-password":
+        return <ForgotPasswordPage />;
+      case "/reset-password":
+        return <ResetPasswordPage />;
+      default:
+        return <LoginPage />;
+    }
   }
 
   return (

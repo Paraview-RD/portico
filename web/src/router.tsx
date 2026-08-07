@@ -19,6 +19,8 @@ import type { ReactNode } from "react";
 export type Route =
   | "/login"
   | "/register"
+  | "/forgot-password"
+  | "/reset-password"
   | "/users"
   | "/organizations"
   | "/audit-logs"
@@ -28,6 +30,8 @@ export type Route =
 const routes: Route[] = [
   "/login",
   "/register",
+  "/forgot-password",
+  "/reset-password",
   "/users",
   "/organizations",
   "/audit-logs",

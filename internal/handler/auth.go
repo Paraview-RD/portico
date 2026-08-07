@@ -125,6 +125,38 @@ func (h *Handler) Me(w http.ResponseWriter, r *http.Request) {
 	httpx.OK(w, user)
 }
 
+type updateProfileRequest struct {
+	DisplayName string `json:"displayName"`
+	Phone       string `json:"phone"`
+	Email       string `json:"email"`
+}
+
+// UpdateOwnProfile lets the caller maintain their own details (§3.5).
+//
+// The request type has three fields and no more. Role, status, organization,
+// and username are not editable here at any price — the first would be a
+// privilege-escalation endpoint and the rest are administrative decisions.
+func (h *Handler) UpdateOwnProfile(w http.ResponseWriter, r *http.Request) {
+	principal := auth.MustPrincipal(r.Context())
+
+	var req updateProfileRequest
+	if err := httpx.DecodeJSON(w, r, &req); err != nil {
+		httpx.Fail(w, r, err)
+		return
+	}
+
+	user, err := h.users.UpdateOwnProfile(r.Context(), principal, service.ProfileInput{
+		DisplayName: req.DisplayName,
+		Phone:       req.Phone,
+		Email:       req.Email,
+	}, httpx.ClientIP(r))
+	if err != nil {
+		httpx.Fail(w, r, err)
+		return
+	}
+	httpx.OK(w, user)
+}
+
 type changePasswordRequest struct {
 	CurrentPassword string `json:"currentPassword"`
 	NewPassword     string `json:"newPassword"`

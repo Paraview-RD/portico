@@ -15,7 +15,7 @@ import { useSession } from "../session";
 
 export function ProfilePage() {
   const t = useT();
-  const { user, endSession } = useSession();
+  const { user, endSession, refresh } = useSession();
 
   const [form, setForm] = useState({ current: "", next: "", confirm: "" });
   const [error, setError] = useState("");
@@ -56,10 +56,12 @@ export function ProfilePage() {
     <>
       <PageHeader title={t("profile.title")} subtitle={t("profile.subtitle")} />
 
+      {/* Read-only above, editable below. The split is the server's: username,
+          role, and organization are not things a user may change about
+          themselves, and showing them in a form would imply otherwise. */}
       <div className="mb-8 max-w-md rounded-[var(--radius-md)] border border-[var(--color-border)] bg-[var(--color-bg)] p-4">
         <dl className="flex flex-col gap-3">
           <Detail label={t("profile.username")} value={user.username} />
-          <Detail label={t("profile.displayName")} value={user.displayName} />
           <div className="flex justify-between gap-4">
             <dt className="text-[var(--color-fg-muted)]">
               {t("profile.role")}
@@ -76,6 +78,8 @@ export function ProfilePage() {
           />
         </dl>
       </div>
+
+      <ProfileDetailsForm onSaved={refresh} />
 
       <h2 className="mb-3 text-[length:var(--font-size-base)] font-[weight:var(--font-weight-bold)] text-[var(--color-fg)]">
         {t("profile.changePassword")}
@@ -127,6 +131,94 @@ export function ProfilePage() {
           </div>
         </form>
       )}
+    </>
+  );
+}
+
+// ProfileDetailsForm is the editable half (§3.5).
+//
+// It holds its own state rather than lifting it, because the two forms on
+// this screen have unrelated lifecycles: saving details leaves you signed in,
+// while changing a password ends the session.
+function ProfileDetailsForm({ onSaved }: { onSaved: () => Promise<void> }) {
+  const t = useT();
+  const { user } = useSession();
+
+  const [form, setForm] = useState({
+    displayName: user?.displayName ?? "",
+    phone: user?.phone ?? "",
+    email: user?.email ?? "",
+  });
+  const [error, setError] = useState("");
+  const [saved, setSaved] = useState(false);
+  const [submitting, setSubmitting] = useState(false);
+
+  async function handleSubmit(event: React.FormEvent) {
+    event.preventDefault();
+    setError("");
+    setSaved(false);
+    setSubmitting(true);
+    try {
+      await userApi.updateOwnProfile(form);
+      // Refresh rather than trusting the local copy: the server trims and
+      // may reject in ways the form does not model, so what it stored is the
+      // only accurate answer.
+      await onSaved();
+      setSaved(true);
+    } catch (err) {
+      setError(
+        err instanceof ApiError ? err.message : t("common.unexpectedError"),
+      );
+    } finally {
+      setSubmitting(false);
+    }
+  }
+
+  return (
+    <>
+      <h2 className="mb-3 text-[length:var(--font-size-base)] font-[weight:var(--font-weight-bold)] text-[var(--color-fg)]">
+        {t("profile.details")}
+      </h2>
+
+      <form
+        onSubmit={handleSubmit}
+        className="mb-8 flex max-w-md flex-col gap-4"
+      >
+        <Field label={t("profile.displayName")} required>
+          <Input
+            value={form.displayName}
+            onChange={(e) => setForm({ ...form, displayName: e.target.value })}
+            required
+          />
+        </Field>
+
+        <Field label={t("profile.email")} hint={t("profile.contactHint")}>
+          <Input
+            type="email"
+            value={form.email}
+            onChange={(e) => setForm({ ...form, email: e.target.value })}
+            autoComplete="email"
+          />
+        </Field>
+
+        <Field label={t("profile.phone")} hint={t("profile.contactHint")}>
+          <Input
+            type="tel"
+            value={form.phone}
+            onChange={(e) => setForm({ ...form, phone: e.target.value })}
+            autoComplete="tel"
+          />
+        </Field>
+
+        {error && <Alert tone="danger">{error}</Alert>}
+        {saved && <Alert tone="success">{t("profile.detailsSaved")}</Alert>}
+
+        <div>
+          <Button type="submit" disabled={submitting}>
+            {t("common.save")}
+          </Button>
+        </div>
+      </form>
     </>
   );
 }

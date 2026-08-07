@@ -18,6 +18,7 @@ type Handler struct {
 	audit    *service.AuditService
 	settings *service.SettingsService
 	tenants  *service.TenantService
+	recovery *service.RecoveryService
 }
 
 // New returns a Handler backed by the given services.
@@ -27,6 +28,10 @@ func New(
 	audit *service.AuditService,
 	settings *service.SettingsService,
 	tenants *service.TenantService,
+	recovery *service.RecoveryService,
 ) *Handler {
-	return &Handler{users: users, orgs: orgs, audit: audit, settings: settings, tenants: tenants}
+	return &Handler{
+		users: users, orgs: orgs, audit: audit,
+		settings: settings, tenants: tenants, recovery: recovery,
+	}
 }

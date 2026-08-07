@@ -85,6 +85,24 @@ There is no API for creating, listing, or disabling tenants. No account can
 act outside its own tenant, so there is no one the API could authorize to do
 it; provisioning is `portico tenant ...` on the command line.
 
+## Sign-in identifiers
+
+`POST /auth/login` takes one `identifier` field, which may be a username, an
+email address, or a phone number. All three are unique within a tenant and
+all three produce the same session; the caller does not say which kind they
+sent, because it is a way of naming an account rather than a kind of
+sign-in.
+
+Resolution has a declared precedence — username, then email, then phone —
+because a username may look like an email address and "which column matched"
+needs a fixed answer.
+
+**Password recovery does not use that resolution.** It matches the channel's
+own column, and the message goes to what the account has bound rather than
+to what the request contained. Resolving across columns and then sending a
+token is how one account's reset ends up delivered on another account's
+identifier.
+
 ## Response envelope
 
 ```json

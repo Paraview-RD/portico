@@ -151,6 +151,37 @@ COMMENT ON COLUMN audit_logs.tenant_id IS
 CREATE INDEX idx_audit_logs_kind_created ON audit_logs (tenant_id, kind, created_at DESC);
 CREATE INDEX idx_audit_logs_created ON audit_logs (tenant_id, created_at DESC);
 
+-- Outstanding password-recovery requests (§3.5).
+CREATE TABLE password_resets (
+    id        TEXT NOT NULL PRIMARY KEY,
+    tenant_id TEXT NOT NULL REFERENCES tenants (id),
+    user_id   TEXT NOT NULL,
+
+    -- Composite, so a reset row cannot point at another tenant's account.
+    FOREIGN KEY (tenant_id, user_id) REFERENCES users (tenant_id, id),
+
+    -- The SHA-256 of the token, never the token. A reset token is a
+    -- password-equivalent for the window it is live, and a database that
+    -- leaks — a backup, a replica, a stray dump — would otherwise hand over
+    -- working credentials for every outstanding request. Hashing costs
+    -- nothing here because the token is high-entropy and random, so the
+    -- slow-hash reasoning that applies to passwords does not apply.
+    token_hash TEXT NOT NULL UNIQUE,
+
+    channel TEXT NOT NULL CHECK (channel IN ('EMAIL', 'SMS')),
+
+    expires_at TIMESTAMPTZ NOT NULL,
+    -- Set when the token is spent, and also when a newer request supersedes
+    -- it, so a request is always single-use and only the latest one works.
+    used_at    TIMESTAMPTZ,
+    created_at TIMESTAMPTZ NOT NULL
+);
+
+COMMENT ON TABLE password_resets IS
+    'Outstanding password-recovery requests. Rows are kept after use as part of the trail; expiry and used_at are what make a token unusable, not deletion.';
+
+CREATE INDEX idx_password_resets_user ON password_resets (tenant_id, user_id);
+
 -- Runtime-tunable settings, per tenant. Values are stored as text and parsed
 -- by the settings service, which owns the defaults.
 CREATE TABLE system_settings (
@@ -163,6 +194,7 @@ CREATE TABLE system_settings (
 );
 
 -- +goose Down
+DROP TABLE password_resets;
 DROP TABLE system_settings;
 DROP TABLE audit_logs;
 DROP TABLE users;

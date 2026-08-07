@@ -12,6 +12,7 @@ import (
 	"github.com/paraview/portico/internal/config"
 	"github.com/paraview/portico/internal/handler"
 	"github.com/paraview/portico/internal/httpx"
+	"github.com/paraview/portico/internal/notify"
 	"github.com/paraview/portico/internal/service"
 	"github.com/paraview/portico/internal/store"
 )
@@ -27,9 +28,33 @@ type Server struct {
 	router     http.Handler
 }
 
+// Option overrides a dependency New would otherwise build from cfg.
+//
+// There are two, both for message delivery, and both exist so a test can
+// substitute a recorder. Password recovery's most important property — that
+// a token goes to the account's own bound address and to nothing else — can
+// only be asserted by something that sees the message, and asserting it
+// against a real mail server would be a test of the mail server.
+type Option func(*dependencies)
+
+type dependencies struct {
+	mailer notify.Mailer
+	sms    notify.SMSSender
+}
+
+// WithMailer replaces the configured SMTP sender.
+func WithMailer(m notify.Mailer) Option {
+	return func(d *dependencies) { d.mailer = m }
+}
+
+// WithSMSSender replaces the SMS sender.
+func WithSMSSender(sender notify.SMSSender) Option {
+	return func(d *dependencies) { d.sms = sender }
+}
+
 // New builds a Server from cfg, opening the database and applying any
 // pending migrations. The caller must call Close when done.
-func New(cfg *config.Config) (*Server, error) {
+func New(cfg *config.Config, opts ...Option) (*Server, error) {
 	st, err := store.Open(cfg.DatabaseDriver, cfg.DatabaseDSN)
 	if err != nil {
 		return nil, err
@@ -44,10 +69,24 @@ func New(cfg *config.Config) (*Server, error) {
 	orgs := service.NewOrganizationService(st, audit)
 	tenants := service.NewTenantService(st)
 
+	mailer, err := notify.NewMailer(cfg.SMTP)
+	if err != nil {
+		_ = st.Close()
+		return nil, err
+	}
+	// V0.1 ships the SMS interface and no provider; see internal/notify.
+	deps := dependencies{mailer: mailer, sms: notify.NotConfiguredSMS{}}
+	for _, opt := range opts {
+		opt(&deps)
+	}
+
+	recovery := service.NewRecoveryService(
+		st, users, audit, deps.mailer, deps.sms, cfg.PublicURL)
+
 	s := &Server{
 		cfg:        cfg,
 		store:      st,
-		handler:    handler.New(users, orgs, audit, settings, tenants),
+		handler:    handler.New(users, orgs, audit, settings, tenants, recovery),
 		middleware: auth.NewMiddleware(tokens, users),
 		users:      users,
 		tenants:    tenants,

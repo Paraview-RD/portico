@@ -77,3 +77,18 @@ type User struct {
 	CreatedAt time.Time `json:"createdAt"`
 	UpdatedAt time.Time `json:"updatedAt"`
 }
+
+// RecoveryChannel is how a password-reset link reaches its owner (§3.5).
+type RecoveryChannel string
+
+const (
+	// RecoveryEmail sends the link to the account's bound email address.
+	RecoveryEmail RecoveryChannel = "EMAIL"
+	// RecoverySMS sends it to the bound phone number.
+	RecoverySMS RecoveryChannel = "SMS"
+)
+
+// Valid reports whether c is a known channel.
+func (c RecoveryChannel) Valid() bool {
+	return c == RecoveryEmail || c == RecoverySMS
+}

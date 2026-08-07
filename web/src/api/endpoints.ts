@@ -7,6 +7,7 @@ import type {
   LogKind,
   Organization,
   PageResult,
+  RecoveryChannel,
   RegistrationStatus,
   Role,
   Session,
@@ -65,10 +66,45 @@ export const authApi = {
       anonymous: true,
       signal,
     }),
+
+  /** Which recovery channels this deployment can actually use. */
+  recoveryChannels: (signal?: AbortSignal) =>
+    request<{ channels: RecoveryChannel[] }>("/auth/recovery-channels", {
+      anonymous: true,
+      signal,
+    }),
+
+  /**
+   * Asks for a reset link. The response is the same whether or not an
+   * account matched — the server will not say, and neither should the UI.
+   */
+  requestPasswordRecovery: (channel: RecoveryChannel, destination: string) =>
+    request<{ message: string }>("/auth/password-recovery", {
+      method: "POST",
+      body: { channel, destination },
+      anonymous: true,
+    }),
+
+  /** Redeems a reset link. The tenant travels in the link, not here. */
+  confirmPasswordRecovery: (token: string, newPassword: string) =>
+    request<{ reauthenticationRequired: boolean }>(
+      "/auth/password-recovery/confirm",
+      { method: "POST", body: { token, newPassword }, anonymous: true },
+    ),
 };
 
 export const userApi = {
   me: () => request<User>("/users/me"),
+
+  /**
+   * Updates the caller's own details. Role, status, organization, and
+   * username are absent on purpose — the server rejects them outright.
+   */
+  updateOwnProfile: (input: {
+    displayName: string;
+    phone: string;
+    email: string;
+  }) => request<User>("/users/me", { method: "PUT", body: input }),
 
   changeOwnPassword: (currentPassword: string, newPassword: string) =>
     request<{ reauthenticationRequired: boolean }>("/users/me/password", {

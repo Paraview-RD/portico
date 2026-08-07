@@ -48,6 +48,17 @@ const (
 	ActionPasswordReset = "PASSWORD_RESET"
 	ActionPasswordSelf  = "PASSWORD_CHANGE_SELF"
 
+	// The password-recovery pair. They are separate verbs because the
+	// interesting question after the fact is whether a request was ever
+	// completed: a burst of requests with no completions is someone probing,
+	// and one completion nobody remembers asking for is the incident.
+	ActionPasswordRecoveryRequest  = "PASSWORD_RECOVERY_REQUEST"
+	ActionPasswordRecoveryComplete = "PASSWORD_RECOVERY_COMPLETE"
+
+	// ActionProfileSelf is a user editing their own details, as distinct
+	// from USER_UPDATE, which is an administrator editing someone else's.
+	ActionProfileSelf = "PROFILE_UPDATE_SELF"
+
 	ActionUserCreate  = "USER_CREATE"
 	ActionUserUpdate  = "USER_UPDATE"
 	ActionUserEnable  = "USER_ENABLE"

@@ -41,6 +41,18 @@ type Organization struct {
 	UpdatedAt time.Time
 }
 
+// Outstanding password-recovery requests. Rows are kept after use as part of the trail; expiry and used_at are what make a token unusable, not deletion.
+type PasswordReset struct {
+	ID        string
+	TenantID  string
+	UserID    string
+	TokenHash string
+	Channel   string
+	ExpiresAt time.Time
+	UsedAt    *time.Time
+	CreatedAt time.Time
+}
+
 type SystemSetting struct {
 	TenantID  string
 	Key       string

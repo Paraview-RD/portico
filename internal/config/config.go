@@ -14,6 +14,8 @@ import (
 	"os"
 	"strconv"
 	"time"
+
+	"github.com/paraview/portico/internal/notify"
 )
 
 // MinJWTSecretLength is the shortest signing secret the server will accept.
@@ -62,6 +64,21 @@ type Config struct {
 	// rewrites those headers; otherwise callers can forge their own audit
 	// log IP.
 	TrustProxyHeaders bool
+
+	// PublicURL is where people reach this deployment, used to build the
+	// links in password-recovery messages.
+	//
+	// It cannot be derived from a request: behind a reverse proxy the Host
+	// header is whatever that proxy sends, and building a link from it would
+	// let anyone who can reach the server choose the domain a reset link
+	// points at. So it is configuration, and recovery links are wrong rather
+	// than dangerous when it is unset.
+	PublicURL string
+
+	// SMTP is the mail relay password-recovery messages go through. An empty
+	// Host means email recovery is not available on this deployment, which
+	// is the default — the binary must run with no environment at all.
+	SMTP notify.SMTPConfig
 }
 
 // Load reads configuration from the environment, applying defaults.
@@ -76,6 +93,28 @@ func Load() (*Config, error) {
 		InitialAdminUsername: envString("PORTICO_INITIAL_ADMIN_USERNAME", "admin"),
 		InitialAdminPassword: os.Getenv("PORTICO_INITIAL_ADMIN_PASSWORD"),
 		TrustProxyHeaders:    os.Getenv("PORTICO_TRUST_PROXY_HEADERS") == "true",
+	}
+
+	cfg.PublicURL = envString("PORTICO_PUBLIC_URL", "http://localhost:8410")
+
+	smtpPort, err := envInt("PORTICO_SMTP_PORT", 587)
+	if err != nil {
+		return nil, err
+	}
+	cfg.SMTP = notify.SMTPConfig{
+		Host:       os.Getenv("PORTICO_SMTP_HOST"),
+		Port:       smtpPort,
+		Username:   os.Getenv("PORTICO_SMTP_USERNAME"),
+		Password:   os.Getenv("PORTICO_SMTP_PASSWORD"),
+		From:       os.Getenv("PORTICO_SMTP_FROM"),
+		Encryption: envString("PORTICO_SMTP_ENCRYPTION", notify.EncryptionSTARTTLS),
+	}
+	switch cfg.SMTP.Encryption {
+	case notify.EncryptionSTARTTLS, notify.EncryptionTLS, notify.EncryptionNone:
+	default:
+		return nil, fmt.Errorf(
+			"PORTICO_SMTP_ENCRYPTION is %q; it must be one of starttls, tls, none",
+			cfg.SMTP.Encryption)
 	}
 
 	ttl, err := envDuration("PORTICO_TOKEN_TTL", 2*time.Hour)
@@ -115,6 +154,18 @@ func envString(key, fallback string) string {
 		return v
 	}
 	return fallback
+}
+
+func envInt(key string, fallback int) (int, error) {
+	v := os.Getenv(key)
+	if v == "" {
+		return fallback, nil
+	}
+	n, err := strconv.Atoi(v)
+	if err != nil {
+		return 0, fmt.Errorf("%s must be a number, got %q", key, v)
+	}
+	return n, nil
 }
 
 func envDuration(key string, fallback time.Duration) (time.Duration, error) {

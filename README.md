@@ -26,8 +26,10 @@ stays intact. Users belong to one organization.
 credential.
 
 **Self-service** — registration (optional, off by default), password change,
-password recovery by email or SMS, and profile maintenance, with no
-administrator in the loop.
+password recovery by email, and profile maintenance, with no administrator in
+the loop. Recovery needs an SMTP relay; point `PORTICO_SMTP_HOST` at whatever
+you already run. SMS recovery is defined as a provider interface and ships
+without one.
 
 **Sessions that actually revoke** — logout, a password change, and disabling
 an account each invalidate live sessions immediately, not at token expiry.

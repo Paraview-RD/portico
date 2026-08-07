@@ -220,6 +220,36 @@ func (s *Scoped) UpdateOrganizationStatus(ctx context.Context, arg sqlcgen.Updat
 	return s.q.UpdateOrganizationStatus(ctx, arg)
 }
 
+// --- password recovery ---------------------------------------------------
+
+// CreatePasswordReset records an outstanding reset request.
+func (s *Scoped) CreatePasswordReset(ctx context.Context, arg sqlcgen.CreatePasswordResetParams) error {
+	arg.TenantID = s.tenantID
+	return s.q.CreatePasswordReset(ctx, arg)
+}
+
+// GetLivePasswordReset returns the unspent, unexpired reset a token names.
+// A spent or expired one is not returned at all, so a caller cannot hold a
+// dead row and forget to check it.
+func (s *Scoped) GetLivePasswordReset(ctx context.Context, tokenHash string, now time.Time) (sqlcgen.PasswordReset, error) {
+	return s.q.GetLivePasswordReset(ctx, sqlcgen.GetLivePasswordResetParams{
+		TenantID: s.tenantID, TokenHash: tokenHash, ExpiresAt: now,
+	})
+}
+
+// SpendPasswordReset marks a reset used, making it single-use.
+func (s *Scoped) SpendPasswordReset(ctx context.Context, id string, now time.Time) error {
+	return s.q.SpendPasswordReset(ctx,
+		sqlcgen.SpendPasswordResetParams{TenantID: s.tenantID, ID: id, UsedAt: &now})
+}
+
+// SupersedePasswordResets marks a user's outstanding resets used, so a new
+// request invalidates every earlier link.
+func (s *Scoped) SupersedePasswordResets(ctx context.Context, userID string, now time.Time) error {
+	return s.q.SupersedePasswordResets(ctx,
+		sqlcgen.SupersedePasswordResetsParams{TenantID: s.tenantID, UserID: userID, UsedAt: &now})
+}
+
 // --- audit ---------------------------------------------------------------
 
 // CreateAuditLog appends an entry to this tenant's audit trail.

@@ -10,6 +10,17 @@ Working toward 0.1.0 — the first release. Nothing has been published yet.
 
 ### Changed
 
+- **Sign-in accepts a username, an email address, or a phone number.** One
+  `identifier` field, one credential check, one token — the identifier is a
+  way of naming an account, not a kind of sign-in. Resolution has a declared
+  precedence (username, then email, then phone) because a username may look
+  like an address.
+- Phone and email are unique within a tenant, through partial indexes so
+  that "not bound" stays the empty string and any number of accounts may
+  leave either blank.
+- A collision now reports which field collided rather than always saying the
+  username was taken. The constraints are named in the migration and the
+  service matches on the name.
 - **Everything is tenant-scoped.** Users, organizations, audit entries, and
   settings all belong to exactly one tenant, and nothing crosses the
   boundary. Usernames and organization codes are unique per tenant rather
@@ -38,6 +49,22 @@ Working toward 0.1.0 — the first release. Nothing has been published yet.
 
 ### Added
 
+- **Password recovery** by email, with a single-use link that expires in 30
+  minutes and invalidates any earlier one. The request endpoint answers
+  identically whether or not an account matched, and resolves against the
+  channel's own column rather than the sign-in lookup — resolving across
+  columns and then sending a token is how one account's reset ends up
+  delivered on another account's identifier.
+- Delivery goes through plain SMTP (`PORTICO_SMTP_*`), so a deployment
+  points at whatever relay it already has and no vendor is involved. SMS
+  recovery is defined as an interface with no provider in this version;
+  the endpoint reports the channel unavailable rather than accepting a
+  request it cannot fulfil.
+- **Self-service profile editing.** A user maintains their own display name,
+  email, and phone. Role, status, organization, and username are absent from
+  that endpoint on purpose. Changing a recovery destination is recorded in
+  the audit trail with the old and new values, because repointing it is how
+  a stolen session becomes permanent access.
 - Multi-tenant isolation, enforced in the query layer. Every table carries a
   `tenant_id`; the service layer reaches the database only through a
   tenant-bound view that supplies it; and three tests hold the boundary up —

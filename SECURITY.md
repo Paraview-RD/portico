@@ -123,6 +123,31 @@ event leaving the audit trail, and it is a deliberate trade — the alternative
 is an unscoped audit table, which is a far larger hole than the one it
 closes.
 
+### Password recovery
+
+The reset token is 32 bytes from `crypto/rand`, stored as a SHA-256 digest
+and never in the clear — a leaked backup or replica would otherwise hand
+over working credentials for every outstanding request. It is single-use,
+expires in 30 minutes, and a new request invalidates any earlier one.
+
+The request endpoint answers identically whether or not an account matched,
+so it cannot be used to ask whether someone has an account here. The three
+misses — no such account, an account with nothing bound on that channel, and
+a successful send — are indistinguishable.
+
+The account is resolved against the channel's own column, not the
+username-inclusive lookup sign-in uses, and the message goes to the address
+the account has bound rather than the one in the request. Both matter: if one
+account's email address equals another's username, resolving across columns
+would deliver a reset for the second account to whoever typed that address.
+
+Two things this deliberately does not do. It does not rate-limit — that is
+the reverse proxy's job, along with the rest of `/api/v1/auth/*` — and it
+does not verify a changed email address, so a user may point their own
+recovery at an inbox they do not read. That locks them out rather than
+letting anyone in, and the per-tenant unique index stops them taking an
+address another account holds.
+
 ### Federation protocols
 
 Portico acts as an identity provider for OAuth 2.1, OIDC, SAML 2.0, and CAS.

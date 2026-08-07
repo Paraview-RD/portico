@@ -70,6 +70,16 @@ Configuration is entirely environment variables:
   PORTICO_TOKEN_TTL                token lifetime, e.g. "2h" (default "2h")
   PORTICO_TRUST_PROXY_HEADERS      trust X-Forwarded-For (default false; only
                                    enable behind a proxy you control)
+  PORTICO_PUBLIC_URL               where people reach this deployment, used to
+                                   build password-recovery links
+                                   (default "http://localhost:8410")
+  PORTICO_SMTP_HOST                mail relay for password recovery. Unset
+                                   means email recovery is unavailable.
+  PORTICO_SMTP_PORT                default 587
+  PORTICO_SMTP_USERNAME            omit both to connect unauthenticated
+  PORTICO_SMTP_PASSWORD
+  PORTICO_SMTP_FROM                required once a host is set
+  PORTICO_SMTP_ENCRYPTION          starttls (default) | tls | none
   PORTICO_INITIAL_ADMIN_USERNAME   bootstrap admin name (default "admin")
   PORTICO_INITIAL_ADMIN_PASSWORD   bootstrap admin password; generated and
                                    printed once if unset

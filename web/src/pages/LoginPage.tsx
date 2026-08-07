@@ -134,6 +134,16 @@ export function LoginPage() {
           </Button>
         </form>
 
+        <p className="mt-4 text-center text-[length:var(--font-size-sm)]">
+          <button
+            type="button"
+            onClick={() => navigate("/forgot-password")}
+            className="text-[var(--color-primary)] underline-offset-2 hover:underline"
+          >
+            {t("login.forgotPassword")}
+          </button>
+        </p>
+
         {registrationOpen && (
           <p className="mt-4 text-center text-[length:var(--font-size-sm)] text-[var(--color-fg-muted)]">
             {t("login.noAccount")}{" "}

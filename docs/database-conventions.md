@@ -7,13 +7,13 @@ practice for this codebase — they describe what the schema in
 [`migrations/`](../migrations/) actually does, so a reviewer can check code
 against them.
 
-The current schema is small (five tables). These conventions exist so it
+The current schema is small (six tables). These conventions exist so it
 stays coherent as it grows, not because it is complicated today.
 
 ## Naming
 
 - **Tables** are plural, `snake_case`: `tenants`, `users`, `organizations`,
-  `audit_logs`, `system_settings`.
+  `audit_logs`, `password_resets`, `system_settings`.
 - **Columns** are `snake_case`. Foreign keys end in `_id`
   (`organization_id`); enumerations are named for what they hold
   (`status`, `role`, `kind`, `source`, `result`).
@@ -37,11 +37,12 @@ stays coherent as it grows, not because it is complicated today.
 - **Every table except `tenants` has `tenant_id TEXT NOT NULL`**, with a
   foreign key to `tenants`. See [Tenant isolation](#tenant-isolation).
 - **Columns are `NOT NULL` with a `DEFAULT`** unless absence genuinely means
-  something. Two columns are nullable today, and in both NULL carries meaning
-  no sentinel could: `users.organization_id`, where it means "belongs to no
-  organization", and `audit_logs.actor_id`, where it means the actor could
-  not be identified — a sign-in attempt against a username that does not
-  exist still has to be recorded.
+  something. Three columns are nullable today, and in each NULL carries
+  meaning no sentinel could: `users.organization_id` means "belongs to no
+  organization"; `audit_logs.actor_id` means the actor could not be
+  identified, since a sign-in attempt against a username that does not exist
+  still has to be recorded; and `password_resets.used_at` means "not spent
+  yet", which the zero time would be indistinguishable from an ancient one.
 - **Never use a magic value to mean NULL.** No `0`, no `-1`, no `""` standing
   in for "unset". Empty string is used where empty string is a legitimate
   value (an unset phone number is genuinely the empty string, not an unknown
@@ -103,6 +104,18 @@ another tenant's organization even if application code tried. That is what
 the otherwise-redundant `UNIQUE (tenant_id, id)` on `organizations` is for.
 
 **Indexes lead with `tenant_id`**, since every query filters on it.
+
+**A partial unique index is how "optional but unique" is expressed.**
+`users.email` and `users.phone` are sign-in identifiers, so they must be
+unambiguous, but empty means "not bound" and most accounts leave at least
+one blank. `UNIQUE (tenant_id, email) WHERE email <> ''` allows any number of
+blanks and no duplicates.
+
+**Constraints that the application discriminates on are named.** `users` is
+unique on three things within a tenant, and the service reports which one
+collided by matching `pgErr.ConstraintName` — so those names are declared in
+the migration rather than left to PostgreSQL's generator, which would make
+the mapping depend on a string nothing states.
 
 **Nothing is enforced by convention.** Three things hold the boundary up:
 
@@ -220,6 +233,9 @@ apart. When you do write SQL by hand:
   it needs a per-request `SET LOCAL` on a pooled connection — a footgun of
   its own, since a missed reset leaks the previous request's tenant. The
   query-layer approach is the one the tests can prove.
+- **No `ON DELETE` anywhere.** Nothing is deleted, so nothing cascades.
+  `password_resets` rows outlive their use on purpose: expiry and `used_at`
+  are what make a token unusable, and keeping the row keeps the trail.
 - **No optimistic-locking `version` column.** Nothing in the current
   workload has concurrent-update contention worth the complexity.
   `users.token_version` is unrelated — it is a session revocation counter.

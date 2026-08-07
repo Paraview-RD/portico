@@ -29,8 +29,13 @@ func TestLayeringRules(t *testing.T) {
 		// Authentication is consumed by services, so it must not depend on
 		// them — that is why auth.UserLookup is declared in auth.
 		"auth": {"handler", "service", "server"},
-		// Configuration is parsed before anything else exists.
+		// Configuration is parsed before anything else exists. It may name
+		// notify's config type, which is why that package has to stay a leaf.
 		"config": {"handler", "service", "store", "auth", "httpx", "server"},
+		// Delivery knows nothing about this application. That is what lets a
+		// test substitute a recorder for it, and what would let someone add
+		// an SMS provider without reading anything else.
+		"notify": {"handler", "service", "store", "auth", "httpx", "server", "config", "model"},
 		// Provisioning is a second composition root, for the operations that
 		// have no HTTP surface. It builds services directly and must not
 		// reach for the web stack: anything it needed from there would mean

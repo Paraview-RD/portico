@@ -93,8 +93,17 @@ configured it wrongly and believes they are done.
   [logging-conventions.md](logging-conventions.md). This includes the
   generated bootstrap password, which is written to stderr precisely so it
   does not enter the log pipeline.
-- **No secret goes in a URL.** They end up in access logs, proxy logs, and
-  browser history.
+- **No secret goes in a URL** — with one deliberate exception, called out
+  here rather than left to be discovered. A password-reset link carries its
+  token in the query string, because a link someone clicks in an email is
+  the only delivery mechanism there is. What makes it acceptable is bounded:
+  the token is single-use and expires in thirty minutes; the access log
+  records `URL.Path` and not the query; the server sends
+  `Referrer-Policy: no-referrer`, so the token cannot leak to a third party
+  through a `Referer` header; and the page it lands on loads nothing
+  cross-origin. Browser history remains a real residue, which is why the
+  token is short-lived rather than long. No other secret gets this
+  treatment.
 - **Rotating `PORTICO_JWT_SECRET` signs everyone out.** Expected, and worth
   knowing before doing it in the middle of a working day.
 

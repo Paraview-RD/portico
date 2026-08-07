@@ -54,7 +54,7 @@ the MVP.
 | A further tenant's administrator | Created by `portico tenant create`; the password is printed once unless `--admin-password` is given. |
 | Bootstrap password | `PORTICO_INITIAL_ADMIN_PASSWORD` if set. Otherwise a random one is generated and **printed once** in the startup log — capture it then, it is stored nowhere. |
 | JWT signing secret | `PORTICO_JWT_SECRET`. If unset, a random secret is generated per start, which silently invalidates every session on restart. Set it. |
-| Everyone else's password | Set by an administrator at creation, or chosen by the user at self-registration. |
+| Everyone else's password | Set by an administrator at creation, chosen by the user at self-registration, or set through a password-recovery link. |
 
 No credential values belong in this file, in the repository, or in a
 committed `.env`. `.env.example` lists the variable names only.
@@ -67,6 +67,36 @@ committed `.env`. `.env.example` lists the variable names only.
 3. Open the UI, sign in, and change that password from **My profile**.
    Changing it signs you out — that is expected, since a password change
    revokes every existing token.
+
+## Password recovery
+
+A user who cannot sign in asks for a reset link from the sign-in screen. The
+link is single-use and expires in 30 minutes.
+
+**It needs a mail relay.** With `PORTICO_SMTP_HOST` unset, the recovery
+screen says so plainly rather than accepting a request it cannot fulfil, and
+the only way back in is an administrator resetting the password. Set
+`PORTICO_SMTP_HOST`, `PORTICO_SMTP_FROM`, and `PORTICO_PUBLIC_URL` — the
+last one because the link has to point somewhere, and a server behind a
+proxy cannot work that out for itself.
+
+While developing, point it at a local catcher rather than a real relay:
+
+```sh
+docker run -d -p 1025:1025 -p 8025:8025 axllent/mailpit
+
+export PORTICO_SMTP_HOST=127.0.0.1
+export PORTICO_SMTP_PORT=1025
+export PORTICO_SMTP_ENCRYPTION=none
+export PORTICO_SMTP_FROM=portico@example.com
+export PORTICO_PUBLIC_URL=http://localhost:8410
+```
+
+Messages then appear at <http://localhost:8025> and nothing leaves the
+machine.
+
+Recovery by SMS is defined but has no provider in this version, so the
+sign-in screen offers email only.
 
 ## Roles
 
@@ -167,6 +197,11 @@ actions.
   want it; an instance exposed before anyone finishes setup will not accept
   sign-ups.
 - **Disabling an organization** blocks new members but keeps existing ones.
+- **A reset link ends every session.** Completing recovery changes the
+  password, and a password change revokes every live token — which is the
+  point, since the reason for recovering is often that somebody else had it.
+- **Asking for a second link invalidates the first.** Only the newest one
+  works.
 - **Nothing crosses a tenant.** Users, organizations, audit entries, and
   settings all belong to one, and an administrator of one tenant cannot see
   or change another's — including by id, and including by sending a tenant
