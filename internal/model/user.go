@@ -27,6 +27,7 @@ func (r Role) IsAdmin() bool { return r == RoleSuperAdmin }
 // Status is the enabled/disabled state shared by users and organizations.
 type Status string
 
+// The enabled and disabled states. Records are disabled, never deleted.
 const (
 	StatusActive   Status = "ACTIVE"
 	StatusDisabled Status = "DISABLED"

@@ -101,7 +101,7 @@ func (s *TokenService) Verify(raw string) (*Claims, error) {
 		if errors.Is(err, jwt.ErrTokenExpired) {
 			return nil, ErrTokenExpired
 		}
-		return nil, fmt.Errorf("%w: %v", ErrTokenInvalid, err)
+		return nil, fmt.Errorf("%w: %w", ErrTokenInvalid, err)
 	}
 
 	if claims.Subject == "" {

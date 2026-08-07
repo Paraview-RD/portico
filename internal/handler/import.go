@@ -17,7 +17,12 @@ func (h *Handler) ImportUsers(w http.ResponseWriter, r *http.Request) {
 	principal := auth.MustPrincipal(r.Context())
 
 	r.Body = http.MaxBytesReader(w, r.Body, maxUploadBytes)
-	if err := r.ParseMultipartForm(maxUploadBytes); err != nil {
+	// maxMemory, not the size cap: anything beyond this spills to a temp
+	// file instead of being held in RAM per concurrent request. The wire
+	// size is already bounded by MaxBytesReader above.
+	// #nosec G120 -- the request body is already capped by the MaxBytesReader
+	// above; this argument is the in-memory buffer size, not the size limit.
+	if err := r.ParseMultipartForm(1 << 20); err != nil {
 		httpx.Fail(w, r, httpx.BadRequest("INVALID_UPLOAD",
 			"Send the workbook as multipart/form-data in a field named \"file\"."))
 		return

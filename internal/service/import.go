@@ -2,6 +2,7 @@ package service
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"io"
 	"strings"
@@ -49,7 +50,13 @@ type ImportResult struct {
 // all-or-nothing failure on a thousand-row migration file, and the caller
 // gets a per-row report of what to fix and re-upload.
 func (s *UserService) ImportUsers(ctx context.Context, actor auth.Principal, r io.Reader, ip string) (ImportResult, error) {
-	file, err := excelize.OpenReader(r)
+	// Without an explicit limit excelize will happily inflate gigabytes from
+	// a small archive. The cap is generous next to the row limit below but
+	// small enough that a zip bomb fails instead of exhausting memory.
+	file, err := excelize.OpenReader(r, excelize.Options{
+		UnzipSizeLimit:    64 << 20,
+		UnzipXMLSizeLimit: 16 << 20,
+	})
 	if err != nil {
 		return ImportResult{}, httpx.BadRequest("INVALID_SPREADSHEET",
 			"The uploaded file could not be read as an .xlsx workbook.")
@@ -61,20 +68,16 @@ func (s *UserService) ImportUsers(ctx context.Context, actor auth.Principal, r i
 		return ImportResult{}, httpx.BadRequest("EMPTY_SPREADSHEET", "The workbook has no sheets.")
 	}
 
-	rows, err := file.GetRows(sheets[0])
+	// Streamed rather than read whole: GetRows would materialize every row
+	// before the row limit could reject the file, which makes the limit
+	// decorative on exactly the input it exists to stop.
+	dataRows, err := readImportRows(file, sheets[0])
 	if err != nil {
-		return ImportResult{}, httpx.BadRequest("INVALID_SPREADSHEET",
-			"The first sheet could not be read.")
+		return ImportResult{}, err
 	}
-	if len(rows) < 2 {
+	if len(dataRows) == 0 {
 		return ImportResult{}, httpx.BadRequest("EMPTY_SPREADSHEET",
 			"The sheet has a header row but no data rows.")
-	}
-
-	dataRows := rows[1:] // skip the header
-	if len(dataRows) > maxImportRows {
-		return ImportResult{}, httpx.UnprocessableEntity("TOO_MANY_ROWS",
-			fmt.Sprintf("At most %d rows may be imported at once.", maxImportRows))
 	}
 
 	// Resolve organization codes once rather than per row.
@@ -113,6 +116,40 @@ func (s *UserService) ImportUsers(ctx context.Context, actor auth.Principal, r i
 	})
 
 	return result, nil
+}
+
+// readImportRows returns the data rows, stopping as soon as the limit is
+// exceeded so an oversized sheet is never fully allocated.
+func readImportRows(file *excelize.File, sheet string) ([][]string, error) {
+	iter, err := file.Rows(sheet)
+	if err != nil {
+		return nil, httpx.BadRequest("INVALID_SPREADSHEET", "The first sheet could not be read.")
+	}
+	defer func() { _ = iter.Close() }()
+
+	var (
+		rows       [][]string
+		seenHeader bool
+	)
+	for iter.Next() {
+		if !seenHeader {
+			seenHeader = true
+			continue
+		}
+		if len(rows) >= maxImportRows {
+			return nil, httpx.UnprocessableEntity("TOO_MANY_ROWS",
+				fmt.Sprintf("At most %d rows may be imported at once.", maxImportRows))
+		}
+		columns, err := iter.Columns()
+		if err != nil {
+			return nil, httpx.BadRequest("INVALID_SPREADSHEET", "A row could not be read.")
+		}
+		rows = append(rows, columns)
+	}
+	if err := iter.Error(); err != nil {
+		return nil, httpx.BadRequest("INVALID_SPREADSHEET", "The sheet could not be read to the end.")
+	}
+	return rows, nil
 }
 
 type importRecord struct {
@@ -195,7 +232,8 @@ func (s *UserService) organizationIDsByCode(ctx context.Context) (map[string]str
 
 func toRowError(row int, username string, err error) ImportRowError {
 	out := ImportRowError{Row: row, Username: username, Code: "IMPORT_FAILED", Message: err.Error()}
-	if apiErr, ok := err.(*httpx.Error); ok {
+	var apiErr *httpx.Error
+	if errors.As(err, &apiErr) {
 		out.Code = apiErr.Code
 		out.Message = apiErr.Message
 	}

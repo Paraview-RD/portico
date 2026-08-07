@@ -1,6 +1,7 @@
 package httpx_test
 
 import (
+	"errors"
 	"net/http"
 	"net/http/httptest"
 	"strings"
@@ -41,7 +42,7 @@ func TestDecodeJSONRejectsBadInput(t *testing.T) {
 		{"malformed json", `{"name":`, "MALFORMED_BODY"},
 		// Unknown fields are rejected so a client typo fails loudly instead
 		// of silently dropping the value.
-		{"unknown field", `{"nmae":"alice"}`, "MALFORMED_BODY"},
+		{"unknown field", `{"nameTypo":"alice"}`, "MALFORMED_BODY"},
 		// Two concatenated objects must not be accepted as one.
 		{"trailing object", `{"name":"a"}{"name":"b"}`, "MALFORMED_BODY"},
 	}
@@ -55,8 +56,8 @@ func TestDecodeJSONRejectsBadInput(t *testing.T) {
 			if err == nil {
 				t.Fatal("expected an error, got nil")
 			}
-			apiErr, ok := err.(*httpx.Error)
-			if !ok {
+			var apiErr *httpx.Error
+			if !errors.As(err, &apiErr) {
 				t.Fatalf("error is %T, want *httpx.Error", err)
 			}
 			if apiErr.Code != tt.wantCode {
@@ -79,7 +80,8 @@ func TestDecodeJSONRejectsNonJSONContentType(t *testing.T) {
 	if err == nil {
 		t.Fatal("expected an error for a form-encoded body")
 	}
-	if apiErr, ok := err.(*httpx.Error); !ok || apiErr.Code != "UNSUPPORTED_MEDIA_TYPE" {
+	var apiErr *httpx.Error
+	if !errors.As(err, &apiErr) || apiErr.Code != "UNSUPPORTED_MEDIA_TYPE" {
 		t.Errorf("error = %v, want UNSUPPORTED_MEDIA_TYPE", err)
 	}
 }

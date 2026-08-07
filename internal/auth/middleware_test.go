@@ -15,23 +15,23 @@ import (
 
 // stubLookup returns a fixed account, or ErrUserNotFound when absent.
 type stubLookup struct {
-	user    auth.AuthUser
+	user    auth.Account
 	missing bool
 	err     error
 }
 
-func (s stubLookup) LookupForAuth(context.Context, string) (auth.AuthUser, error) {
+func (s stubLookup) LookupForAuth(context.Context, string) (auth.Account, error) {
 	if s.err != nil {
-		return auth.AuthUser{}, s.err
+		return auth.Account{}, s.err
 	}
 	if s.missing {
-		return auth.AuthUser{}, auth.ErrUserNotFound
+		return auth.Account{}, auth.ErrUserNotFound
 	}
 	return s.user, nil
 }
 
-func activeUser() auth.AuthUser {
-	return auth.AuthUser{
+func activeUser() auth.Account {
+	return auth.Account{
 		ID:               "user-1",
 		Username:         "alice",
 		DisplayName:      "Alice",
@@ -45,7 +45,7 @@ func activeUser() auth.AuthUser {
 
 // okHandler records that the request made it through the middleware.
 func okHandler(reached *bool) http.Handler {
-	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+	return http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
 		*reached = true
 		httpx.OK(w, nil)
 	})

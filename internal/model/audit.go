@@ -32,6 +32,7 @@ func (k LogKind) Valid() bool {
 // LogResult is whether the recorded action succeeded.
 type LogResult string
 
+// Whether the recorded action succeeded.
 const (
 	LogSuccess LogResult = "SUCCESS"
 	LogFailure LogResult = "FAILURE"

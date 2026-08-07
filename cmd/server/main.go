@@ -49,7 +49,13 @@ func run() error {
 		Addr:              cfg.Addr,
 		Handler:           srv.Handler(),
 		ReadHeaderTimeout: 10 * time.Second,
-		IdleTimeout:       60 * time.Second,
+		// ReadTimeout and WriteTimeout bound the whole exchange, not just
+		// the headers, so a slow-body client cannot hold a connection open
+		// indefinitely. They are generous because bulk import legitimately
+		// takes a while.
+		ReadTimeout:  2 * time.Minute,
+		WriteTimeout: 5 * time.Minute,
+		IdleTimeout:  60 * time.Second,
 	}
 
 	// Shut down cleanly on SIGINT/SIGTERM so in-flight requests finish.

@@ -15,7 +15,10 @@ services:
     image: keylite:latest
     restart: unless-stopped
     ports:
-      - "8410:8410"
+      # Bound to loopback on purpose: this is an admin console served over
+      # plaintext HTTP, so the default must not be internet-reachable. Put a
+      # TLS-terminating reverse proxy in front and change this to expose it.
+      - "127.0.0.1:8410:8410"
     volumes:
       - keylite-data:/data
     environment:

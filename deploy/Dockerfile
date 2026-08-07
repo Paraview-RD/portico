@@ -24,6 +24,10 @@ RUN CGO_ENABLED=0 go build \
     -o /keylite ./cmd/server
 
 FROM scratch
+
+# Run unprivileged. scratch has no user database, so this is a bare uid:gid
+# (nobody); /data below must be writable by it, which the volume mount is.
+USER 65534:65534
 # Certificates are not needed today (no outbound TLS), but time zone data is:
 # without it the container reports UTC only, which is fine, and adding tzdata
 # would mean leaving scratch. Timestamps are stored in UTC for this reason.

@@ -67,6 +67,66 @@ administrative calls regardless of what the UI shows.
 Self-registered accounts always get this role; it cannot be requested at
 sign-up.
 
+## Before you expose this
+
+Keylite serves plain HTTP and does not rate-limit sign-in attempts. Both are
+deliberate — it delegates them to the reverse proxy rather than
+reimplementing them — but that makes the proxy mandatory, not optional, for
+anything reachable beyond localhost. See [SECURITY.md](../SECURITY.md) for
+why.
+
+The bundled compose file binds to `127.0.0.1` so the default configuration
+is not directly reachable.
+
+### nginx
+
+```nginx
+limit_req_zone $binary_remote_addr zone=keylite_auth:10m rate=10r/m;
+
+server {
+    listen 443 ssl http2;
+    server_name id.example.com;
+
+    ssl_certificate     /etc/letsencrypt/live/id.example.com/fullchain.pem;
+    ssl_certificate_key /etc/letsencrypt/live/id.example.com/privkey.pem;
+    add_header Strict-Transport-Security "max-age=31536000; includeSubDomains" always;
+
+    # Throttle the credential endpoints; everything else is already
+    # authenticated.
+    location ~ ^/api/v1/auth/(login|register)$ {
+        limit_req zone=keylite_auth burst=5 nodelay;
+        proxy_pass http://127.0.0.1:8410;
+        include /etc/nginx/proxy_params;
+    }
+
+    location / {
+        proxy_pass http://127.0.0.1:8410;
+        include /etc/nginx/proxy_params;
+    }
+}
+```
+
+### Caddy
+
+```caddyfile
+id.example.com {
+    @auth path /api/v1/auth/login /api/v1/auth/register
+    rate_limit @auth {
+        zone keylite_auth {
+            key    {remote_host}
+            events 10
+            window 1m
+        }
+    }
+    reverse_proxy 127.0.0.1:8410
+}
+```
+
+With either in place, set `KEYLITE_TRUST_PROXY_HEADERS=true` so the audit log
+records real client addresses rather than the proxy's. Do **not** set it
+without a proxy: callers could then forge the IP attributed to their own
+actions.
+
 ## Guard rails worth knowing
 
 - **Accounts are never deleted.** Disabling is the substitute, so the audit

@@ -4,6 +4,12 @@
 *.test
 *.out
 
+# Build artifact and database from the README's own instructions
+/keylite
+/keylite.db
+/keylite.db-shm
+/keylite.db-wal
+
 # Env / secrets
 .env
 .env.*

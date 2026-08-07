@@ -19,6 +19,7 @@ func (s *Server) routes() http.Handler {
 	r := chi.NewRouter()
 
 	r.Use(httpx.RequestID)
+	r.Use(httpx.SecurityHeaders)
 	r.Use(httpx.Recover)
 	r.Use(httpx.AccessLog)
 

@@ -11,6 +11,7 @@ import (
 	"sync"
 	"time"
 
+	"github.com/paraview/keylite/internal/httpx"
 	"github.com/paraview/keylite/internal/store"
 	"github.com/paraview/keylite/internal/store/sqlcgen"
 )
@@ -121,8 +122,9 @@ func (s *SettingsService) Get(ctx context.Context) (Settings, error) {
 // Update writes the given settings and refreshes the cache.
 func (s *SettingsService) Update(ctx context.Context, next Settings) (Settings, error) {
 	if next.TokenTTLMinutes < MinTokenTTLMinutes || next.TokenTTLMinutes > MaxTokenTTLMinutes {
-		return Settings{}, fmt.Errorf("token lifetime must be between %d and %d minutes",
-			MinTokenTTLMinutes, MaxTokenTTLMinutes)
+		return Settings{}, httpx.BadRequest("INVALID_SETTINGS",
+			fmt.Sprintf("Session lifetime must be between %d and %d minutes.",
+				MinTokenTTLMinutes, MaxTokenTTLMinutes))
 	}
 	if next.SystemName == "" {
 		next.SystemName = s.defaults.SystemName

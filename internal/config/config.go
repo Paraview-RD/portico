@@ -16,6 +16,11 @@ import (
 	"time"
 )
 
+// MinJWTSecretLength is the shortest signing secret the server will accept.
+// 32 bytes matches the output of the `openssl rand -hex 32` the docs
+// recommend and leaves HS256 well outside offline brute-force range.
+const MinJWTSecretLength = 32
+
 // Config holds all runtime settings.
 type Config struct {
 	// Addr is the TCP address the HTTP server listens on.
@@ -51,6 +56,12 @@ type Config struct {
 	// empty a random one is generated and logged once.
 	InitialAdminUsername string
 	InitialAdminPassword string
+
+	// TrustProxyHeaders makes the server believe X-Forwarded-For and
+	// X-Real-Ip. Enable it only when a proxy you control sits in front and
+	// rewrites those headers; otherwise callers can forge their own audit
+	// log IP.
+	TrustProxyHeaders bool
 }
 
 // Load reads configuration from the environment, applying defaults.
@@ -64,6 +75,7 @@ func Load() (*Config, error) {
 
 		InitialAdminUsername: envString("KEYLITE_INITIAL_ADMIN_USERNAME", "admin"),
 		InitialAdminPassword: os.Getenv("KEYLITE_INITIAL_ADMIN_PASSWORD"),
+		TrustProxyHeaders:    os.Getenv("KEYLITE_TRUST_PROXY_HEADERS") == "true",
 	}
 
 	ttl, err := envDuration("KEYLITE_TOKEN_TTL", 2*time.Hour)
@@ -81,6 +93,17 @@ func Load() (*Config, error) {
 		cfg.JWTSecret = []byte(generated)
 		cfg.JWTSecretGenerated = true
 	} else {
+		// A short secret is the difference between "signed" and "signable by
+		// anyone with a captured token": HS256 with a low-entropy key is
+		// brute-forceable offline, and recovering it lets an attacker mint a
+		// token claiming any user and any role. Refuse to start rather than
+		// silently accepting one, and do not fall back to a generated secret
+		// — that would hide the misconfiguration instead of surfacing it.
+		if len(secret) < MinJWTSecretLength {
+			return nil, fmt.Errorf(
+				"KEYLITE_JWT_SECRET is %d bytes; it must be at least %d. Generate one with: openssl rand -hex 32",
+				len(secret), MinJWTSecretLength)
+		}
 		cfg.JWTSecret = []byte(secret)
 	}
 

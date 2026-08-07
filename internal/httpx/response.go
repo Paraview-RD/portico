@@ -5,6 +5,7 @@ package httpx
 
 import (
 	"encoding/json"
+	"errors"
 	"log/slog"
 	"net/http"
 )
@@ -114,8 +115,11 @@ func Internal(err error) *Error {
 // treated as an internal failure, so handlers can return raw errors without
 // risking a detail leak.
 func Fail(w http.ResponseWriter, r *http.Request, err error) {
-	apiErr, ok := err.(*Error)
-	if !ok {
+	// errors.As, not a type assertion: a service that wraps an *Error with
+	// context would otherwise be reported as a generic 500, losing both the
+	// intended status and the client-facing code.
+	var apiErr *Error
+	if !errors.As(err, &apiErr) {
 		apiErr = Internal(err)
 	}
 

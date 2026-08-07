@@ -2,6 +2,7 @@ package store_test
 
 import (
 	"context"
+	"errors"
 	"path/filepath"
 	"testing"
 	"time"
@@ -154,7 +155,7 @@ func TestWithTxRollsBackOnError(t *testing.T) {
 		}
 		return wantErr
 	})
-	if err != wantErr {
+	if !errors.Is(err, wantErr) {
 		t.Fatalf("error = %v, want the sentinel", err)
 	}
 

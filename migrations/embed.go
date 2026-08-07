@@ -5,5 +5,7 @@ package migrations
 
 import "embed"
 
+// FS holds the migration files, applied at startup by the store package.
+//
 //go:embed *.sql
 var FS embed.FS

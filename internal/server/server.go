@@ -9,6 +9,7 @@ import (
 	"github.com/paraview/keylite/internal/auth"
 	"github.com/paraview/keylite/internal/config"
 	"github.com/paraview/keylite/internal/handler"
+	"github.com/paraview/keylite/internal/httpx"
 	"github.com/paraview/keylite/internal/service"
 	"github.com/paraview/keylite/internal/store"
 )
@@ -30,6 +31,8 @@ func New(cfg *config.Config) (*Server, error) {
 	if err != nil {
 		return nil, err
 	}
+
+	httpx.TrustProxyHeaders(cfg.TrustProxyHeaders)
 
 	tokens := auth.NewTokenService(cfg.JWTSecret)
 	audit := service.NewAuditService(st)

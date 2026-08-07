@@ -51,16 +51,16 @@ func NewUserService(st *store.Store, audit *AuditService, settings *SettingsServ
 
 // LookupForAuth implements auth.UserLookup. It runs on every authenticated
 // request, so it stays a single indexed read.
-func (s *UserService) LookupForAuth(ctx context.Context, userID string) (auth.AuthUser, error) {
+func (s *UserService) LookupForAuth(ctx context.Context, userID string) (auth.Account, error) {
 	row, err := s.store.Queries.GetUserByID(ctx, userID)
 	if err != nil {
 		if isNoRows(err) {
-			return auth.AuthUser{}, auth.ErrUserNotFound
+			return auth.Account{}, auth.ErrUserNotFound
 		}
-		return auth.AuthUser{}, fmt.Errorf("look up user: %w", err)
+		return auth.Account{}, fmt.Errorf("look up user: %w", err)
 	}
 
-	out := auth.AuthUser{
+	out := auth.Account{
 		ID:           row.ID,
 		Username:     row.Username,
 		DisplayName:  row.DisplayName,

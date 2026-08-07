@@ -80,9 +80,10 @@ func (h *Handler) UpdateSettings(w http.ResponseWriter, r *http.Request) {
 		SystemName:          req.SystemName,
 	})
 	if err != nil {
-		// Update's validation failures are plain errors, not typed API
-		// errors, so they are mapped here rather than becoming a 500.
-		httpx.Fail(w, r, httpx.BadRequest("INVALID_SETTINGS", err.Error()))
+		// Update returns a typed error for validation failures; anything
+		// else is a storage problem and must surface as a 500 rather than
+		// reflecting the database's error text back to the caller.
+		httpx.Fail(w, r, err)
 		return
 	}
 

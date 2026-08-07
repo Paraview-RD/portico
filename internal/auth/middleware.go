@@ -10,9 +10,9 @@ import (
 	"github.com/paraview/keylite/internal/model"
 )
 
-// AuthUser is the subset of an account the middleware needs to decide
-// whether a token is still good.
-type AuthUser struct {
+// Account is the subset of a user record the middleware needs in order to
+// decide whether a presented token is still valid.
+type Account struct {
 	ID               string
 	Username         string
 	DisplayName      string
@@ -30,7 +30,7 @@ var ErrUserNotFound = errors.New("user not found")
 // it on every authenticated request, which is what makes revocation take
 // effect immediately rather than at token expiry.
 type UserLookup interface {
-	LookupForAuth(ctx context.Context, userID string) (AuthUser, error)
+	LookupForAuth(ctx context.Context, userID string) (Account, error)
 }
 
 // Middleware authenticates requests using bearer tokens.

@@ -59,9 +59,67 @@ By making a contribution to this project, I certify that:
 
 ## Getting started
 
-See [README.md](./README.md) for project layout and local setup (backend
-and frontend scaffolding is still being built out — this section will be
-filled in as those land).
+Prerequisites: **Go 1.25.7+** (a dependency sets that floor), **Node 22+**,
+and — only if you change a SQL query — [`sqlc`](https://sqlc.dev).
+
+```bash
+git clone https://github.com/paraview/keylite.git
+cd keylite
+
+# The frontend compiles into the binary, so build it first. A Go-only build
+# produces a working API and no UI.
+cd web && npm ci && npm run build && cd ..
+
+go build -o keylite ./cmd/server
+go test ./...
+```
+
+Run it with a real signing secret — the server refuses to start with a weak
+one:
+
+```bash
+KEYLITE_JWT_SECRET=$(openssl rand -hex 32) ./keylite
+```
+
+It prints a generated administrator password on first start. The UI is on
+<http://localhost:8410>.
+
+### Working on the frontend
+
+```bash
+cd web && npm run dev     # http://localhost:5410, proxies /api to :8410
+```
+
+Run the Go server separately in another terminal; the dev server hot-reloads
+and does not need a rebuilt binary.
+
+### Working on queries
+
+Queries live in `internal/store/queries/` and are compiled to Go by sqlc.
+After editing one:
+
+```bash
+sqlc generate
+```
+
+The generated code in `internal/store/sqlcgen/` is committed, so contributors
+who do not touch queries never need sqlc installed.
+
+### Before you open a pull request
+
+CI runs all of these, so it is quicker to run them yourself:
+
+```bash
+gofmt -l .                                       # must print nothing
+go vet ./...
+go test ./...
+golangci-lint run ./...
+
+cd web
+npx prettier --check "src/**/*.{ts,tsx,css}"
+npm run lint
+npm run build
+```
 
 ## Pull requests
 

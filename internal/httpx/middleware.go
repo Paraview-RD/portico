@@ -6,6 +6,7 @@ import (
 	"net"
 	"net/http"
 	"runtime/debug"
+	"strings"
 	"time"
 
 	"github.com/google/uuid"
@@ -101,25 +102,74 @@ func Recover(next http.Handler) http.Handler {
 	})
 }
 
-// ClientIP extracts the caller's address, trusting X-Forwarded-For only for
-// its first entry (the original client) when present.
+// trustProxyHeaders controls whether forwarding headers are believed. It is
+// set once at startup from configuration.
+//
+// Off by default on purpose: the leftmost X-Forwarded-For entry is the one
+// part of that header a client fully controls, so trusting it unconditionally
+// lets anyone stamp their own address into the audit log — and defeats any
+// per-IP throttle placed in front of it. Only enable it when a proxy you
+// control is guaranteed to be in front and to rewrite the header.
+var trustProxyHeaders bool
+
+// TrustProxyHeaders enables the use of X-Forwarded-For and X-Real-Ip.
+func TrustProxyHeaders(trust bool) { trustProxyHeaders = trust }
+
+// ClientIP returns the caller's address for logging and auditing.
 func ClientIP(r *http.Request) string {
-	if xff := r.Header.Get("X-Forwarded-For"); xff != "" {
-		for i := 0; i < len(xff); i++ {
-			if xff[i] == ',' {
-				return trimSpace(xff[:i])
+	if trustProxyHeaders {
+		if xff := r.Header.Get("X-Forwarded-For"); xff != "" {
+			// Right-to-left: entries are appended by each hop, so the
+			// rightmost is the one our own proxy wrote and the leftmost is
+			// whatever the client claimed.
+			parts := strings.Split(xff, ",")
+			if candidate := trimSpace(parts[len(parts)-1]); candidate != "" {
+				return candidate
 			}
 		}
-		return trimSpace(xff)
+		if xrip := trimSpace(r.Header.Get("X-Real-Ip")); xrip != "" {
+			return xrip
+		}
 	}
-	if xrip := r.Header.Get("X-Real-Ip"); xrip != "" {
-		return trimSpace(xrip)
-	}
+
 	host, _, err := net.SplitHostPort(r.RemoteAddr)
 	if err != nil {
 		return r.RemoteAddr
 	}
 	return host
+}
+
+// SecurityHeaders applies the response headers that cost nothing for a
+// self-hosted single-origin app and remove whole classes of attack.
+//
+// HSTS is deliberately absent: it is only meaningful over TLS, which this
+// process does not terminate, and emitting it over plaintext would either be
+// ignored or pin a host to HTTPS it cannot serve. The reverse proxy that
+// terminates TLS is the right place for it — see docs/access-guide.md.
+func SecurityHeaders(next http.Handler) http.Handler {
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		h := w.Header()
+		h.Set("X-Content-Type-Options", "nosniff")
+		// The admin console can disable accounts and reset passwords, so it
+		// must never be frameable.
+		h.Set("X-Frame-Options", "DENY")
+		h.Set("Referrer-Policy", "no-referrer")
+		// The SPA is served from this same origin with no CDN and no inline
+		// scripts, so a strict policy costs nothing. style-src allows inline
+		// because the bundler emits a style element.
+		h.Set("Content-Security-Policy",
+			"default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; "+
+				"img-src 'self' data:; connect-src 'self'; font-src 'self'; "+
+				"object-src 'none'; frame-ancestors 'none'; base-uri 'self'; form-action 'self'")
+
+		// API responses carry account data and tokens; keep them out of
+		// shared caches.
+		if strings.HasPrefix(r.URL.Path, "/api/") {
+			h.Set("Cache-Control", "no-store")
+		}
+
+		next.ServeHTTP(w, r)
+	})
 }
 
 func trimSpace(s string) string {
