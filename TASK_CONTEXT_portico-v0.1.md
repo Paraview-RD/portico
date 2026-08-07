@@ -28,9 +28,30 @@
 | 1 | 迁移 PostgreSQL | ✅ `22b2b6c` |
 | 2 | 多租户隔离 | ✅ `d16a2a8`（前置修复 `5f879c4`） |
 | 3 | 多凭证登录 + 自服务闭环 | ✅ `5e29d2f` + `08f0086` |
-| 4 | OIDC + OAuth 2.1 | 🔄 进行中 |
+| 4 | OIDC + OAuth 2.1 | ✅ `430d41d` `eae63ca` `bfb8e0f` `fdac3da` `197c299` `619d90e` `7aa7829` `407d081` `eefe263` `52f29c8` |
 | 5 | SAML 2.0 | ⬜ |
 | 6 | CAS | ⬜ |
+
+## 阶段 4 已完成（收尾记录）
+
+- **端到端跑通**：`internal/server/federation_test.go` 用真实 RP（`zitadel/oidc` 的 `pkg/client/rp`、`pkg/client/rs`）打真实端口，15 个用例覆盖 discovery/PKCE/重放/错 verifier/无 PKCE/refresh 轮换+链撤销/停用账号/双 issuer/跨租户/内省/撤销/RP 发起登出/清扫。
+- **写测试与浏览器实测各查出真 bug**（都已修，都有测试守着）：
+  - ID token 缺 `tenant_code`/`role`（私有 claim 只进 access token）
+  - discovery 文档宣告 implicit / JWT-bearer / device 端点——库的默认值，与实现相反；已改为发布修正后的文档
+  - 内省对停用账号仍返回 `active: true`（handler 在 storage 返回后自己置 true，只能靠返回 error 表达）
+  - 撤销端点收到的是 **token id 不是 token**，按 hash 查恒 miss → 静默不撤销
+  - 前端：错租户后退出登录，错误信息卡死（once-guard 按挂载而非按账号）
+  - 前端：记忆的租户会盖掉授权请求所属租户
+- **已知缺口（写进 docs/federation.md「Known limitations」）**：过期 refresh token 不清理（授权请求会清）；access token 无法撤销（15 分钟 + 内省）；无 consent 页；无 `private_key_jwt`。
+- **未覆盖**：前端无测试框架，上面两个前端 bug 没有回归测试。
+
+## 验收实例（阶段 4 交付时的状态）
+
+- 二进制 `/tmp/portico`，环境变量在 `/tmp/portico-env.sh`（`source` 后即可跑 CLI）
+- 库 `portico_dev` **已重建**（`00001_init.sql` 加了 `issuer` 列，旧库不兼容；先前的 2 租户 6 用户数据已丢，属预发布预期）
+- 租户：`default`（admin / `Portico-Admin-2026`）、`acme`（admin / `Acme-Admin-2026`）
+- 客户端：`demo`（public，default 租户）、`grafana`（confidential，default）、`acme-demo`（public，acme）
+- 演示 RP 回调：`python3 /tmp/rp-callback.py` 监听 `127.0.0.1:9999`，打印收到的 code
 
 ## 阶段 4 范围与决策（已定，勿再议）
 

@@ -858,3 +858,37 @@ func TestARelyingPartyCanRevokeItsRefreshToken(t *testing.T) {
 		t.Errorf("revoking an unknown token reported an error: %v", err)
 	}
 }
+
+// RP-initiated logout: an application sends the person to end_session with
+// the ID token it holds, and the session with that application ends.
+func TestRPInitiatedLogoutEndsTheSession(t *testing.T) {
+	f := newFederationTest(t)
+	registered := f.registerClient(model.DefaultTenantCode, "logout-app", false)
+
+	issuer := f.publicURL + "/t/" + model.DefaultTenantCode
+	party := f.relyingParty(issuer, registered.Client.ClientID, registered.Secret)
+
+	verifier := "a-verifier-for-the-end-session-case-x"
+	code, _ := f.signIn(
+		rp.AuthURL("s", party, rp.WithCodeChallenge(oidc.NewSHACodeChallenge(verifier))),
+		model.DefaultTenantCode, adminUsername, adminPassword)
+
+	tokens, err := rp.CodeExchange[*oidc.IDTokenClaims](context.Background(), code, party,
+		rp.WithCodeVerifier(verifier))
+	if err != nil {
+		t.Fatalf("code exchange: %v", err)
+	}
+
+	redirect, err := rp.EndSession(context.Background(), party, tokens.IDToken, "", "", "", nil)
+	if err != nil {
+		t.Fatalf("end session: %v", err)
+	}
+	if redirect == nil || redirect.String() == "" {
+		t.Error("end_session returned nowhere to send the browser")
+	}
+
+	if _, err := rp.RefreshTokens[*oidc.IDTokenClaims](context.Background(), party,
+		tokens.RefreshToken, "", ""); err == nil {
+		t.Error("the refresh token survived an RP-initiated logout")
+	}
+}
