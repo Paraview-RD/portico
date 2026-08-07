@@ -25,8 +25,8 @@
 | # | 阶段 | 状态 |
 |---|---|---|
 | 0 | 改名 Portico + 定位重写 + 版本回退 | ✅ `9245b6c` |
-| 1 | 迁移 PostgreSQL | 🔄 进行中 |
-| 2 | 多租户隔离 | ⬜ |
+| 1 | 迁移 PostgreSQL | ✅ `22b2b6c` |
+| 2 | 多租户隔离 | 🔄 下一步 |
 | 3 | 多凭证登录 + 自服务闭环 | ⬜ |
 | 4 | OIDC + OAuth 2.1 | ⬜ |
 | 5 | SAML 2.0 | ⬜ |
@@ -38,7 +38,7 @@
 - **分层守卫已存在**：`internal/server/layering_test.go`，改包结构时会失败，这是有意的
 - **前端编译进二进制**：Vite 输出到 `internal/web/dist`，`tsc --noEmit` 检查 0 文件（根 tsconfig 是 references 存根），必须用 `npm run typecheck`
 - **规范文档 8 份在 `docs/`**：改行为要同步改对应规范，文档描述的是代码实际行为
-- **PG 迁移连带**：删掉 `internal/store/dbtime`（PG 有原生 timestamptz）、compose 加 DB 服务、README/integrations/database-conventions 要改（"一个二进制一个文件"的卖点不再成立）
+- **PG 已就位**：`internal/store/dbtime` 已删；动态查询走 `internal/service/common.go` 的 `filters` 构建器（PG 占位符按序编号，手数极易错位）；测试用 `internal/testdb`（testcontainers，或用 `PORTICO_TEST_DB_DSN` 指向现成实例，快很多）
 - **提交纪律**：`git commit -s`（DCO 强制），禁用 `-am`，一切片一提交，**不推送**
 
 ## 验证命令
