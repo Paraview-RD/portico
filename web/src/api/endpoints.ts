@@ -54,9 +54,15 @@ export const authApi = {
       anonymous: true,
     }),
 
-  registrationStatus: () =>
+  /**
+   * Whether sign-up is open, and what the tenant calls itself. The signal
+   * lets the sign-in screen drop a lookup for a tenant the user has since
+   * changed, so a slow earlier response cannot overwrite a newer one.
+   */
+  registrationStatus: (signal?: AbortSignal) =>
     request<RegistrationStatus>("/auth/registration-status", {
       anonymous: true,
+      signal,
     }),
 };
 

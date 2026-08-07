@@ -77,8 +77,9 @@ func TestOpenRejectsUnknownDriver(t *testing.T) {
 	}
 }
 
-// Timestamps are stored as text; this verifies they survive the round trip
-// as time.Time rather than silently becoming zero values.
+// Timestamps must survive the round trip as time.Time rather than silently
+// becoming zero values, which is what lets service code treat them as
+// ordinary Go times.
 func TestTimestampRoundTrip(t *testing.T) {
 	s := newTestStore(t)
 	q := newTestTenant(t, s, "acme")
@@ -168,6 +169,49 @@ func TestUniqueViolationIsRecognized(t *testing.T) {
 	}
 	if store.IsForeignKeyViolation(err) {
 		t.Error("a unique violation was classified as a foreign key violation")
+	}
+}
+
+// ForTenant does not verify that its tenant exists, on the grounds that
+// callers only ever get one from an authenticated principal or a checked
+// lookup, and that an empty one fails closed regardless. That second half is
+// a claim in a doc comment which a later contributor may well lean on, so it
+// is worth holding to it: a read must find nothing rather than everything,
+// and a write must be refused rather than land somewhere unreachable.
+func TestEmptyTenantFailsClosed(t *testing.T) {
+	s := newTestStore(t)
+	existing := newTestTenant(t, s, "acme")
+	ctx := context.Background()
+	now := store.Now()
+
+	err := existing.CreateUser(ctx, sqlcgen.CreateUserParams{
+		ID: "user-1", Username: "alice", DisplayName: "Alice",
+		PasswordHash: "hash", Role: "USER", Status: "ACTIVE",
+		TokenVersion: 1, Source: "ADMIN", CreatedAt: now, UpdatedAt: now,
+	})
+	if err != nil {
+		t.Fatalf("create user: %v", err)
+	}
+
+	empty := s.ForTenant("")
+
+	if _, err := empty.GetUserByID(ctx, "user-1"); !store.IsNoRows(err) {
+		t.Errorf("read through an empty tenant returned %v, want no rows", err)
+	}
+	if count, err := empty.CountUsers(ctx); err != nil || count != 0 {
+		t.Errorf("count through an empty tenant = %d, %v; want 0, nil", count, err)
+	}
+
+	err = empty.CreateUser(ctx, sqlcgen.CreateUserParams{
+		ID: "user-2", Username: "mallory", DisplayName: "Mallory",
+		PasswordHash: "hash", Role: "USER", Status: "ACTIVE",
+		TokenVersion: 1, Source: "ADMIN", CreatedAt: now, UpdatedAt: now,
+	})
+	if err == nil {
+		t.Fatal("a write through an empty tenant succeeded")
+	}
+	if !store.IsForeignKeyViolation(err) {
+		t.Errorf("write was refused by %v, want a foreign key violation", err)
 	}
 }
 

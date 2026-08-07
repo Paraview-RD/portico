@@ -20,9 +20,9 @@ import (
 //
 // They are deliberately crude — they read SQL as text rather than parsing it
 // — because a guard that is hard to understand is a guard people delete. The
-// behavioural proof that isolation actually holds is
-// TestCrossTenantIsolation in internal/server; these two only ensure that a
-// new query cannot quietly opt out of it.
+// behavioural proof that isolation actually holds is in
+// internal/server/tenancy_test.go; these only ensure that a new query
+// cannot quietly opt out of it.
 
 // unscopedQueries are the queries allowed to touch a tenant-scoped table
 // without filtering by tenant.
@@ -63,7 +63,7 @@ func TestTenantScopedQueriesFilterByTenant(t *testing.T) {
 			if !touched {
 				continue
 			}
-			if !strings.Contains(stmt.body, "tenant_id") {
+			if !strings.Contains(flatten(stmt.body), "tenant_id") {
 				t.Errorf("%s: query %s reads or writes %s without filtering on tenant_id.\n"+
 					"Every statement on a tenant-scoped table must constrain "+
 					"tenant_id, or it will act on other tenants' rows.",
@@ -118,7 +118,7 @@ func TestHandWrittenSQLFiltersByTenant(t *testing.T) {
 					return true
 				}
 				checked++
-				if !strings.Contains(value, "tenant_id") {
+				if !strings.Contains(flatten(value), "tenant_id") {
 					t.Errorf("%s: hand-written SQL touches %s without a tenant_id predicate:\n\t%s",
 						name, table, strings.TrimSpace(value))
 				}
@@ -180,14 +180,25 @@ func scopedTables(t *testing.T) []string {
 	return tables
 }
 
+// flatten collapses every run of whitespace to a single space.
+//
+// Without this the guard is defeated by formatting alone: a query written
+// as "FROM\n    users" does not contain "from users", so it matches nothing
+// and is skipped in silence. That is the worst way for a guard to fail,
+// because the suite still passes and nobody is told the query went
+// unchecked.
+func flatten(s string) string { return strings.Join(strings.Fields(s), " ") }
+
 // referencedScopedTable reports which scoped table a statement touches, if
-// any. Word boundaries keep "users" from matching inside "system_settings"
-// or a comment about users.
+// any. The keyword prefix keeps "users" from matching inside
+// "system_settings" or in prose about users; the schema qualifier is
+// accepted because "FROM public.users" is the same table.
 func referencedScopedTable(sql string, scoped []string) (string, bool) {
-	lower := strings.ToLower(sql)
+	lower := strings.ToLower(flatten(sql))
 	for _, table := range scoped {
 		for _, keyword := range []string{"from ", "join ", "into ", "update "} {
-			if strings.Contains(lower, keyword+table) {
+			if strings.Contains(lower, keyword+table) ||
+				strings.Contains(lower, keyword+"public."+table) {
 				return table, true
 			}
 		}
@@ -198,7 +209,7 @@ func referencedScopedTable(sql string, scoped []string) (string, bool) {
 // looksLikeSQL filters out prose that happens to mention a table name, such
 // as an error message or a doc comment moved into a constant.
 func looksLikeSQL(s string) bool {
-	upper := strings.ToUpper(s)
+	upper := strings.ToUpper(flatten(s))
 	return strings.Contains(upper, "SELECT ") ||
 		strings.Contains(upper, "INSERT ") ||
 		strings.Contains(upper, "UPDATE ") ||

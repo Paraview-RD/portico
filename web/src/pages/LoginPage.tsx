@@ -15,12 +15,17 @@ export function LoginPage() {
   // Remembered from the last sign-in, or taken from a ?tenant= link, so an
   // operator can hand out a URL that lands on the right tenant. Blank means
   // the default tenant, which is all a single-tenant deployment ever needs.
-  const [tenant, setTenant] = useState(
-    () =>
-      new URLSearchParams(window.location.search).get("tenant") ??
-      tenantStore.get() ??
-      "",
-  );
+  const initialTenant =
+    new URLSearchParams(window.location.search).get("tenant") ??
+    tenantStore.get() ??
+    "";
+
+  const [tenant, setTenant] = useState(initialTenant);
+  // The tenant the lookup below has run for. It trails the field rather than
+  // tracking it, because the field changes on every keystroke and typing
+  // "acme" would otherwise issue four requests, three of them for tenants
+  // that do not exist.
+  const [lookedUpTenant, setLookedUpTenant] = useState(initialTenant);
   const [username, setUsername] = useState("");
   const [password, setPassword] = useState("");
   const [error, setError] = useState("");
@@ -29,14 +34,15 @@ export function LoginPage() {
   const [systemName, setSystemName] = useState("Portico");
 
   // The sign-in screen only offers registration when the server says it is
-  // open, so a closed instance does not advertise a dead end.
-  // Both answers are per tenant, so the lookup is redone whenever the tenant
-  // field changes: the name in the header and whether registration is
-  // offered both belong to the tenant being signed in to.
+  // open, so a closed instance does not advertise a dead end. Both that and
+  // the name in the header belong to the tenant being signed in to, so the
+  // lookup runs again when the tenant settles.
   useEffect(() => {
-    tenantStore.set(tenant);
+    tenantStore.set(lookedUpTenant);
+
+    const controller = new AbortController();
     authApi
-      .registrationStatus()
+      .registrationStatus(controller.signal)
       .then((status) => {
         setRegistrationOpen(status.registrationEnabled);
         setSystemName(status.systemName);
@@ -44,17 +50,24 @@ export function LoginPage() {
       .catch(() => {
         // An unknown tenant lands here. Sign-in will say so plainly, which
         // is more useful than an error under a field they may not have
-        // filled in yet.
+        // finished filling in — but the header must not keep showing the
+        // previous tenant's name as though this one existed.
         setRegistrationOpen(false);
+        setSystemName("Portico");
       });
-  }, [tenant]);
+
+    return () => controller.abort();
+  }, [lookedUpTenant]);
 
   async function handleSubmit(event: React.FormEvent) {
     event.preventDefault();
     setError("");
     setSubmitting(true);
     try {
-      await signIn(tenant, username, password);
+      // Submitting without leaving the field never fires onBlur, so settle
+      // the lookup here too.
+      setLookedUpTenant(tenant.trim());
+      await signIn(tenant.trim(), username, password);
       navigate("/users");
     } catch (err) {
       setError(
@@ -84,6 +97,7 @@ export function LoginPage() {
             <Input
               value={tenant}
               onChange={(e) => setTenant(e.target.value)}
+              onBlur={() => setLookedUpTenant(tenant.trim())}
               autoComplete="organization"
               placeholder="default"
             />
