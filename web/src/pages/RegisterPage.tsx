@@ -2,6 +2,7 @@ import { useState } from "react";
 
 import { ApiError, tenantStore } from "../api/client";
 import { authApi } from "../api/endpoints";
+import { AuthLink, AuthShell } from "../components/AuthShell";
 import { Alert, Button, Field, Input } from "../components/ui";
 import { useT } from "../i18n";
 import { useRouter } from "../router";
@@ -68,102 +69,97 @@ export function RegisterPage() {
   }
 
   return (
-    <div className="flex min-h-dvh items-center justify-center bg-[var(--color-bg-soft)] p-4">
-      <div className="w-full max-w-sm rounded-[var(--radius-lg)] bg-[var(--color-bg)] p-6 shadow-[var(--shadow-md)]">
-        <h1 className="mb-5 text-[length:var(--font-size-lg)] font-[weight:var(--font-weight-bold)] text-[var(--color-fg)]">
-          {t("register.title")}
-        </h1>
-
-        {done ? (
-          <div className="flex flex-col gap-4">
-            <Alert tone="success">{t("register.success")}</Alert>
-            <Button onClick={() => navigate("/login")}>
-              {t("register.signIn")}
-            </Button>
-          </div>
-        ) : (
-          <form onSubmit={handleSubmit} className="flex flex-col gap-4">
-            <Field label={t("login.tenant")} hint={t("login.tenantHint")}>
-              <Input
-                value={tenant}
-                onChange={(e) => setTenant(e.target.value)}
-                autoComplete="organization"
-                placeholder="default"
-              />
-            </Field>
-
-            <Field label={t("login.username")} required>
-              <Input
-                value={form.username}
-                onChange={(e) => set("username", e.target.value)}
-                autoComplete="username"
-                autoFocus
-                required
-              />
-            </Field>
-
-            <Field label={t("register.displayName")} required>
-              <Input
-                value={form.displayName}
-                onChange={(e) => set("displayName", e.target.value)}
-                required
-              />
-            </Field>
-
-            <Field label={t("login.password")} required>
-              <Input
-                type="password"
-                value={form.password}
-                onChange={(e) => set("password", e.target.value)}
-                autoComplete="new-password"
-                required
-              />
-            </Field>
-
-            <Field label={t("register.confirmPassword")} required>
-              <Input
-                type="password"
-                value={form.confirmPassword}
-                onChange={(e) => set("confirmPassword", e.target.value)}
-                autoComplete="new-password"
-                required
-              />
-            </Field>
-
-            <Field label={`${t("register.phone")} (${t("common.optional")})`}>
-              <Input
-                value={form.phone}
-                onChange={(e) => set("phone", e.target.value)}
-              />
-            </Field>
-
-            <Field label={`${t("register.email")} (${t("common.optional")})`}>
-              <Input
-                type="email"
-                value={form.email}
-                onChange={(e) => set("email", e.target.value)}
-              />
-            </Field>
-
-            {error && <Alert tone="danger">{error}</Alert>}
-
-            <Button type="submit" disabled={submitting}>
-              {t("register.submit")}
-            </Button>
-          </form>
-        )}
-
-        <p className="mt-4 text-center text-[length:var(--font-size-sm)] text-[var(--color-fg-muted)]">
+    <AuthShell
+      title={t("register.title")}
+      footer={
+        <>
           {t("register.haveAccount")}{" "}
-          <button
-            type="button"
-            onClick={() => navigate("/login")}
-            className="text-[var(--color-primary)] underline-offset-2 hover:underline"
-          >
+          <AuthLink onClick={() => navigate("/login")}>
             {t("register.signIn")}
-          </button>
-        </p>
-      </div>
-    </div>
+          </AuthLink>
+        </>
+      }
+    >
+      {done ? (
+        <div className="flex flex-col gap-4">
+          <Alert tone="success">{t("register.success")}</Alert>
+          <Button onClick={() => navigate("/login")}>
+            {t("register.signIn")}
+          </Button>
+        </div>
+      ) : (
+        <form onSubmit={handleSubmit} className="flex flex-col gap-4">
+          <Field label={t("login.tenant")} hint={t("login.tenantHint")}>
+            <Input
+              value={tenant}
+              onChange={(e) => setTenant(e.target.value)}
+              autoComplete="organization"
+              placeholder="default"
+            />
+          </Field>
+
+          <Field label={t("login.username")} required>
+            <Input
+              value={form.username}
+              onChange={(e) => set("username", e.target.value)}
+              autoComplete="username"
+              autoFocus
+              required
+            />
+          </Field>
+
+          <Field label={t("register.displayName")} required>
+            <Input
+              value={form.displayName}
+              onChange={(e) => set("displayName", e.target.value)}
+              required
+            />
+          </Field>
+
+          <Field label={t("login.password")} required>
+            <Input
+              type="password"
+              value={form.password}
+              onChange={(e) => set("password", e.target.value)}
+              autoComplete="new-password"
+              required
+            />
+          </Field>
+
+          <Field label={t("register.confirmPassword")} required>
+            <Input
+              type="password"
+              value={form.confirmPassword}
+              onChange={(e) => set("confirmPassword", e.target.value)}
+              autoComplete="new-password"
+              required
+            />
+          </Field>
+
+          <Field label={`${t("register.phone")} (${t("common.optional")})`}>
+            <Input
+              value={form.phone}
+              onChange={(e) => set("phone", e.target.value)}
+              autoComplete="tel"
+            />
+          </Field>
+
+          <Field label={`${t("register.email")} (${t("common.optional")})`}>
+            <Input
+              type="email"
+              value={form.email}
+              onChange={(e) => set("email", e.target.value)}
+              autoComplete="email"
+            />
+          </Field>
+
+          {error && <Alert tone="danger">{error}</Alert>}
+
+          <Button type="submit" disabled={submitting}>
+            {t("register.submit")}
+          </Button>
+        </form>
+      )}
+    </AuthShell>
   );
 }

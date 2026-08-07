@@ -2,6 +2,7 @@ import { useEffect, useState } from "react";
 
 import { ApiError, tenantStore } from "../api/client";
 import { authApi } from "../api/endpoints";
+import { AuthLink, AuthShell } from "../components/AuthShell";
 import { Alert, Button, Field, Input } from "../components/ui";
 import { useT } from "../i18n";
 import { useRouter } from "../router";
@@ -79,84 +80,77 @@ export function LoginPage() {
   }
 
   return (
-    <div className="flex min-h-dvh items-center justify-center bg-[var(--color-bg-soft)] p-4">
-      <div className="w-full max-w-sm rounded-[var(--radius-lg)] bg-[var(--color-bg)] p-6 shadow-[var(--shadow-md)]">
-        <h1 className="mb-1 text-[length:var(--font-size-lg)] font-[weight:var(--font-weight-bold)] text-[var(--color-fg)]">
-          {systemName}
-        </h1>
-        <p className="mb-5 text-[var(--color-fg-muted)]">{t("login.title")}</p>
+    <AuthShell
+      title={t("login.title")}
+      subtitle={
+        // Which tenant is being signed in to, once the server has resolved
+        // one. A deployment with only the default tenant never sees this,
+        // because it has nothing to disambiguate.
+        systemName !== "Portico" ? systemName : undefined
+      }
+    >
+      {expired && (
+        <div className="mb-4">
+          <Alert tone="danger">{t("login.sessionExpired")}</Alert>
+        </div>
+      )}
 
-        {expired && (
-          <div className="mb-4">
-            <Alert tone="danger">{t("login.sessionExpired")}</Alert>
-          </div>
-        )}
+      <form onSubmit={handleSubmit} className="flex flex-col gap-4">
+        <Field label={t("login.tenant")} hint={t("login.tenantHint")}>
+          <Input
+            value={tenant}
+            onChange={(e) => setTenant(e.target.value)}
+            onBlur={() => setLookedUpTenant(tenant.trim())}
+            autoComplete="organization"
+            placeholder="default"
+          />
+        </Field>
 
-        <form onSubmit={handleSubmit} className="flex flex-col gap-4">
-          <Field label={t("login.tenant")} hint={t("login.tenantHint")}>
-            <Input
-              value={tenant}
-              onChange={(e) => setTenant(e.target.value)}
-              onBlur={() => setLookedUpTenant(tenant.trim())}
-              autoComplete="organization"
-              placeholder="default"
-            />
-          </Field>
-
-          <Field
-            label={t("login.identifier")}
-            hint={t("login.identifierHint")}
+        <Field
+          label={t("login.identifier")}
+          hint={t("login.identifierHint")}
+          required
+        >
+          <Input
+            value={identifier}
+            onChange={(e) => setIdentifier(e.target.value)}
+            autoComplete="username"
+            autoFocus
             required
-          >
-            <Input
-              value={identifier}
-              onChange={(e) => setIdentifier(e.target.value)}
-              autoComplete="username"
-              autoFocus
-              required
-            />
-          </Field>
+          />
+        </Field>
 
-          <Field label={t("login.password")} required>
-            <Input
-              type="password"
-              value={password}
-              onChange={(e) => setPassword(e.target.value)}
-              autoComplete="current-password"
-              required
-            />
-          </Field>
+        <Field label={t("login.password")} required>
+          <Input
+            type="password"
+            value={password}
+            onChange={(e) => setPassword(e.target.value)}
+            autoComplete="current-password"
+            required
+          />
+        </Field>
 
-          {error && <Alert tone="danger">{error}</Alert>}
+        {error && <Alert tone="danger">{error}</Alert>}
 
-          <Button type="submit" disabled={submitting}>
-            {submitting ? t("login.signingIn") : t("login.submit")}
-          </Button>
-        </form>
+        <Button type="submit" disabled={submitting}>
+          {submitting ? t("login.signingIn") : t("login.submit")}
+        </Button>
 
-        <p className="mt-4 text-center text-[length:var(--font-size-sm)]">
-          <button
-            type="button"
-            onClick={() => navigate("/forgot-password")}
-            className="text-[var(--color-primary)] underline-offset-2 hover:underline"
-          >
+        <div className="text-center">
+          <AuthLink onClick={() => navigate("/forgot-password")}>
             {t("login.forgotPassword")}
-          </button>
-        </p>
+          </AuthLink>
+        </div>
+      </form>
 
-        {registrationOpen && (
-          <p className="mt-4 text-center text-[length:var(--font-size-sm)] text-[var(--color-fg-muted)]">
-            {t("login.noAccount")}{" "}
-            <button
-              type="button"
-              onClick={() => navigate("/register")}
-              className="text-[var(--color-primary)] underline-offset-2 hover:underline"
-            >
-              {t("login.register")}
-            </button>
-          </p>
-        )}
-      </div>
-    </div>
+      {registrationOpen && (
+        <p className="mt-5 border-t border-[var(--color-border)] pt-4 text-center text-[length:var(--font-size-sm)] text-[var(--color-fg-muted)]">
+          {t("login.noAccount")}{" "}
+          <AuthLink onClick={() => navigate("/register")}>
+            {t("login.register")}
+          </AuthLink>
+        </p>
+      )}
+    </AuthShell>
   );
 }

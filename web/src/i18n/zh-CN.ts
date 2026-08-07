@@ -190,4 +190,9 @@ export const zhCN: Record<keyof typeof enUS, string> = {
   "reset.done": "密码已更新，请用新密码登录。",
   "reset.missingToken": "链接不完整，请打开邮件中的原始链接，或重新申请一个。",
   "reset.requestAnother": "重新申请链接",
+  "brand.descriptor": "身份平台",
+  "nav.language": "语言",
+  "nav.group.directory": "目录",
+  "nav.group.operations": "运维",
+  "nav.group.account": "账户",
 };

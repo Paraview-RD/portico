@@ -6,6 +6,7 @@ import {
   Alert,
   Badge,
   Button,
+  Card,
   Field,
   Input,
   PageHeader,
@@ -59,7 +60,7 @@ export function ProfilePage() {
       {/* Read-only above, editable below. The split is the server's: username,
           role, and organization are not things a user may change about
           themselves, and showing them in a form would imply otherwise. */}
-      <div className="mb-8 max-w-md rounded-[var(--radius-md)] border border-[var(--color-border)] bg-[var(--color-bg)] p-4">
+      <Card className="mb-4 max-w-md">
         <dl className="flex flex-col gap-3">
           <Detail label={t("profile.username")} value={user.username} />
           <div className="flex justify-between gap-4">
@@ -77,60 +78,58 @@ export function ProfilePage() {
             value={user.organizationName || "—"}
           />
         </dl>
-      </div>
+      </Card>
 
       <ProfileDetailsForm onSaved={refresh} />
 
-      <h2 className="mb-3 text-[length:var(--font-size-base)] font-[weight:var(--font-weight-bold)] text-[var(--color-fg)]">
-        {t("profile.changePassword")}
-      </h2>
-
-      {changed ? (
-        <div className="flex max-w-md flex-col items-start gap-4">
-          <Alert tone="success">{t("profile.passwordChanged")}</Alert>
-          <Button onClick={endSession}>{t("login.submit")}</Button>
-        </div>
-      ) : (
-        <form onSubmit={handleSubmit} className="flex max-w-md flex-col gap-4">
-          <Field label={t("profile.currentPassword")} required>
-            <Input
-              type="password"
-              value={form.current}
-              onChange={(e) => setForm({ ...form, current: e.target.value })}
-              autoComplete="current-password"
-              required
-            />
-          </Field>
-
-          <Field label={t("profile.newPassword")} required>
-            <Input
-              type="password"
-              value={form.next}
-              onChange={(e) => setForm({ ...form, next: e.target.value })}
-              autoComplete="new-password"
-              required
-            />
-          </Field>
-
-          <Field label={t("profile.confirmNewPassword")} required>
-            <Input
-              type="password"
-              value={form.confirm}
-              onChange={(e) => setForm({ ...form, confirm: e.target.value })}
-              autoComplete="new-password"
-              required
-            />
-          </Field>
-
-          {error && <Alert tone="danger">{error}</Alert>}
-
-          <div>
-            <Button type="submit" disabled={submitting}>
-              {t("profile.changePassword")}
-            </Button>
+      <Card title={t("profile.changePassword")} className="max-w-md">
+        {changed ? (
+          <div className="flex flex-col items-start gap-4">
+            <Alert tone="success">{t("profile.passwordChanged")}</Alert>
+            <Button onClick={endSession}>{t("login.submit")}</Button>
           </div>
-        </form>
-      )}
+        ) : (
+          <form onSubmit={handleSubmit} className="flex flex-col gap-4">
+            <Field label={t("profile.currentPassword")} required>
+              <Input
+                type="password"
+                value={form.current}
+                onChange={(e) => setForm({ ...form, current: e.target.value })}
+                autoComplete="current-password"
+                required
+              />
+            </Field>
+
+            <Field label={t("profile.newPassword")} required>
+              <Input
+                type="password"
+                value={form.next}
+                onChange={(e) => setForm({ ...form, next: e.target.value })}
+                autoComplete="new-password"
+                required
+              />
+            </Field>
+
+            <Field label={t("profile.confirmNewPassword")} required>
+              <Input
+                type="password"
+                value={form.confirm}
+                onChange={(e) => setForm({ ...form, confirm: e.target.value })}
+                autoComplete="new-password"
+                required
+              />
+            </Field>
+
+            {error && <Alert tone="danger">{error}</Alert>}
+
+            <div>
+              <Button type="submit" disabled={submitting}>
+                {t("profile.changePassword")}
+              </Button>
+            </div>
+          </form>
+        )}
+      </Card>
     </>
   );
 }
@@ -176,49 +175,46 @@ function ProfileDetailsForm({ onSaved }: { onSaved: () => Promise<void> }) {
 
   return (
     <>
-      <h2 className="mb-3 text-[length:var(--font-size-base)] font-[weight:var(--font-weight-bold)] text-[var(--color-fg)]">
-        {t("profile.details")}
-      </h2>
+      <Card title={t("profile.details")} className="mb-4 max-w-md">
+        <form onSubmit={handleSubmit} className="flex flex-col gap-4">
+          <Field label={t("profile.displayName")} required>
+            <Input
+              value={form.displayName}
+              onChange={(e) =>
+                setForm({ ...form, displayName: e.target.value })
+              }
+              required
+            />
+          </Field>
 
-      <form
-        onSubmit={handleSubmit}
-        className="mb-8 flex max-w-md flex-col gap-4"
-      >
-        <Field label={t("profile.displayName")} required>
-          <Input
-            value={form.displayName}
-            onChange={(e) => setForm({ ...form, displayName: e.target.value })}
-            required
-          />
-        </Field>
+          <Field label={t("profile.email")} hint={t("profile.contactHint")}>
+            <Input
+              type="email"
+              value={form.email}
+              onChange={(e) => setForm({ ...form, email: e.target.value })}
+              autoComplete="email"
+            />
+          </Field>
 
-        <Field label={t("profile.email")} hint={t("profile.contactHint")}>
-          <Input
-            type="email"
-            value={form.email}
-            onChange={(e) => setForm({ ...form, email: e.target.value })}
-            autoComplete="email"
-          />
-        </Field>
+          <Field label={t("profile.phone")} hint={t("profile.contactHint")}>
+            <Input
+              type="tel"
+              value={form.phone}
+              onChange={(e) => setForm({ ...form, phone: e.target.value })}
+              autoComplete="tel"
+            />
+          </Field>
 
-        <Field label={t("profile.phone")} hint={t("profile.contactHint")}>
-          <Input
-            type="tel"
-            value={form.phone}
-            onChange={(e) => setForm({ ...form, phone: e.target.value })}
-            autoComplete="tel"
-          />
-        </Field>
+          {error && <Alert tone="danger">{error}</Alert>}
+          {saved && <Alert tone="success">{t("profile.detailsSaved")}</Alert>}
 
-        {error && <Alert tone="danger">{error}</Alert>}
-        {saved && <Alert tone="success">{t("profile.detailsSaved")}</Alert>}
-
-        <div>
-          <Button type="submit" disabled={submitting}>
-            {t("common.save")}
-          </Button>
-        </div>
-      </form>
+          <div>
+            <Button type="submit" disabled={submitting}>
+              {t("common.save")}
+            </Button>
+          </div>
+        </form>
+      </Card>
     </>
   );
 }

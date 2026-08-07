@@ -197,6 +197,11 @@ export const enUS = {
   "reset.missingToken":
     "This link is incomplete. Open the one from your message, or ask for a new link.",
   "reset.requestAnother": "Request a new link",
+  "brand.descriptor": "Identity Platform",
+  "nav.language": "Language",
+  "nav.group.directory": "Directory",
+  "nav.group.operations": "Operations",
+  "nav.group.account": "Account",
 } as const;
 
 export type TranslationKey = keyof typeof enUS;

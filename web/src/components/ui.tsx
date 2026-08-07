@@ -36,12 +36,13 @@ type ButtonSize = "sm" | "md";
 
 const buttonVariants: Record<ButtonVariant, string> = {
   primary:
-    "bg-[var(--color-primary)] text-white hover:bg-[var(--color-primary-hover)]",
+    "bg-[var(--color-primary)] text-[var(--color-fg-on-primary)] hover:bg-[var(--color-primary-hover)]",
   secondary:
-    "bg-[var(--color-bg)] text-[var(--color-fg)] border border-[var(--color-border)] hover:bg-[var(--color-bg-soft)]",
+    "bg-[var(--color-bg)] text-[var(--color-fg)] border border-[var(--color-border-strong)] hover:bg-[var(--color-bg-hover)]",
   ghost:
-    "text-[var(--color-fg-muted)] hover:bg-[var(--color-bg-soft)] hover:text-[var(--color-fg)]",
-  danger: "bg-[var(--color-danger)] text-white hover:opacity-90",
+    "text-[var(--color-fg-muted)] hover:bg-[var(--color-bg-hover)] hover:text-[var(--color-fg)]",
+  danger:
+    "bg-[var(--color-danger)] text-[var(--color-fg-on-primary)] hover:opacity-90",
 };
 
 const buttonSizes: Record<ButtonSize, string> = {
@@ -135,11 +136,19 @@ export function Select({
 
 type BadgeTone = "neutral" | "success" | "danger" | "warning";
 
+// Each tone is a matched set — soft background, its own border, and a text
+// colour dark enough to stay legible on it. Deriving them from one hue with
+// an opacity produces washed-out text at small sizes, which is exactly where
+// a badge lives.
 const badgeTones: Record<BadgeTone, string> = {
-  neutral: "bg-[var(--color-bg-soft)] text-[var(--color-fg-muted)]",
-  success: "bg-[var(--color-success)]/12 text-[var(--color-success)]",
-  danger: "bg-[var(--color-danger)]/12 text-[var(--color-danger)]",
-  warning: "bg-[var(--color-warning)]/12 text-[var(--color-warning)]",
+  neutral:
+    "bg-[var(--color-bg-soft)] border-[var(--color-border)] text-[var(--color-fg-muted)]",
+  success:
+    "bg-[var(--color-success-bg)] border-[var(--color-success-border)] text-[var(--color-success-text)]",
+  danger:
+    "bg-[var(--color-danger-bg)] border-[var(--color-danger-border)] text-[var(--color-danger-text)]",
+  warning:
+    "bg-[var(--color-warning-bg)] border-[var(--color-warning-border)] text-[var(--color-warning-text)]",
 };
 
 export function Badge({
@@ -152,8 +161,8 @@ export function Badge({
   return (
     <span
       className={cx(
-        "inline-flex items-center rounded-[var(--radius-sm)] px-2 py-0.5",
-        "text-[length:var(--font-size-sm)] font-[weight:var(--font-weight-medium)]",
+        "inline-flex items-center rounded-full border px-2 py-0.5",
+        "text-[length:var(--font-size-xs)] font-[weight:var(--font-weight-medium)]",
         badgeTones[tone],
       )}
     >
@@ -263,7 +272,7 @@ export function ConfirmDialog({
 
 export function Table({ children }: { children: ReactNode }) {
   return (
-    <div className="overflow-x-auto rounded-[var(--radius-md)] border border-[var(--color-border)]">
+    <div className="overflow-x-auto rounded-[var(--radius-md)] border border-[var(--color-border)] bg-[var(--color-bg)]">
       <table className="w-full border-collapse text-[length:var(--font-size-base)]">
         {children}
       </table>
@@ -275,7 +284,7 @@ export function Th({ children }: { children: ReactNode }) {
   return (
     <th
       className={cx(
-        "border-b border-[var(--color-border)] bg-[var(--color-bg-soft)] px-4 py-2.5 text-left",
+        "border-b border-[var(--color-border)] bg-[var(--color-bg-hover)] px-4 py-2.5 text-left",
         "text-[length:var(--font-size-sm)] font-[weight:var(--font-weight-medium)] text-[var(--color-fg-muted)]",
       )}
     >
@@ -374,20 +383,57 @@ export function Alert({
   children: ReactNode;
 }) {
   const tones = {
-    danger: "border-[var(--color-danger)] text-[var(--color-danger)]",
-    success: "border-[var(--color-success)] text-[var(--color-success)]",
+    danger:
+      "bg-[var(--color-danger-bg)] border-[var(--color-danger-border)] text-[var(--color-danger-text)]",
+    success:
+      "bg-[var(--color-success-bg)] border-[var(--color-success-border)] text-[var(--color-success-text)]",
   };
   return (
     <div
       role="alert"
       className={cx(
-        "rounded-[var(--radius-sm)] border-l-2 bg-[var(--color-bg-soft)] px-3 py-2",
-        "text-[length:var(--font-size-sm)]",
+        "rounded-[var(--radius-sm)] border px-3 py-2",
+        "text-[length:var(--font-size-sm)] leading-[var(--leading-normal)]",
         tones[tone],
       )}
     >
       {children}
     </div>
+  );
+}
+
+/* ----------------------------------------------------------------- Card */
+
+/**
+ * A white surface on the page background.
+ *
+ * Tables bring their own; everything else that is a block of content — a
+ * form, a summary, a panel — goes in one of these, so no screen ends up with
+ * controls floating directly on the page.
+ */
+export function Card({
+  title,
+  children,
+  className,
+}: {
+  title?: string;
+  children: ReactNode;
+  className?: string;
+}) {
+  return (
+    <section
+      className={cx(
+        "rounded-[var(--radius-md)] border border-[var(--color-border)] bg-[var(--color-bg)] p-5",
+        className,
+      )}
+    >
+      {title && (
+        <h2 className="mb-4 text-[length:var(--font-size-base)] font-[weight:var(--font-weight-bold)] text-[var(--color-fg)]">
+          {title}
+        </h2>
+      )}
+      {children}
+    </section>
   );
 }
 

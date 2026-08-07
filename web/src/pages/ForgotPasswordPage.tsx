@@ -3,6 +3,7 @@ import { useEffect, useState } from "react";
 import { ApiError, tenantStore } from "../api/client";
 import { authApi } from "../api/endpoints";
 import type { RecoveryChannel } from "../api/types";
+import { AuthLink, AuthShell } from "../components/AuthShell";
 import { Alert, Button, Field, Input } from "../components/ui";
 import { useT } from "../i18n";
 import { useRouter } from "../router";
@@ -59,82 +60,71 @@ export function ForgotPasswordPage() {
   }
 
   return (
-    <div className="flex min-h-dvh items-center justify-center bg-[var(--color-bg-soft)] p-4">
-      <div className="w-full max-w-sm rounded-[var(--radius-lg)] bg-[var(--color-bg)] p-6 shadow-[var(--shadow-md)]">
-        <h1 className="mb-1 text-[length:var(--font-size-lg)] font-[weight:var(--font-weight-bold)] text-[var(--color-fg)]">
-          {t("recovery.title")}
-        </h1>
-        <p className="mb-5 text-[var(--color-fg-muted)]">
-          {t("recovery.subtitle")}
-        </p>
-
-        {channels.length === 0 ? (
-          <div className="flex flex-col gap-4">
-            <Alert tone="danger">{t("recovery.unavailable")}</Alert>
-            <Button onClick={() => navigate("/login")}>
-              {t("recovery.backToSignIn")}
-            </Button>
-          </div>
-        ) : sent ? (
-          <div className="flex flex-col gap-4">
-            {/* Says "if", not "we sent": the server will not reveal whether
-                an account matched, and neither may this screen. */}
-            <Alert tone="success">{t("recovery.sent", ttlMinutes)}</Alert>
-            <Button onClick={() => navigate("/login")}>
-              {t("recovery.backToSignIn")}
-            </Button>
-          </div>
-        ) : (
-          <form onSubmit={handleSubmit} className="flex flex-col gap-4">
-            {channels.length > 1 && (
-              <Field label={t("recovery.channel")}>
-                <div className="flex gap-2">
-                  {channels.map((option) => (
-                    <Button
-                      key={option}
-                      type="button"
-                      variant={channel === option ? "primary" : "secondary"}
-                      onClick={() => setChannel(option)}
-                    >
-                      {t(`recovery.channel.${option}`)}
-                    </Button>
-                  ))}
-                </div>
-              </Field>
-            )}
-
-            <Field
-              label={
-                channel === "EMAIL" ? t("recovery.email") : t("recovery.phone")
-              }
-              required
-            >
-              <Input
-                value={destination}
-                onChange={(e) => setDestination(e.target.value)}
-                type={channel === "EMAIL" ? "email" : "tel"}
-                autoComplete={channel === "EMAIL" ? "email" : "tel"}
-                autoFocus
-                required
-              />
+    <AuthShell title={t("recovery.title")} subtitle={t("recovery.subtitle")}>
+      {channels.length === 0 ? (
+        <div className="flex flex-col gap-4">
+          <Alert tone="danger">{t("recovery.unavailable")}</Alert>
+          <Button onClick={() => navigate("/login")}>
+            {t("recovery.backToSignIn")}
+          </Button>
+        </div>
+      ) : sent ? (
+        <div className="flex flex-col gap-4">
+          {/* Says "if", not "we sent": the server will not reveal whether an
+              account matched, and neither may this screen. */}
+          <Alert tone="success">{t("recovery.sent", ttlMinutes)}</Alert>
+          <Button onClick={() => navigate("/login")}>
+            {t("recovery.backToSignIn")}
+          </Button>
+        </div>
+      ) : (
+        <form onSubmit={handleSubmit} className="flex flex-col gap-4">
+          {channels.length > 1 && (
+            <Field label={t("recovery.channel")}>
+              <div className="flex gap-2">
+                {channels.map((option) => (
+                  <Button
+                    key={option}
+                    type="button"
+                    variant={channel === option ? "primary" : "secondary"}
+                    onClick={() => setChannel(option)}
+                  >
+                    {t(`recovery.channel.${option}`)}
+                  </Button>
+                ))}
+              </div>
             </Field>
+          )}
 
-            {error && <Alert tone="danger">{error}</Alert>}
+          <Field
+            label={
+              channel === "EMAIL" ? t("recovery.email") : t("recovery.phone")
+            }
+            required
+          >
+            <Input
+              value={destination}
+              onChange={(e) => setDestination(e.target.value)}
+              type={channel === "EMAIL" ? "email" : "tel"}
+              autoComplete={channel === "EMAIL" ? "email" : "tel"}
+              autoFocus
+              required
+            />
+          </Field>
 
-            <Button type="submit" disabled={submitting}>
-              {submitting ? t("recovery.sending") : t("recovery.submit")}
-            </Button>
+          {error && <Alert tone="danger">{error}</Alert>}
 
-            <button
-              type="button"
-              onClick={() => navigate("/login")}
-              className="text-[length:var(--font-size-sm)] text-[var(--color-primary)] underline-offset-2 hover:underline"
-            >
+          <Button type="submit" disabled={submitting}>
+            {submitting ? t("recovery.sending") : t("recovery.submit")}
+          </Button>
+
+          <div className="text-center">
+            <AuthLink onClick={() => navigate("/login")}>
               {t("recovery.backToSignIn")}
-            </button>
-          </form>
-        )}
-      </div>
-    </div>
+            </AuthLink>
+          </div>
+        </form>
+      )}
+    </AuthShell>
   );
 }

@@ -1,35 +1,82 @@
 /*
- * Design tokens — single source of truth for color/spacing/typography.
- * Values below are placeholders (TODO: replace with this project's own
- * palette before shipping any real UI — do not carry over another
- * project's brand colors). The semantic structure (roles, not raw hex,
- * one file owns all values) is the part worth keeping fixed.
+ * Design tokens — the single source of truth for colour, spacing, and type.
+ *
+ * Components reference these roles and never a hex value, so a palette
+ * change is one file rather than a search-and-replace across the app. The
+ * roles are named for what they do ("primary", "fg-muted") rather than what
+ * they look like ("blue-600", "grey-500"), which is what lets the dark theme
+ * below redefine them without every call site knowing.
  */
 
 :root {
-  /* Color — semantic roles, not raw palette steps. Components reference
-     these, never a hex value directly. */
-  --color-primary: #4f46e5; /* TODO */
-  --color-primary-hover: #4338ca; /* TODO */
-  --color-bg: #ffffff; /* TODO */
-  --color-bg-soft: #f8fafc; /* TODO */
-  --color-fg: #0f172a; /* TODO */
-  --color-fg-muted: #64748b; /* TODO */
-  --color-border: #e2e8f0; /* TODO */
-  --color-success: #16a34a; /* TODO */
-  --color-warning: #d97706; /* TODO */
-  --color-danger: #dc2626; /* TODO */
+  /* --- Colour ---------------------------------------------------------
+     A blue-forward palette on slate neutrals: the convention for an
+     administrative console, where colour has to carry status meaning and
+     anything more characterful competes with it. */
 
-  /* Typography */
-  --font-family: system-ui, -apple-system, "Segoe UI", sans-serif;
+  --color-primary: #2563eb;
+  --color-primary-hover: #1d4ed8;
+  --color-primary-active: #1a3fbd;
+  /* The selected state across the app — navigation, table rows, filters —
+     is one pairing rather than a per-component decision: a soft primary
+     wash behind primary text. */
+  --color-primary-soft: #dbeafe;
+  --color-primary-soft-hover: #bfdbfe;
+
+  --color-bg: #ffffff;
+  /* The page sits a shade below its cards, which is what makes a card read
+     as a surface without needing a heavy border or shadow. */
+  --color-bg-soft: #f1f5fb;
+  --color-bg-hover: #f4f8fc;
+
+  --color-fg: #1e293b;
+  --color-fg-muted: #64748b;
+  --color-fg-subtle: #94a3b8;
+  --color-fg-on-primary: #ffffff;
+
+  --color-border: #e8eef7;
+  --color-border-strong: #d1d9e8;
+
+  /* Status colours come in four parts each: the solid tone for icons and
+     borders, a soft background, and a deep text colour that stays legible
+     on it. A badge or alert picks a set rather than inventing an opacity. */
+  --color-success: #10b981;
+  --color-success-bg: #ecfdf5;
+  --color-success-border: #a7f3d0;
+  --color-success-text: #065f46;
+
+  --color-warning: #f59e0b;
+  --color-warning-bg: #fffbeb;
+  --color-warning-border: #fcd34d;
+  --color-warning-text: #78350f;
+
+  --color-danger: #f43f5e;
+  --color-danger-bg: #fff1f2;
+  --color-danger-border: #fda4af;
+  --color-danger-text: #881337;
+
+  --color-info: var(--color-primary);
+  --color-info-bg: #eef4ff;
+  --color-info-border: #bfdbfe;
+  --color-info-text: #1535a0;
+
+  /* --- Typography ----------------------------------------------------- */
+  --font-family:
+    system-ui, -apple-system, "Segoe UI", "PingFang SC", "Microsoft YaHei",
+    sans-serif;
+  --font-size-xs: 0.75rem;
   --font-size-sm: 0.8125rem;
-  --font-size-base: 0.9375rem;
-  --font-size-lg: 1.125rem;
+  --font-size-base: 0.875rem;
+  --font-size-lg: 1.0625rem;
+  --font-size-xl: 1.25rem;
   --font-weight-normal: 400;
   --font-weight-medium: 500;
   --font-weight-bold: 600;
+  /* Line height by role: headings tighten, long prose opens up. */
+  --leading-tight: 1.4;
+  --leading-normal: 1.6;
 
-  /* Spacing scale */
+  /* --- Spacing -------------------------------------------------------- */
   --space-1: 0.25rem;
   --space-2: 0.5rem;
   --space-3: 0.75rem;
@@ -37,18 +84,29 @@
   --space-6: 1.5rem;
   --space-8: 2rem;
 
-  /* Radius / shadow */
-  --radius-sm: 4px;
+  /* --- Shape ---------------------------------------------------------- */
+  --radius-sm: 6px;
   --radius-md: 8px;
   --radius-lg: 12px;
-  --shadow-sm: 0 1px 2px 0 rgb(0 0 0 / 0.05);
-  --shadow-md: 0 4px 6px -1px rgb(0 0 0 / 0.1);
+  --shadow-sm: 0 1px 2px 0 rgb(15 23 42 / 0.04);
+  --shadow-md: 0 4px 16px -4px rgb(15 23 42 / 0.1);
+
+  /* --- Shell ----------------------------------------------------------
+     Fixed dimensions the layout depends on, named so the sidebar and the
+     top bar cannot drift apart. */
+  --sidebar-width: 232px;
+  --topbar-height: 56px;
 }
 
 [data-theme="dark"] {
-  --color-bg: #0f172a; /* TODO */
-  --color-bg-soft: #1e293b; /* TODO */
-  --color-fg: #f1f5f9; /* TODO */
-  --color-fg-muted: #94a3b8; /* TODO */
-  --color-border: #334155; /* TODO */
+  --color-bg: #0f172a;
+  --color-bg-soft: #020617;
+  --color-bg-hover: #1e293b;
+  --color-fg: #f1f5f9;
+  --color-fg-muted: #94a3b8;
+  --color-fg-subtle: #64748b;
+  --color-border: #1e293b;
+  --color-border-strong: #334155;
+  --color-primary-soft: #1e3a8a;
+  --color-primary-soft-hover: #1e40af;
 }
