@@ -11,7 +11,6 @@ import (
 
 	"github.com/paraview/portico/internal/httpx"
 	"github.com/paraview/portico/internal/store"
-	"github.com/paraview/portico/internal/store/sqlcgen"
 )
 
 // Setting keys. These are the runtime-tunable values from §3.10.
@@ -26,7 +25,7 @@ const (
 	SettingSystemName = "system_name"
 )
 
-// Settings is the full set of runtime settings.
+// Settings is the full set of runtime settings for one tenant.
 type Settings struct {
 	TokenTTLMinutes     int    `json:"tokenTtlMinutes"`
 	RegistrationEnabled bool   `json:"registrationEnabled"`
@@ -48,13 +47,16 @@ const (
 
 // SettingsService reads and writes runtime settings, caching them in memory
 // because they are read on every login and change rarely.
+//
+// The cache is keyed by tenant. Settings are per-tenant — one tenant may
+// accept sign-ups while another does not, and each names itself — so a
+// single cached value would serve one tenant's configuration to another.
 type SettingsService struct {
 	store    *store.Store
 	defaults Settings
 
-	mu     sync.RWMutex
-	cache  Settings
-	loaded bool
+	mu    sync.RWMutex
+	cache map[string]Settings
 }
 
 // NewSettingsService returns a service whose defaults come from the process
@@ -68,6 +70,7 @@ func NewSettingsService(st *store.Store, defaultTokenTTL time.Duration) *Setting
 
 	return &SettingsService{
 		store: st,
+		cache: map[string]Settings{},
 		defaults: Settings{
 			TokenTTLMinutes: ttlMinutes,
 			// Registration is off by default: an instance that is exposed
@@ -78,24 +81,25 @@ func NewSettingsService(st *store.Store, defaultTokenTTL time.Duration) *Setting
 	}
 }
 
-// Get returns the current settings, reading from the database on first use.
-func (s *SettingsService) Get(ctx context.Context) (Settings, error) {
+// Get returns a tenant's current settings, reading from the database on
+// first use.
+func (s *SettingsService) Get(ctx context.Context, tenantID string) (Settings, error) {
 	s.mu.RLock()
-	if s.loaded {
-		defer s.mu.RUnlock()
-		return s.cache, nil
-	}
+	cached, ok := s.cache[tenantID]
 	s.mu.RUnlock()
+	if ok {
+		return cached, nil
+	}
 
 	s.mu.Lock()
 	defer s.mu.Unlock()
 	// Another goroutine may have loaded while we waited for the write lock.
-	if s.loaded {
-		return s.cache, nil
+	if cached, ok := s.cache[tenantID]; ok {
+		return cached, nil
 	}
 
 	loaded := s.defaults
-	rows, err := s.store.Queries.ListSettings(ctx)
+	rows, err := s.store.ForTenant(tenantID).ListSettings(ctx)
 	if err != nil {
 		return Settings{}, fmt.Errorf("read settings: %w", err)
 	}
@@ -112,13 +116,12 @@ func (s *SettingsService) Get(ctx context.Context) (Settings, error) {
 		}
 	}
 
-	s.cache = loaded
-	s.loaded = true
+	s.cache[tenantID] = loaded
 	return loaded, nil
 }
 
-// Update writes the given settings and refreshes the cache.
-func (s *SettingsService) Update(ctx context.Context, next Settings) (Settings, error) {
+// Update writes a tenant's settings and refreshes its cache entry.
+func (s *SettingsService) Update(ctx context.Context, tenantID string, next Settings) (Settings, error) {
 	if next.TokenTTLMinutes < MinTokenTTLMinutes || next.TokenTTLMinutes > MaxTokenTTLMinutes {
 		return Settings{}, httpx.BadRequest("INVALID_SETTINGS",
 			fmt.Sprintf("Session lifetime must be between %d and %d minutes.",
@@ -128,38 +131,26 @@ func (s *SettingsService) Update(ctx context.Context, next Settings) (Settings, 
 		next.SystemName = s.defaults.SystemName
 	}
 
-	now := store.Now()
 	values := map[string]string{
 		SettingTokenTTLMinutes:     strconv.Itoa(next.TokenTTLMinutes),
 		SettingRegistrationEnabled: strconv.FormatBool(next.RegistrationEnabled),
 		SettingSystemName:          next.SystemName,
 	}
 
-	err := s.store.WithTx(func(q *sqlcgen.Queries) error {
-		for key, value := range values {
-			if err := q.UpsertSetting(ctx, sqlcgen.UpsertSettingParams{
-				Key: key, Value: value, UpdatedAt: now,
-			}); err != nil {
-				return err
-			}
-		}
-		return nil
-	})
-	if err != nil {
+	if err := s.store.ForTenant(tenantID).UpsertSettings(ctx, values, store.Now()); err != nil {
 		return Settings{}, fmt.Errorf("save settings: %w", err)
 	}
 
 	s.mu.Lock()
-	s.cache = next
-	s.loaded = true
+	s.cache[tenantID] = next
 	s.mu.Unlock()
 
 	return next, nil
 }
 
 // RegistrationEnabled is a convenience read used by the registration path.
-func (s *SettingsService) RegistrationEnabled(ctx context.Context) (bool, error) {
-	settings, err := s.Get(ctx)
+func (s *SettingsService) RegistrationEnabled(ctx context.Context, tenantID string) (bool, error) {
+	settings, err := s.Get(ctx, tenantID)
 	if err != nil {
 		return false, err
 	}

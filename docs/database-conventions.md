@@ -31,6 +31,8 @@ stays coherent as it grows, not because it is complicated today.
   auto-incrementing integer leaks how many accounts exist and how fast they
   are being created, which for an IAM is a real disclosure.
 - **The primary key is never updated.** Nothing else is a stable handle.
+- **Every table except `tenants` has `tenant_id TEXT NOT NULL`**, with a
+  foreign key to `tenants`. See [Tenant isolation](#tenant-isolation).
 - **Columns are `NOT NULL` with a `DEFAULT`** unless absence genuinely means
   something. Today exactly one column is nullable — `users.organization_id`,
   where NULL means "belongs to no organization", which is different from any
@@ -39,8 +41,8 @@ stays coherent as it grows, not because it is complicated today.
   in for "unset". Empty string is used where empty string is a legitimate
   value (an unset phone number is genuinely the empty string, not an unknown
   one).
-- **Timestamps are `created_at` / `updated_at`**, stored as ISO 8601 text in
-  UTC. See [Timestamps](#timestamps) for why text.
+- **Timestamps are `created_at` / `updated_at`**, `TIMESTAMPTZ` in UTC. See
+  [Timestamps](#timestamps).
 
 ## Types and constraints
 
@@ -77,6 +79,49 @@ one of each for everybody.
 
 An earlier version stored ISO 8601 text, because SQLite has no timestamp
 type and something had to be picked. That shim is gone.
+
+## Tenant isolation
+
+Every table except `tenants` carries `tenant_id TEXT NOT NULL REFERENCES
+tenants (id)`, and no query crosses that boundary.
+
+**Uniqueness is per tenant, not global.** `users` is unique on
+`(tenant_id, username)` and `organizations` on `(tenant_id, code)`. Two
+tenants both having an `admin`, or both calling an organization `SALES`, is
+the expected case — a global constraint would let one tenant's choices deny
+another's.
+
+**Cross-tenant references are refused by the database.** `users` declares a
+composite foreign key on `(tenant_id, organization_id)` against
+`organizations (tenant_id, id)`, so a user in one tenant cannot point at
+another tenant's organization even if application code tried. That is what
+the otherwise-redundant `UNIQUE (tenant_id, id)` on `organizations` is for.
+
+**Indexes lead with `tenant_id`**, since every query filters on it.
+
+**Nothing is enforced by convention.** Three things hold the boundary up:
+
+1. Every statement in `internal/store/queries/` that touches a scoped table
+   constrains `tenant_id`. `TestTenantScopedQueriesFilterByTenant` reads the
+   `.sql` files and fails the build on one that does not.
+2. The service layer reaches the database through `store.Scoped`, which binds
+   the tenant once and fills it into every query itself — so a caller cannot
+   pass a tenant taken from the request instead of from the authenticated
+   principal.
+3. `internal/server/tenancy_test.go` drives the API with two tenants holding
+   identically named rows and asserts that neither can see or change the
+   other's.
+
+There is exactly **one unscoped read of a scoped table**: the account lookup
+behind authentication, which runs before the tenant is known and is what
+establishes it. It is in its own file
+(`internal/store/queries/authentication.sql`), the middleware compares the
+row's tenant against the token's claim, and the guard test asserts the
+allowlist has exactly one entry.
+
+A hand-written query writes its own tenant predicate into the SQL text
+rather than having a builder add it, so it is visible when reading the query
+and checkable by `TestHandWrittenSQLFiltersByTenant`.
 
 ## Comments
 
@@ -146,6 +191,11 @@ filters were supplied, which sqlc cannot express. Those go through the
 placeholders and accumulates arguments together, so the two cannot drift
 apart. When you do write SQL by hand:
 
+- **Write the tenant predicate into the statement.** `tenantFilters` binds
+  the tenant as `$1` and numbers the optional filters from `$2`; the
+  `WHERE tenant_id = $1` belongs in your SQL, where it is visible and where
+  the guard test can see it.
+
 - **Every user-supplied value goes through a placeholder.** Never build SQL
   by concatenating a value, even one that "cannot" contain anything
   dangerous.
@@ -160,10 +210,11 @@ apart. When you do write SQL by hand:
 
 ## What is deliberately absent
 
-- **Multi-tenancy is being added**, and it is a schema-wide change rather
-  than a column — every table, every unique constraint, and every query.
-  Until that lands, this section will be out of date the moment it does;
-  see the requirements document.
+- **No row-level security.** Isolation is enforced in the query layer rather
+  than by PostgreSQL policies. RLS would be a second, stronger backstop, but
+  it needs a per-request `SET LOCAL` on a pooled connection — a footgun of
+  its own, since a missed reset leaks the previous request's tenant. The
+  query-layer approach is the one the tests can prove.
 - **No optimistic-locking `version` column.** Nothing in the current
   workload has concurrent-update contention worth the complexity.
   `users.token_version` is unrelated — it is a session revocation counter.

@@ -15,6 +15,10 @@ import (
 )
 
 // AuditEntry describes an event to record.
+//
+// The tenant is not a field here: it is a separate argument to Record and
+// Log, so that adding a field to this struct can never be the reason an
+// event lands in the wrong tenant's trail.
 type AuditEntry struct {
 	Kind   model.LogKind
 	Action string
@@ -41,13 +45,13 @@ func NewAuditService(st *store.Store) *AuditService {
 	return &AuditService{store: st}
 }
 
-// Record writes one entry.
+// Record writes one entry into a tenant's trail.
 //
 // A failure to write the audit trail must not fail the operation being
 // audited — a user should not be unable to log in because logging is broken.
 // The error is returned so callers may inspect it, but Log is the usual
 // entry point and swallows it after logging.
-func (s *AuditService) Record(ctx context.Context, e AuditEntry) error {
+func (s *AuditService) Record(ctx context.Context, tenantID string, e AuditEntry) error {
 	if e.Result == "" {
 		e.Result = model.LogSuccess
 	}
@@ -57,7 +61,7 @@ func (s *AuditService) Record(ctx context.Context, e AuditEntry) error {
 		actorID = &e.ActorID
 	}
 
-	return s.store.Queries.CreateAuditLog(ctx, sqlcgen.CreateAuditLogParams{
+	return s.store.ForTenant(tenantID).CreateAuditLog(ctx, sqlcgen.CreateAuditLogParams{
 		ID:            uuid.NewString(),
 		Kind:          string(e.Kind),
 		Action:        e.Action,
@@ -75,10 +79,10 @@ func (s *AuditService) Record(ctx context.Context, e AuditEntry) error {
 
 // Log records an entry, reporting a write failure to the process log rather
 // than to the caller.
-func (s *AuditService) Log(ctx context.Context, e AuditEntry) {
-	if err := s.Record(ctx, e); err != nil {
+func (s *AuditService) Log(ctx context.Context, tenantID string, e AuditEntry) {
+	if err := s.Record(ctx, tenantID, e); err != nil {
 		slog.ErrorContext(ctx, "failed to write audit log",
-			"kind", e.Kind, "action", e.Action, "error", err)
+			"kind", e.Kind, "action", e.Action, "tenant_id", tenantID, "error", err)
 	}
 }
 
@@ -95,12 +99,14 @@ type AuditQuery struct {
 	To   time.Time
 }
 
-// List returns a page of log entries, newest first.
+// List returns a page of a tenant's log entries, newest first.
 //
 // This query is hand-written rather than generated because the filters are
-// optional: sqlc would need a separate query per combination.
-func (s *AuditService) List(ctx context.Context, q AuditQuery, page Page) ([]model.AuditLog, int64, error) {
-	var f filters
+// optional: sqlc would need a separate query per combination. The tenant
+// predicate stays in the SQL text so it is visible here and checked by the
+// guard test in internal/store.
+func (s *AuditService) List(ctx context.Context, tenantID string, q AuditQuery, page Page) ([]model.AuditLog, int64, error) {
+	f := tenantFilters(tenantID)
 
 	if q.Kind != "" {
 		f.Add("kind = %s", string(q.Kind))
@@ -119,11 +125,11 @@ func (s *AuditService) List(ctx context.Context, q AuditQuery, page Page) ([]mod
 		f.Add("created_at <= %s", q.To.UTC())
 	}
 
-	clause := f.Where()
+	clause := f.And()
 
 	var total int64
 	if err := s.store.DB().QueryRowContext(ctx,
-		"SELECT COUNT(*) FROM audit_logs"+clause, f.Args()...).Scan(&total); err != nil {
+		"SELECT COUNT(*) FROM audit_logs WHERE tenant_id = $1"+clause, f.Args()...).Scan(&total); err != nil {
 		return nil, 0, fmt.Errorf("count audit logs: %w", err)
 	}
 	if total == 0 {
@@ -134,7 +140,7 @@ func (s *AuditService) List(ctx context.Context, q AuditQuery, page Page) ([]mod
 	rows, err := s.store.DB().QueryContext(ctx,
 		`SELECT id, kind, action, actor_id, actor_username, target_type, target_id,
 		        target_name, result, detail, ip, created_at
-		 FROM audit_logs`+clause+`
+		 FROM audit_logs WHERE tenant_id = $1`+clause+`
 		 ORDER BY created_at DESC, id DESC`+pageClause, args...)
 	if err != nil {
 		return nil, 0, fmt.Errorf("list audit logs: %w", err)

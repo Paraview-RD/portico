@@ -11,8 +11,16 @@ type contextKey string
 const principalKey contextKey = "principal"
 
 // Principal is the authenticated caller behind the current request.
+//
+// TenantID is the isolation boundary every authenticated operation runs
+// inside. It comes from the account record, never from the request: a
+// caller who could name their own tenant would be able to name someone
+// else's. That is why the tenant is a field here rather than something
+// handlers read out of a header — see docs/api-conventions.md, "Tenant
+// selection".
 type Principal struct {
 	UserID           string
+	TenantID         string
 	Username         string
 	DisplayName      string
 	Role             model.Role

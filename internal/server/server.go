@@ -23,6 +23,7 @@ type Server struct {
 	handler    *handler.Handler
 	middleware *auth.Middleware
 	users      *service.UserService
+	tenants    *service.TenantService
 	router     http.Handler
 }
 
@@ -41,13 +42,15 @@ func New(cfg *config.Config) (*Server, error) {
 	settings := service.NewSettingsService(st, cfg.TokenTTL)
 	users := service.NewUserService(st, audit, settings, tokens)
 	orgs := service.NewOrganizationService(st, audit)
+	tenants := service.NewTenantService(st)
 
 	s := &Server{
 		cfg:        cfg,
 		store:      st,
-		handler:    handler.New(users, orgs, audit, settings),
+		handler:    handler.New(users, orgs, audit, settings, tenants),
 		middleware: auth.NewMiddleware(tokens, users),
 		users:      users,
+		tenants:    tenants,
 	}
 	s.router = s.routes()
 	return s, nil
@@ -55,16 +58,26 @@ func New(cfg *config.Config) (*Server, error) {
 
 // Bootstrap performs the one-time setup a brand-new instance needs. It is
 // separate from New so tests can skip it.
+//
+// The default tenant comes first, because everything else belongs to one.
+// A deployment that never creates another tenant behaves exactly as it did
+// before tenancy existed, which is the point: sign-in resolves to the
+// default when no tenant is named.
 func (s *Server) Bootstrap(ctx context.Context) error {
+	tenant, err := s.tenants.EnsureDefault(ctx)
+	if err != nil {
+		return err
+	}
+
 	created, generatedPassword, err := s.users.EnsureInitialAdmin(
-		ctx, s.cfg.InitialAdminUsername, s.cfg.InitialAdminPassword)
+		ctx, tenant.ID, s.cfg.InitialAdminUsername, s.cfg.InitialAdminPassword)
 	if err != nil {
 		return err
 	}
 
 	if created {
 		slog.Info("created the initial administrator account",
-			"username", s.cfg.InitialAdminUsername)
+			"username", s.cfg.InitialAdminUsername, "tenant", tenant.Code)
 	}
 
 	if created && generatedPassword != "" {
@@ -79,6 +92,7 @@ func (s *Server) Bootstrap(ctx context.Context) error {
 ────────────────────────────────────────────────────────────────
   Initial administrator created
 
+    tenant:    %s
     username:  %s
     password:  %s
 
@@ -87,7 +101,7 @@ func (s *Server) Bootstrap(ctx context.Context) error {
   PORTICO_INITIAL_ADMIN_PASSWORD before first start.
 ────────────────────────────────────────────────────────────────
 
-`, s.cfg.InitialAdminUsername, generatedPassword)
+`, tenant.Code, s.cfg.InitialAdminUsername, generatedPassword)
 	}
 
 	return nil

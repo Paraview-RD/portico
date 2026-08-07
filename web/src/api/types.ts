@@ -6,6 +6,8 @@ export type UserSource = "ADMIN" | "IMPORT" | "REGISTRATION";
 
 export interface User {
   id: string;
+  /** The tenant the account belongs to. Reported, never sent. */
+  tenantId: string;
   username: string;
   displayName: string;
   phone: string;
@@ -85,4 +87,7 @@ export interface ImportResult {
 export interface RegistrationStatus {
   registrationEnabled: boolean;
   systemName: string;
+  /** The tenant the answer is about, resolved from the request. */
+  tenant: string;
+  tenantName: string;
 }

@@ -20,6 +20,9 @@ import (
 type apiTest struct {
 	t   *testing.T
 	srv *server.Server
+	// dsn is kept so a test can open a second connection to the same
+	// database — the provisioning path, which has no HTTP surface.
+	dsn string
 }
 
 const (
@@ -40,6 +43,14 @@ func newAPITest(t *testing.T) *apiTest {
 	cfg.InitialAdminUsername = adminUsername
 	cfg.InitialAdminPassword = adminPassword
 
+	return newAPITestWithConfig(t, cfg)
+}
+
+// newAPITestWithConfig is the same, for tests that need to reach the
+// database themselves and so must supply the DSN.
+func newAPITestWithConfig(t *testing.T, cfg *config.Config) *apiTest {
+	t.Helper()
+
 	srv, err := server.New(cfg)
 	if err != nil {
 		t.Fatalf("new server: %v", err)
@@ -50,7 +61,7 @@ func newAPITest(t *testing.T) *apiTest {
 		t.Fatalf("bootstrap: %v", err)
 	}
 
-	return &apiTest{t: t, srv: srv}
+	return &apiTest{t: t, srv: srv, dsn: cfg.DatabaseDSN}
 }
 
 // silenceLogs suppresses the server's structured logging for the duration of
@@ -80,6 +91,13 @@ func (r response) into(t *testing.T, dst any) {
 
 func (a *apiTest) do(method, path, token string, body any) response {
 	a.t.Helper()
+	return a.doWithHeaders(method, path, token, body, nil)
+}
+
+// doWithHeaders is do with extra request headers, which the tenancy tests
+// need in order to check that an authenticated request ignores them.
+func (a *apiTest) doWithHeaders(method, path, token string, body any, headers map[string]string) response {
+	a.t.Helper()
 
 	var reader *bytes.Reader
 	if body != nil {
@@ -99,6 +117,9 @@ func (a *apiTest) do(method, path, token string, body any) response {
 	if token != "" {
 		req.Header.Set("Authorization", "Bearer "+token)
 	}
+	for name, value := range headers {
+		req.Header.Set(name, value)
+	}
 
 	rec := httptest.NewRecorder()
 	a.srv.Handler().ServeHTTP(rec, req)
@@ -111,16 +132,25 @@ func (a *apiTest) do(method, path, token string, body any) response {
 	return out
 }
 
-// login returns a token for the given credentials, failing if login fails.
+// login returns a token for the given credentials in the default tenant,
+// failing if login fails.
 func (a *apiTest) login(username, password string) string {
+	a.t.Helper()
+	return a.loginTo("", username, password)
+}
+
+// loginTo signs in to a named tenant. An empty code means the default one.
+func (a *apiTest) loginTo(tenant, username, password string) string {
 	a.t.Helper()
 
 	res := a.do(http.MethodPost, "/api/v1/auth/login", "", map[string]string{
+		"tenant":   tenant,
 		"username": username,
 		"password": password,
 	})
 	if res.Status != http.StatusOK {
-		a.t.Fatalf("login as %s failed: %d %s %s", username, res.Status, res.Code, res.Message)
+		a.t.Fatalf("login as %s in tenant %q failed: %d %s %s",
+			username, tenant, res.Status, res.Code, res.Message)
 	}
 
 	var session struct {

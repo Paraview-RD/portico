@@ -105,6 +105,25 @@ sqlc generate
 The generated code in `internal/store/sqlcgen/` is committed, so contributors
 who do not touch queries never need sqlc installed.
 
+Every query on a tenant-scoped table must constrain `tenant_id`, and a test
+fails the build if one does not — see
+[database-conventions.md](docs/database-conventions.md#tenant-isolation)
+before adding one.
+
+### After editing a migration
+
+While the schema is unreleased, changes go into `00001_init.sql` rather than
+a new migration. goose records `00001` as applied, so **your local database
+will not pick the change up** and you will debug a missing column against a
+file that already has it. Drop and recreate the database:
+
+```bash
+dropdb portico && createdb portico
+```
+
+The tests are unaffected — each one gets a fresh database — so a green
+`go test` will not warn you about this.
+
 ### Before you open a pull request
 
 CI runs all of these, so it is quicker to run them yourself:

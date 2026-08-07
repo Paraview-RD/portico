@@ -16,76 +16,122 @@ const bumpUserTokenVersion = `-- name: BumpUserTokenVersion :exec
 UPDATE users
 SET token_version = token_version + 1,
     updated_at = $1
-WHERE id = $2
+WHERE tenant_id = $2 AND id = $3
 `
 
 type BumpUserTokenVersionParams struct {
 	UpdatedAt time.Time
+	TenantID  string
 	ID        string
 }
 
 func (q *Queries) BumpUserTokenVersion(ctx context.Context, arg BumpUserTokenVersionParams) error {
-	_, err := q.db.ExecContext(ctx, bumpUserTokenVersion, arg.UpdatedAt, arg.ID)
+	_, err := q.db.ExecContext(ctx, bumpUserTokenVersion, arg.UpdatedAt, arg.TenantID, arg.ID)
 	return err
 }
 
-const clearUsersOrganization = `-- name: ClearUsersOrganization :exec
-UPDATE users SET organization_id = NULL, updated_at = $1 WHERE organization_id = $2
+const countOtherActiveAdmins = `-- name: CountOtherActiveAdmins :one
+SELECT COUNT(*) FROM users
+WHERE tenant_id = $1 AND role = $2 AND status = $3 AND id <> $4
 `
 
-type ClearUsersOrganizationParams struct {
-	UpdatedAt      time.Time
-	OrganizationID *string
+type CountOtherActiveAdminsParams struct {
+	TenantID string
+	Role     string
+	Status   string
+	ID       string
 }
 
-func (q *Queries) ClearUsersOrganization(ctx context.Context, arg ClearUsersOrganizationParams) error {
-	_, err := q.db.ExecContext(ctx, clearUsersOrganization, arg.UpdatedAt, arg.OrganizationID)
-	return err
+// How many administrators would remain if this one were demoted or
+// disabled. Scoped to the tenant: each tenant administers itself, so another
+// tenant's administrators are not a reason to let this one lock itself out.
+func (q *Queries) CountOtherActiveAdmins(ctx context.Context, arg CountOtherActiveAdminsParams) (int64, error) {
+	row := q.db.QueryRowContext(ctx, countOtherActiveAdmins,
+		arg.TenantID,
+		arg.Role,
+		arg.Status,
+		arg.ID,
+	)
+	var count int64
+	err := row.Scan(&count)
+	return count, err
 }
 
 const countUsers = `-- name: CountUsers :one
-SELECT COUNT(*) FROM users
+SELECT COUNT(*) FROM users WHERE tenant_id = $1
 `
 
-func (q *Queries) CountUsers(ctx context.Context) (int64, error) {
-	row := q.db.QueryRowContext(ctx, countUsers)
+func (q *Queries) CountUsers(ctx context.Context, tenantID string) (int64, error) {
+	row := q.db.QueryRowContext(ctx, countUsers, tenantID)
 	var count int64
 	err := row.Scan(&count)
 	return count, err
 }
 
 const countUsersByOrganization = `-- name: CountUsersByOrganization :one
-SELECT COUNT(*) FROM users WHERE organization_id = $1
+SELECT COUNT(*) FROM users WHERE tenant_id = $1 AND organization_id = $2
 `
 
-func (q *Queries) CountUsersByOrganization(ctx context.Context, organizationID *string) (int64, error) {
-	row := q.db.QueryRowContext(ctx, countUsersByOrganization, organizationID)
+type CountUsersByOrganizationParams struct {
+	TenantID       string
+	OrganizationID *string
+}
+
+func (q *Queries) CountUsersByOrganization(ctx context.Context, arg CountUsersByOrganizationParams) (int64, error) {
+	row := q.db.QueryRowContext(ctx, countUsersByOrganization, arg.TenantID, arg.OrganizationID)
 	var count int64
 	err := row.Scan(&count)
 	return count, err
 }
 
-const countUsersByRole = `-- name: CountUsersByRole :one
-SELECT COUNT(*) FROM users WHERE role = $1
+const countUsersPerOrganization = `-- name: CountUsersPerOrganization :many
+SELECT organization_id, COUNT(*) AS member_count
+FROM users
+WHERE tenant_id = $1 AND organization_id IS NOT NULL
+GROUP BY organization_id
 `
 
-func (q *Queries) CountUsersByRole(ctx context.Context, role string) (int64, error) {
-	row := q.db.QueryRowContext(ctx, countUsersByRole, role)
-	var count int64
-	err := row.Scan(&count)
-	return count, err
+type CountUsersPerOrganizationRow struct {
+	OrganizationID *string
+	MemberCount    int64
+}
+
+// Member counts for a whole organization listing, in one round trip rather
+// than one per organization.
+func (q *Queries) CountUsersPerOrganization(ctx context.Context, tenantID string) ([]CountUsersPerOrganizationRow, error) {
+	rows, err := q.db.QueryContext(ctx, countUsersPerOrganization, tenantID)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	items := []CountUsersPerOrganizationRow{}
+	for rows.Next() {
+		var i CountUsersPerOrganizationRow
+		if err := rows.Scan(&i.OrganizationID, &i.MemberCount); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Close(); err != nil {
+		return nil, err
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
 }
 
 const createUser = `-- name: CreateUser :exec
 INSERT INTO users (
-    id, username, display_name, password_hash, phone, email,
+    id, tenant_id, username, display_name, password_hash, phone, email,
     role, status, organization_id, token_version, source,
     created_at, updated_at
-) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13)
+) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14)
 `
 
 type CreateUserParams struct {
 	ID             string
+	TenantID       string
 	Username       string
 	DisplayName    string
 	PasswordHash   string
@@ -103,6 +149,7 @@ type CreateUserParams struct {
 func (q *Queries) CreateUser(ctx context.Context, arg CreateUserParams) error {
 	_, err := q.db.ExecContext(ctx, createUser,
 		arg.ID,
+		arg.TenantID,
 		arg.Username,
 		arg.DisplayName,
 		arg.PasswordHash,
@@ -120,14 +167,20 @@ func (q *Queries) CreateUser(ctx context.Context, arg CreateUserParams) error {
 }
 
 const getUserByID = `-- name: GetUserByID :one
-SELECT id, username, display_name, password_hash, phone, email, role, status, organization_id, token_version, source, created_at, updated_at FROM users WHERE id = $1 LIMIT 1
+SELECT id, tenant_id, username, display_name, password_hash, phone, email, role, status, organization_id, token_version, source, created_at, updated_at FROM users WHERE tenant_id = $1 AND id = $2 LIMIT 1
 `
 
-func (q *Queries) GetUserByID(ctx context.Context, id string) (User, error) {
-	row := q.db.QueryRowContext(ctx, getUserByID, id)
+type GetUserByIDParams struct {
+	TenantID string
+	ID       string
+}
+
+func (q *Queries) GetUserByID(ctx context.Context, arg GetUserByIDParams) (User, error) {
+	row := q.db.QueryRowContext(ctx, getUserByID, arg.TenantID, arg.ID)
 	var i User
 	err := row.Scan(
 		&i.ID,
+		&i.TenantID,
 		&i.Username,
 		&i.DisplayName,
 		&i.PasswordHash,
@@ -145,14 +198,20 @@ func (q *Queries) GetUserByID(ctx context.Context, id string) (User, error) {
 }
 
 const getUserByUsername = `-- name: GetUserByUsername :one
-SELECT id, username, display_name, password_hash, phone, email, role, status, organization_id, token_version, source, created_at, updated_at FROM users WHERE username = $1 LIMIT 1
+SELECT id, tenant_id, username, display_name, password_hash, phone, email, role, status, organization_id, token_version, source, created_at, updated_at FROM users WHERE tenant_id = $1 AND username = $2 LIMIT 1
 `
 
-func (q *Queries) GetUserByUsername(ctx context.Context, username string) (User, error) {
-	row := q.db.QueryRowContext(ctx, getUserByUsername, username)
+type GetUserByUsernameParams struct {
+	TenantID string
+	Username string
+}
+
+func (q *Queries) GetUserByUsername(ctx context.Context, arg GetUserByUsernameParams) (User, error) {
+	row := q.db.QueryRowContext(ctx, getUserByUsername, arg.TenantID, arg.Username)
 	var i User
 	err := row.Scan(
 		&i.ID,
+		&i.TenantID,
 		&i.Username,
 		&i.DisplayName,
 		&i.PasswordHash,
@@ -170,11 +229,16 @@ func (q *Queries) GetUserByUsername(ctx context.Context, username string) (User,
 }
 
 const listUsersByIDs = `-- name: ListUsersByIDs :many
-SELECT id, username, display_name, password_hash, phone, email, role, status, organization_id, token_version, source, created_at, updated_at FROM users WHERE id = ANY($1::text[])
+SELECT id, tenant_id, username, display_name, password_hash, phone, email, role, status, organization_id, token_version, source, created_at, updated_at FROM users WHERE tenant_id = $1 AND id = ANY($2::text[])
 `
 
-func (q *Queries) ListUsersByIDs(ctx context.Context, dollar_1 []string) ([]User, error) {
-	rows, err := q.db.QueryContext(ctx, listUsersByIDs, pq.Array(dollar_1))
+type ListUsersByIDsParams struct {
+	TenantID string
+	Column2  []string
+}
+
+func (q *Queries) ListUsersByIDs(ctx context.Context, arg ListUsersByIDsParams) ([]User, error) {
+	rows, err := q.db.QueryContext(ctx, listUsersByIDs, arg.TenantID, pq.Array(arg.Column2))
 	if err != nil {
 		return nil, err
 	}
@@ -184,6 +248,7 @@ func (q *Queries) ListUsersByIDs(ctx context.Context, dollar_1 []string) ([]User
 		var i User
 		if err := rows.Scan(
 			&i.ID,
+			&i.TenantID,
 			&i.Username,
 			&i.DisplayName,
 			&i.PasswordHash,
@@ -215,18 +280,24 @@ UPDATE users
 SET password_hash = $1,
     token_version = token_version + 1,
     updated_at = $2
-WHERE id = $3
+WHERE tenant_id = $3 AND id = $4
 `
 
 type UpdateUserPasswordParams struct {
 	PasswordHash string
 	UpdatedAt    time.Time
+	TenantID     string
 	ID           string
 }
 
 // Changing a password invalidates every token issued before it.
 func (q *Queries) UpdateUserPassword(ctx context.Context, arg UpdateUserPasswordParams) error {
-	_, err := q.db.ExecContext(ctx, updateUserPassword, arg.PasswordHash, arg.UpdatedAt, arg.ID)
+	_, err := q.db.ExecContext(ctx, updateUserPassword,
+		arg.PasswordHash,
+		arg.UpdatedAt,
+		arg.TenantID,
+		arg.ID,
+	)
 	return err
 }
 
@@ -238,7 +309,7 @@ SET display_name = $1,
     organization_id = $4,
     role = $5,
     updated_at = $6
-WHERE id = $7
+WHERE tenant_id = $7 AND id = $8
 `
 
 type UpdateUserProfileParams struct {
@@ -248,6 +319,7 @@ type UpdateUserProfileParams struct {
 	OrganizationID *string
 	Role           string
 	UpdatedAt      time.Time
+	TenantID       string
 	ID             string
 }
 
@@ -259,6 +331,7 @@ func (q *Queries) UpdateUserProfile(ctx context.Context, arg UpdateUserProfilePa
 		arg.OrganizationID,
 		arg.Role,
 		arg.UpdatedAt,
+		arg.TenantID,
 		arg.ID,
 	)
 	return err
@@ -271,17 +344,23 @@ SET status = $1,
                          THEN token_version + 1
                          ELSE token_version END,
     updated_at = $2
-WHERE id = $3
+WHERE tenant_id = $3 AND id = $4
 `
 
 type UpdateUserStatusParams struct {
 	Status    string
 	UpdatedAt time.Time
+	TenantID  string
 	ID        string
 }
 
 // Disabling bumps token_version so any live session stops working at once.
 func (q *Queries) UpdateUserStatus(ctx context.Context, arg UpdateUserStatusParams) error {
-	_, err := q.db.ExecContext(ctx, updateUserStatus, arg.Status, arg.UpdatedAt, arg.ID)
+	_, err := q.db.ExecContext(ctx, updateUserStatus,
+		arg.Status,
+		arg.UpdatedAt,
+		arg.TenantID,
+		arg.ID,
+	)
 	return err
 }

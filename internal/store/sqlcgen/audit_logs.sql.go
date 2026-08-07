@@ -12,14 +12,15 @@ import (
 
 const createAuditLog = `-- name: CreateAuditLog :exec
 INSERT INTO audit_logs (
-    id, kind, action, actor_id, actor_username,
+    id, tenant_id, kind, action, actor_id, actor_username,
     target_type, target_id, target_name,
     result, detail, ip, created_at
-) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12)
+) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13)
 `
 
 type CreateAuditLogParams struct {
 	ID            string
+	TenantID      string
 	Kind          string
 	Action        string
 	ActorID       *string
@@ -36,6 +37,7 @@ type CreateAuditLogParams struct {
 func (q *Queries) CreateAuditLog(ctx context.Context, arg CreateAuditLogParams) error {
 	_, err := q.db.ExecContext(ctx, createAuditLog,
 		arg.ID,
+		arg.TenantID,
 		arg.Kind,
 		arg.Action,
 		arg.ActorID,
@@ -49,28 +51,4 @@ func (q *Queries) CreateAuditLog(ctx context.Context, arg CreateAuditLogParams) 
 		arg.CreatedAt,
 	)
 	return err
-}
-
-const getAuditLogByID = `-- name: GetAuditLogByID :one
-SELECT id, kind, action, actor_id, actor_username, target_type, target_id, target_name, result, detail, ip, created_at FROM audit_logs WHERE id = $1 LIMIT 1
-`
-
-func (q *Queries) GetAuditLogByID(ctx context.Context, id string) (AuditLog, error) {
-	row := q.db.QueryRowContext(ctx, getAuditLogByID, id)
-	var i AuditLog
-	err := row.Scan(
-		&i.ID,
-		&i.Kind,
-		&i.Action,
-		&i.ActorID,
-		&i.ActorUsername,
-		&i.TargetType,
-		&i.TargetID,
-		&i.TargetName,
-		&i.Result,
-		&i.Detail,
-		&i.Ip,
-		&i.CreatedAt,
-	)
-	return i, err
 }

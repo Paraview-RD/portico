@@ -20,11 +20,16 @@ var (
 	ErrTokenExpired = errors.New("token has expired")
 )
 
-// Claims is the token payload. It carries the organization so that a
-// downstream system can identify the user and their org from the token
-// alone, without a callback (§3.6.1).
+// Claims is the token payload. It carries the tenant and organization so
+// that a downstream system can identify the user, their tenant, and their
+// org from the token alone, without a callback (§3.6.1).
 type Claims struct {
-	Username         string     `json:"username"`
+	Username string `json:"username"`
+	// TenantID and TenantCode say which tenant this token acts in.
+	// TenantID is also checked against the account record on every request,
+	// so a token cannot be replayed against another tenant.
+	TenantID         string     `json:"tenantId"`
+	TenantCode       string     `json:"tenantCode,omitempty"`
 	DisplayName      string     `json:"displayName"`
 	Role             model.Role `json:"role"`
 	OrganizationID   string     `json:"organizationId,omitempty"`
@@ -48,13 +53,16 @@ func NewTokenService(secret []byte) *TokenService {
 	return &TokenService{secret: secret}
 }
 
-// Issue mints a token for user, valid for ttl.
-func (s *TokenService) Issue(user model.User, tokenVersion int64, ttl time.Duration) (string, time.Time, error) {
+// Issue mints a token for user, valid for ttl. tenantCode is carried for
+// the benefit of downstream systems, which deal in codes rather than ids.
+func (s *TokenService) Issue(user model.User, tenantCode string, tokenVersion int64, ttl time.Duration) (string, time.Time, error) {
 	now := time.Now()
 	expiresAt := now.Add(ttl)
 
 	claims := Claims{
 		Username:         user.Username,
+		TenantID:         user.TenantID,
+		TenantCode:       tenantCode,
 		DisplayName:      user.DisplayName,
 		Role:             user.Role,
 		OrganizationID:   user.OrganizationID,

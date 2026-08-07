@@ -12,6 +12,7 @@ import (
 
 // ListAuditLogs returns a filtered page of the audit trail.
 func (h *Handler) ListAuditLogs(w http.ResponseWriter, r *http.Request) {
+	principal := auth.MustPrincipal(r.Context())
 	pagination := httpx.ParsePagination(r)
 	query := r.URL.Query()
 
@@ -33,7 +34,7 @@ func (h *Handler) ListAuditLogs(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	logs, total, err := h.audit.List(r.Context(), service.AuditQuery{
+	logs, total, err := h.audit.List(r.Context(), principal.TenantID, service.AuditQuery{
 		Kind:    kind,
 		Action:  query.Get("action"),
 		Keyword: query.Get("keyword"),
@@ -50,7 +51,9 @@ func (h *Handler) ListAuditLogs(w http.ResponseWriter, r *http.Request) {
 
 // GetSettings returns the runtime settings.
 func (h *Handler) GetSettings(w http.ResponseWriter, r *http.Request) {
-	settings, err := h.settings.Get(r.Context())
+	principal := auth.MustPrincipal(r.Context())
+
+	settings, err := h.settings.Get(r.Context(), principal.TenantID)
 	if err != nil {
 		httpx.Fail(w, r, err)
 		return
@@ -74,7 +77,7 @@ func (h *Handler) UpdateSettings(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	settings, err := h.settings.Update(r.Context(), service.Settings{
+	settings, err := h.settings.Update(r.Context(), principal.TenantID, service.Settings{
 		TokenTTLMinutes:     req.TokenTTLMinutes,
 		RegistrationEnabled: req.RegistrationEnabled,
 		SystemName:          req.SystemName,
@@ -87,7 +90,7 @@ func (h *Handler) UpdateSettings(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	h.audit.Log(r.Context(), service.AuditEntry{
+	h.audit.Log(r.Context(), principal.TenantID, service.AuditEntry{
 		Kind: model.LogOperation, Action: model.ActionSettingsUpdate,
 		ActorID: principal.UserID, ActorName: principal.Username,
 		IP: httpx.ClientIP(r),

@@ -33,6 +33,7 @@ func (s stubLookup) LookupForAuth(context.Context, string) (auth.Account, error)
 func activeUser() auth.Account {
 	return auth.Account{
 		ID:               "user-1",
+		TenantID:         "tenant-1",
 		Username:         "alice",
 		DisplayName:      "Alice",
 		Role:             model.RoleUser,
@@ -72,7 +73,7 @@ func errorCode(t *testing.T, rec *httptest.ResponseRecorder) string {
 
 func TestRequireAuthAcceptsValidToken(t *testing.T) {
 	tokens := auth.NewTokenService(testSecret)
-	raw, _, err := tokens.Issue(testUser(), 1, time.Hour)
+	raw, _, err := tokens.Issue(testUser(), "acme", 1, time.Hour)
 	if err != nil {
 		t.Fatalf("Issue: %v", err)
 	}
@@ -91,7 +92,7 @@ func TestRequireAuthAcceptsValidToken(t *testing.T) {
 
 func TestRequireAuthPopulatesPrincipal(t *testing.T) {
 	tokens := auth.NewTokenService(testSecret)
-	raw, _, _ := tokens.Issue(testUser(), 1, time.Hour)
+	raw, _, _ := tokens.Issue(testUser(), "acme", 1, time.Hour)
 
 	var got auth.Principal
 	handler := http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
@@ -113,7 +114,7 @@ func TestRequireAuthPrefersStoredRoleOverTokenClaim(t *testing.T) {
 	tokens := auth.NewTokenService(testSecret)
 	user := testUser()
 	user.Role = model.RoleUser
-	raw, _, _ := tokens.Issue(user, 1, time.Hour)
+	raw, _, _ := tokens.Issue(user, "acme", 1, time.Hour)
 
 	promoted := activeUser()
 	promoted.Role = model.RoleSuperAdmin
@@ -134,8 +135,8 @@ func TestRequireAuthPrefersStoredRoleOverTokenClaim(t *testing.T) {
 
 func TestRequireAuthRejectsBadRequests(t *testing.T) {
 	tokens := auth.NewTokenService(testSecret)
-	validRaw, _, _ := tokens.Issue(testUser(), 1, time.Hour)
-	expiredRaw, _, _ := tokens.Issue(testUser(), 1, -time.Minute)
+	validRaw, _, _ := tokens.Issue(testUser(), "acme", 1, time.Hour)
+	expiredRaw, _, _ := tokens.Issue(testUser(), "acme", 1, -time.Minute)
 
 	tests := []struct {
 		name       string
@@ -211,7 +212,7 @@ func TestRequireAuthRejectsBadRequests(t *testing.T) {
 // token expiry.
 func TestDisabledAccountIsRejectedImmediately(t *testing.T) {
 	tokens := auth.NewTokenService(testSecret)
-	raw, _, _ := tokens.Issue(testUser(), 1, time.Hour)
+	raw, _, _ := tokens.Issue(testUser(), "acme", 1, time.Hour)
 
 	disabled := activeUser()
 	disabled.Status = model.StatusDisabled
@@ -235,7 +236,7 @@ func TestDisabledAccountIsRejectedImmediately(t *testing.T) {
 // that must stop working.
 func TestStaleTokenVersionIsRevoked(t *testing.T) {
 	tokens := auth.NewTokenService(testSecret)
-	raw, _, _ := tokens.Issue(testUser(), 1, time.Hour)
+	raw, _, _ := tokens.Issue(testUser(), "acme", 1, time.Hour)
 
 	rotated := activeUser()
 	rotated.TokenVersion = 2 // the user logged out or changed their password
@@ -255,9 +256,59 @@ func TestStaleTokenVersionIsRevoked(t *testing.T) {
 	}
 }
 
+// The account lookup behind this middleware is the one query in the system
+// that cannot be scoped by tenant, since it is what establishes the tenant.
+// Comparing the account's tenant against the token's claim is what stops
+// that from widening what a token can reach, so it needs a test of its own:
+// without the check, a token forged with another tenant's id would be
+// accepted and every subsequent query would run against that tenant.
+func TestTokenForAnotherTenantIsRejected(t *testing.T) {
+	tokens := auth.NewTokenService(testSecret)
+
+	elsewhere := testUser()
+	elsewhere.TenantID = "tenant-2"
+	raw, _, _ := tokens.Issue(elsewhere, "other", 1, time.Hour)
+
+	var reached bool
+	// The stored account says tenant-1; the token claims tenant-2.
+	mw := auth.NewMiddleware(tokens, stubLookup{user: activeUser()})
+	rec := doRequest(mw.RequireAuth(okHandler(&reached)), "Bearer "+raw)
+
+	if rec.Code != http.StatusUnauthorized {
+		t.Errorf("status = %d, want 401", rec.Code)
+	}
+	if got := errorCode(t, rec); got != "INVALID_TOKEN" {
+		t.Errorf("code = %q, want INVALID_TOKEN", got)
+	}
+	if reached {
+		t.Error("a token naming another tenant reached the handler")
+	}
+}
+
+// The principal handlers act on must carry the tenant, since it is what
+// every query below them is scoped by. An empty one would silently match no
+// rows and look like an empty account list.
+func TestPrincipalCarriesTheTenant(t *testing.T) {
+	tokens := auth.NewTokenService(testSecret)
+	raw, _, _ := tokens.Issue(testUser(), "acme", 1, time.Hour)
+
+	var got auth.Principal
+	capture := http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		got = auth.MustPrincipal(r.Context())
+		httpx.OK(w, nil)
+	})
+
+	mw := auth.NewMiddleware(tokens, stubLookup{user: activeUser()})
+	doRequest(mw.RequireAuth(capture), "Bearer "+raw)
+
+	if got.TenantID != "tenant-1" {
+		t.Errorf("principal tenant = %q, want tenant-1", got.TenantID)
+	}
+}
+
 func TestRequireAdmin(t *testing.T) {
 	tokens := auth.NewTokenService(testSecret)
-	raw, _, _ := tokens.Issue(testUser(), 1, time.Hour)
+	raw, _, _ := tokens.Issue(testUser(), "acme", 1, time.Hour)
 
 	t.Run("admin passes", func(t *testing.T) {
 		admin := activeUser()

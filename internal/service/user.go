@@ -37,6 +37,12 @@ var (
 )
 
 // UserService owns account lifecycle and credentials.
+//
+// Every method that touches accounts is scoped to a tenant. Methods acting
+// on behalf of a signed-in caller take the tenant from their principal;
+// those that run before there is one — sign-in, registration, bootstrap —
+// take it explicitly from a tenant that has already been resolved and found
+// active.
 type UserService struct {
 	store    *store.Store
 	audit    *AuditService
@@ -51,8 +57,14 @@ func NewUserService(st *store.Store, audit *AuditService, settings *SettingsServ
 
 // LookupForAuth implements auth.UserLookup. It runs on every authenticated
 // request, so it stays a single indexed read.
+//
+// This is the one account read that is not tenant-scoped, because it is what
+// establishes the tenant: all it has to go on is the subject of a token. The
+// middleware compares the tenant it returns against the token's claim, so
+// the absence of a filter here does not widen what a token can reach. See
+// internal/store/queries/authentication.sql.
 func (s *UserService) LookupForAuth(ctx context.Context, userID string) (auth.Account, error) {
-	row, err := s.store.Queries.GetUserByID(ctx, userID)
+	row, err := s.store.Queries.GetUserForAuthentication(ctx, userID)
 	if err != nil {
 		if store.IsNoRows(err) {
 			return auth.Account{}, auth.ErrUserNotFound
@@ -62,6 +74,7 @@ func (s *UserService) LookupForAuth(ctx context.Context, userID string) (auth.Ac
 
 	out := auth.Account{
 		ID:           row.ID,
+		TenantID:     row.TenantID,
 		Username:     row.Username,
 		DisplayName:  row.DisplayName,
 		Role:         model.Role(row.Role),
@@ -72,7 +85,8 @@ func (s *UserService) LookupForAuth(ctx context.Context, userID string) (auth.Ac
 		out.OrganizationID = *row.OrganizationID
 		// The organization name is resolved separately so the common path
 		// stays one query; a missing organization is not an auth failure.
-		if org, err := s.store.Queries.GetOrganizationByID(ctx, *row.OrganizationID); err == nil {
+		org, err := s.store.ForTenant(row.TenantID).GetOrganizationByID(ctx, *row.OrganizationID)
+		if err == nil {
 			out.OrganizationName = org.Name
 		}
 	}
@@ -80,8 +94,10 @@ func (s *UserService) LookupForAuth(ctx context.Context, userID string) (auth.Ac
 }
 
 // Get returns one user with their organization name resolved.
-func (s *UserService) Get(ctx context.Context, userID string) (model.User, error) {
-	row, err := s.store.Queries.GetUserByID(ctx, userID)
+func (s *UserService) Get(ctx context.Context, tenantID, userID string) (model.User, error) {
+	q := s.store.ForTenant(tenantID)
+
+	row, err := q.GetUserByID(ctx, userID)
 	if err != nil {
 		if store.IsNoRows(err) {
 			return model.User{}, ErrUserNotFound
@@ -89,7 +105,7 @@ func (s *UserService) Get(ctx context.Context, userID string) (model.User, error
 		return model.User{}, fmt.Errorf("get user: %w", err)
 	}
 
-	users, err := s.attachOrganizations(ctx, []sqlcgen.User{row})
+	users, err := s.attachOrganizations(ctx, q, []sqlcgen.User{row})
 	if err != nil {
 		return model.User{}, err
 	}
@@ -109,9 +125,11 @@ type UserQuery struct {
 // List returns a page of users, newest first.
 //
 // Hand-written because the filters are optional and sqlc cannot express a
-// query whose WHERE clause varies.
-func (s *UserService) List(ctx context.Context, q UserQuery, page Page) ([]model.User, int64, error) {
-	var f filters
+// query whose WHERE clause varies. The tenant predicate is written into the
+// SQL rather than added by the filter builder, so it is visible in the query
+// and checked by the guard test in internal/store.
+func (s *UserService) List(ctx context.Context, tenantID string, q UserQuery, page Page) ([]model.User, int64, error) {
+	f := tenantFilters(tenantID)
 
 	if keyword := strings.TrimSpace(q.Keyword); keyword != "" {
 		pattern := "%" + escapeLike(keyword) + "%"
@@ -127,11 +145,11 @@ func (s *UserService) List(ctx context.Context, q UserQuery, page Page) ([]model
 		f.Add("organization_id = %s", q.OrganizationID)
 	}
 
-	clause := f.Where()
+	clause := f.And()
 
 	var total int64
 	if err := s.store.DB().QueryRowContext(ctx,
-		"SELECT COUNT(*) FROM users"+clause, f.Args()...).Scan(&total); err != nil {
+		"SELECT COUNT(*) FROM users WHERE tenant_id = $1"+clause, f.Args()...).Scan(&total); err != nil {
 		return nil, 0, fmt.Errorf("count users: %w", err)
 	}
 	if total == 0 {
@@ -140,9 +158,9 @@ func (s *UserService) List(ctx context.Context, q UserQuery, page Page) ([]model
 
 	pageClause, args := f.Paginate(page)
 	rows, err := s.store.DB().QueryContext(ctx,
-		`SELECT id, username, display_name, password_hash, phone, email, role, status,
+		`SELECT id, tenant_id, username, display_name, password_hash, phone, email, role, status,
 		        organization_id, token_version, source, created_at, updated_at
-		 FROM users`+clause+`
+		 FROM users WHERE tenant_id = $1`+clause+`
 		 ORDER BY created_at DESC, id DESC`+pageClause, args...)
 	if err != nil {
 		return nil, 0, fmt.Errorf("list users: %w", err)
@@ -153,7 +171,7 @@ func (s *UserService) List(ctx context.Context, q UserQuery, page Page) ([]model
 	for rows.Next() {
 		var u sqlcgen.User
 		if err := rows.Scan(
-			&u.ID, &u.Username, &u.DisplayName, &u.PasswordHash, &u.Phone, &u.Email,
+			&u.ID, &u.TenantID, &u.Username, &u.DisplayName, &u.PasswordHash, &u.Phone, &u.Email,
 			&u.Role, &u.Status, &u.OrganizationID, &u.TokenVersion, &u.Source,
 			&u.CreatedAt, &u.UpdatedAt,
 		); err != nil {
@@ -165,7 +183,7 @@ func (s *UserService) List(ctx context.Context, q UserQuery, page Page) ([]model
 		return nil, 0, fmt.Errorf("iterate users: %w", err)
 	}
 
-	users, err := s.attachOrganizations(ctx, found)
+	users, err := s.attachOrganizations(ctx, s.store.ForTenant(tenantID), found)
 	if err != nil {
 		return nil, 0, err
 	}
@@ -184,9 +202,9 @@ type CreateUserInput struct {
 	Source         model.UserSource
 }
 
-// Create adds an account. The caller is responsible for having checked that
-// the actor is an administrator.
-func (s *UserService) Create(ctx context.Context, in CreateUserInput) (model.User, error) {
+// Create adds an account to a tenant. The caller is responsible for having
+// checked that the actor is an administrator of that tenant.
+func (s *UserService) Create(ctx context.Context, tenantID string, in CreateUserInput) (model.User, error) {
 	in.Username = strings.TrimSpace(in.Username)
 	in.DisplayName = strings.TrimSpace(in.DisplayName)
 
@@ -206,10 +224,12 @@ func (s *UserService) Create(ctx context.Context, in CreateUserInput) (model.Use
 		in.Source = model.SourceAdmin
 	}
 
-	if err := s.checkUsernameFree(ctx, in.Username); err != nil {
+	q := s.store.ForTenant(tenantID)
+
+	if err := s.checkUsernameFree(ctx, q, in.Username); err != nil {
 		return model.User{}, err
 	}
-	orgID, err := s.resolveAssignableOrganization(ctx, in.OrganizationID)
+	orgID, err := s.resolveAssignableOrganization(ctx, q, in.OrganizationID)
 	if err != nil {
 		return model.User{}, err
 	}
@@ -221,7 +241,7 @@ func (s *UserService) Create(ctx context.Context, in CreateUserInput) (model.Use
 
 	now := store.Now()
 	id := uuid.NewString()
-	err = s.store.Queries.CreateUser(ctx, sqlcgen.CreateUserParams{
+	err = q.CreateUser(ctx, sqlcgen.CreateUserParams{
 		ID:             id,
 		Username:       in.Username,
 		DisplayName:    in.DisplayName,
@@ -245,7 +265,7 @@ func (s *UserService) Create(ctx context.Context, in CreateUserInput) (model.Use
 		return model.User{}, fmt.Errorf("create user: %w", err)
 	}
 
-	return s.Get(ctx, id)
+	return s.Get(ctx, tenantID, id)
 }
 
 // UpdateUserInput changes an account's profile. Password and status have
@@ -260,7 +280,9 @@ type UpdateUserInput struct {
 
 // Update changes a user's profile, role, and organization.
 func (s *UserService) Update(ctx context.Context, actor auth.Principal, userID string, in UpdateUserInput) (model.User, error) {
-	current, err := s.store.Queries.GetUserByID(ctx, userID)
+	q := s.store.ForTenant(actor.TenantID)
+
+	current, err := q.GetUserByID(ctx, userID)
 	if err != nil {
 		if store.IsNoRows(err) {
 			return model.User{}, ErrUserNotFound
@@ -277,20 +299,20 @@ func (s *UserService) Update(ctx context.Context, actor auth.Principal, userID s
 	}
 
 	// Demoting the last administrator would leave nobody able to administer
-	// the system.
+	// this tenant.
 	if model.Role(current.Role).IsAdmin() && !in.Role.IsAdmin() {
-		if err := s.ensureNotLastAdmin(ctx, userID); err != nil {
+		if err := s.ensureNotLastAdmin(ctx, q, userID); err != nil {
 			return model.User{}, err
 		}
 	}
 
-	orgID, err := s.resolveAssignableOrganization(ctx, in.OrganizationID)
+	orgID, err := s.resolveAssignableOrganization(ctx, q, in.OrganizationID)
 	if err != nil {
 		return model.User{}, err
 	}
 
 	now := store.Now()
-	err = s.store.Queries.UpdateUserProfile(ctx, sqlcgen.UpdateUserProfileParams{
+	err = q.UpdateUserProfile(ctx, sqlcgen.UpdateUserProfileParams{
 		ID:             userID,
 		DisplayName:    in.DisplayName,
 		Phone:          strings.TrimSpace(in.Phone),
@@ -303,12 +325,12 @@ func (s *UserService) Update(ctx context.Context, actor auth.Principal, userID s
 		return model.User{}, fmt.Errorf("update user: %w", err)
 	}
 
-	updated, err := s.Get(ctx, userID)
+	updated, err := s.Get(ctx, actor.TenantID, userID)
 	if err != nil {
 		return model.User{}, err
 	}
 
-	s.audit.Log(ctx, AuditEntry{
+	s.audit.Log(ctx, actor.TenantID, AuditEntry{
 		Kind: model.LogOperation, Action: model.ActionUserUpdate,
 		ActorID: actor.UserID, ActorName: actor.Username,
 		TargetType: "USER", TargetID: userID, TargetName: updated.Username,
@@ -317,7 +339,7 @@ func (s *UserService) Update(ctx context.Context, actor auth.Principal, userID s
 	// An organization change is also an organization-log event, since §3.9
 	// calls for membership moves to be traceable there.
 	if organizationRef(current.OrganizationID) != updated.OrganizationID {
-		s.audit.Log(ctx, AuditEntry{
+		s.audit.Log(ctx, actor.TenantID, AuditEntry{
 			Kind: model.LogOrganization, Action: model.ActionOrgAssign,
 			ActorID: actor.UserID, ActorName: actor.Username,
 			TargetType: "USER", TargetID: userID, TargetName: updated.Username,
@@ -336,7 +358,9 @@ func (s *UserService) SetStatus(ctx context.Context, actor auth.Principal, userI
 		return model.User{}, httpx.BadRequest("INVALID_STATUS", "Status must be ACTIVE or DISABLED.")
 	}
 
-	target, err := s.store.Queries.GetUserByID(ctx, userID)
+	q := s.store.ForTenant(actor.TenantID)
+
+	target, err := q.GetUserByID(ctx, userID)
 	if err != nil {
 		if store.IsNoRows(err) {
 			return model.User{}, ErrUserNotFound
@@ -350,13 +374,13 @@ func (s *UserService) SetStatus(ctx context.Context, actor auth.Principal, userI
 			return model.User{}, ErrCannotDisableSelf
 		}
 		if model.Role(target.Role).IsAdmin() {
-			if err := s.ensureNotLastAdmin(ctx, userID); err != nil {
+			if err := s.ensureNotLastAdmin(ctx, q, userID); err != nil {
 				return model.User{}, err
 			}
 		}
 	}
 
-	err = s.store.Queries.UpdateUserStatus(ctx, sqlcgen.UpdateUserStatusParams{
+	err = q.UpdateUserStatus(ctx, sqlcgen.UpdateUserStatusParams{
 		ID:        userID,
 		Status:    string(status),
 		UpdatedAt: store.Now(),
@@ -369,18 +393,18 @@ func (s *UserService) SetStatus(ctx context.Context, actor auth.Principal, userI
 	if status == model.StatusDisabled {
 		action = model.ActionUserDisable
 	}
-	s.audit.Log(ctx, AuditEntry{
+	s.audit.Log(ctx, actor.TenantID, AuditEntry{
 		Kind: model.LogOperation, Action: action,
 		ActorID: actor.UserID, ActorName: actor.Username,
 		TargetType: "USER", TargetID: userID, TargetName: target.Username,
 	})
 
-	return s.Get(ctx, userID)
+	return s.Get(ctx, actor.TenantID, userID)
 }
 
 // attachOrganizations resolves organization names for a batch of rows in one
 // query, so a page of users does not cost a lookup per row.
-func (s *UserService) attachOrganizations(ctx context.Context, rows []sqlcgen.User) ([]model.User, error) {
+func (s *UserService) attachOrganizations(ctx context.Context, q *store.Scoped, rows []sqlcgen.User) ([]model.User, error) {
 	ids := make([]string, 0, len(rows))
 	seen := make(map[string]struct{}, len(rows))
 	for _, row := range rows {
@@ -396,7 +420,7 @@ func (s *UserService) attachOrganizations(ctx context.Context, rows []sqlcgen.Us
 
 	names := make(map[string]string, len(ids))
 	if len(ids) > 0 {
-		orgs, err := s.store.Queries.ListOrganizationsByIDs(ctx, ids)
+		orgs, err := q.ListOrganizationsByIDs(ctx, ids)
 		if err != nil {
 			return nil, fmt.Errorf("resolve organization names: %w", err)
 		}
@@ -409,6 +433,7 @@ func (s *UserService) attachOrganizations(ctx context.Context, rows []sqlcgen.Us
 	for _, row := range rows {
 		user := model.User{
 			ID:          row.ID,
+			TenantID:    row.TenantID,
 			Username:    row.Username,
 			DisplayName: row.DisplayName,
 			Phone:       row.Phone,
@@ -428,8 +453,8 @@ func (s *UserService) attachOrganizations(ctx context.Context, rows []sqlcgen.Us
 	return users, nil
 }
 
-func (s *UserService) checkUsernameFree(ctx context.Context, username string) error {
-	_, err := s.store.Queries.GetUserByUsername(ctx, username)
+func (s *UserService) checkUsernameFree(ctx context.Context, q *store.Scoped, username string) error {
+	_, err := q.GetUserByUsername(ctx, username)
 	switch {
 	case err == nil:
 		return ErrUsernameTaken
@@ -441,14 +466,17 @@ func (s *UserService) checkUsernameFree(ctx context.Context, username string) er
 }
 
 // resolveAssignableOrganization validates an organization reference for
-// assignment, rejecting one that is missing or disabled (§3.4.1).
-func (s *UserService) resolveAssignableOrganization(ctx context.Context, orgID string) (*string, error) {
+// assignment, rejecting one that is missing or disabled (§3.4.1). An
+// organization in another tenant simply does not exist as far as this
+// lookup is concerned, which is what makes a cross-tenant assignment
+// impossible rather than merely discouraged.
+func (s *UserService) resolveAssignableOrganization(ctx context.Context, q *store.Scoped, orgID string) (*string, error) {
 	orgID = strings.TrimSpace(orgID)
 	if orgID == "" {
 		return nil, nil
 	}
 
-	org, err := s.store.Queries.GetOrganizationByID(ctx, orgID)
+	org, err := q.GetOrganizationByID(ctx, orgID)
 	if err != nil {
 		if store.IsNoRows(err) {
 			return nil, ErrOrganizationNotFound
@@ -462,13 +490,11 @@ func (s *UserService) resolveAssignableOrganization(ctx context.Context, orgID s
 }
 
 // ensureNotLastAdmin fails if userID is the only remaining active
-// administrator.
-func (s *UserService) ensureNotLastAdmin(ctx context.Context, userID string) error {
-	var count int64
-	err := s.store.DB().QueryRowContext(ctx,
-		`SELECT COUNT(*) FROM users WHERE role = $1 AND status = $2 AND id <> $3`,
-		string(model.RoleSuperAdmin), string(model.StatusActive), userID,
-	).Scan(&count)
+// administrator of their tenant. Another tenant's administrators are not
+// counted: they cannot administer this one.
+func (s *UserService) ensureNotLastAdmin(ctx context.Context, q *store.Scoped, userID string) error {
+	count, err := q.CountOtherActiveAdmins(ctx,
+		string(model.RoleSuperAdmin), string(model.StatusActive), userID)
 	if err != nil {
 		return fmt.Errorf("count administrators: %w", err)
 	}

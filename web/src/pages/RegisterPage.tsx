@@ -1,6 +1,6 @@
 import { useState } from "react";
 
-import { ApiError } from "../api/client";
+import { ApiError, tenantStore } from "../api/client";
 import { authApi } from "../api/endpoints";
 import { Alert, Button, Field, Input } from "../components/ui";
 import { useT } from "../i18n";
@@ -10,6 +10,15 @@ export function RegisterPage() {
   const t = useT();
   const { navigate } = useRouter();
 
+  // Which tenant the account is being created in. Carried over from the
+  // sign-in screen, or from a ?tenant= link for someone who arrived here
+  // directly. Blank means the default tenant.
+  const [tenant, setTenant] = useState(
+    () =>
+      new URLSearchParams(window.location.search).get("tenant") ??
+      tenantStore.get() ??
+      "",
+  );
   const [form, setForm] = useState({
     username: "",
     displayName: "",
@@ -39,6 +48,8 @@ export function RegisterPage() {
 
     setSubmitting(true);
     try {
+      // The client attaches this to anonymous requests as a header.
+      tenantStore.set(tenant);
       await authApi.register({
         username: form.username,
         displayName: form.displayName,
@@ -72,6 +83,15 @@ export function RegisterPage() {
           </div>
         ) : (
           <form onSubmit={handleSubmit} className="flex flex-col gap-4">
+            <Field label={t("login.tenant")} hint={t("login.tenantHint")}>
+              <Input
+                value={tenant}
+                onChange={(e) => setTenant(e.target.value)}
+                autoComplete="organization"
+                placeholder="default"
+              />
+            </Field>
+
             <Field label={t("login.username")} required>
               <Input
                 value={form.username}

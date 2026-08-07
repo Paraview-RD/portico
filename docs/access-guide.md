@@ -15,6 +15,34 @@ The port is `PORTICO_ADDR` (default `:8410`). In development the frontend
 also runs a Vite server on `:5410` that proxies `/api` to `:8410`; in
 production there is only the one port.
 
+## Tenants
+
+Every account belongs to exactly one tenant, and no account can act outside
+its own. A fresh deployment gets one tenant, code `default`, created on
+first start — sign-in that names no tenant lands there, so a single-tenant
+deployment never has to know tenants exist.
+
+More tenants are provisioned from the command line, because there is no
+cross-tenant role for the API to authorize:
+
+```sh
+export PORTICO_DB_DSN=postgres://portico:secret@localhost:5432/portico?sslmode=disable
+
+portico tenant create --code acme --name "Acme Corp"   # prints a generated
+                                                       # admin password once
+portico tenant list
+portico tenant disable --code acme                     # refuses sign-in,
+portico tenant enable  --code acme                     # deletes nothing
+```
+
+Each tenant gets its own administrator at creation. Users of a non-default
+tenant sign in with its code — either typed into the **Tenant** field, or
+via a link that carries it:
+
+```
+http://<host>:8410/login?tenant=acme
+```
+
 ## Credentials
 
 Portico stores its own accounts — there is no external identity provider in
@@ -22,7 +50,8 @@ the MVP.
 
 | Credential | Where it comes from |
 |---|---|
-| Bootstrap administrator | Created on first start against an empty database. Username from `PORTICO_INITIAL_ADMIN_USERNAME` (default `admin`). |
+| Bootstrap administrator | Created on first start in the `default` tenant. Username from `PORTICO_INITIAL_ADMIN_USERNAME` (default `admin`). |
+| A further tenant's administrator | Created by `portico tenant create`; the password is printed once unless `--admin-password` is given. |
 | Bootstrap password | `PORTICO_INITIAL_ADMIN_PASSWORD` if set. Otherwise a random one is generated and **printed once** in the startup log — capture it then, it is stored nowhere. |
 | JWT signing secret | `PORTICO_JWT_SECRET`. If unset, a random secret is generated per start, which silently invalidates every session on restart. Set it. |
 | Everyone else's password | Set by an administrator at creation, or chosen by the user at self-registration. |
@@ -138,6 +167,10 @@ actions.
   want it; an instance exposed before anyone finishes setup will not accept
   sign-ups.
 - **Disabling an organization** blocks new members but keeps existing ones.
+- **Nothing crosses a tenant.** Users, organizations, audit entries, and
+  settings all belong to one, and an administrator of one tenant cannot see
+  or change another's — including by id, and including by sending a tenant
+  header. There is no account anywhere that can.
 
 ## Integrating a downstream system
 

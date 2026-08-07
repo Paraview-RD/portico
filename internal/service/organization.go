@@ -14,7 +14,9 @@ import (
 	"github.com/paraview/portico/internal/store/sqlcgen"
 )
 
-// ErrOrganizationCodeTaken is returned when a code is already in use.
+// ErrOrganizationCodeTaken is returned when a code is already in use within
+// the tenant. Codes are unique per tenant, not globally: two tenants both
+// having a "SALES" is expected.
 var ErrOrganizationCodeTaken = httpx.Conflict("ORGANIZATION_CODE_TAKEN",
 	"That organization code is already in use.")
 
@@ -29,25 +31,28 @@ func NewOrganizationService(st *store.Store, audit *AuditService) *OrganizationS
 	return &OrganizationService{store: st, audit: audit}
 }
 
-// List returns every organization in display order, with member counts.
+// List returns every organization in the tenant in display order, with
+// member counts.
 //
 // The MVP has no hierarchy and no pagination here: the list is expected to
 // be small enough to render whole (§3.4).
-func (s *OrganizationService) List(ctx context.Context, activeOnly bool) ([]model.Organization, error) {
+func (s *OrganizationService) List(ctx context.Context, tenantID string, activeOnly bool) ([]model.Organization, error) {
+	q := s.store.ForTenant(tenantID)
+
 	var (
 		rows []sqlcgen.Organization
 		err  error
 	)
 	if activeOnly {
-		rows, err = s.store.Queries.ListActiveOrganizations(ctx)
+		rows, err = q.ListActiveOrganizations(ctx)
 	} else {
-		rows, err = s.store.Queries.ListOrganizations(ctx)
+		rows, err = q.ListOrganizations(ctx)
 	}
 	if err != nil {
 		return nil, fmt.Errorf("list organizations: %w", err)
 	}
 
-	counts, err := s.memberCounts(ctx)
+	counts, err := s.memberCounts(ctx, q)
 	if err != nil {
 		return nil, err
 	}
@@ -60,8 +65,10 @@ func (s *OrganizationService) List(ctx context.Context, activeOnly bool) ([]mode
 }
 
 // Get returns one organization.
-func (s *OrganizationService) Get(ctx context.Context, id string) (model.Organization, error) {
-	row, err := s.store.Queries.GetOrganizationByID(ctx, id)
+func (s *OrganizationService) Get(ctx context.Context, tenantID, id string) (model.Organization, error) {
+	q := s.store.ForTenant(tenantID)
+
+	row, err := q.GetOrganizationByID(ctx, id)
 	if err != nil {
 		if store.IsNoRows(err) {
 			return model.Organization{}, ErrOrganizationNotFound
@@ -69,7 +76,7 @@ func (s *OrganizationService) Get(ctx context.Context, id string) (model.Organiz
 		return model.Organization{}, fmt.Errorf("get organization: %w", err)
 	}
 
-	count, err := s.store.Queries.CountUsersByOrganization(ctx, &id)
+	count, err := q.CountUsersByOrganization(ctx, &id)
 	if err != nil {
 		return model.Organization{}, fmt.Errorf("count members: %w", err)
 	}
@@ -84,7 +91,7 @@ type OrganizationInput struct {
 	SortOrder int
 }
 
-// Create adds an organization.
+// Create adds an organization to the actor's tenant.
 func (s *OrganizationService) Create(ctx context.Context, actor auth.Principal, in OrganizationInput) (model.Organization, error) {
 	in.Name = strings.TrimSpace(in.Name)
 	in.Code = strings.TrimSpace(in.Code)
@@ -96,7 +103,9 @@ func (s *OrganizationService) Create(ctx context.Context, actor auth.Principal, 
 		return model.Organization{}, err
 	}
 
-	if _, err := s.store.Queries.GetOrganizationByCode(ctx, in.Code); err == nil {
+	q := s.store.ForTenant(actor.TenantID)
+
+	if _, err := q.GetOrganizationByCode(ctx, in.Code); err == nil {
 		return model.Organization{}, ErrOrganizationCodeTaken
 	} else if !store.IsNoRows(err) {
 		return model.Organization{}, fmt.Errorf("check organization code: %w", err)
@@ -104,7 +113,7 @@ func (s *OrganizationService) Create(ctx context.Context, actor auth.Principal, 
 
 	now := store.Now()
 	id := uuid.NewString()
-	err := s.store.Queries.CreateOrganization(ctx, sqlcgen.CreateOrganizationParams{
+	err := q.CreateOrganization(ctx, sqlcgen.CreateOrganizationParams{
 		ID:        id,
 		Name:      in.Name,
 		Code:      in.Code,
@@ -121,13 +130,13 @@ func (s *OrganizationService) Create(ctx context.Context, actor auth.Principal, 
 		return model.Organization{}, fmt.Errorf("create organization: %w", err)
 	}
 
-	s.audit.Log(ctx, AuditEntry{
+	s.audit.Log(ctx, actor.TenantID, AuditEntry{
 		Kind: model.LogOrganization, Action: model.ActionOrgCreate,
 		ActorID: actor.UserID, ActorName: actor.Username,
 		TargetType: "ORGANIZATION", TargetID: id, TargetName: in.Name,
 	})
 
-	return s.Get(ctx, id)
+	return s.Get(ctx, actor.TenantID, id)
 }
 
 // Update changes an organization's name, remark, and ordering.
@@ -135,7 +144,9 @@ func (s *OrganizationService) Create(ctx context.Context, actor auth.Principal, 
 // The code is immutable: downstream systems may have stored it, and letting
 // it change would silently break those references.
 func (s *OrganizationService) Update(ctx context.Context, actor auth.Principal, id string, in OrganizationInput) (model.Organization, error) {
-	if _, err := s.store.Queries.GetOrganizationByID(ctx, id); err != nil {
+	q := s.store.ForTenant(actor.TenantID)
+
+	if _, err := q.GetOrganizationByID(ctx, id); err != nil {
 		if store.IsNoRows(err) {
 			return model.Organization{}, ErrOrganizationNotFound
 		}
@@ -147,7 +158,7 @@ func (s *OrganizationService) Update(ctx context.Context, actor auth.Principal, 
 		return model.Organization{}, httpx.BadRequest("NAME_REQUIRED", "An organization name is required.")
 	}
 
-	err := s.store.Queries.UpdateOrganization(ctx, sqlcgen.UpdateOrganizationParams{
+	err := q.UpdateOrganization(ctx, sqlcgen.UpdateOrganizationParams{
 		ID:        id,
 		Name:      in.Name,
 		Remark:    strings.TrimSpace(in.Remark),
@@ -158,13 +169,13 @@ func (s *OrganizationService) Update(ctx context.Context, actor auth.Principal, 
 		return model.Organization{}, fmt.Errorf("update organization: %w", err)
 	}
 
-	s.audit.Log(ctx, AuditEntry{
+	s.audit.Log(ctx, actor.TenantID, AuditEntry{
 		Kind: model.LogOrganization, Action: model.ActionOrgUpdate,
 		ActorID: actor.UserID, ActorName: actor.Username,
 		TargetType: "ORGANIZATION", TargetID: id, TargetName: in.Name,
 	})
 
-	return s.Get(ctx, id)
+	return s.Get(ctx, actor.TenantID, id)
 }
 
 // SetStatus enables or disables an organization.
@@ -177,7 +188,9 @@ func (s *OrganizationService) SetStatus(ctx context.Context, actor auth.Principa
 		return model.Organization{}, httpx.BadRequest("INVALID_STATUS", "Status must be ACTIVE or DISABLED.")
 	}
 
-	current, err := s.store.Queries.GetOrganizationByID(ctx, id)
+	q := s.store.ForTenant(actor.TenantID)
+
+	current, err := q.GetOrganizationByID(ctx, id)
 	if err != nil {
 		if store.IsNoRows(err) {
 			return model.Organization{}, ErrOrganizationNotFound
@@ -185,7 +198,7 @@ func (s *OrganizationService) SetStatus(ctx context.Context, actor auth.Principa
 		return model.Organization{}, fmt.Errorf("get organization: %w", err)
 	}
 
-	err = s.store.Queries.UpdateOrganizationStatus(ctx, sqlcgen.UpdateOrganizationStatusParams{
+	err = q.UpdateOrganizationStatus(ctx, sqlcgen.UpdateOrganizationStatusParams{
 		ID:        id,
 		Status:    string(status),
 		UpdatedAt: store.Now(),
@@ -198,40 +211,29 @@ func (s *OrganizationService) SetStatus(ctx context.Context, actor auth.Principa
 	if status == model.StatusDisabled {
 		action = model.ActionOrgDisable
 	}
-	s.audit.Log(ctx, AuditEntry{
+	s.audit.Log(ctx, actor.TenantID, AuditEntry{
 		Kind: model.LogOrganization, Action: action,
 		ActorID: actor.UserID, ActorName: actor.Username,
 		TargetType: "ORGANIZATION", TargetID: id, TargetName: current.Name,
 	})
 
-	return s.Get(ctx, id)
+	return s.Get(ctx, actor.TenantID, id)
 }
 
 // memberCounts returns the number of users in each organization, in one
 // query rather than one per organization.
-func (s *OrganizationService) memberCounts(ctx context.Context) (map[string]int64, error) {
-	rows, err := s.store.DB().QueryContext(ctx,
-		`SELECT organization_id, COUNT(*) FROM users
-		 WHERE organization_id IS NOT NULL
-		 GROUP BY organization_id`)
+func (s *OrganizationService) memberCounts(ctx context.Context, q *store.Scoped) (map[string]int64, error) {
+	rows, err := q.CountUsersPerOrganization(ctx)
 	if err != nil {
 		return nil, fmt.Errorf("count organization members: %w", err)
 	}
-	defer func() { _ = rows.Close() }()
 
-	counts := map[string]int64{}
-	for rows.Next() {
-		var (
-			id    string
-			count int64
-		)
-		if err := rows.Scan(&id, &count); err != nil {
-			return nil, fmt.Errorf("scan member count: %w", err)
+	counts := make(map[string]int64, len(rows))
+	for _, row := range rows {
+		if row.OrganizationID == nil {
+			continue
 		}
-		counts[id] = count
-	}
-	if err := rows.Err(); err != nil {
-		return nil, fmt.Errorf("iterate member counts: %w", err)
+		counts[*row.OrganizationID] = row.MemberCount
 	}
 	return counts, nil
 }

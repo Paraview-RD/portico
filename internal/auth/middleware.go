@@ -14,6 +14,7 @@ import (
 // decide whether a presented token is still valid.
 type Account struct {
 	ID               string
+	TenantID         string
 	Username         string
 	DisplayName      string
 	Role             model.Role
@@ -108,10 +109,24 @@ func (m *Middleware) authenticate(r *http.Request) (Principal, error) {
 		return Principal{}, httpx.Unauthorized("TOKEN_REVOKED", "Your session is no longer valid. Please sign in again.")
 	}
 
+	// The account lookup is the one read in the system that cannot be scoped
+	// by tenant, because it is what establishes the tenant. Comparing the
+	// stored tenant against the one the token was minted for closes the gap:
+	// a token can only ever act inside the tenant it was issued in, whatever
+	// else about the account has changed since.
+	//
+	// A mismatch is not a state this system produces — a user's tenant never
+	// changes — so it means a forged or tampered token, and is reported as
+	// one rather than distinguished for the caller's benefit.
+	if user.TenantID != claims.TenantID {
+		return Principal{}, httpx.Unauthorized("INVALID_TOKEN", "The provided token is not valid.")
+	}
+
 	// Prefer the stored values over the token's copy: role or organization
 	// may have changed since the token was minted.
 	return Principal{
 		UserID:           user.ID,
+		TenantID:         user.TenantID,
 		Username:         user.Username,
 		DisplayName:      user.DisplayName,
 		Role:             user.Role,

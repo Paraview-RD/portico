@@ -116,6 +116,13 @@ the command line by whoever operates the deployment. A role able to read
 across tenants would be the single largest risk to the isolation the rest of
 the design is spent on.
 
+One consequence worth stating plainly: `audit_logs.tenant_id` is `NOT NULL`,
+so a sign-in attempt naming a tenant that **does not exist** has no trail to
+be written to. Those go to the process log instead. It is a security-relevant
+event leaving the audit trail, and it is a deliberate trade — the alternative
+is an unscoped audit table, which is a far larger hole than the one it
+closes.
+
 ### Federation protocols
 
 Portico acts as an identity provider for OAuth 2.1, OIDC, SAML 2.0, and CAS.

@@ -12,25 +12,15 @@ import (
 	"github.com/lib/pq"
 )
 
-const countOrganizations = `-- name: CountOrganizations :one
-SELECT COUNT(*) FROM organizations
-`
-
-func (q *Queries) CountOrganizations(ctx context.Context) (int64, error) {
-	row := q.db.QueryRowContext(ctx, countOrganizations)
-	var count int64
-	err := row.Scan(&count)
-	return count, err
-}
-
 const createOrganization = `-- name: CreateOrganization :exec
 INSERT INTO organizations (
-    id, name, code, remark, status, sort_order, created_at, updated_at
-) VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
+    id, tenant_id, name, code, remark, status, sort_order, created_at, updated_at
+) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)
 `
 
 type CreateOrganizationParams struct {
 	ID        string
+	TenantID  string
 	Name      string
 	Code      string
 	Remark    string
@@ -43,6 +33,7 @@ type CreateOrganizationParams struct {
 func (q *Queries) CreateOrganization(ctx context.Context, arg CreateOrganizationParams) error {
 	_, err := q.db.ExecContext(ctx, createOrganization,
 		arg.ID,
+		arg.TenantID,
 		arg.Name,
 		arg.Code,
 		arg.Remark,
@@ -55,14 +46,20 @@ func (q *Queries) CreateOrganization(ctx context.Context, arg CreateOrganization
 }
 
 const getOrganizationByCode = `-- name: GetOrganizationByCode :one
-SELECT id, name, code, remark, status, sort_order, created_at, updated_at FROM organizations WHERE code = $1 LIMIT 1
+SELECT id, tenant_id, name, code, remark, status, sort_order, created_at, updated_at FROM organizations WHERE tenant_id = $1 AND code = $2 LIMIT 1
 `
 
-func (q *Queries) GetOrganizationByCode(ctx context.Context, code string) (Organization, error) {
-	row := q.db.QueryRowContext(ctx, getOrganizationByCode, code)
+type GetOrganizationByCodeParams struct {
+	TenantID string
+	Code     string
+}
+
+func (q *Queries) GetOrganizationByCode(ctx context.Context, arg GetOrganizationByCodeParams) (Organization, error) {
+	row := q.db.QueryRowContext(ctx, getOrganizationByCode, arg.TenantID, arg.Code)
 	var i Organization
 	err := row.Scan(
 		&i.ID,
+		&i.TenantID,
 		&i.Name,
 		&i.Code,
 		&i.Remark,
@@ -75,14 +72,20 @@ func (q *Queries) GetOrganizationByCode(ctx context.Context, code string) (Organ
 }
 
 const getOrganizationByID = `-- name: GetOrganizationByID :one
-SELECT id, name, code, remark, status, sort_order, created_at, updated_at FROM organizations WHERE id = $1 LIMIT 1
+SELECT id, tenant_id, name, code, remark, status, sort_order, created_at, updated_at FROM organizations WHERE tenant_id = $1 AND id = $2 LIMIT 1
 `
 
-func (q *Queries) GetOrganizationByID(ctx context.Context, id string) (Organization, error) {
-	row := q.db.QueryRowContext(ctx, getOrganizationByID, id)
+type GetOrganizationByIDParams struct {
+	TenantID string
+	ID       string
+}
+
+func (q *Queries) GetOrganizationByID(ctx context.Context, arg GetOrganizationByIDParams) (Organization, error) {
+	row := q.db.QueryRowContext(ctx, getOrganizationByID, arg.TenantID, arg.ID)
 	var i Organization
 	err := row.Scan(
 		&i.ID,
+		&i.TenantID,
 		&i.Name,
 		&i.Code,
 		&i.Remark,
@@ -95,11 +98,13 @@ func (q *Queries) GetOrganizationByID(ctx context.Context, id string) (Organizat
 }
 
 const listActiveOrganizations = `-- name: ListActiveOrganizations :many
-SELECT id, name, code, remark, status, sort_order, created_at, updated_at FROM organizations WHERE status = 'ACTIVE' ORDER BY sort_order, created_at
+SELECT id, tenant_id, name, code, remark, status, sort_order, created_at, updated_at FROM organizations
+WHERE tenant_id = $1 AND status = 'ACTIVE'
+ORDER BY sort_order, created_at
 `
 
-func (q *Queries) ListActiveOrganizations(ctx context.Context) ([]Organization, error) {
-	rows, err := q.db.QueryContext(ctx, listActiveOrganizations)
+func (q *Queries) ListActiveOrganizations(ctx context.Context, tenantID string) ([]Organization, error) {
+	rows, err := q.db.QueryContext(ctx, listActiveOrganizations, tenantID)
 	if err != nil {
 		return nil, err
 	}
@@ -109,6 +114,7 @@ func (q *Queries) ListActiveOrganizations(ctx context.Context) ([]Organization, 
 		var i Organization
 		if err := rows.Scan(
 			&i.ID,
+			&i.TenantID,
 			&i.Name,
 			&i.Code,
 			&i.Remark,
@@ -131,11 +137,11 @@ func (q *Queries) ListActiveOrganizations(ctx context.Context) ([]Organization, 
 }
 
 const listOrganizations = `-- name: ListOrganizations :many
-SELECT id, name, code, remark, status, sort_order, created_at, updated_at FROM organizations ORDER BY sort_order, created_at
+SELECT id, tenant_id, name, code, remark, status, sort_order, created_at, updated_at FROM organizations WHERE tenant_id = $1 ORDER BY sort_order, created_at
 `
 
-func (q *Queries) ListOrganizations(ctx context.Context) ([]Organization, error) {
-	rows, err := q.db.QueryContext(ctx, listOrganizations)
+func (q *Queries) ListOrganizations(ctx context.Context, tenantID string) ([]Organization, error) {
+	rows, err := q.db.QueryContext(ctx, listOrganizations, tenantID)
 	if err != nil {
 		return nil, err
 	}
@@ -145,6 +151,7 @@ func (q *Queries) ListOrganizations(ctx context.Context) ([]Organization, error)
 		var i Organization
 		if err := rows.Scan(
 			&i.ID,
+			&i.TenantID,
 			&i.Name,
 			&i.Code,
 			&i.Remark,
@@ -167,11 +174,16 @@ func (q *Queries) ListOrganizations(ctx context.Context) ([]Organization, error)
 }
 
 const listOrganizationsByIDs = `-- name: ListOrganizationsByIDs :many
-SELECT id, name, code, remark, status, sort_order, created_at, updated_at FROM organizations WHERE id = ANY($1::text[])
+SELECT id, tenant_id, name, code, remark, status, sort_order, created_at, updated_at FROM organizations WHERE tenant_id = $1 AND id = ANY($2::text[])
 `
 
-func (q *Queries) ListOrganizationsByIDs(ctx context.Context, dollar_1 []string) ([]Organization, error) {
-	rows, err := q.db.QueryContext(ctx, listOrganizationsByIDs, pq.Array(dollar_1))
+type ListOrganizationsByIDsParams struct {
+	TenantID string
+	Column2  []string
+}
+
+func (q *Queries) ListOrganizationsByIDs(ctx context.Context, arg ListOrganizationsByIDsParams) ([]Organization, error) {
+	rows, err := q.db.QueryContext(ctx, listOrganizationsByIDs, arg.TenantID, pq.Array(arg.Column2))
 	if err != nil {
 		return nil, err
 	}
@@ -181,6 +193,7 @@ func (q *Queries) ListOrganizationsByIDs(ctx context.Context, dollar_1 []string)
 		var i Organization
 		if err := rows.Scan(
 			&i.ID,
+			&i.TenantID,
 			&i.Name,
 			&i.Code,
 			&i.Remark,
@@ -208,7 +221,7 @@ SET name = $1,
     remark = $2,
     sort_order = $3,
     updated_at = $4
-WHERE id = $5
+WHERE tenant_id = $5 AND id = $6
 `
 
 type UpdateOrganizationParams struct {
@@ -216,6 +229,7 @@ type UpdateOrganizationParams struct {
 	Remark    string
 	SortOrder int64
 	UpdatedAt time.Time
+	TenantID  string
 	ID        string
 }
 
@@ -225,22 +239,31 @@ func (q *Queries) UpdateOrganization(ctx context.Context, arg UpdateOrganization
 		arg.Remark,
 		arg.SortOrder,
 		arg.UpdatedAt,
+		arg.TenantID,
 		arg.ID,
 	)
 	return err
 }
 
 const updateOrganizationStatus = `-- name: UpdateOrganizationStatus :exec
-UPDATE organizations SET status = $1, updated_at = $2 WHERE id = $3
+UPDATE organizations
+SET status = $1, updated_at = $2
+WHERE tenant_id = $3 AND id = $4
 `
 
 type UpdateOrganizationStatusParams struct {
 	Status    string
 	UpdatedAt time.Time
+	TenantID  string
 	ID        string
 }
 
 func (q *Queries) UpdateOrganizationStatus(ctx context.Context, arg UpdateOrganizationStatusParams) error {
-	_, err := q.db.ExecContext(ctx, updateOrganizationStatus, arg.Status, arg.UpdatedAt, arg.ID)
+	_, err := q.db.ExecContext(ctx, updateOrganizationStatus,
+		arg.Status,
+		arg.UpdatedAt,
+		arg.TenantID,
+		arg.ID,
+	)
 	return err
 }

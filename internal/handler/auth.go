@@ -10,11 +10,14 @@ import (
 )
 
 type loginRequest struct {
+	// Tenant is the tenant code. Empty means the default tenant, so a
+	// single-tenant deployment never has to send it.
+	Tenant   string `json:"tenant"`
 	Username string `json:"username"`
 	Password string `json:"password"`
 }
 
-// Login authenticates a user and returns a token.
+// Login authenticates a user within a tenant and returns a token.
 func (h *Handler) Login(w http.ResponseWriter, r *http.Request) {
 	var req loginRequest
 	if err := httpx.DecodeJSON(w, r, &req); err != nil {
@@ -22,7 +25,13 @@ func (h *Handler) Login(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	session, err := h.users.Login(r.Context(), req.Username, req.Password, httpx.ClientIP(r))
+	tenant, err := h.resolvePublicTenant(r, req.Tenant)
+	if err != nil {
+		httpx.Fail(w, r, err)
+		return
+	}
+
+	session, err := h.users.Login(r.Context(), tenant, req.Username, req.Password, httpx.ClientIP(r))
 	if err != nil {
 		httpx.Fail(w, r, err)
 		return
@@ -42,6 +51,7 @@ func (h *Handler) Logout(w http.ResponseWriter, r *http.Request) {
 }
 
 type registerRequest struct {
+	Tenant      string `json:"tenant"`
 	Username    string `json:"username"`
 	DisplayName string `json:"displayName"`
 	Password    string `json:"password"`
@@ -57,7 +67,13 @@ func (h *Handler) Register(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	user, err := h.users.Register(r.Context(), toRegisterInput(req), httpx.ClientIP(r))
+	tenant, err := h.resolvePublicTenant(r, req.Tenant)
+	if err != nil {
+		httpx.Fail(w, r, err)
+		return
+	}
+
+	user, err := h.users.Register(r.Context(), tenant.ID, toRegisterInput(req), httpx.ClientIP(r))
 	if err != nil {
 		httpx.Fail(w, r, err)
 		return
@@ -67,18 +83,29 @@ func (h *Handler) Register(w http.ResponseWriter, r *http.Request) {
 
 // RegistrationStatus tells an anonymous caller whether sign-up is open, so
 // the login screen can show or hide the register link.
+//
+// Both answers are per tenant: one tenant may accept sign-ups while another
+// does not, and each names itself.
 func (h *Handler) RegistrationStatus(w http.ResponseWriter, r *http.Request) {
-	settings, err := h.settings.Get(r.Context())
+	tenant, err := h.resolvePublicTenant(r, "")
 	if err != nil {
 		httpx.Fail(w, r, err)
 		return
 	}
 
-	// Only the two fields a signed-out caller needs; the rest of the
-	// settings are administrator-only.
+	settings, err := h.settings.Get(r.Context(), tenant.ID)
+	if err != nil {
+		httpx.Fail(w, r, err)
+		return
+	}
+
+	// Only the fields a signed-out caller needs; the rest of the settings
+	// are administrator-only.
 	httpx.OK(w, map[string]any{
 		"registrationEnabled": settings.RegistrationEnabled,
 		"systemName":          settings.SystemName,
+		"tenant":              tenant.Code,
+		"tenantName":          tenant.Name,
 	})
 }
 
@@ -86,7 +113,7 @@ func (h *Handler) RegistrationStatus(w http.ResponseWriter, r *http.Request) {
 func (h *Handler) Me(w http.ResponseWriter, r *http.Request) {
 	principal := auth.MustPrincipal(r.Context())
 
-	user, err := h.users.Get(r.Context(), principal.UserID)
+	user, err := h.users.Get(r.Context(), principal.TenantID, principal.UserID)
 	if err != nil {
 		httpx.Fail(w, r, err)
 		return
@@ -119,13 +146,15 @@ func (h *Handler) ChangeOwnPassword(w http.ResponseWriter, r *http.Request) {
 	httpx.OK(w, map[string]any{"reauthenticationRequired": true})
 }
 
-// CheckPermission reports whether the caller holds the administrator role.
-// Downstream systems use this to gate their own admin screens (§3.7).
+// CheckPermission reports whether the caller holds the administrator role,
+// and in which tenant. Downstream systems use this to gate their own admin
+// screens (§3.7).
 func (h *Handler) CheckPermission(w http.ResponseWriter, r *http.Request) {
 	principal := auth.MustPrincipal(r.Context())
 
 	httpx.OK(w, map[string]any{
 		"userId":   principal.UserID,
+		"tenantId": principal.TenantID,
 		"username": principal.Username,
 		"role":     principal.Role,
 		"isAdmin":  principal.Role == model.RoleSuperAdmin,

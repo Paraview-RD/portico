@@ -19,7 +19,7 @@ import {
 import type { ReactNode } from "react";
 
 import { authApi, userApi } from "./api/endpoints";
-import { setSessionEndedHandler, tokenStore } from "./api/client";
+import { setSessionEndedHandler, tenantStore, tokenStore } from "./api/client";
 import type { User } from "./api/types";
 
 interface SessionValue {
@@ -28,7 +28,8 @@ interface SessionValue {
   loading: boolean;
   /** Set when the previous session ended unexpectedly, for the login page. */
   expired: boolean;
-  signIn: (username: string, password: string) => Promise<void>;
+  /** Signs in to a tenant. An empty code means the default tenant. */
+  signIn: (tenant: string, username: string, password: string) => Promise<void>;
   signOut: () => Promise<void>;
   /** Ends the session locally, for flows the server already invalidated. */
   endSession: () => void;
@@ -79,12 +80,18 @@ export function SessionProvider({ children }: { children: ReactNode }) {
     void refresh();
   }, [refresh]);
 
-  const signIn = useCallback(async (username: string, password: string) => {
-    const session = await authApi.login(username, password);
-    tokenStore.set(session.token);
-    setExpired(false);
-    setUser(session.user);
-  }, []);
+  const signIn = useCallback(
+    async (tenant: string, username: string, password: string) => {
+      const session = await authApi.login(tenant, username, password);
+      tokenStore.set(session.token);
+      // Remembered so registration and a reload stay in the same tenant
+      // rather than falling back to the default one.
+      tenantStore.set(tenant);
+      setExpired(false);
+      setUser(session.user);
+    },
+    [],
+  );
 
   const signOut = useCallback(async () => {
     try {

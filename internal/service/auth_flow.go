@@ -22,57 +22,63 @@ type Session struct {
 	User      model.User `json:"user"`
 }
 
-// Login verifies credentials and issues a token.
+// Login verifies credentials within a tenant and issues a token.
+//
+// The tenant is resolved by the caller before this runs, and is not
+// something the credentials can influence: usernames are unique per tenant,
+// so "which tenant" has to be settled first or the lookup is ambiguous.
 //
 // Every failure returns the same ErrInvalidCredentials regardless of whether
 // the username exists, so the response cannot be used to enumerate accounts.
 // A disabled account is the one exception: telling the user their account is
 // disabled is more useful than pretending the password is wrong, and the
 // account is known to exist anyway once the password matches.
-func (s *UserService) Login(ctx context.Context, username, password, ip string) (Session, error) {
+func (s *UserService) Login(ctx context.Context, tenant model.Tenant, username, password, ip string) (Session, error) {
 	username = strings.TrimSpace(username)
 	if username == "" || password == "" {
 		return Session{}, httpx.BadRequest("MISSING_CREDENTIALS", "Username and password are required.")
 	}
 
-	row, err := s.store.Queries.GetUserByUsername(ctx, username)
+	q := s.store.ForTenant(tenant.ID)
+
+	row, err := q.GetUserByUsername(ctx, username)
 	if err != nil {
 		if store.IsNoRows(err) {
 			// Spend the same time as a real password check so response
 			// timing does not reveal which usernames exist.
 			auth.BurnPasswordComparison()
-			s.logLoginFailure(ctx, "", username, ip, "no such user")
+			s.logLoginFailure(ctx, tenant.ID, "", username, ip, "no such user")
 			return Session{}, ErrInvalidCredentials
 		}
 		return Session{}, fmt.Errorf("look up user: %w", err)
 	}
 
 	if !auth.CheckPassword(row.PasswordHash, password) {
-		s.logLoginFailure(ctx, row.ID, username, ip, "wrong password")
+		s.logLoginFailure(ctx, tenant.ID, row.ID, username, ip, "wrong password")
 		return Session{}, ErrInvalidCredentials
 	}
 
 	if model.Status(row.Status) != model.StatusActive {
-		s.logLoginFailure(ctx, row.ID, username, ip, "account disabled")
+		s.logLoginFailure(ctx, tenant.ID, row.ID, username, ip, "account disabled")
 		return Session{}, ErrAccountDisabled
 	}
 
-	user, err := s.Get(ctx, row.ID)
+	user, err := s.Get(ctx, tenant.ID, row.ID)
 	if err != nil {
 		return Session{}, err
 	}
 
-	settings, err := s.settings.Get(ctx)
+	settings, err := s.settings.Get(ctx, tenant.ID)
 	if err != nil {
 		return Session{}, err
 	}
 
-	token, expiresAt, err := s.tokens.Issue(user, row.TokenVersion, settings.TokenTTL())
+	token, expiresAt, err := s.tokens.Issue(user, tenant.Code, row.TokenVersion, settings.TokenTTL())
 	if err != nil {
 		return Session{}, err
 	}
 
-	s.audit.Log(ctx, AuditEntry{
+	s.audit.Log(ctx, tenant.ID, AuditEntry{
 		Kind: model.LogLogin, Action: model.ActionLoginSuccess,
 		Result:  model.LogSuccess,
 		ActorID: user.ID, ActorName: user.Username,
@@ -82,8 +88,8 @@ func (s *UserService) Login(ctx context.Context, username, password, ip string) 
 	return Session{Token: token, ExpiresAt: expiresAt, User: user}, nil
 }
 
-func (s *UserService) logLoginFailure(ctx context.Context, userID, username, ip, reason string) {
-	s.audit.Log(ctx, AuditEntry{
+func (s *UserService) logLoginFailure(ctx context.Context, tenantID, userID, username, ip, reason string) {
+	s.audit.Log(ctx, tenantID, AuditEntry{
 		Kind: model.LogLogin, Action: model.ActionLoginFailure,
 		Result:  model.LogFailure,
 		ActorID: userID, ActorName: username,
@@ -97,15 +103,16 @@ func (s *UserService) logLoginFailure(ctx context.Context, userID, username, ip,
 // token_version is bumped instead: existing tokens carry the old value and
 // stop verifying on their next request.
 func (s *UserService) Logout(ctx context.Context, actor auth.Principal, ip string) error {
-	err := s.store.Queries.BumpUserTokenVersion(ctx, sqlcgen.BumpUserTokenVersionParams{
-		ID:        actor.UserID,
-		UpdatedAt: store.Now(),
-	})
+	err := s.store.ForTenant(actor.TenantID).BumpUserTokenVersion(ctx,
+		sqlcgen.BumpUserTokenVersionParams{
+			ID:        actor.UserID,
+			UpdatedAt: store.Now(),
+		})
 	if err != nil {
 		return fmt.Errorf("revoke sessions: %w", err)
 	}
 
-	s.audit.Log(ctx, AuditEntry{
+	s.audit.Log(ctx, actor.TenantID, AuditEntry{
 		Kind: model.LogLogin, Action: model.ActionLogout,
 		ActorID: actor.UserID, ActorName: actor.Username,
 		IP: ip,
@@ -116,7 +123,9 @@ func (s *UserService) Logout(ctx context.Context, actor auth.Principal, ip strin
 // ChangeOwnPassword lets a signed-in user replace their password after
 // proving they know the current one.
 func (s *UserService) ChangeOwnPassword(ctx context.Context, actor auth.Principal, currentPassword, newPassword, ip string) error {
-	row, err := s.store.Queries.GetUserByID(ctx, actor.UserID)
+	q := s.store.ForTenant(actor.TenantID)
+
+	row, err := q.GetUserByID(ctx, actor.UserID)
 	if err != nil {
 		if store.IsNoRows(err) {
 			return ErrUserNotFound
@@ -127,7 +136,7 @@ func (s *UserService) ChangeOwnPassword(ctx context.Context, actor auth.Principa
 	// Requiring the current password is what stops a stolen token from being
 	// escalated into permanent account takeover.
 	if !auth.CheckPassword(row.PasswordHash, currentPassword) {
-		s.audit.Log(ctx, AuditEntry{
+		s.audit.Log(ctx, actor.TenantID, AuditEntry{
 			Kind: model.LogOperation, Action: model.ActionPasswordSelf,
 			Result:  model.LogFailure,
 			ActorID: actor.UserID, ActorName: actor.Username,
@@ -137,11 +146,11 @@ func (s *UserService) ChangeOwnPassword(ctx context.Context, actor auth.Principa
 			"The current password is incorrect.")
 	}
 
-	if err := s.setPassword(ctx, actor.UserID, newPassword); err != nil {
+	if err := s.setPassword(ctx, q, actor.UserID, newPassword); err != nil {
 		return err
 	}
 
-	s.audit.Log(ctx, AuditEntry{
+	s.audit.Log(ctx, actor.TenantID, AuditEntry{
 		Kind: model.LogOperation, Action: model.ActionPasswordSelf,
 		ActorID: actor.UserID, ActorName: actor.Username,
 		TargetType: "USER", TargetID: actor.UserID, TargetName: actor.Username,
@@ -153,7 +162,9 @@ func (s *UserService) ChangeOwnPassword(ctx context.Context, actor auth.Principa
 // ResetPassword lets an administrator set another account's password without
 // knowing the old one.
 func (s *UserService) ResetPassword(ctx context.Context, actor auth.Principal, userID, newPassword, ip string) error {
-	target, err := s.store.Queries.GetUserByID(ctx, userID)
+	q := s.store.ForTenant(actor.TenantID)
+
+	target, err := q.GetUserByID(ctx, userID)
 	if err != nil {
 		if store.IsNoRows(err) {
 			return ErrUserNotFound
@@ -161,11 +172,11 @@ func (s *UserService) ResetPassword(ctx context.Context, actor auth.Principal, u
 		return fmt.Errorf("get user: %w", err)
 	}
 
-	if err := s.setPassword(ctx, userID, newPassword); err != nil {
+	if err := s.setPassword(ctx, q, userID, newPassword); err != nil {
 		return err
 	}
 
-	s.audit.Log(ctx, AuditEntry{
+	s.audit.Log(ctx, actor.TenantID, AuditEntry{
 		Kind: model.LogOperation, Action: model.ActionPasswordReset,
 		ActorID: actor.UserID, ActorName: actor.Username,
 		TargetType: "USER", TargetID: userID, TargetName: target.Username,
@@ -176,7 +187,7 @@ func (s *UserService) ResetPassword(ctx context.Context, actor auth.Principal, u
 
 // setPassword validates, hashes, and stores a new password. The query bumps
 // token_version, so changing a password signs the account out everywhere.
-func (s *UserService) setPassword(ctx context.Context, userID, plaintext string) error {
+func (s *UserService) setPassword(ctx context.Context, q *store.Scoped, userID, plaintext string) error {
 	if err := auth.ValidatePassword(plaintext); err != nil {
 		return httpx.BadRequest("WEAK_PASSWORD", err.Error())
 	}
@@ -186,7 +197,7 @@ func (s *UserService) setPassword(ctx context.Context, userID, plaintext string)
 		return fmt.Errorf("hash password: %w", err)
 	}
 
-	err = s.store.Queries.UpdateUserPassword(ctx, sqlcgen.UpdateUserPasswordParams{
+	err = q.UpdateUserPassword(ctx, sqlcgen.UpdateUserPasswordParams{
 		ID:           userID,
 		PasswordHash: hash,
 		UpdatedAt:    store.Now(),
@@ -206,14 +217,15 @@ type RegisterInput struct {
 	Email       string
 }
 
-// Register creates an account from a public sign-up request.
+// Register creates an account from a public sign-up request, in the tenant
+// the caller named (or the default one).
 //
 // The role is always USER and is never taken from the request: letting a
 // caller pick their own role would make the whole permission model
 // meaningless. Organization is left empty for an administrator to fill in
 // later (§3.4.2).
-func (s *UserService) Register(ctx context.Context, in RegisterInput, ip string) (model.User, error) {
-	enabled, err := s.settings.RegistrationEnabled(ctx)
+func (s *UserService) Register(ctx context.Context, tenantID string, in RegisterInput, ip string) (model.User, error) {
+	enabled, err := s.settings.RegistrationEnabled(ctx, tenantID)
 	if err != nil {
 		return model.User{}, err
 	}
@@ -221,7 +233,7 @@ func (s *UserService) Register(ctx context.Context, in RegisterInput, ip string)
 		return model.User{}, ErrRegistrationDisabled
 	}
 
-	user, err := s.Create(ctx, CreateUserInput{
+	user, err := s.Create(ctx, tenantID, CreateUserInput{
 		Username:    in.Username,
 		DisplayName: in.DisplayName,
 		Password:    in.Password,
@@ -234,7 +246,7 @@ func (s *UserService) Register(ctx context.Context, in RegisterInput, ip string)
 		return model.User{}, err
 	}
 
-	s.audit.Log(ctx, AuditEntry{
+	s.audit.Log(ctx, tenantID, AuditEntry{
 		Kind: model.LogRegistration, Action: model.ActionUserSelfReg,
 		ActorID: user.ID, ActorName: user.Username,
 		TargetType: "USER", TargetID: user.ID, TargetName: user.Username,
@@ -244,14 +256,19 @@ func (s *UserService) Register(ctx context.Context, in RegisterInput, ip string)
 	return user, nil
 }
 
-// EnsureInitialAdmin creates the bootstrap administrator when the instance
-// has no users at all, and reports the generated password so it can be
-// printed once at startup.
+// EnsureInitialAdmin creates the bootstrap administrator when a tenant has
+// no users at all, and reports the generated password so it can be printed
+// once at startup.
+//
+// The check is per tenant, not per deployment: every tenant needs its own
+// first administrator, since no account can administer more than one. That
+// is also what lets the provisioning CLI reuse this when creating a tenant.
 //
 // Returning the password rather than storing it anywhere is deliberate: it
-// exists only in the startup log, and the operator is expected to change it.
-func (s *UserService) EnsureInitialAdmin(ctx context.Context, username, password string) (created bool, generatedPassword string, err error) {
-	count, err := s.store.Queries.CountUsers(ctx)
+// exists only in the startup output, and the operator is expected to change
+// it.
+func (s *UserService) EnsureInitialAdmin(ctx context.Context, tenantID, username, password string) (created bool, generatedPassword string, err error) {
+	count, err := s.store.ForTenant(tenantID).CountUsers(ctx)
 	if err != nil {
 		return false, "", fmt.Errorf("count users: %w", err)
 	}
@@ -271,7 +288,7 @@ func (s *UserService) EnsureInitialAdmin(ctx context.Context, username, password
 		generated = true
 	}
 
-	if _, err := s.Create(ctx, CreateUserInput{
+	if _, err := s.Create(ctx, tenantID, CreateUserInput{
 		Username:    username,
 		DisplayName: "Administrator",
 		Password:    password,

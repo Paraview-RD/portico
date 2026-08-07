@@ -9,9 +9,11 @@ import (
 )
 
 type AuditLog struct {
-	ID     string
-	Kind   string
-	Action string
+	ID string
+	// The tenant the event happened in. A sign-in naming a tenant that does not exist has no tenant to belong to and so is reported to the process log instead; see SECURITY.md.
+	TenantID string
+	Kind     string
+	Action   string
 	// Null when the actor could not be identified, such as a sign-in attempt against an unknown username.
 	ActorID       *string
 	ActorUsername string
@@ -26,8 +28,9 @@ type AuditLog struct {
 
 // Flat groupings of users. No hierarchy in this version.
 type Organization struct {
-	ID   string
-	Name string
+	ID       string
+	TenantID string
+	Name     string
 	// Stable identifier used by bulk import and downstream systems. Immutable once created.
 	Code   string
 	Remark string
@@ -39,13 +42,27 @@ type Organization struct {
 }
 
 type SystemSetting struct {
+	TenantID  string
 	Key       string
 	Value     string
 	UpdatedAt time.Time
 }
 
+// Isolation boundary. Every other table is scoped to exactly one of these.
+type Tenant struct {
+	ID string
+	// What a user types at sign-in to say which tenant they belong to. Immutable once created, because it appears in sign-in URLs and downstream configuration.
+	Code string
+	Name string
+	// DISABLED refuses sign-in without deleting anything.
+	Status    string
+	CreatedAt time.Time
+	UpdatedAt time.Time
+}
+
 type User struct {
 	ID             string
+	TenantID       string
 	Username       string
 	DisplayName    string
 	PasswordHash   string

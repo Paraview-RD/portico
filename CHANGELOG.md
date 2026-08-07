@@ -10,6 +10,23 @@ Working toward 0.1.0 — the first release. Nothing has been published yet.
 
 ### Changed
 
+- **Everything is tenant-scoped.** Users, organizations, audit entries, and
+  settings all belong to exactly one tenant, and nothing crosses the
+  boundary. Usernames and organization codes are unique per tenant rather
+  than globally, so two tenants may each have an `admin`.
+- Sign-in takes an optional tenant code. Omitting it resolves to the default
+  tenant, which is what a single-tenant deployment always does.
+- Settings are per tenant: system name, session lifetime, and the
+  registration toggle are each a tenant's own.
+- Tokens carry the tenant, and it is checked against the account record on
+  every request, so a token cannot act outside the tenant it was issued in.
+- The `filters` builder used by list endpoints now binds the tenant as `$1`;
+  callers write `WHERE tenant_id = $1` into their own SQL so the constraint
+  is visible and testable.
+- Database errors are classified by SQLSTATE rather than message text. The
+  previous check matched SQLite's wording and had been returning false for
+  every PostgreSQL error since the migration, turning duplicate-key
+  conflicts into 500s instead of 409s.
 - **Storage is PostgreSQL.** An earlier iteration used SQLite, which suited a
   single-tenant intranet tool but is the wrong shape for a multi-tenant
   identity provider other systems depend on. A deployment is now two
@@ -21,6 +38,16 @@ Working toward 0.1.0 — the first release. Nothing has been published yet.
 
 ### Added
 
+- Multi-tenant isolation, enforced in the query layer. Every table carries a
+  `tenant_id`; the service layer reaches the database only through a
+  tenant-bound view that supplies it; and three tests hold the boundary up —
+  one that fails the build on a query missing its tenant predicate, one that
+  does the same for hand-written SQL, and a suite that drives the API as two
+  tenants and asserts neither can reach the other's data.
+- `portico tenant create | list | enable | disable` for provisioning. There
+  is no API for it: no account can act outside its own tenant, so there is
+  nobody the API could authorize. Each tenant gets its own administrator at
+  creation.
 - Local account lifecycle: create, edit, enable/disable, reset password,
   paged search by username or display name. Accounts are disabled rather
   than deleted so the audit trail stays complete.

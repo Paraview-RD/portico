@@ -17,6 +17,7 @@ var testSecret = []byte("test-secret-not-used-anywhere-real")
 func testUser() model.User {
 	return model.User{
 		ID:               "user-1",
+		TenantID:         "tenant-1",
 		Username:         "alice",
 		DisplayName:      "Alice",
 		Role:             model.RoleUser,
@@ -29,7 +30,7 @@ func TestIssueThenVerifyRoundTrip(t *testing.T) {
 	svc := auth.NewTokenService(testSecret)
 	user := testUser()
 
-	token, expiresAt, err := svc.Issue(user, 7, time.Hour)
+	token, expiresAt, err := svc.Issue(user, "acme", 7, time.Hour)
 	if err != nil {
 		t.Fatalf("Issue: %v", err)
 	}
@@ -70,7 +71,7 @@ func TestIssueThenVerifyRoundTrip(t *testing.T) {
 func TestVerifyRejectsExpiredToken(t *testing.T) {
 	svc := auth.NewTokenService(testSecret)
 
-	token, _, err := svc.Issue(testUser(), 1, -time.Minute)
+	token, _, err := svc.Issue(testUser(), "acme", 1, -time.Minute)
 	if err != nil {
 		t.Fatalf("Issue: %v", err)
 	}
@@ -85,7 +86,7 @@ func TestVerifyRejectsWrongSecret(t *testing.T) {
 	issuer := auth.NewTokenService(testSecret)
 	verifier := auth.NewTokenService([]byte("a-completely-different-secret"))
 
-	token, _, err := issuer.Issue(testUser(), 1, time.Hour)
+	token, _, err := issuer.Issue(testUser(), "acme", 1, time.Hour)
 	if err != nil {
 		t.Fatalf("Issue: %v", err)
 	}
@@ -98,7 +99,7 @@ func TestVerifyRejectsWrongSecret(t *testing.T) {
 func TestVerifyRejectsTamperedPayload(t *testing.T) {
 	svc := auth.NewTokenService(testSecret)
 
-	token, _, err := svc.Issue(testUser(), 1, time.Hour)
+	token, _, err := svc.Issue(testUser(), "acme", 1, time.Hour)
 	if err != nil {
 		t.Fatalf("Issue: %v", err)
 	}

@@ -11,22 +11,32 @@ import (
 )
 
 const getSetting = `-- name: GetSetting :one
-SELECT key, value, updated_at FROM system_settings WHERE key = $1 LIMIT 1
+SELECT tenant_id, key, value, updated_at FROM system_settings WHERE tenant_id = $1 AND key = $2 LIMIT 1
 `
 
-func (q *Queries) GetSetting(ctx context.Context, key string) (SystemSetting, error) {
-	row := q.db.QueryRowContext(ctx, getSetting, key)
+type GetSettingParams struct {
+	TenantID string
+	Key      string
+}
+
+func (q *Queries) GetSetting(ctx context.Context, arg GetSettingParams) (SystemSetting, error) {
+	row := q.db.QueryRowContext(ctx, getSetting, arg.TenantID, arg.Key)
 	var i SystemSetting
-	err := row.Scan(&i.Key, &i.Value, &i.UpdatedAt)
+	err := row.Scan(
+		&i.TenantID,
+		&i.Key,
+		&i.Value,
+		&i.UpdatedAt,
+	)
 	return i, err
 }
 
 const listSettings = `-- name: ListSettings :many
-SELECT key, value, updated_at FROM system_settings ORDER BY key
+SELECT tenant_id, key, value, updated_at FROM system_settings WHERE tenant_id = $1 ORDER BY key
 `
 
-func (q *Queries) ListSettings(ctx context.Context) ([]SystemSetting, error) {
-	rows, err := q.db.QueryContext(ctx, listSettings)
+func (q *Queries) ListSettings(ctx context.Context, tenantID string) ([]SystemSetting, error) {
+	rows, err := q.db.QueryContext(ctx, listSettings, tenantID)
 	if err != nil {
 		return nil, err
 	}
@@ -34,7 +44,12 @@ func (q *Queries) ListSettings(ctx context.Context) ([]SystemSetting, error) {
 	items := []SystemSetting{}
 	for rows.Next() {
 		var i SystemSetting
-		if err := rows.Scan(&i.Key, &i.Value, &i.UpdatedAt); err != nil {
+		if err := rows.Scan(
+			&i.TenantID,
+			&i.Key,
+			&i.Value,
+			&i.UpdatedAt,
+		); err != nil {
 			return nil, err
 		}
 		items = append(items, i)
@@ -49,18 +64,25 @@ func (q *Queries) ListSettings(ctx context.Context) ([]SystemSetting, error) {
 }
 
 const upsertSetting = `-- name: UpsertSetting :exec
-INSERT INTO system_settings (key, value, updated_at)
-VALUES ($1, $2, $3)
-ON CONFLICT (key) DO UPDATE SET value = excluded.value, updated_at = excluded.updated_at
+INSERT INTO system_settings (tenant_id, key, value, updated_at)
+VALUES ($1, $2, $3, $4)
+ON CONFLICT (tenant_id, key) DO UPDATE
+SET value = excluded.value, updated_at = excluded.updated_at
 `
 
 type UpsertSettingParams struct {
+	TenantID  string
 	Key       string
 	Value     string
 	UpdatedAt time.Time
 }
 
 func (q *Queries) UpsertSetting(ctx context.Context, arg UpsertSettingParams) error {
-	_, err := q.db.ExecContext(ctx, upsertSetting, arg.Key, arg.Value, arg.UpdatedAt)
+	_, err := q.db.ExecContext(ctx, upsertSetting,
+		arg.TenantID,
+		arg.Key,
+		arg.Value,
+		arg.UpdatedAt,
+	)
 	return err
 }

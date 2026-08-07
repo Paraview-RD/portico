@@ -54,7 +54,11 @@ const (
 // User is an account. It never carries the password hash outside the
 // service layer.
 type User struct {
-	ID          string     `json:"id"`
+	ID string `json:"id"`
+	// TenantID is the isolation boundary the account lives in. It is
+	// reported so a downstream system syncing users from here can keep them
+	// apart (§3.5); it is never accepted as input.
+	TenantID    string     `json:"tenantId"`
 	Username    string     `json:"username"`
 	DisplayName string     `json:"displayName"`
 	Phone       string     `json:"phone"`

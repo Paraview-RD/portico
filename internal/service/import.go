@@ -80,8 +80,10 @@ func (s *UserService) ImportUsers(ctx context.Context, actor auth.Principal, r i
 			"The sheet has a header row but no data rows.")
 	}
 
-	// Resolve organization codes once rather than per row.
-	orgIDsByCode, err := s.organizationIDsByCode(ctx)
+	// Resolve organization codes once rather than per row. Only the actor's
+	// own tenant is consulted, so a code that exists elsewhere is reported
+	// as unknown rather than silently linking across the boundary.
+	orgIDsByCode, err := s.organizationIDsByCode(ctx, actor.TenantID)
 	if err != nil {
 		return ImportResult{}, err
 	}
@@ -99,7 +101,7 @@ func (s *UserService) ImportUsers(ctx context.Context, actor auth.Principal, r i
 			continue
 		}
 
-		if err := s.importOneRow(ctx, record, orgIDsByCode); err != nil {
+		if err := s.importOneRow(ctx, actor.TenantID, record, orgIDsByCode); err != nil {
 			result.Failed++
 			result.Errors = append(result.Errors, toRowError(rowNumber, record.username, err))
 			continue
@@ -107,7 +109,7 @@ func (s *UserService) ImportUsers(ctx context.Context, actor auth.Principal, r i
 		result.Imported++
 	}
 
-	s.audit.Log(ctx, AuditEntry{
+	s.audit.Log(ctx, actor.TenantID, AuditEntry{
 		Kind: model.LogRegistration, Action: model.ActionUserImport,
 		ActorID: actor.UserID, ActorName: actor.Username,
 		Detail: fmt.Sprintf("imported %d of %d rows, %d failed",
@@ -185,7 +187,7 @@ func parseImportRow(row []string) importRecord {
 	}
 }
 
-func (s *UserService) importOneRow(ctx context.Context, rec importRecord, orgIDsByCode map[string]string) error {
+func (s *UserService) importOneRow(ctx context.Context, tenantID string, rec importRecord, orgIDsByCode map[string]string) error {
 	role := model.Role(strings.ToUpper(rec.role))
 	if rec.role == "" {
 		role = model.RoleUser
@@ -204,7 +206,7 @@ func (s *UserService) importOneRow(ctx context.Context, rec importRecord, orgIDs
 		orgID = id
 	}
 
-	_, err := s.Create(ctx, CreateUserInput{
+	_, err := s.Create(ctx, tenantID, CreateUserInput{
 		Username:       rec.username,
 		DisplayName:    rec.displayName,
 		Password:       rec.password,
@@ -217,9 +219,9 @@ func (s *UserService) importOneRow(ctx context.Context, rec importRecord, orgIDs
 	return err
 }
 
-// organizationIDsByCode maps active organization codes to ids.
-func (s *UserService) organizationIDsByCode(ctx context.Context) (map[string]string, error) {
-	orgs, err := s.store.Queries.ListActiveOrganizations(ctx)
+// organizationIDsByCode maps a tenant's active organization codes to ids.
+func (s *UserService) organizationIDsByCode(ctx context.Context, tenantID string) (map[string]string, error) {
+	orgs, err := s.store.ForTenant(tenantID).ListActiveOrganizations(ctx)
 	if err != nil {
 		return nil, fmt.Errorf("list organizations: %w", err)
 	}

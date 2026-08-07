@@ -13,10 +13,11 @@ import (
 
 // ListUsers returns a filtered page of users.
 func (h *Handler) ListUsers(w http.ResponseWriter, r *http.Request) {
+	principal := auth.MustPrincipal(r.Context())
 	pagination := httpx.ParsePagination(r)
 	query := r.URL.Query()
 
-	users, total, err := h.users.List(r.Context(), service.UserQuery{
+	users, total, err := h.users.List(r.Context(), principal.TenantID, service.UserQuery{
 		Keyword:        query.Get("keyword"),
 		Status:         model.Status(query.Get("status")),
 		Role:           model.Role(query.Get("role")),
@@ -32,7 +33,9 @@ func (h *Handler) ListUsers(w http.ResponseWriter, r *http.Request) {
 
 // GetUser returns one user.
 func (h *Handler) GetUser(w http.ResponseWriter, r *http.Request) {
-	user, err := h.users.Get(r.Context(), chi.URLParam(r, "id"))
+	principal := auth.MustPrincipal(r.Context())
+
+	user, err := h.users.Get(r.Context(), principal.TenantID, chi.URLParam(r, "id"))
 	if err != nil {
 		httpx.Fail(w, r, err)
 		return
@@ -65,7 +68,7 @@ func (h *Handler) CreateUser(w http.ResponseWriter, r *http.Request) {
 		role = model.RoleUser
 	}
 
-	user, err := h.users.Create(r.Context(), service.CreateUserInput{
+	user, err := h.users.Create(r.Context(), principal.TenantID, service.CreateUserInput{
 		Username:       req.Username,
 		DisplayName:    req.DisplayName,
 		Password:       req.Password,
@@ -80,7 +83,7 @@ func (h *Handler) CreateUser(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	h.audit.Log(r.Context(), service.AuditEntry{
+	h.audit.Log(r.Context(), principal.TenantID, service.AuditEntry{
 		Kind: model.LogRegistration, Action: model.ActionUserCreate,
 		ActorID: principal.UserID, ActorName: principal.Username,
 		TargetType: "USER", TargetID: user.ID, TargetName: user.Username,

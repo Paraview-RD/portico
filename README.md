@@ -83,6 +83,24 @@ default except `PORTICO_JWT_SECRET`, which you should set explicitly:
 without it a random secret is generated per start and every session dies on
 restart.
 
+### Tenants
+
+First start creates one tenant, code `default`. Sign-in that names no tenant
+lands there, so a single-tenant deployment can ignore this section entirely.
+
+More are provisioned from the command line — there is no cross-tenant role
+for an API to authorize:
+
+```bash
+portico tenant create --code acme --name "Acme Corp"
+portico tenant list
+portico tenant disable --code acme     # refuses sign-in, deletes nothing
+```
+
+Each gets its own administrator; the password is printed once unless you
+pass `--admin-password`. Its users sign in with the tenant code, typed into
+the **Tenant** field or carried by a link: `/login?tenant=acme`.
+
 ## Developing
 
 ```bash

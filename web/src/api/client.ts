@@ -27,6 +27,7 @@ export class ApiError extends Error {
 }
 
 const TOKEN_KEY = "portico.token";
+const TENANT_KEY = "portico.tenant";
 
 /**
  * Error codes that mean the stored token is no longer usable. Any of them
@@ -45,6 +46,30 @@ export const tokenStore = {
   get: (): string | null => localStorage.getItem(TOKEN_KEY),
   set: (token: string) => localStorage.setItem(TOKEN_KEY, token),
   clear: () => localStorage.removeItem(TOKEN_KEY),
+};
+
+/**
+ * The tenant to sign in to.
+ *
+ * This is only ever attached to anonymous requests. Once signed in the
+ * tenant comes from the token, and the server ignores the header on an
+ * authenticated request — deliberately, since honouring it would let one
+ * tenant's administrator reach another's data.
+ *
+ * It is remembered so that moving between sign-in and registration, or
+ * reloading the page, does not silently fall back to the default tenant.
+ * A deployment with only the default tenant never sets it at all.
+ */
+export const tenantStore = {
+  get: (): string | null => localStorage.getItem(TENANT_KEY),
+  set: (tenant: string) => {
+    if (tenant.trim() === "") {
+      localStorage.removeItem(TENANT_KEY);
+      return;
+    }
+    localStorage.setItem(TENANT_KEY, tenant.trim());
+  },
+  clear: () => localStorage.removeItem(TENANT_KEY),
 };
 
 /** Called when the session ends, so the app can route back to sign-in. */
@@ -74,7 +99,13 @@ export async function request<T>(
   if (body !== undefined) {
     headers["Content-Type"] = "application/json";
   }
-  if (!anonymous) {
+  if (anonymous) {
+    // Only here: an authenticated request takes its tenant from the token.
+    const tenant = tenantStore.get();
+    if (tenant) {
+      headers["X-Portico-Tenant"] = tenant;
+    }
+  } else {
     const token = tokenStore.get();
     if (token) {
       headers.Authorization = `Bearer ${token}`;

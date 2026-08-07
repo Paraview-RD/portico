@@ -42,6 +42,19 @@ type filters struct {
 	args       []any
 }
 
+// tenantFilters returns a filter set whose first bound argument is the
+// tenant, so $1 in the caller's base query is the tenant and the optional
+// filters number from $2.
+//
+// The tenant predicate itself stays written out in the caller's SQL rather
+// than being added here. That is deliberate: it means the tenant constraint
+// is visible when reading the query, and it is what lets the guard test in
+// internal/store check these hand-written statements the same way it checks
+// the generated ones.
+func tenantFilters(tenantID string) *filters {
+	return &filters{args: []any{tenantID}}
+}
+
 // Add appends a condition. Use %s in the format for each placeholder; they
 // are numbered automatically in the order the values are given.
 //
@@ -56,12 +69,14 @@ func (f *filters) Add(format string, values ...any) {
 	f.conditions = append(f.conditions, fmt.Sprintf(format, placeholders...))
 }
 
-// Where returns the WHERE clause, or an empty string when nothing was added.
-func (f *filters) Where() string {
+// And returns the optional conditions as a continuation of a WHERE clause
+// the caller has already opened with its tenant predicate, or an empty
+// string when no filter was supplied.
+func (f *filters) And() string {
 	if len(f.conditions) == 0 {
 		return ""
 	}
-	return " WHERE " + strings.Join(f.conditions, " AND ")
+	return " AND " + strings.Join(f.conditions, " AND ")
 }
 
 // Args returns the arguments bound so far, in placeholder order.

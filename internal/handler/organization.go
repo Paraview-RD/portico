@@ -16,9 +16,10 @@ import (
 // Any signed-in user may read this: the picker on their own profile needs
 // it, and an organization name is not sensitive.
 func (h *Handler) ListOrganizations(w http.ResponseWriter, r *http.Request) {
+	principal := auth.MustPrincipal(r.Context())
 	activeOnly := r.URL.Query().Get("activeOnly") == "true"
 
-	orgs, err := h.orgs.List(r.Context(), activeOnly)
+	orgs, err := h.orgs.List(r.Context(), principal.TenantID, activeOnly)
 	if err != nil {
 		httpx.Fail(w, r, err)
 		return
@@ -28,7 +29,9 @@ func (h *Handler) ListOrganizations(w http.ResponseWriter, r *http.Request) {
 
 // GetOrganization returns one organization.
 func (h *Handler) GetOrganization(w http.ResponseWriter, r *http.Request) {
-	org, err := h.orgs.Get(r.Context(), chi.URLParam(r, "id"))
+	principal := auth.MustPrincipal(r.Context())
+
+	org, err := h.orgs.Get(r.Context(), principal.TenantID, chi.URLParam(r, "id"))
 	if err != nil {
 		httpx.Fail(w, r, err)
 		return

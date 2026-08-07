@@ -12,9 +12,7 @@ import (
 	"github.com/paraview/portico/internal/testdb"
 )
 
-// newTestStore opens a throwaway database on disk. A file (rather than
-// :memory:) is used because migrations and the single-connection pool
-// behave the same way there as in production.
+// newTestStore opens a throwaway database with the migrations applied.
 func newTestStore(t *testing.T) *store.Store {
 	t.Helper()
 	s, err := store.Open("postgres", testdb.DSN(t))
@@ -25,11 +23,30 @@ func newTestStore(t *testing.T) *store.Store {
 	return s
 }
 
+// newTestTenant creates a tenant and returns the query view bound to it.
+// Every scoped table has a foreign key to tenants, so a fixture needs one
+// before it can insert anything at all.
+func newTestTenant(t *testing.T, s *store.Store, code string) *store.Scoped {
+	t.Helper()
+	ctx := context.Background()
+	now := store.Now()
+	id := "tenant-" + code
+
+	err := s.Queries.CreateTenant(ctx, sqlcgen.CreateTenantParams{
+		ID: id, Code: code, Name: code, Status: "ACTIVE",
+		CreatedAt: now, UpdatedAt: now,
+	})
+	if err != nil {
+		t.Fatalf("create tenant %s: %v", code, err)
+	}
+	return s.ForTenant(id)
+}
+
 func TestOpenAppliesMigrations(t *testing.T) {
 	s := newTestStore(t)
 
 	// If migrations ran, every table is queryable.
-	for _, table := range []string{"users", "organizations", "audit_logs", "system_settings"} {
+	for _, table := range []string{"tenants", "users", "organizations", "audit_logs", "system_settings"} {
 		var count int
 		if err := s.DB().QueryRow("SELECT COUNT(*) FROM " + table).Scan(&count); err != nil {
 			t.Errorf("table %s is not queryable: %v", table, err)
@@ -64,10 +81,11 @@ func TestOpenRejectsUnknownDriver(t *testing.T) {
 // as time.Time rather than silently becoming zero values.
 func TestTimestampRoundTrip(t *testing.T) {
 	s := newTestStore(t)
+	q := newTestTenant(t, s, "acme")
 	ctx := context.Background()
 	now := store.Now()
 
-	err := s.Queries.CreateOrganization(ctx, sqlcgen.CreateOrganizationParams{
+	err := q.CreateOrganization(ctx, sqlcgen.CreateOrganizationParams{
 		ID:        "org-1",
 		Name:      "Engineering",
 		Code:      "ENG",
@@ -79,7 +97,7 @@ func TestTimestampRoundTrip(t *testing.T) {
 		t.Fatalf("create organization: %v", err)
 	}
 
-	got, err := s.Queries.GetOrganizationByID(ctx, "org-1")
+	got, err := q.GetOrganizationByID(ctx, "org-1")
 	if err != nil {
 		t.Fatalf("get organization: %v", err)
 	}
@@ -94,11 +112,12 @@ func TestTimestampRoundTrip(t *testing.T) {
 
 func TestForeignKeysAreEnforced(t *testing.T) {
 	s := newTestStore(t)
+	q := newTestTenant(t, s, "acme")
 	ctx := context.Background()
 	now := store.Now()
 
 	missing := "no-such-org"
-	err := s.Queries.CreateUser(ctx, sqlcgen.CreateUserParams{
+	err := q.CreateUser(ctx, sqlcgen.CreateUserParams{
 		ID:             "user-1",
 		Username:       "alice",
 		DisplayName:    "Alice",
@@ -126,6 +145,7 @@ func TestForeignKeysAreEnforced(t *testing.T) {
 // to every PostgreSQL error, quietly downgrading those conflicts to 500s.
 func TestUniqueViolationIsRecognized(t *testing.T) {
 	s := newTestStore(t)
+	q := newTestTenant(t, s, "acme")
 	ctx := context.Background()
 	now := store.Now()
 
@@ -133,13 +153,13 @@ func TestUniqueViolationIsRecognized(t *testing.T) {
 		ID: "org-a", Name: "Engineering", Code: "ENG",
 		Status: "ACTIVE", CreatedAt: now, UpdatedAt: now,
 	}
-	if err := s.Queries.CreateOrganization(ctx, first); err != nil {
+	if err := q.CreateOrganization(ctx, first); err != nil {
 		t.Fatalf("create first organization: %v", err)
 	}
 
 	duplicate := first
 	duplicate.ID = "org-b"
-	err := s.Queries.CreateOrganization(ctx, duplicate)
+	err := q.CreateOrganization(ctx, duplicate)
 	if err == nil {
 		t.Fatal("expected a unique violation on the duplicate code")
 	}
@@ -172,10 +192,11 @@ func TestErrorClassifiersRejectUnrelatedErrors(t *testing.T) {
 // an invalid enum through.
 func TestStatusCheckConstraint(t *testing.T) {
 	s := newTestStore(t)
+	q := newTestTenant(t, s, "acme")
 	ctx := context.Background()
 	now := store.Now()
 
-	err := s.Queries.CreateUser(ctx, sqlcgen.CreateUserParams{
+	err := q.CreateUser(ctx, sqlcgen.CreateUserParams{
 		ID:           "user-1",
 		Username:     "alice",
 		DisplayName:  "Alice",
@@ -194,13 +215,14 @@ func TestStatusCheckConstraint(t *testing.T) {
 
 func TestWithTxRollsBackOnError(t *testing.T) {
 	s := newTestStore(t)
+	scoped := newTestTenant(t, s, "acme")
 	ctx := context.Background()
 	now := store.Now()
 
 	wantErr := errSentinel{}
 	err := s.WithTx(func(q *sqlcgen.Queries) error {
 		if err := q.CreateOrganization(ctx, sqlcgen.CreateOrganizationParams{
-			ID: "org-rollback", Name: "Temp", Code: "TMP",
+			ID: "org-rollback", TenantID: "tenant-acme", Name: "Temp", Code: "TMP",
 			Status: "ACTIVE", CreatedAt: now, UpdatedAt: now,
 		}); err != nil {
 			return err
@@ -211,19 +233,20 @@ func TestWithTxRollsBackOnError(t *testing.T) {
 		t.Fatalf("error = %v, want the sentinel", err)
 	}
 
-	if _, err := s.Queries.GetOrganizationByID(ctx, "org-rollback"); err == nil {
+	if _, err := scoped.GetOrganizationByID(ctx, "org-rollback"); err == nil {
 		t.Error("row survived a rolled-back transaction")
 	}
 }
 
 func TestWithTxCommitsOnSuccess(t *testing.T) {
 	s := newTestStore(t)
+	scoped := newTestTenant(t, s, "acme")
 	ctx := context.Background()
 	now := store.Now()
 
 	err := s.WithTx(func(q *sqlcgen.Queries) error {
 		return q.CreateOrganization(ctx, sqlcgen.CreateOrganizationParams{
-			ID: "org-commit", Name: "Keep", Code: "KEEP",
+			ID: "org-commit", TenantID: "tenant-acme", Name: "Keep", Code: "KEEP",
 			Status: "ACTIVE", CreatedAt: now, UpdatedAt: now,
 		})
 	})
@@ -231,7 +254,7 @@ func TestWithTxCommitsOnSuccess(t *testing.T) {
 		t.Fatalf("transaction failed: %v", err)
 	}
 
-	if _, err := s.Queries.GetOrganizationByID(ctx, "org-commit"); err != nil {
+	if _, err := scoped.GetOrganizationByID(ctx, "org-commit"); err != nil {
 		t.Errorf("committed row is missing: %v", err)
 	}
 }
@@ -240,16 +263,15 @@ func TestWithTxCommitsOnSuccess(t *testing.T) {
 // service code treat these as ordinary Go times.
 func TestTimestampRoundTripPreservesValue(t *testing.T) {
 	s := newTestStore(t)
+	q := newTestTenant(t, s, "acme")
 	ctx := context.Background()
 	now := store.Now()
 
-	if err := s.Queries.UpsertSetting(ctx, sqlcgen.UpsertSettingParams{
-		Key: "k", Value: "v", UpdatedAt: now,
-	}); err != nil {
+	if err := q.UpsertSettings(ctx, map[string]string{"k": "v"}, now); err != nil {
 		t.Fatalf("upsert: %v", err)
 	}
 
-	got, err := s.Queries.GetSetting(ctx, "k")
+	got, err := q.GetSetting(ctx, "k")
 	if err != nil {
 		t.Fatalf("get: %v", err)
 	}

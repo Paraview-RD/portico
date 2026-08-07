@@ -31,6 +31,11 @@ func TestLayeringRules(t *testing.T) {
 		"auth": {"handler", "service", "server"},
 		// Configuration is parsed before anything else exists.
 		"config": {"handler", "service", "store", "auth", "httpx", "server"},
+		// Provisioning is a second composition root, for the operations that
+		// have no HTTP surface. It builds services directly and must not
+		// reach for the web stack: anything it needed from there would mean
+		// the rule belongs in a service, where the API can reach it too.
+		"provision": {"handler", "httpx", "server"},
 	}
 
 	for pkg, banned := range forbidden {

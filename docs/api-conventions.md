@@ -51,6 +51,40 @@ else — including all POST/PUT/PATCH bodies — is JSON in the request body,
 - Timestamps are ISO 8601 with an explicit timezone offset.
 - Auth: `Authorization: Bearer <jwt>`.
 
+## Tenant selection
+
+Every request acts inside exactly one tenant, and where that tenant comes
+from depends on whether the caller is authenticated.
+
+**Authenticated requests take the tenant from the token**, and from nothing
+else. `X-Portico-Tenant` on an authenticated request is ignored — not
+rejected, ignored — because honouring it would let one tenant's
+administrator reach every other tenant by adding a header. The token's
+tenant claim is checked against the account record on every request, so a
+token cannot be replayed against a tenant it was not issued for either.
+
+**Public endpoints** — `POST /auth/login`, `POST /auth/register`,
+`GET /auth/registration-status` — have no principal to read, so they resolve
+the tenant from the request, in this order:
+
+1. the `tenant` field in the request body (`login` and `register` only),
+2. the `X-Portico-Tenant` header,
+3. the `tenant` query parameter,
+4. the default tenant, whose code is `default`.
+
+The last step is what lets a single-tenant deployment never mention tenants
+at all while the same build serves a multi-tenant one.
+
+An unknown or disabled tenant answers `TENANT_NOT_FOUND` (404) or
+`TENANT_DISABLED` (403) rather than a generic credential failure. A tenant
+code is not a credential — it appears in sign-in URLs and in the
+configuration handed to every user of that tenant — so concealing whether
+one exists buys nothing and costs an operator a diagnosable error.
+
+There is no API for creating, listing, or disabling tenants. No account can
+act outside its own tenant, so there is no one the API could authorize to do
+it; provisioning is `portico tenant ...` on the command line.
+
 ## Response envelope
 
 ```json

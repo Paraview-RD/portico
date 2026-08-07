@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
 
-import { ApiError } from "../api/client";
+import { ApiError, tenantStore } from "../api/client";
 import { authApi } from "../api/endpoints";
 import { Alert, Button, Field, Input } from "../components/ui";
 import { useT } from "../i18n";
@@ -12,6 +12,15 @@ export function LoginPage() {
   const { signIn, expired } = useSession();
   const { navigate } = useRouter();
 
+  // Remembered from the last sign-in, or taken from a ?tenant= link, so an
+  // operator can hand out a URL that lands on the right tenant. Blank means
+  // the default tenant, which is all a single-tenant deployment ever needs.
+  const [tenant, setTenant] = useState(
+    () =>
+      new URLSearchParams(window.location.search).get("tenant") ??
+      tenantStore.get() ??
+      "",
+  );
   const [username, setUsername] = useState("");
   const [password, setPassword] = useState("");
   const [error, setError] = useState("");
@@ -21,7 +30,11 @@ export function LoginPage() {
 
   // The sign-in screen only offers registration when the server says it is
   // open, so a closed instance does not advertise a dead end.
+  // Both answers are per tenant, so the lookup is redone whenever the tenant
+  // field changes: the name in the header and whether registration is
+  // offered both belong to the tenant being signed in to.
   useEffect(() => {
+    tenantStore.set(tenant);
     authApi
       .registrationStatus()
       .then((status) => {
@@ -29,16 +42,19 @@ export function LoginPage() {
         setSystemName(status.systemName);
       })
       .catch(() => {
-        // Not being able to read the toggle is not worth blocking sign-in.
+        // An unknown tenant lands here. Sign-in will say so plainly, which
+        // is more useful than an error under a field they may not have
+        // filled in yet.
+        setRegistrationOpen(false);
       });
-  }, []);
+  }, [tenant]);
 
   async function handleSubmit(event: React.FormEvent) {
     event.preventDefault();
     setError("");
     setSubmitting(true);
     try {
-      await signIn(username, password);
+      await signIn(tenant, username, password);
       navigate("/users");
     } catch (err) {
       setError(
@@ -64,6 +80,15 @@ export function LoginPage() {
         )}
 
         <form onSubmit={handleSubmit} className="flex flex-col gap-4">
+          <Field label={t("login.tenant")} hint={t("login.tenantHint")}>
+            <Input
+              value={tenant}
+              onChange={(e) => setTenant(e.target.value)}
+              autoComplete="organization"
+              placeholder="default"
+            />
+          </Field>
+
           <Field label={t("login.username")} required>
             <Input
               value={username}
