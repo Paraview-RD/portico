@@ -28,9 +28,18 @@
 | 1 | 迁移 PostgreSQL | ✅ `22b2b6c` |
 | 2 | 多租户隔离 | ✅ `d16a2a8`（前置修复 `5f879c4`） |
 | 3 | 多凭证登录 + 自服务闭环 | ✅ `5e29d2f` + `08f0086` |
-| 4 | OIDC + OAuth 2.1 | 🔄 下一步 |
+| 4 | OIDC + OAuth 2.1 | 🔄 进行中 |
 | 5 | SAML 2.0 | ⬜ |
 | 6 | CAS | ⬜ |
+
+## 阶段 4 范围与决策（已定，勿再议）
+
+- **库选 `github.com/zitadel/oidc/v3`**：v3.49.2 今天还在发；ory/fosite 更有名但停在 2024-12 的 v0.49.0、仍是 0.x、四条已披露公告。解析攻击者可控的授权请求的那个依赖，"今早刚发版"胜过"名气大"。
+- **每租户一个 issuer**：`{PUBLIC_URL}/t/{code}`，各自的 discovery / JWKS / 密钥。共用 issuer + 租户 claim 只有在每个接入方都额外写代码校验时才安全（没有标准 RP 库会校验自定义 claim），那正是阶段 2 拒绝的"靠纪律"。路径里带租户还能让租户在查 client / auth code **之前**就已知，`unscopedQueries` 才能保持恰好 1 条。默认租户额外在根路径也提供一份，单租户部署不必知道租户存在。
+- **OIDC 必须用非对称签名**（RS256/ES256 + JWKS），HS256 做不了——RP 靠 JWKS 离线验签。新增签名密钥表 + 轮换（双活 + kid）。Portico 自己的会话继续用 HS256 `TokenService`，两种 token 是有意的：一种本服务自己验，一种别人离线验。
+- **README「Sessions that actually revoke」会因此变成假话**：下游资源服务器拿 access token 时根本不碰 Portico。同一提交里改掉措辞（短寿命 + introspection，或把这句限定为 Portico 自己的会话）。
+- **范围内**：授权码 + PKCE、refresh（带轮换）、discovery、JWKS、userinfo、revocation、RP-initiated logout、客户端注册走 CLI。**明确不做**：动态客户端注册、device flow、client_credentials、front-channel logout、DPoP、PAR。
+- **⚠️ 开发库别再用 `portico_dev`**：验收实例正跑在上面，阶段 4 还要再改 `00001_init.sql`。另起库名。
 
 ## 关键约束（易在压缩后丢失）
 
