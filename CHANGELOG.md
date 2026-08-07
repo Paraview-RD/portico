@@ -57,6 +57,41 @@ Working toward 0.1.0 — the first release. Nothing has been published yet.
 
 ### Added
 
+- **SAML 2.0.** Portico is a SAML identity provider: metadata,
+  service-provider-initiated browser SSO over both bindings, and signed
+  assertions — encrypted too, whenever the service provider publishes an
+  encryption key. Registration takes the service provider's metadata
+  document whole rather than fields to retype.
+- SAML certificates are per tenant and live in their own table, apart from
+  the OIDC signing keys, because their rotation contracts are incompatible:
+  a relying party refetches a key set, while a service provider has the
+  certificate typed into its own configuration and no way to learn of a new
+  one. Retired SAML certificates are kept indefinitely and rotation is an
+  operator's decision, never a timer's.
+- Nothing in Portico constructs or verifies an XML signature. goxmldsig is
+  pinned ahead of what crewjam/saml resolves, because that is the code the
+  whole thing rests on.
+- Deliberately absent: identity-provider-initiated sign-on, which has no
+  request to correlate an assertion with; and single logout, which requires
+  reaching every service provider in the browser and reports having ended
+  sessions it did not when it half works. The metadata says so rather than
+  advertising an endpoint that 404s.
+- **CAS 2.0 and 3.0.** Login, logout, and both validation endpoints, per
+  tenant and at the root. Implemented directly rather than through a
+  library, because CAS has no cryptography at all — a ticket is a random
+  string and validation is a lookup.
+- CAS service matching is a URL prefix with a boundary: a registration for
+  `https://app.example.com/` can never cover
+  `https://app.example.com.somewhere-else.test`. Wildcards, query strings,
+  fragments, and plain http over a network are refused at registration.
+- CAS tickets are single use, enforced by a conditional update rather than a
+  read followed by a write, and bound to the service they were issued for.
+- No CAS ticket-granting ticket: single sign-on rides on Portico's own
+  session, so signing out, changing a password, and disabling an account
+  already end it rather than leaving a third credential to revoke.
+- `portico sp` and `portico cas` register SAML service providers and CAS
+  services, for the same reason `portico client` and `portico tenant` exist:
+  no role in this version could be authorized to do it over HTTP.
 - **OpenID Connect 1.0 and OAuth 2.1.** Portico is an OpenID Provider:
   discovery, authorize, token, userinfo, introspection, revocation,
   end-session, and a published key set. An application points its own OIDC
@@ -178,5 +213,10 @@ for anyone who needs to know sooner. Expired refresh tokens stop working but
 are never deleted, so their rows accumulate; abandoned authorization
 requests are swept, refresh tokens are not. There is no consent screen,
 because every client is registered out of band by an administrator and there
-is no third party to consent to. See
-[docs/federation.md](docs/federation.md).
+is no third party to consent to.
+
+Neither SAML nor CAS has single logout, so ending a session in Portico does
+not end a session an application created for itself after accepting an
+assertion or a ticket. No identity provider can do that without a working
+single-logout profile. [docs/federation.md](docs/federation.md) has the full
+table of what revocation reaches, per protocol.

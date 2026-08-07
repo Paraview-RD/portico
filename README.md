@@ -34,10 +34,11 @@ without one.
 **Sessions that revoke** — logout, a password change, and disabling an
 account each end every session Portico can reach, immediately: its own, and
 every refresh token held by a federated application. What no identity
-provider can withdraw is an access token already issued, because a resource
-server verifies one offline and never asks. Portico keeps those to fifteen
-minutes and publishes an introspection endpoint for anyone who needs the
-answer sooner. See [docs/federation.md](docs/federation.md).
+provider can withdraw is a credential somebody else is already holding — an
+access token verified offline, or a session an application created for
+itself after accepting an assertion. [docs/federation.md](docs/federation.md)
+has a table of exactly what revocation reaches, per protocol, and it is
+worth reading before deploying.
 
 **Audit log** — sign-ins, operations, authorization, registrations, and
 organization changes, filterable by type and time range.
@@ -110,19 +111,27 @@ the **Tenant** field or carried by a link: `/login?tenant=acme`.
 
 ### Applications
 
-Point an application's OpenID Connect library at the issuer and register it
-from the command line. There is nothing Portico-specific to write.
+Three protocols, one set of accounts. Which to use is decided by what the
+application already speaks; all three answer with the same facts under the
+same names.
 
 ```bash
+# OpenID Connect / OAuth 2.1 — point the library at the issuer and register
 portico client register --id grafana --name Grafana \
   --redirect-uri https://grafana.example.com/login/generic_oauth
+
+# SAML 2.0 — exchange metadata documents, in both directions
+portico sp register --metadata ./sp-metadata.xml --name Confluence
+
+# CAS 2.0/3.0 — register the URL prefix a ticket may be delivered to
+portico cas register --url https://wiki.example.com/ --name Wiki
 ```
 
-The issuer is `PORTICO_PUBLIC_URL` for the default tenant, and
-`PORTICO_PUBLIC_URL/t/<code>` for any other. Everything else — endpoints,
-keys, supported grants — comes from the discovery document the library
-fetches. [docs/federation.md](docs/federation.md) covers the details,
-including exactly what revocation reaches.
+Everything hangs off `PORTICO_PUBLIC_URL` for the default tenant and
+`PORTICO_PUBLIC_URL/t/<code>` for any other: the OIDC issuer at the root,
+SAML metadata at `/saml/metadata`, CAS at `/cas`.
+[docs/federation.md](docs/federation.md) covers the details, including what
+is deliberately not implemented and why.
 
 ## Developing
 
@@ -159,7 +168,9 @@ internal/
   store/           database access; sqlcgen/ is generated
   testdb/          throwaway PostgreSQL for tests
   model/           domain types
+  casp/            the CAS protocol, implemented directly
   oidcp/           adapts Portico to the OpenID Provider interface
+  samlp/           adapts Portico to the SAML identity provider role
   provision/       tenant and client provisioning, for the CLI
   web/             embeds the built frontend
 migrations/        schema, embedded and applied at startup

@@ -1,7 +1,18 @@
-# Federation: OAuth 2.1 and OpenID Connect
+# Federation: OpenID Connect, SAML 2.0, and CAS
 
 How another application signs people in through Portico, and what it can and
 cannot expect once it has.
+
+Three protocols, one set of accounts. Which one to use is decided by what the
+application already speaks, not by anything here: a modern application uses
+OpenID Connect, an enterprise product usually has a SAML integration written
+years ago, and a university or a Java application often has CAS. All three
+answer with the same facts under the same names — tenant, role, organization
+— so an application migrated from one to another sees no change in what it
+is told.
+
+The sections below are OpenID Connect first, then [SAML](#saml-20), then
+[CAS](#cas).
 
 ## The short version
 
@@ -202,6 +213,21 @@ Rotation issues a new key and retires the old one. The retired key stays in
 the published key set for 24 hours, so tokens signed with it keep verifying
 until they have all expired, and is then deleted.
 
+## What revocation reaches, per protocol
+
+| | Sign-out, password change, disable |
+|---|---|
+| Portico's own session | Ends immediately |
+| OIDC refresh tokens | Revoked |
+| OIDC access tokens | Cannot be withdrawn; 15 minutes, or introspect |
+| SAML | Nothing to revoke — no server-side session exists, because there is no single logout. A service provider's own session outlives this entirely and ends on its own terms. |
+| CAS | Nothing to revoke — a ticket lives a minute and is single use, and there is no ticket-granting ticket. A service's own session, like SAML's, is its own affair. |
+
+The last two rows are worth reading twice before deploying. Ending a session
+in Portico does not end the session an application created after it accepted
+an assertion or a ticket; no identity provider can do that without a working
+single-logout profile, which this version does not have.
+
 ## Known limitations in v0.1
 
 - **Expired refresh tokens are never deleted.** They stop working — expiry
@@ -215,6 +241,147 @@ until they have all expired, and is then deleted.
 - **No consent screen**, as described above.
 - **No `private_key_jwt`**, so a client that can only authenticate that way
   cannot be registered.
+- **No single logout for SAML or CAS**, and therefore no way to end a
+  session an application created for itself. See the table above.
+- **No SAML identity-provider-initiated sign-on**, and no proxy tickets for
+  CAS.
+
+## SAML 2.0
+
+Portico is a SAML identity provider. Hand the service provider Portico's
+metadata, register the service provider's metadata with Portico, and that is
+the whole exchange — the documents carry everything either side needs.
+
+```bash
+# Portico's metadata, for the service provider's configuration:
+#   {PORTICO_PUBLIC_URL}/saml/metadata           the default tenant
+#   {PORTICO_PUBLIC_URL}/t/<code>/saml/metadata  any other
+
+# The service provider's, for Portico's:
+portico sp register --metadata ./sp-metadata.xml --name "Confluence"
+portico sp list
+portico sp disable --entity-id https://confluence.example.com/saml
+```
+
+`--metadata` takes a file or an `https://` URL. Plain `http` is refused: the
+document names where assertions get delivered, so anybody on the path could
+redirect them.
+
+### What is implemented
+
+| | |
+|---|---|
+| Profile | Web browser SSO, service-provider-initiated |
+| Bindings | HTTP-Redirect and HTTP-POST inbound, HTTP-POST outbound |
+| Signing | RSA-SHA256 over the response |
+| Encryption | The assertion is encrypted whenever the service provider publishes an encryption key in its metadata |
+| NameID | Persistent, and it is the account id |
+| Assertion lifetime | 5 minutes |
+| Sign-in deadline | 15 minutes |
+
+The name identifier is the account **id**, not the username. A username can
+be changed by an administrator, and a service provider keying its local
+record on one would quietly create a second account for the same person the
+day it was. The username is in the `uid` attribute for display.
+
+Attributes use the OASIS X.500 names where such an agreement exists — `uid`,
+`mail`, `displayName`, `telephoneNumber` — and Portico's own, unprefixed,
+where it does not: `tenant_id`, `tenant_code`, `role`, `organization_id`,
+`organization_name`.
+
+Signature construction and verification are entirely
+[crewjam/saml](https://github.com/crewjam/saml) and
+[goxmldsig](https://github.com/russellhaering/goxmldsig), which is pinned
+ahead of what crewjam resolves because it is the code the whole thing rests
+on. Nothing in Portico builds or checks an XML signature; a hand-rolled one
+is the most reliable way to ship a SAML implementation that accepts forged
+assertions.
+
+### Deliberately not implemented
+
+- **Identity-provider-initiated sign-on.** There is no request to correlate
+  the assertion with, which makes a stolen assertion replayed into a login
+  indistinguishable from the real thing.
+- **Single logout.** The profile requires the identity provider to reach
+  every service provider a person signed in to, in the browser, and to cope
+  with any of them being unreachable. One that half works is worse than
+  none, because it reports having ended sessions it did not. The metadata
+  says so rather than advertising an endpoint that 404s.
+- **Signed authentication requests**, artifact resolution, and attribute
+  queries.
+
+### Certificates
+
+Each tenant has its own certificate, generated on first use, valid for ten
+years.
+
+```bash
+portico sp certificate                  # print it, for a service provider
+portico sp rotate-certificate           # generate a new one
+```
+
+Rotation retires the old certificate and deletes nothing. This is the one
+place where SAML and OpenID Connect differ in kind rather than in detail: a
+relying party refetches a key set, so an OIDC key can be retired and dropped
+a day later, whereas a service provider has the certificate typed into its
+own configuration and no way to learn of a new one. **Every service provider
+must be reconfigured by hand before it will accept another assertion**, and
+until each one has been, the previous certificate is what an operator needs
+to be able to look up. That is why the two live in separate tables and why
+`sp rotate-certificate` is a separate command from `client rotate-key`.
+
+## CAS
+
+Portico speaks CAS 2.0 and 3.0. Point the client's CAS server URL at the
+part before `/login`:
+
+```
+{PORTICO_PUBLIC_URL}/cas             the default tenant
+{PORTICO_PUBLIC_URL}/t/<code>/cas    any other
+```
+
+```bash
+portico cas register --url https://wiki.example.com/ --name Wiki
+portico cas list
+portico cas disable --url https://wiki.example.com/
+```
+
+`--url` is a prefix, not a pattern. A `service` parameter matches when it
+begins with the registered value **and the prefix ends at a path boundary**,
+so `https://app.example.com/` never covers
+`https://app.example.com.somewhere-else.test`. There are no wildcards,
+registration normalizes a trailing separator on, and query strings,
+fragments, and plain `http` over a network are refused — a service URL is
+CAS's redirect URI, and it gets the same treatment.
+
+| | |
+|---|---|
+| Endpoints | `/cas/login`, `/cas/logout`, `/cas/serviceValidate`, `/cas/p3/serviceValidate` |
+| Ticket | `ST-` prefix, single use, one minute |
+| Attributes | CAS 3.0 only, under the same names the other protocols use |
+
+A ticket is bound to the service it was issued for: presenting it at another
+service's validation would otherwise let a service that legitimately received
+one impersonate that person elsewhere. Validation always answers `200`, even
+for a failure, because that is what the specification says and several
+clients stop reading on anything else and report a transport error instead
+of the reason.
+
+**There is no ticket-granting ticket.** CAS puts one in a long-lived cookie
+so a browser can obtain further tickets without signing in again; Portico
+already has a session for that, and a second long-lived credential would be
+a third thing to revoke on sign-out, password change, and disable. Riding on
+the existing session means those three already cover it.
+
+`/cas/logout` redirects to Portico's own sign-in screen, which is where the
+session actually is — a plain navigation cannot reach a token the web
+application holds, so the application signs out on arrival. The `service`
+parameter is deliberately not followed: the specification makes that
+optional and warns about it, and an endpoint that redirects wherever a
+caller names is an open redirect wearing a protocol's clothes.
+
+Not implemented: proxy tickets, and CAS 1.0 `/validate`, whose bare
+`yes\n<user>\n` carries no attributes and no way to say why a ticket failed.
 
 ## Trying it locally
 

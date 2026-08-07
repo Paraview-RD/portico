@@ -10,7 +10,9 @@ what each role can actually do.
 | Web UI | `http://<host>:8410/` | Served by the same process as the API |
 | API | `http://<host>:8410/api/v1/` | See [api-conventions.md](api-conventions.md) |
 | Health check | `http://<host>:8410/api/v1/health` | No authentication; safe for load balancers |
-| OpenID discovery | `http://<host>:8410/.well-known/openid-configuration` | The default tenant. Others at `/t/<code>/.well-known/openid-configuration` |
+| OpenID discovery | `http://<host>:8410/.well-known/openid-configuration` | The default tenant. Others at `/t/<code>/…` |
+| SAML metadata | `http://<host>:8410/saml/metadata` | Hand this to a service provider. Others at `/t/<code>/saml/metadata` |
+| CAS | `http://<host>:8410/cas` | The client's "CAS server URL". Others at `/t/<code>/cas` |
 
 The port is `PORTICO_ADDR` (default `:8410`). In development the frontend
 also runs a Vite server on `:5410` that proxies `/api` to `:8410`; in
