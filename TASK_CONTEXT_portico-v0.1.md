@@ -29,8 +29,8 @@
 | 2 | 多租户隔离 | ✅ `d16a2a8`（前置修复 `5f879c4`） |
 | 3 | 多凭证登录 + 自服务闭环 | ✅ `5e29d2f` + `08f0086` |
 | 4 | OIDC + OAuth 2.1 | ✅ `430d41d` `eae63ca` `bfb8e0f` `fdac3da` `197c299` `619d90e` `7aa7829` `407d081` `eefe263` `52f29c8` |
-| 5 | SAML 2.0 | ⬜ |
-| 6 | CAS | ⬜ |
+| 5 | SAML 2.0 | ✅ `41da8b1` `dbb1c75` |
+| 6 | CAS | ✅ `089578a` `3576d84` |
 
 ## 阶段 4 已完成（收尾记录）
 
@@ -50,8 +50,22 @@
 - 二进制 `/tmp/portico`，环境变量在 `/tmp/portico-env.sh`（`source` 后即可跑 CLI）
 - 库 `portico_dev` **已重建**（`00001_init.sql` 加了 `issuer` 列，旧库不兼容；先前的 2 租户 6 用户数据已丢，属预发布预期）
 - 租户：`default`（admin / `Portico-Admin-2026`）、`acme`（admin / `Acme-Admin-2026`）
-- 客户端：`demo`（public，default 租户）、`grafana`（confidential，default）、`acme-demo`（public，acme）
-- 演示 RP 回调：`python3 /tmp/rp-callback.py` 监听 `127.0.0.1:9999`，打印收到的 code
+- 客户端：`demo`（public，default 租户）
+- CAS 服务：`http://127.0.0.1:9999/`（Demo CAS Service）
+- SAML SP：`http://127.0.0.1:9998/saml/metadata`（Demo SAML SP）
+- 演示 RP 回调：`python3 /tmp/rp-callback.py` 监听 `127.0.0.1:9999`（OIDC code / CAS ticket）
+- 演示 SAML SP：`/tmp/samlsp/sp http://127.0.0.1:8410/saml/metadata` 监听 `127.0.0.1:9998`，`/start` 发起，`/saml/acs` 验签并打印属性
+- **库 `portico_dev` 再次重建**（阶段 5/6 又改了 `00001_init.sql`）
+
+## 阶段 5/6 已完成（收尾记录）
+
+- **SAML**：`crewjam/saml` v0.5.1（唯一成熟的 Go IdP 库），`goxmldsig` 显式升到 v1.6.1（签名验证是全部安全性所在，不吃 crewjam 锁的 v1.4.0）。**签名构造与验证零手写**。
+- **SAML 密钥单独建表**：与 OIDC 的 `oauth_signing_keys` 轮换契约不兼容（RP 会重取 JWKS，SP 是把证书抄进自己配置里且无从得知换了）。退役证书永不删除，轮换是运维决策不是定时器。
+- **90 秒陷阱**：库拒绝 issue instant 早于 90 秒的 AuthnRequest。resume 时按「Portico 受理时刻」判新鲜度，assertion 仍按当前时间盖章；`TestSigningInSlowlyStillWorks` 拨表 2 分钟验证（不修就挂）。
+- **明确不做**：IdP-initiated SSO（无 request 可关联，被盗 assertion 重放无从分辨）、Single Logout（半работ比不做更糟，metadata 如实不宣告）、proxy ticket、CAS 1.0 `/validate`。
+- **CAS 手写**（无任何密码学；无成熟 Go CAS server 可用）。两个要害都做了变异测试：ticket 单次消费用条件 UPDATE（非读后写）、ticket 绑定 service。**无 TGT**——SSO 搭 Portico 自身会话，退出/改密/停用三条路径自然覆盖。
+- **service 前缀匹配带边界**：`https://app.example.com/` 绝不覆盖 `https://app.example.com.evil.test`。边界检查最初变异不死（normalize 已保证结尾斜杠），补了未规范化前缀的用例才成为受测代码。
+- **★浏览器实测查出 CSP 致命 bug**：SAML POST binding 页要向 SP 源 POST 表单 + 内联脚本自动提交，被全局 `script-src 'self'; form-action 'self'` 双重拦死——**11 个 SAML 测试全绿而浏览器里彻底不通**（测试客户端不执行 CSP）。已改为该页专属策略（脚本按 hash、form-action 精确指向 ACS）+ 自带模板（脚本与 hash 同源于一个常量）。修前修后都用真实 SP + 真实浏览器验过。
 
 ## 阶段 4 范围与决策（已定，勿再议）
 
