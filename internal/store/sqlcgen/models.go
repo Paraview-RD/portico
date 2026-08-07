@@ -26,6 +26,74 @@ type AuditLog struct {
 	CreatedAt     time.Time
 }
 
+type OauthAuthRequest struct {
+	ID                  string
+	TenantID            string
+	ClientID            string
+	Subject             *string
+	RedirectUri         string
+	ResponseType        string
+	ResponseMode        string
+	Scopes              []string
+	Audience            []string
+	State               string
+	Nonce               string
+	CodeChallenge       string
+	CodeChallengeMethod string
+	AuthTime            *time.Time
+	Amr                 []string
+	Done                bool
+	CodeHash            *string
+	CreatedAt           time.Time
+	ExpiresAt           time.Time
+}
+
+type OauthClient struct {
+	ID                     string
+	TenantID               string
+	ClientID               string
+	Name                   string
+	SecretHash             *string
+	ApplicationType        string
+	AuthMethod             string
+	RedirectUris           []string
+	PostLogoutRedirectUris []string
+	GrantTypes             []string
+	Scopes                 []string
+	Status                 string
+	CreatedAt              time.Time
+	UpdatedAt              time.Time
+}
+
+type OauthRefreshToken struct {
+	ID         string
+	TenantID   string
+	ClientID   string
+	Subject    string
+	TokenHash  string
+	Scopes     []string
+	Audience   []string
+	Amr        []string
+	AuthTime   time.Time
+	ReplacedBy *string
+	UsedAt     *time.Time
+	RevokedAt  *time.Time
+	CreatedAt  time.Time
+	ExpiresAt  time.Time
+}
+
+type OauthSigningKey struct {
+	ID        string
+	TenantID  string
+	Algorithm string
+	// PKCS#8 PEM. Stored as the database stores everything else; protecting it is the deployment's job, the same as the password hashes beside it.
+	PrivateKey string
+	PublicKey  string
+	Status     string
+	CreatedAt  time.Time
+	RetiredAt  *time.Time
+}
+
 // Flat groupings of users. No hierarchy in this version.
 type Organization struct {
 	ID       string

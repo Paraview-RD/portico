@@ -250,6 +250,163 @@ func (s *Scoped) SupersedePasswordResets(ctx context.Context, userID string, now
 		sqlcgen.SupersedePasswordResetsParams{TenantID: s.tenantID, UserID: userID, UsedAt: &now})
 }
 
+// --- federation -----------------------------------------------------------
+//
+// Every relying party, key, authorization request, and refresh token belongs
+// to one tenant, because each tenant is its own issuer. That is not a detail
+// of the storage layout: it is what makes a token minted for one tenant
+// unusable against another, since a relying party checks `iss` and the key
+// set behind it.
+
+// CreateSigningKey stores a newly generated key.
+func (s *Scoped) CreateSigningKey(ctx context.Context, arg sqlcgen.CreateSigningKeyParams) error {
+	arg.TenantID = s.tenantID
+	return s.q.CreateSigningKey(ctx, arg)
+}
+
+// GetActiveSigningKey returns the key new tokens are signed with.
+func (s *Scoped) GetActiveSigningKey(ctx context.Context) (sqlcgen.OauthSigningKey, error) {
+	return s.q.GetActiveSigningKey(ctx, s.tenantID)
+}
+
+// ListPublishedSigningKeys returns everything the JWKS advertises.
+func (s *Scoped) ListPublishedSigningKeys(ctx context.Context) ([]sqlcgen.OauthSigningKey, error) {
+	return s.q.ListPublishedSigningKeys(ctx, s.tenantID)
+}
+
+// RetireSigningKeys marks the current key retired. It stays in the key set
+// until its tokens expire.
+func (s *Scoped) RetireSigningKeys(ctx context.Context, now time.Time) error {
+	return s.q.RetireSigningKeys(ctx,
+		sqlcgen.RetireSigningKeysParams{TenantID: s.tenantID, RetiredAt: &now})
+}
+
+// DeleteExpiredSigningKeys drops keys retired long enough that nothing they
+// signed can still verify.
+func (s *Scoped) DeleteExpiredSigningKeys(ctx context.Context, before time.Time) error {
+	return s.q.DeleteExpiredSigningKeys(ctx,
+		sqlcgen.DeleteExpiredSigningKeysParams{TenantID: s.tenantID, RetiredAt: &before})
+}
+
+// CreateOAuthClient registers a relying party.
+func (s *Scoped) CreateOAuthClient(ctx context.Context, arg sqlcgen.CreateOAuthClientParams) error {
+	arg.TenantID = s.tenantID
+	return s.q.CreateOAuthClient(ctx, arg)
+}
+
+// GetOAuthClient returns a relying party by the client_id it presents.
+func (s *Scoped) GetOAuthClient(ctx context.Context, clientID string) (sqlcgen.OauthClient, error) {
+	return s.q.GetOAuthClient(ctx,
+		sqlcgen.GetOAuthClientParams{TenantID: s.tenantID, ClientID: clientID})
+}
+
+// ListOAuthClients returns every relying party registered in this tenant.
+func (s *Scoped) ListOAuthClients(ctx context.Context) ([]sqlcgen.OauthClient, error) {
+	return s.q.ListOAuthClients(ctx, s.tenantID)
+}
+
+// UpdateOAuthClientStatus enables or disables a relying party.
+func (s *Scoped) UpdateOAuthClientStatus(ctx context.Context, clientID, status string, now time.Time) error {
+	return s.q.UpdateOAuthClientStatus(ctx, sqlcgen.UpdateOAuthClientStatusParams{
+		TenantID: s.tenantID, ClientID: clientID, Status: status, UpdatedAt: now,
+	})
+}
+
+// CreateAuthRequest records an authorization request in flight.
+func (s *Scoped) CreateAuthRequest(ctx context.Context, arg sqlcgen.CreateAuthRequestParams) error {
+	arg.TenantID = s.tenantID
+	return s.q.CreateAuthRequest(ctx, arg)
+}
+
+// GetAuthRequest returns an unexpired request by id.
+func (s *Scoped) GetAuthRequest(ctx context.Context, id string, now time.Time) (sqlcgen.OauthAuthRequest, error) {
+	return s.q.GetAuthRequest(ctx,
+		sqlcgen.GetAuthRequestParams{TenantID: s.tenantID, ID: id, ExpiresAt: now})
+}
+
+// GetAuthRequestByCode returns the completed, unexpired request an
+// authorization code names. A request that is neither is not returned at all.
+func (s *Scoped) GetAuthRequestByCode(ctx context.Context, codeHash string, now time.Time) (sqlcgen.OauthAuthRequest, error) {
+	return s.q.GetAuthRequestByCode(ctx,
+		sqlcgen.GetAuthRequestByCodeParams{TenantID: s.tenantID, CodeHash: &codeHash, ExpiresAt: now})
+}
+
+// CompleteAuthRequest records who signed in.
+func (s *Scoped) CompleteAuthRequest(ctx context.Context, id, subject string, authTime time.Time, amr []string) error {
+	return s.q.CompleteAuthRequest(ctx, sqlcgen.CompleteAuthRequestParams{
+		TenantID: s.tenantID, ID: id, Subject: &subject, AuthTime: &authTime, Amr: amr,
+	})
+}
+
+// SaveAuthCode attaches an authorization code to a completed request.
+func (s *Scoped) SaveAuthCode(ctx context.Context, id, codeHash string) error {
+	return s.q.SaveAuthCode(ctx,
+		sqlcgen.SaveAuthCodeParams{TenantID: s.tenantID, ID: id, CodeHash: &codeHash})
+}
+
+// DeleteAuthRequest removes a request, spent or abandoned.
+func (s *Scoped) DeleteAuthRequest(ctx context.Context, id string) error {
+	return s.q.DeleteAuthRequest(ctx,
+		sqlcgen.DeleteAuthRequestParams{TenantID: s.tenantID, ID: id})
+}
+
+// DeleteExpiredAuthRequests clears requests nobody completed.
+func (s *Scoped) DeleteExpiredAuthRequests(ctx context.Context, before time.Time) error {
+	return s.q.DeleteExpiredAuthRequests(ctx,
+		sqlcgen.DeleteExpiredAuthRequestsParams{TenantID: s.tenantID, ExpiresAt: before})
+}
+
+// CreateRefreshToken stores an issued refresh token.
+func (s *Scoped) CreateRefreshToken(ctx context.Context, arg sqlcgen.CreateRefreshTokenParams) error {
+	arg.TenantID = s.tenantID
+	return s.q.CreateRefreshToken(ctx, arg)
+}
+
+// GetRefreshToken returns a token row whatever its state, so the caller can
+// tell an expired token from one that has already been spent.
+func (s *Scoped) GetRefreshToken(ctx context.Context, tokenHash string) (sqlcgen.OauthRefreshToken, error) {
+	return s.q.GetRefreshToken(ctx,
+		sqlcgen.GetRefreshTokenParams{TenantID: s.tenantID, TokenHash: tokenHash})
+}
+
+// SpendRefreshToken marks a token used and records its replacement.
+func (s *Scoped) SpendRefreshToken(ctx context.Context, id, replacedBy string, now time.Time) error {
+	return s.q.SpendRefreshToken(ctx, sqlcgen.SpendRefreshTokenParams{
+		TenantID: s.tenantID, ID: id, ReplacedBy: &replacedBy, UsedAt: &now,
+	})
+}
+
+// RevokeRefreshToken revokes one token.
+func (s *Scoped) RevokeRefreshToken(ctx context.Context, id string, now time.Time) error {
+	return s.q.RevokeRefreshToken(ctx,
+		sqlcgen.RevokeRefreshTokenParams{TenantID: s.tenantID, ID: id, RevokedAt: &now})
+}
+
+// RevokeRefreshTokenChain revokes a token and everything descended from it,
+// which is the response to a spent token being presented.
+func (s *Scoped) RevokeRefreshTokenChain(ctx context.Context, id string, now time.Time) error {
+	return s.q.RevokeRefreshTokenChain(ctx,
+		sqlcgen.RevokeRefreshTokenChainParams{TenantID: s.tenantID, ID: id, RevokedAt: &now})
+}
+
+// RevokeRefreshTokensForSession ends a person's session with one relying
+// party.
+func (s *Scoped) RevokeRefreshTokensForSession(ctx context.Context, subject, clientID string, now time.Time) error {
+	return s.q.RevokeRefreshTokensForSession(ctx, sqlcgen.RevokeRefreshTokensForSessionParams{
+		TenantID: s.tenantID, Subject: subject, ClientID: clientID, RevokedAt: &now,
+	})
+}
+
+// RevokeAllRefreshTokensForUser reaches every relying party at once, which is
+// what signing out of Portico, changing a password, and being disabled all
+// have to do — otherwise "sessions revoke immediately" stops being true the
+// moment federation is switched on.
+func (s *Scoped) RevokeAllRefreshTokensForUser(ctx context.Context, subject string, now time.Time) error {
+	return s.q.RevokeAllRefreshTokensForUser(ctx, sqlcgen.RevokeAllRefreshTokensForUserParams{
+		TenantID: s.tenantID, Subject: subject, RevokedAt: &now,
+	})
+}
+
 // --- audit ---------------------------------------------------------------
 
 // CreateAuditLog appends an entry to this tenant's audit trail.

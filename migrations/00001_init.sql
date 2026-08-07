@@ -193,7 +193,172 @@ CREATE TABLE system_settings (
     PRIMARY KEY (tenant_id, key)
 );
 
+-- ── Federation ───────────────────────────────────────────────────────────
+--
+-- Portico is an OpenID Provider, and every table below serves that (§3.2).
+--
+-- Each tenant is its own issuer, at {public URL}/t/{code}, with its own
+-- discovery document, its own keys, and its own clients. The alternative —
+-- one issuer with the tenant carried in a claim — is only safe if every
+-- relying party writes extra code to check that claim, and no standard
+-- library does: they check `iss` and the matching key set. Per-tenant
+-- issuers make cross-tenant token confusion structurally impossible rather
+-- than merely discouraged, which is the same standard the rest of this
+-- schema is held to.
+
+-- Signing keys for ID tokens, per tenant.
+--
+-- Asymmetric, because a relying party verifies an ID token offline against
+-- the published JWKS — there is nobody to ask. That is why these exist at
+-- all: the HS256 secret that signs Portico's own sessions cannot be given
+-- out, and a shared secret is not a key set.
+CREATE TABLE oauth_signing_keys (
+    -- The `kid` in the JWT header and in the JWKS. Generated, not derived,
+    -- so a key can be replaced without its identifier being predictable.
+    id        TEXT NOT NULL PRIMARY KEY,
+    tenant_id TEXT NOT NULL REFERENCES tenants (id),
+
+    algorithm   TEXT NOT NULL CHECK (algorithm IN ('RS256')),
+    private_key TEXT NOT NULL,
+    public_key  TEXT NOT NULL,
+
+    -- RETIRED keys stay in the JWKS until every token they signed has
+    -- expired. Removing one at the moment of rotation would invalidate live
+    -- tokens that are perfectly valid, which is the failure people diagnose
+    -- as "the login randomly broke".
+    status TEXT NOT NULL DEFAULT 'ACTIVE' CHECK (status IN ('ACTIVE', 'RETIRED')),
+
+    created_at TIMESTAMPTZ NOT NULL,
+    retired_at TIMESTAMPTZ
+);
+
+COMMENT ON COLUMN oauth_signing_keys.private_key IS
+    'PKCS#8 PEM. Stored as the database stores everything else; protecting it is the deployment''s job, the same as the password hashes beside it.';
+
+CREATE INDEX idx_oauth_signing_keys_tenant ON oauth_signing_keys (tenant_id, status);
+
+-- Relying parties. Registered from the command line, like tenants: a client
+-- registration is a decision about who may ask this server for tokens, and
+-- V0.1 has no role that could be authorized to make it over HTTP.
+CREATE TABLE oauth_clients (
+    id        TEXT NOT NULL PRIMARY KEY,
+    tenant_id TEXT NOT NULL REFERENCES tenants (id),
+
+    -- What the relying party sends as client_id. Unique per tenant, not
+    -- globally, for the same reason usernames are.
+    client_id TEXT NOT NULL,
+    name      TEXT NOT NULL,
+
+    -- Null for a public client. A browser or mobile app cannot keep a
+    -- secret, so it does not get one — it uses PKCE instead, which OAuth 2.1
+    -- requires of every client anyway.
+    secret_hash TEXT,
+
+    application_type TEXT NOT NULL DEFAULT 'WEB'
+        CHECK (application_type IN ('WEB', 'NATIVE', 'USER_AGENT')),
+    auth_method TEXT NOT NULL DEFAULT 'client_secret_basic'
+        CHECK (auth_method IN ('none', 'client_secret_basic', 'client_secret_post')),
+
+    -- Matched exactly, never by prefix or pattern. A redirect URI that is
+    -- matched loosely is how an authorization code ends up at an attacker's
+    -- endpoint, and it is the single most exploited weakness of this flow.
+    redirect_uris             TEXT[] NOT NULL DEFAULT '{}',
+    post_logout_redirect_uris TEXT[] NOT NULL DEFAULT '{}',
+
+    grant_types TEXT[] NOT NULL DEFAULT '{authorization_code}',
+    scopes      TEXT[] NOT NULL DEFAULT '{openid,profile,email}',
+
+    status TEXT NOT NULL DEFAULT 'ACTIVE' CHECK (status IN ('ACTIVE', 'DISABLED')),
+
+    created_at TIMESTAMPTZ NOT NULL,
+    updated_at TIMESTAMPTZ NOT NULL,
+
+    CONSTRAINT uq_oauth_clients_tenant_client_id UNIQUE (tenant_id, client_id)
+);
+
+-- An authorization request in flight: created when the browser arrives at
+-- /authorize, completed when the person signs in, exchanged at /token.
+CREATE TABLE oauth_auth_requests (
+    id        TEXT NOT NULL PRIMARY KEY,
+    tenant_id TEXT NOT NULL REFERENCES tenants (id),
+    client_id TEXT NOT NULL,
+
+    -- Null until the person has signed in. A request that is exchanged for a
+    -- token without one would be a token for nobody.
+    subject TEXT,
+    FOREIGN KEY (tenant_id, subject) REFERENCES users (tenant_id, id),
+
+    redirect_uri  TEXT   NOT NULL,
+    response_type TEXT   NOT NULL,
+    response_mode TEXT   NOT NULL DEFAULT '',
+    scopes        TEXT[] NOT NULL DEFAULT '{}',
+    audience      TEXT[] NOT NULL DEFAULT '{}',
+    state         TEXT   NOT NULL DEFAULT '',
+    nonce         TEXT   NOT NULL DEFAULT '',
+
+    -- PKCE. Not nullable in practice: OAuth 2.1 requires it of every client,
+    -- including confidential ones, so a request without a challenge is
+    -- rejected before it reaches this table.
+    code_challenge        TEXT NOT NULL DEFAULT '',
+    code_challenge_method TEXT NOT NULL DEFAULT '',
+
+    auth_time TIMESTAMPTZ,
+    amr       TEXT[] NOT NULL DEFAULT '{}',
+    done      BOOLEAN NOT NULL DEFAULT FALSE,
+
+    -- The authorization code, once issued. Hashed for the same reason a
+    -- reset token is: it is a bearer credential for its lifetime, and it is
+    -- worth nothing to an attacker who only has the database.
+    code_hash TEXT UNIQUE,
+
+    created_at TIMESTAMPTZ NOT NULL,
+    -- Minutes, not hours. A code is exchanged immediately by a machine; a
+    -- long window only widens the interception opportunity.
+    expires_at TIMESTAMPTZ NOT NULL
+);
+
+CREATE INDEX idx_oauth_auth_requests_expiry ON oauth_auth_requests (expires_at);
+
+-- Issued refresh tokens.
+--
+-- Access tokens are not stored: they are signed JWTs the resource server
+-- verifies offline, which is the whole point of issuing them. Refresh tokens
+-- are stored because they must be revocable and single-use.
+CREATE TABLE oauth_refresh_tokens (
+    id        TEXT NOT NULL PRIMARY KEY,
+    tenant_id TEXT NOT NULL REFERENCES tenants (id),
+    client_id TEXT NOT NULL,
+
+    subject TEXT NOT NULL,
+    FOREIGN KEY (tenant_id, subject) REFERENCES users (tenant_id, id),
+
+    token_hash TEXT NOT NULL UNIQUE,
+
+    scopes   TEXT[] NOT NULL DEFAULT '{}',
+    audience TEXT[] NOT NULL DEFAULT '{}',
+    amr      TEXT[] NOT NULL DEFAULT '{}',
+
+    auth_time TIMESTAMPTZ NOT NULL,
+
+    -- Rotation. Each use issues a replacement and marks this one spent; the
+    -- chain ties them together so that presenting a spent token — which
+    -- means a copy leaked — can revoke every descendant rather than just
+    -- failing the one call.
+    replaced_by TEXT REFERENCES oauth_refresh_tokens (id),
+    used_at     TIMESTAMPTZ,
+    revoked_at  TIMESTAMPTZ,
+
+    created_at TIMESTAMPTZ NOT NULL,
+    expires_at TIMESTAMPTZ NOT NULL
+);
+
+CREATE INDEX idx_oauth_refresh_tokens_subject ON oauth_refresh_tokens (tenant_id, subject, client_id);
+
 -- +goose Down
+DROP TABLE oauth_refresh_tokens;
+DROP TABLE oauth_auth_requests;
+DROP TABLE oauth_clients;
+DROP TABLE oauth_signing_keys;
 DROP TABLE password_resets;
 DROP TABLE system_settings;
 DROP TABLE audit_logs;
