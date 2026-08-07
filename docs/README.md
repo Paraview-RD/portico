@@ -5,6 +5,9 @@
 - **[access-guide.md](access-guide.md)** — entry points, where credentials
   come from, what each role can do, and how to put Portico behind a reverse
   proxy. Start here to deploy it.
+- **[federation.md](federation.md)** — signing an application in through
+  Portico: issuers, registering a client, what the tokens carry, and exactly
+  what revocation can and cannot reach. Read this before integrating.
 - **[integrations.md](integrations.md)** — external services Portico depends
   on at runtime (there are none, deliberately) and what that implies.
 

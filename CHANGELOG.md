@@ -31,6 +31,11 @@ Working toward 0.1.0 — the first release. Nothing has been published yet.
   registration toggle are each a tenant's own.
 - Tokens carry the tenant, and it is checked against the account record on
   every request, so a token cannot act outside the tenant it was issued in.
+- **Signing out, changing a password, and disabling an account now revoke
+  the federated sessions too**, not only Portico's own. Bumping
+  `token_version` never reached a relying party's refresh token, which is a
+  separate credential in a separate table and would have stayed valid for
+  its full month.
 - Audit writes no longer inherit the request's cancellation. A client that
   closed the tab used to take the entry with it, which was worst for exactly
   the events worth recording.
@@ -51,6 +56,40 @@ Working toward 0.1.0 — the first release. Nothing has been published yet.
 - `PORTICO_DB_DSN` is required and has no default.
 
 ### Added
+
+- **OpenID Connect 1.0 and OAuth 2.1.** Portico is an OpenID Provider:
+  discovery, authorize, token, userinfo, introspection, revocation,
+  end-session, and a published key set. An application points its own OIDC
+  library at the issuer and needs nothing Portico-specific.
+  [docs/federation.md](docs/federation.md) is the integrator's guide.
+- Each tenant is its own issuer at `/t/<code>`, with its own signing key and
+  its own accounts. A token minted for one tenant is unusable against
+  another because a relying party checks `iss` and fetches the key set that
+  issuer names — both things every library already does, unlike a custom
+  tenant claim nothing would check. The default tenant is additionally
+  served at the root, so a single-tenant deployment never has to explain
+  tenants to an integrator.
+- Only the authorization code grant, and PKCE (`S256`) is required of every
+  client including confidential ones. The implicit and hybrid flows put
+  tokens in URLs, which is why OAuth 2.1 removes them.
+- Refresh tokens rotate on every use. Presenting a spent one means a copy
+  leaked, so the whole chain is revoked rather than the one call failing —
+  which link leaked is unknowable. A refresh also re-checks that the account
+  is still enabled.
+- Tokens carry `tenant_id`, `tenant_code`, `role`, and the organization, in
+  the ID token, the access token, and userinfo alike.
+- Signing keys are per tenant, generated on first use, and rotated with
+  `portico client rotate-key`. A retired key stays published for 24 hours so
+  the tokens it signed keep verifying.
+- Applications are registered from the command line —
+  `portico client register|list|enable|disable|rotate-key`. There is no API,
+  for the same reason there is none for tenants: no role exists that could
+  be authorized to perform it. Redirect URIs are matched exactly, and
+  wildcards, fragments, and non-loopback `http://` are refused at
+  registration.
+- `OAUTH_AUTHORIZE` audit entries record who authorized which application,
+  and when.
+- Abandoned authorization requests are swept hourly.
 
 - **Password recovery** by email, with a single-use link that expires in 30
   minutes and invalidates any earlier one. The request endpoint answers
@@ -131,3 +170,13 @@ Portico has no TLS and no rate limiting, both deliberately. It must run
 behind a reverse proxy that provides them — see
 [SECURITY.md](SECURITY.md) and
 [docs/access-guide.md](docs/access-guide.md).
+
+An access token already issued cannot be withdrawn: a resource server
+verifies it offline and never calls back, which is the whole reason to
+federate. They last fifteen minutes, and the introspection endpoint answers
+for anyone who needs to know sooner. Expired refresh tokens stop working but
+are never deleted, so their rows accumulate; abandoned authorization
+requests are swept, refresh tokens are not. There is no consent screen,
+because every client is registered out of band by an administrator and there
+is no third party to consent to. See
+[docs/federation.md](docs/federation.md).

@@ -10,6 +10,7 @@ what each role can actually do.
 | Web UI | `http://<host>:8410/` | Served by the same process as the API |
 | API | `http://<host>:8410/api/v1/` | See [api-conventions.md](api-conventions.md) |
 | Health check | `http://<host>:8410/api/v1/health` | No authentication; safe for load balancers |
+| OpenID discovery | `http://<host>:8410/.well-known/openid-configuration` | The default tenant. Others at `/t/<code>/.well-known/openid-configuration` |
 
 The port is `PORTICO_ADDR` (default `:8410`). In development the frontend
 also runs a Vite server on `:5410` that proxies `/api` to `:8410`; in
@@ -218,3 +219,8 @@ A downstream application receives the user's token and calls:
 
 Both take the user's own bearer token. There are no service accounts or
 machine-to-machine credentials in the MVP.
+
+That path suits a system that already has the user's Portico token. A
+system that needs to sign people in itself should use OpenID Connect
+instead — point its library at the issuer and register it with
+`portico client register`. See [federation.md](federation.md).

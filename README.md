@@ -31,8 +31,13 @@ the loop. Recovery needs an SMTP relay; point `PORTICO_SMTP_HOST` at whatever
 you already run. SMS recovery is defined as a provider interface and ships
 without one.
 
-**Sessions that actually revoke** — logout, a password change, and disabling
-an account each invalidate live sessions immediately, not at token expiry.
+**Sessions that revoke** — logout, a password change, and disabling an
+account each end every session Portico can reach, immediately: its own, and
+every refresh token held by a federated application. What no identity
+provider can withdraw is an access token already issued, because a resource
+server verifies one offline and never asks. Portico keeps those to fifteen
+minutes and publishes an introspection endpoint for anyone who needs the
+answer sooner. See [docs/federation.md](docs/federation.md).
 
 **Audit log** — sign-ins, operations, authorization, registrations, and
 organization changes, filterable by type and time range.
@@ -103,6 +108,22 @@ Each gets its own administrator; the password is printed once unless you
 pass `--admin-password`. Its users sign in with the tenant code, typed into
 the **Tenant** field or carried by a link: `/login?tenant=acme`.
 
+### Applications
+
+Point an application's OpenID Connect library at the issuer and register it
+from the command line. There is nothing Portico-specific to write.
+
+```bash
+portico client register --id grafana --name Grafana \
+  --redirect-uri https://grafana.example.com/login/generic_oauth
+```
+
+The issuer is `PORTICO_PUBLIC_URL` for the default tenant, and
+`PORTICO_PUBLIC_URL/t/<code>` for any other. Everything else — endpoints,
+keys, supported grants — comes from the discovery document the library
+fetches. [docs/federation.md](docs/federation.md) covers the details,
+including exactly what revocation reaches.
+
 ## Developing
 
 ```bash
@@ -138,6 +159,8 @@ internal/
   store/           database access; sqlcgen/ is generated
   testdb/          throwaway PostgreSQL for tests
   model/           domain types
+  oidcp/           adapts Portico to the OpenID Provider interface
+  provision/       tenant and client provisioning, for the CLI
   web/             embeds the built frontend
 migrations/        schema, embedded and applied at startup
 web/               React + Vite frontend
@@ -168,6 +191,7 @@ Conventions this project holds itself to — all in [docs/](docs/):
 [code](docs/code-conventions.md) ·
 [config](docs/configuration-conventions.md) ·
 [API](docs/api-conventions.md) ·
+[federation](docs/federation.md) ·
 [database](docs/database-conventions.md) ·
 [errors](docs/error-conventions.md) ·
 [logging](docs/logging-conventions.md) ·

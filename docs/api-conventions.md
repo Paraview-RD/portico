@@ -18,6 +18,20 @@ not derived from or tied to any particular company's internal standard.
   version; the previous version keeps working until it's formally
   deprecated.
 
+**One exception, and it is not ours to make.** The OpenID Connect and OAuth
+2.1 endpoints — `/authorize`, `/oauth/token`, `/userinfo`, `/keys`,
+`/.well-known/openid-configuration`, and the rest, at the root and under
+`/t/<tenant>/` — follow the specifications' URL shapes and error formats,
+not the conventions on this page. They return `{"error": "...",
+"error_description": "..."}` rather than the envelope below, because that is
+what every OIDC client library parses. A standard endpoint that answered in
+a house style would be a standard endpoint nothing could talk to. They are
+documented in [federation.md](federation.md).
+
+`POST /api/v1/oauth/authorize` is Portico's own, and does follow these
+conventions: it is the seam where the sign-in screen hands an authenticated
+person back to the provider, and its caller is Portico's own web UI.
+
 ## HTTP methods
 
 Full REST verb semantics — this project has no gateway constraint that

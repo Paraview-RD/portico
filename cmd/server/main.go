@@ -77,8 +77,9 @@ Configuration is entirely environment variables:
   PORTICO_TOKEN_TTL                token lifetime, e.g. "2h" (default "2h")
   PORTICO_TRUST_PROXY_HEADERS      trust X-Forwarded-For (default false; only
                                    enable behind a proxy you control)
-  PORTICO_PUBLIC_URL               where people reach this deployment, used to
-                                   build password-recovery links
+  PORTICO_PUBLIC_URL               where people reach this deployment. Used for
+                                   password-recovery links and as the OpenID
+                                   Connect issuer identifier
                                    (default "http://localhost:8410")
   PORTICO_SMTP_HOST                mail relay for password recovery. Unset
                                    means email recovery is unavailable.
