@@ -8,7 +8,6 @@ import (
 	"github.com/paraview/portico/internal/config"
 	"github.com/paraview/portico/internal/model"
 	"github.com/paraview/portico/internal/provision"
-	"github.com/paraview/portico/internal/testdb"
 )
 
 // These are the tests that actually prove tenant isolation. The guards in
@@ -35,14 +34,7 @@ func newMultiTenantTest(t *testing.T) (*apiTest, tenantSetup, tenantSetup) {
 	t.Helper()
 	silenceLogs(t)
 
-	cfg, err := config.Load()
-	if err != nil {
-		t.Fatalf("load config: %v", err)
-	}
-	cfg.DatabaseDriver = "postgres"
-	cfg.DatabaseDSN = testdb.DSN(t)
-	cfg.InitialAdminUsername = adminUsername
-	cfg.InitialAdminPassword = adminPassword
+	cfg := testConfig(t)
 
 	api := newAPITestWithConfig(t, cfg)
 

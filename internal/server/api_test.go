@@ -11,6 +11,7 @@ import (
 	"testing"
 
 	"github.com/paraview/portico/internal/config"
+	"github.com/paraview/portico/internal/notify"
 	"github.com/paraview/portico/internal/server"
 	"github.com/paraview/portico/internal/testdb"
 )
@@ -33,6 +34,18 @@ const (
 func newAPITest(t *testing.T) *apiTest {
 	t.Helper()
 	silenceLogs(t)
+	return newAPITestWithConfig(t, testConfig(t))
+}
+
+// testConfig is a configuration a test controls entirely.
+//
+// config.Load reads the process environment, so a developer who has
+// PORTICO_SMTP_HOST exported for a local run would otherwise fail the tests
+// that assert what a deployment with no mail relay does — and the failure
+// reads as a regression rather than as their own shell. Anything a test
+// might assert about is set here rather than inherited.
+func testConfig(t *testing.T) *config.Config {
+	t.Helper()
 
 	cfg, err := config.Load()
 	if err != nil {
@@ -42,8 +55,13 @@ func newAPITest(t *testing.T) *apiTest {
 	cfg.DatabaseDSN = testdb.DSN(t)
 	cfg.InitialAdminUsername = adminUsername
 	cfg.InitialAdminPassword = adminPassword
+	cfg.PublicURL = "http://portico.test"
+	cfg.TrustProxyHeaders = false
+	// No relay: the tests that want one substitute a recorder, and the ones
+	// that want none are asserting exactly this.
+	cfg.SMTP = notify.SMTPConfig{}
 
-	return newAPITestWithConfig(t, cfg)
+	return cfg
 }
 
 // newAPITestWithConfig is the same, for tests that need to reach the

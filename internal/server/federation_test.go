@@ -22,7 +22,6 @@ import (
 	"github.com/paraview/portico/internal/provision"
 	"github.com/paraview/portico/internal/service"
 	"github.com/paraview/portico/internal/store"
-	"github.com/paraview/portico/internal/testdb"
 )
 
 // The federation tests drive Portico with the same library an integrator
@@ -60,14 +59,7 @@ func newFederationTest(t *testing.T) *federationTest {
 	ts := httptest.NewUnstartedServer(nil)
 	publicURL := "http://" + ts.Listener.Addr().String()
 
-	cfg, err := config.Load()
-	if err != nil {
-		t.Fatalf("load config: %v", err)
-	}
-	cfg.DatabaseDriver = "postgres"
-	cfg.DatabaseDSN = testdb.DSN(t)
-	cfg.InitialAdminUsername = adminUsername
-	cfg.InitialAdminPassword = adminPassword
+	cfg := testConfig(t)
 	cfg.PublicURL = publicURL
 
 	api := newAPITestWithConfig(t, cfg)
