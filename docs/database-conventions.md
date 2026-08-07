@@ -56,12 +56,11 @@ stays coherent as it grows, not because it is complicated today.
   service-layer bug that would otherwise write an invalid state, and the
   schema tests assert that it does.
 
-- **Foreign keys are declared and enforced** (`foreign_keys(1)` is set on
-  every connection). This is a deliberate departure from the common advice
-  to avoid database-level foreign keys — that advice is about sharded,
-  high-write deployments where the constraint is expensive and cannot span
-  shards. Neither applies to a single-node embedded database, and here the
-  constraint has already caught a bug in a test.
+- **Foreign keys are declared and enforced.** This is a deliberate departure
+  from the common advice to avoid database-level foreign keys — that advice
+  is about sharded, high-write deployments where the constraint is expensive
+  and cannot span shards. Neither applies here, and the constraint has
+  already caught a bug in a test.
 
 - **Money, if it is ever stored, uses an exact decimal representation** —
   never a float. There is no money in the schema today; this is here so the
@@ -69,24 +68,25 @@ stays coherent as it grows, not because it is complicated today.
 
 ## Timestamps
 
-Stored as ISO 8601 text in UTC (`2026-08-07T14:25:33Z`), not Unix integers
-and not a native date type.
+`TIMESTAMPTZ`, always. The driver scans it straight into a Go `time.Time`,
+so there is no conversion layer and no format to agree on.
 
-The reasoning: SQLite has no real timestamp type, so something has to be
-chosen. Text sorts correctly lexicographically, is readable straight from
-the `sqlite3` CLI while debugging, and survives a dump/restore unambiguously.
-The cost is a conversion on the way in and out, which lives in exactly one
-place — [`internal/store/dbtime`](../internal/store/dbtime/) — rather than
-being spread across callers.
+Everything is stored in UTC. Localization happens in the browser, from the
+reader's own locale and zone — a server that formats dates has committed to
+one of each for everybody.
 
-Everything is UTC in the database. Localization happens in the browser.
+An earlier version stored ISO 8601 text, because SQLite has no timestamp
+type and something had to be picked. That shim is gone.
 
 ## Comments
 
-SQLite does not support `COMMENT ON`, so column documentation lives in `--`
-comments in the migration file. Every non-obvious column has one, and the
-bar for "non-obvious" is low — `token_version` and `source` both carry an
-explanation of why they exist, because neither is guessable from the name.
+Non-obvious columns carry a `COMMENT ON`, and the bar for "non-obvious" is
+low — `token_version` and `users.source` both have one, because neither is
+guessable from its name.
+
+These are worth writing for a reason beyond documentation: sqlc lifts them
+into doc comments on the generated Go structs, so an explanation written
+once in the schema shows up wherever the field is used.
 
 A column whose purpose cannot be explained in one line probably wants to be
 two columns.
@@ -141,8 +141,10 @@ build time. Prefer adding one there over hand-writing SQL.
 
 Hand-written SQL is appropriate when the shape of the query varies — the
 user and audit-log list endpoints build their `WHERE` clause from whichever
-filters were supplied, which sqlc cannot express. When you do write SQL by
-hand:
+filters were supplied, which sqlc cannot express. Those go through the
+`filters` builder in `internal/service/common.go`, which numbers PostgreSQL
+placeholders and accumulates arguments together, so the two cannot drift
+apart. When you do write SQL by hand:
 
 - **Every user-supplied value goes through a placeholder.** Never build SQL
   by concatenating a value, even one that "cannot" contain anything
@@ -152,15 +154,20 @@ hand:
 - **`ORDER BY` and `LIMIT` are fixed**, never interpolated from input.
 - **Escape `LIKE` wildcards** in user input and declare `ESCAPE`, or a search
   for `%` matches every row.
+- **Placeholders are `$1`, `$2`, …**, numbered by position. Getting the
+  numbering out of step with the argument slice binds values to the wrong
+  conditions, which is why the builder exists rather than hand-counting.
 
 ## What is deliberately absent
 
-- **No multi-tenancy.** There is no `tenant_id` anywhere. Portico is
-  single-tenant by design; a deployment serves one organization's users.
-  Adding tenancy later is a schema-wide change, not a column.
+- **Multi-tenancy is being added**, and it is a schema-wide change rather
+  than a column — every table, every unique constraint, and every query.
+  Until that lands, this section will be out of date the moment it does;
+  see the requirements document.
 - **No optimistic-locking `version` column.** Nothing in the current
   workload has concurrent-update contention worth the complexity.
   `users.token_version` is unrelated — it is a session revocation counter.
-- **No partitioning, no sharding, no read replicas.** SQLite permits one
-  writer; that is the accepted trade for a single-file, zero-dependency
-  deployment. See the README's design notes.
+- **No partitioning, no sharding, no read replicas.** A single PostgreSQL
+  instance is the assumption. Read replicas are a plausible later step; the
+  connection pool would need to route by statement kind, which nothing does
+  today.

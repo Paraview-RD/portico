@@ -3,7 +3,7 @@ INSERT INTO audit_logs (
     id, kind, action, actor_id, actor_username,
     target_type, target_id, target_name,
     result, detail, ip, created_at
-) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?);
+) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12);
 
 -- name: GetAuditLogByID :one
-SELECT * FROM audit_logs WHERE id = ? LIMIT 1;
+SELECT * FROM audit_logs WHERE id = $1 LIMIT 1;

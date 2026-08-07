@@ -33,9 +33,7 @@ USER 65534:65534
 # would mean leaving scratch. Timestamps are stored in UTC for this reason.
 COPY --from=build /portico /portico
 
-# The database is a file; mount a volume here to keep it across restarts.
-VOLUME ["/data"]
-ENV PORTICO_DB_DSN=/data/portico.db
+# No volume: state lives in PostgreSQL, so the container is disposable.
 ENV PORTICO_ADDR=:8410
 
 EXPOSE 8410

@@ -7,9 +7,9 @@ package sqlcgen
 
 import (
 	"context"
-	"strings"
+	"time"
 
-	dbtime "github.com/paraview/portico/internal/store/dbtime"
+	"github.com/lib/pq"
 )
 
 const countOrganizations = `-- name: CountOrganizations :one
@@ -26,7 +26,7 @@ func (q *Queries) CountOrganizations(ctx context.Context) (int64, error) {
 const createOrganization = `-- name: CreateOrganization :exec
 INSERT INTO organizations (
     id, name, code, remark, status, sort_order, created_at, updated_at
-) VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+) VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
 `
 
 type CreateOrganizationParams struct {
@@ -36,8 +36,8 @@ type CreateOrganizationParams struct {
 	Remark    string
 	Status    string
 	SortOrder int64
-	CreatedAt dbtime.Time
-	UpdatedAt dbtime.Time
+	CreatedAt time.Time
+	UpdatedAt time.Time
 }
 
 func (q *Queries) CreateOrganization(ctx context.Context, arg CreateOrganizationParams) error {
@@ -55,7 +55,7 @@ func (q *Queries) CreateOrganization(ctx context.Context, arg CreateOrganization
 }
 
 const getOrganizationByCode = `-- name: GetOrganizationByCode :one
-SELECT id, name, code, remark, status, sort_order, created_at, updated_at FROM organizations WHERE code = ? LIMIT 1
+SELECT id, name, code, remark, status, sort_order, created_at, updated_at FROM organizations WHERE code = $1 LIMIT 1
 `
 
 func (q *Queries) GetOrganizationByCode(ctx context.Context, code string) (Organization, error) {
@@ -75,7 +75,7 @@ func (q *Queries) GetOrganizationByCode(ctx context.Context, code string) (Organ
 }
 
 const getOrganizationByID = `-- name: GetOrganizationByID :one
-SELECT id, name, code, remark, status, sort_order, created_at, updated_at FROM organizations WHERE id = ? LIMIT 1
+SELECT id, name, code, remark, status, sort_order, created_at, updated_at FROM organizations WHERE id = $1 LIMIT 1
 `
 
 func (q *Queries) GetOrganizationByID(ctx context.Context, id string) (Organization, error) {
@@ -167,21 +167,11 @@ func (q *Queries) ListOrganizations(ctx context.Context) ([]Organization, error)
 }
 
 const listOrganizationsByIDs = `-- name: ListOrganizationsByIDs :many
-SELECT id, name, code, remark, status, sort_order, created_at, updated_at FROM organizations WHERE id IN (/*SLICE:ids*/?)
+SELECT id, name, code, remark, status, sort_order, created_at, updated_at FROM organizations WHERE id = ANY($1::text[])
 `
 
-func (q *Queries) ListOrganizationsByIDs(ctx context.Context, ids []string) ([]Organization, error) {
-	query := listOrganizationsByIDs
-	var queryParams []interface{}
-	if len(ids) > 0 {
-		for _, v := range ids {
-			queryParams = append(queryParams, v)
-		}
-		query = strings.Replace(query, "/*SLICE:ids*/?", strings.Repeat(",?", len(ids))[1:], 1)
-	} else {
-		query = strings.Replace(query, "/*SLICE:ids*/?", "NULL", 1)
-	}
-	rows, err := q.db.QueryContext(ctx, query, queryParams...)
+func (q *Queries) ListOrganizationsByIDs(ctx context.Context, dollar_1 []string) ([]Organization, error) {
+	rows, err := q.db.QueryContext(ctx, listOrganizationsByIDs, pq.Array(dollar_1))
 	if err != nil {
 		return nil, err
 	}
@@ -214,18 +204,18 @@ func (q *Queries) ListOrganizationsByIDs(ctx context.Context, ids []string) ([]O
 
 const updateOrganization = `-- name: UpdateOrganization :exec
 UPDATE organizations
-SET name = ?,
-    remark = ?,
-    sort_order = ?,
-    updated_at = ?
-WHERE id = ?
+SET name = $1,
+    remark = $2,
+    sort_order = $3,
+    updated_at = $4
+WHERE id = $5
 `
 
 type UpdateOrganizationParams struct {
 	Name      string
 	Remark    string
 	SortOrder int64
-	UpdatedAt dbtime.Time
+	UpdatedAt time.Time
 	ID        string
 }
 
@@ -241,12 +231,12 @@ func (q *Queries) UpdateOrganization(ctx context.Context, arg UpdateOrganization
 }
 
 const updateOrganizationStatus = `-- name: UpdateOrganizationStatus :exec
-UPDATE organizations SET status = ?, updated_at = ? WHERE id = ?
+UPDATE organizations SET status = $1, updated_at = $2 WHERE id = $3
 `
 
 type UpdateOrganizationStatusParams struct {
 	Status    string
-	UpdatedAt dbtime.Time
+	UpdatedAt time.Time
 	ID        string
 }
 

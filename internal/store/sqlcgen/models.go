@@ -5,13 +5,14 @@
 package sqlcgen
 
 import (
-	dbtime "github.com/paraview/portico/internal/store/dbtime"
+	"time"
 )
 
 type AuditLog struct {
-	ID            string
-	Kind          string
-	Action        string
+	ID     string
+	Kind   string
+	Action string
+	// Null when the actor could not be identified, such as a sign-in attempt against an unknown username.
 	ActorID       *string
 	ActorUsername string
 	TargetType    string
@@ -20,24 +21,27 @@ type AuditLog struct {
 	Result        string
 	Detail        string
 	Ip            string
-	CreatedAt     dbtime.Time
+	CreatedAt     time.Time
 }
 
+// Flat groupings of users. No hierarchy in this version.
 type Organization struct {
-	ID        string
-	Name      string
-	Code      string
-	Remark    string
+	ID   string
+	Name string
+	// Stable identifier used by bulk import and downstream systems. Immutable once created.
+	Code   string
+	Remark string
+	// DISABLED blocks new members but keeps existing ones.
 	Status    string
 	SortOrder int64
-	CreatedAt dbtime.Time
-	UpdatedAt dbtime.Time
+	CreatedAt time.Time
+	UpdatedAt time.Time
 }
 
 type SystemSetting struct {
 	Key       string
 	Value     string
-	UpdatedAt dbtime.Time
+	UpdatedAt time.Time
 }
 
 type User struct {
@@ -50,8 +54,10 @@ type User struct {
 	Role           string
 	Status         string
 	OrganizationID *string
-	TokenVersion   int64
-	Source         string
-	CreatedAt      dbtime.Time
-	UpdatedAt      dbtime.Time
+	// Bumped on logout, password change, and disable. A token carrying a stale value is rejected, which is how a stateless JWT is revoked immediately.
+	TokenVersion int64
+	// How the account came to exist, for the registration log.
+	Source    string
+	CreatedAt time.Time
+	UpdatedAt time.Time
 }

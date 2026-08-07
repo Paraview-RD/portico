@@ -8,6 +8,17 @@ follow [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 Working toward 0.1.0 — the first release. Nothing has been published yet.
 
+### Changed
+
+- **Storage is PostgreSQL.** An earlier iteration used SQLite, which suited a
+  single-tenant intranet tool but is the wrong shape for a multi-tenant
+  identity provider other systems depend on. A deployment is now two
+  processes rather than one; the binary still needs no cgo and still ships
+  in a `scratch` image.
+- Timestamps use `TIMESTAMPTZ` and scan directly into `time.Time`. The
+  conversion layer SQLite required is gone.
+- `PORTICO_DB_DSN` is required and has no default.
+
 ### Added
 
 - Local account lifecycle: create, edit, enable/disable, reset password,

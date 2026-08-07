@@ -7,12 +7,11 @@ package sqlcgen
 
 import (
 	"context"
-
-	dbtime "github.com/paraview/portico/internal/store/dbtime"
+	"time"
 )
 
 const getSetting = `-- name: GetSetting :one
-SELECT "key", value, updated_at FROM system_settings WHERE key = ? LIMIT 1
+SELECT key, value, updated_at FROM system_settings WHERE key = $1 LIMIT 1
 `
 
 func (q *Queries) GetSetting(ctx context.Context, key string) (SystemSetting, error) {
@@ -23,7 +22,7 @@ func (q *Queries) GetSetting(ctx context.Context, key string) (SystemSetting, er
 }
 
 const listSettings = `-- name: ListSettings :many
-SELECT "key", value, updated_at FROM system_settings ORDER BY key
+SELECT key, value, updated_at FROM system_settings ORDER BY key
 `
 
 func (q *Queries) ListSettings(ctx context.Context) ([]SystemSetting, error) {
@@ -51,14 +50,14 @@ func (q *Queries) ListSettings(ctx context.Context) ([]SystemSetting, error) {
 
 const upsertSetting = `-- name: UpsertSetting :exec
 INSERT INTO system_settings (key, value, updated_at)
-VALUES (?, ?, ?)
+VALUES ($1, $2, $3)
 ON CONFLICT (key) DO UPDATE SET value = excluded.value, updated_at = excluded.updated_at
 `
 
 type UpsertSettingParams struct {
 	Key       string
 	Value     string
-	UpdatedAt dbtime.Time
+	UpdatedAt time.Time
 }
 
 func (q *Queries) UpsertSetting(ctx context.Context, arg UpsertSettingParams) error {

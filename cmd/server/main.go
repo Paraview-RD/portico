@@ -55,8 +55,9 @@ Usage:
 Configuration is entirely environment variables:
 
   PORTICO_ADDR                     listen address (default ":8410")
-  PORTICO_DB_DRIVER                storage driver (default "sqlite")
-  PORTICO_DB_DSN                   database file (default "portico.db")
+  PORTICO_DB_DRIVER                storage driver (default "postgres")
+  PORTICO_DB_DSN                   required. PostgreSQL connection string, e.g.
+                                   postgres://portico:secret@localhost:5432/portico?sslmode=disable
   PORTICO_JWT_SECRET               token signing secret; at least %d bytes.
                                    Generate with: openssl rand -hex 32
   PORTICO_TOKEN_TTL                token lifetime, e.g. "2h" (default "2h")

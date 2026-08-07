@@ -15,9 +15,7 @@ USER 65534:65534
 
 COPY $TARGETPLATFORM/portico /portico
 
-# The database is a file; mount a volume here to keep it across restarts.
-VOLUME ["/data"]
-ENV PORTICO_DB_DSN=/data/portico.db
+# No volume: state lives in PostgreSQL, so the container is disposable.
 ENV PORTICO_ADDR=:8410
 
 EXPOSE 8410

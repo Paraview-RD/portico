@@ -7,8 +7,7 @@ package sqlcgen
 
 import (
 	"context"
-
-	dbtime "github.com/paraview/portico/internal/store/dbtime"
+	"time"
 )
 
 const createAuditLog = `-- name: CreateAuditLog :exec
@@ -16,7 +15,7 @@ INSERT INTO audit_logs (
     id, kind, action, actor_id, actor_username,
     target_type, target_id, target_name,
     result, detail, ip, created_at
-) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12)
 `
 
 type CreateAuditLogParams struct {
@@ -31,7 +30,7 @@ type CreateAuditLogParams struct {
 	Result        string
 	Detail        string
 	Ip            string
-	CreatedAt     dbtime.Time
+	CreatedAt     time.Time
 }
 
 func (q *Queries) CreateAuditLog(ctx context.Context, arg CreateAuditLogParams) error {
@@ -53,7 +52,7 @@ func (q *Queries) CreateAuditLog(ctx context.Context, arg CreateAuditLogParams) 
 }
 
 const getAuditLogByID = `-- name: GetAuditLogByID :one
-SELECT id, kind, "action", actor_id, actor_username, target_type, target_id, target_name, result, detail, ip, created_at FROM audit_logs WHERE id = ? LIMIT 1
+SELECT id, kind, action, actor_id, actor_username, target_type, target_id, target_name, result, detail, ip, created_at FROM audit_logs WHERE id = $1 LIMIT 1
 `
 
 func (q *Queries) GetAuditLogByID(ctx context.Context, id string) (AuditLog, error) {

@@ -244,8 +244,8 @@ func toOrganization(row sqlcgen.Organization, userCount int64) model.Organizatio
 		Remark:    row.Remark,
 		Status:    model.Status(row.Status),
 		SortOrder: int(row.SortOrder),
-		CreatedAt: row.CreatedAt.Time,
-		UpdatedAt: row.UpdatedAt.Time,
+		CreatedAt: row.CreatedAt,
+		UpdatedAt: row.UpdatedAt,
 		UserCount: userCount,
 	}
 }

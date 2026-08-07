@@ -111,50 +111,39 @@ type UserQuery struct {
 // Hand-written because the filters are optional and sqlc cannot express a
 // query whose WHERE clause varies.
 func (s *UserService) List(ctx context.Context, q UserQuery, page Page) ([]model.User, int64, error) {
-	var (
-		where []string
-		args  []any
-	)
+	var f filters
 
 	if keyword := strings.TrimSpace(q.Keyword); keyword != "" {
-		where = append(where, `(username LIKE ? ESCAPE '\' OR display_name LIKE ? ESCAPE '\')`)
 		pattern := "%" + escapeLike(keyword) + "%"
-		args = append(args, pattern, pattern)
+		f.Add(`(username LIKE %s ESCAPE '\' OR display_name LIKE %s ESCAPE '\')`, pattern, pattern)
 	}
 	if q.Status != "" {
-		where = append(where, "status = ?")
-		args = append(args, string(q.Status))
+		f.Add("status = %s", string(q.Status))
 	}
 	if q.Role != "" {
-		where = append(where, "role = ?")
-		args = append(args, string(q.Role))
+		f.Add("role = %s", string(q.Role))
 	}
 	if q.OrganizationID != "" {
-		where = append(where, "organization_id = ?")
-		args = append(args, q.OrganizationID)
+		f.Add("organization_id = %s", q.OrganizationID)
 	}
 
-	clause := ""
-	if len(where) > 0 {
-		clause = " WHERE " + strings.Join(where, " AND ")
-	}
+	clause := f.Where()
 
 	var total int64
 	if err := s.store.DB().QueryRowContext(ctx,
-		"SELECT COUNT(*) FROM users"+clause, args...).Scan(&total); err != nil {
+		"SELECT COUNT(*) FROM users"+clause, f.Args()...).Scan(&total); err != nil {
 		return nil, 0, fmt.Errorf("count users: %w", err)
 	}
 	if total == 0 {
 		return nil, 0, nil
 	}
 
+	pageClause, args := f.Paginate(page)
 	rows, err := s.store.DB().QueryContext(ctx,
 		`SELECT id, username, display_name, password_hash, phone, email, role, status,
 		        organization_id, token_version, source, created_at, updated_at
 		 FROM users`+clause+`
-		 ORDER BY created_at DESC, id DESC
-		 LIMIT ? OFFSET ?`,
-		append(args, page.Limit, page.Offset)...)
+		 ORDER BY created_at DESC, id DESC`+pageClause, args...)
 	if err != nil {
 		return nil, 0, fmt.Errorf("list users: %w", err)
 	}
@@ -427,8 +416,8 @@ func (s *UserService) attachOrganizations(ctx context.Context, rows []sqlcgen.Us
 			Role:        model.Role(row.Role),
 			Status:      model.Status(row.Status),
 			Source:      model.UserSource(row.Source),
-			CreatedAt:   row.CreatedAt.Time,
-			UpdatedAt:   row.UpdatedAt.Time,
+			CreatedAt:   row.CreatedAt,
+			UpdatedAt:   row.UpdatedAt,
 		}
 		if row.OrganizationID != nil {
 			user.OrganizationID = *row.OrganizationID
@@ -477,7 +466,7 @@ func (s *UserService) resolveAssignableOrganization(ctx context.Context, orgID s
 func (s *UserService) ensureNotLastAdmin(ctx context.Context, userID string) error {
 	var count int64
 	err := s.store.DB().QueryRowContext(ctx,
-		`SELECT COUNT(*) FROM users WHERE role = ? AND status = ? AND id <> ?`,
+		`SELECT COUNT(*) FROM users WHERE role = $1 AND status = $2 AND id <> $3`,
 		string(model.RoleSuperAdmin), string(model.StatusActive), userID,
 	).Scan(&count)
 	if err != nil {

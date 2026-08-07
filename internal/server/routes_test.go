@@ -4,12 +4,12 @@ import (
 	"encoding/json"
 	"net/http"
 	"net/http/httptest"
-	"path/filepath"
 	"testing"
 
 	"github.com/paraview/portico/internal/config"
 	"github.com/paraview/portico/internal/httpx"
 	"github.com/paraview/portico/internal/server"
+	"github.com/paraview/portico/internal/testdb"
 )
 
 func newTestServer(t *testing.T) *server.Server {
@@ -19,7 +19,8 @@ func newTestServer(t *testing.T) *server.Server {
 		t.Fatalf("load config: %v", err)
 	}
 	// Each test gets its own database file so runs stay independent.
-	cfg.DatabaseDSN = filepath.Join(t.TempDir(), "test.db")
+	cfg.DatabaseDriver = "postgres"
+	cfg.DatabaseDSN = testdb.DSN(t)
 
 	srv, err := server.New(cfg)
 	if err != nil {

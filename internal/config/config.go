@@ -26,11 +26,11 @@ type Config struct {
 	// Addr is the TCP address the HTTP server listens on.
 	Addr string
 
-	// DatabaseDriver selects the storage backend ("sqlite").
+	// DatabaseDriver selects the storage backend ("postgres").
 	DatabaseDriver string
 
-	// DatabaseDSN is the driver-specific data source name. For sqlite this
-	// is a file path.
+	// DatabaseDSN is the PostgreSQL connection string, in URL form
+	// (postgres://user:pass@host:5432/db?sslmode=disable) or keyword form.
 	DatabaseDSN string
 
 	// JWTSecret signs and verifies access tokens.
@@ -68,8 +68,8 @@ type Config struct {
 func Load() (*Config, error) {
 	cfg := &Config{
 		Addr:            envString("PORTICO_ADDR", ":8410"),
-		DatabaseDriver:  envString("PORTICO_DB_DRIVER", "sqlite"),
-		DatabaseDSN:     envString("PORTICO_DB_DSN", "portico.db"),
+		DatabaseDriver:  envString("PORTICO_DB_DRIVER", "postgres"),
+		DatabaseDSN:     os.Getenv("PORTICO_DB_DSN"),
 		LogLevel:        envString("PORTICO_LOG_LEVEL", "info"),
 		ShutdownTimeout: 15 * time.Second,
 

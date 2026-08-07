@@ -47,7 +47,7 @@ func TestLayeringRules(t *testing.T) {
 				}
 				rel := strings.TrimPrefix(imp, module+"internal/")
 				// Only compare the first path segment, so a subpackage such
-				// as store/dbtime is attributed to store.
+				// as store/sqlcgen is attributed to store.
 				top, _, _ := strings.Cut(rel, "/")
 
 				for _, bad := range banned {

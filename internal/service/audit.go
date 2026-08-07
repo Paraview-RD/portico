@@ -11,7 +11,6 @@ import (
 
 	"github.com/paraview/portico/internal/model"
 	"github.com/paraview/portico/internal/store"
-	"github.com/paraview/portico/internal/store/dbtime"
 	"github.com/paraview/portico/internal/store/sqlcgen"
 )
 
@@ -101,54 +100,42 @@ type AuditQuery struct {
 // This query is hand-written rather than generated because the filters are
 // optional: sqlc would need a separate query per combination.
 func (s *AuditService) List(ctx context.Context, q AuditQuery, page Page) ([]model.AuditLog, int64, error) {
-	var (
-		where []string
-		args  []any
-	)
+	var f filters
 
 	if q.Kind != "" {
-		where = append(where, "kind = ?")
-		args = append(args, string(q.Kind))
+		f.Add("kind = %s", string(q.Kind))
 	}
 	if q.Action != "" {
-		where = append(where, "action = ?")
-		args = append(args, q.Action)
+		f.Add("action = %s", q.Action)
 	}
 	if keyword := strings.TrimSpace(q.Keyword); keyword != "" {
-		where = append(where, `(actor_username LIKE ? ESCAPE '\' OR target_name LIKE ? ESCAPE '\')`)
 		pattern := "%" + escapeLike(keyword) + "%"
-		args = append(args, pattern, pattern)
+		f.Add(`(actor_username LIKE %s ESCAPE '\' OR target_name LIKE %s ESCAPE '\')`, pattern, pattern)
 	}
 	if !q.From.IsZero() {
-		where = append(where, "created_at >= ?")
-		args = append(args, q.From.UTC().Format(time.RFC3339))
+		f.Add("created_at >= %s", q.From.UTC())
 	}
 	if !q.To.IsZero() {
-		where = append(where, "created_at <= ?")
-		args = append(args, q.To.UTC().Format(time.RFC3339))
+		f.Add("created_at <= %s", q.To.UTC())
 	}
 
-	clause := ""
-	if len(where) > 0 {
-		clause = " WHERE " + strings.Join(where, " AND ")
-	}
+	clause := f.Where()
 
 	var total int64
 	if err := s.store.DB().QueryRowContext(ctx,
-		"SELECT COUNT(*) FROM audit_logs"+clause, args...).Scan(&total); err != nil {
+		"SELECT COUNT(*) FROM audit_logs"+clause, f.Args()...).Scan(&total); err != nil {
 		return nil, 0, fmt.Errorf("count audit logs: %w", err)
 	}
 	if total == 0 {
 		return nil, 0, nil
 	}
 
+	pageClause, args := f.Paginate(page)
 	rows, err := s.store.DB().QueryContext(ctx,
 		`SELECT id, kind, action, actor_id, actor_username, target_type, target_id,
 		        target_name, result, detail, ip, created_at
 		 FROM audit_logs`+clause+`
-		 ORDER BY created_at DESC, id DESC
-		 LIMIT ? OFFSET ?`,
-		append(args, page.Limit, page.Offset)...)
+		 ORDER BY created_at DESC, id DESC`+pageClause, args...)
 	if err != nil {
 		return nil, 0, fmt.Errorf("list audit logs: %w", err)
 	}
@@ -159,7 +146,7 @@ func (s *AuditService) List(ctx context.Context, q AuditQuery, page Page) ([]mod
 		var (
 			log     model.AuditLog
 			actorID *string
-			created dbtime.Time
+			created time.Time
 		)
 		if err := rows.Scan(
 			&log.ID, &log.Kind, &log.Action, &actorID, &log.ActorName,
@@ -171,7 +158,7 @@ func (s *AuditService) List(ctx context.Context, q AuditQuery, page Page) ([]mod
 		if actorID != nil {
 			log.ActorID = *actorID
 		}
-		log.CreatedAt = created.Time
+		log.CreatedAt = created
 		logs = append(logs, log)
 	}
 	if err := rows.Err(); err != nil {

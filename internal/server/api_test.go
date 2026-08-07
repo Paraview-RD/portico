@@ -8,11 +8,11 @@ import (
 	"log/slog"
 	"net/http"
 	"net/http/httptest"
-	"path/filepath"
 	"testing"
 
 	"github.com/paraview/portico/internal/config"
 	"github.com/paraview/portico/internal/server"
+	"github.com/paraview/portico/internal/testdb"
 )
 
 // apiTest drives the whole stack — router, middleware, services, database —
@@ -35,7 +35,8 @@ func newAPITest(t *testing.T) *apiTest {
 	if err != nil {
 		t.Fatalf("load config: %v", err)
 	}
-	cfg.DatabaseDSN = filepath.Join(t.TempDir(), "test.db")
+	cfg.DatabaseDriver = "postgres"
+	cfg.DatabaseDSN = testdb.DSN(t)
 	cfg.InitialAdminUsername = adminUsername
 	cfg.InitialAdminPassword = adminPassword
 

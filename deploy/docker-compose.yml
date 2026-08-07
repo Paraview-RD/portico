@@ -1,33 +1,56 @@
-# Minimal single-node deployment. There is no database service because the
-# database is a file inside the volume — that is the whole point of the
-# sqlite default.
+# Single-node deployment. Unlike earlier versions this needs a database
+# service — the storage moved to PostgreSQL when multi-tenancy and the
+# federation protocols came in, and a file-backed database is no longer the
+# right trade.
 #
+#   export PORTICO_JWT_SECRET=$(openssl rand -hex 32)
 #   docker compose -f deploy/docker-compose.yml up -d
 #
 # On first start the server creates an administrator and prints a generated
-# password once. Set PORTICO_INITIAL_ADMIN_PASSWORD to choose it instead.
+# password once, to stderr. Set PORTICO_INITIAL_ADMIN_PASSWORD to choose it.
 
 services:
+  db:
+    image: postgres:17-alpine
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER:-portico}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?set POSTGRES_PASSWORD}
+      POSTGRES_DB: ${POSTGRES_DB:-portico}
+    volumes:
+      - portico-db:/var/lib/postgresql/data
+    # Not published by default: nothing outside this compose network needs
+    # to reach the database. Uncomment to inspect it from the host.
+    # ports:
+    #   - "127.0.0.1:5443:5432"
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-portico} -d ${POSTGRES_DB:-portico}"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
   portico:
     build:
       context: ..
       dockerfile: deploy/Dockerfile
     image: portico:latest
     restart: unless-stopped
+    depends_on:
+      db:
+        condition: service_healthy
     ports:
       # Bound to loopback on purpose: this is an admin console served over
       # plaintext HTTP, so the default must not be internet-reachable. Put a
       # TLS-terminating reverse proxy in front and change this to expose it.
       - "127.0.0.1:8410:8410"
-    volumes:
-      - portico-data:/data
     environment:
-      # Required in production: without it a random secret is generated at
-      # startup and every session dies on restart.
+      PORTICO_DB_DSN: postgres://${POSTGRES_USER:-portico}:${POSTGRES_PASSWORD}@db:5432/${POSTGRES_DB:-portico}?sslmode=disable
+      # Required: without it a random secret is generated at startup and
+      # every session dies on restart.
       PORTICO_JWT_SECRET: ${PORTICO_JWT_SECRET:?set PORTICO_JWT_SECRET to a long random string}
       PORTICO_INITIAL_ADMIN_USERNAME: ${PORTICO_INITIAL_ADMIN_USERNAME:-admin}
       PORTICO_INITIAL_ADMIN_PASSWORD: ${PORTICO_INITIAL_ADMIN_PASSWORD:-}
       PORTICO_LOG_LEVEL: ${PORTICO_LOG_LEVEL:-info}
 
 volumes:
-  portico-data:
+  portico-db:

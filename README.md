@@ -1,8 +1,8 @@
 # Portico
 
 A self-hostable identity platform: standard single sign-on, multi-tenant
-isolation, and a complete self-service flow — deployable as one Go binary
-with the web UI compiled in.
+isolation, and a complete self-service flow — a single Go binary with the
+web UI compiled in, backed by PostgreSQL.
 
 > **Status: pre-release, under active development.** Nothing has been
 > published yet, and the protocol support described below is being built.
@@ -53,13 +53,15 @@ limiting. The roadmap for those is in
 
 ### Binary
 
-The frontend has to be built first — it is compiled into the binary, so a
-Go-only build produces a working API with no UI (the server says so rather
-than serving a blank page).
+Needs a PostgreSQL instance to point at. The frontend has to be built first —
+it is compiled into the binary, so a Go-only build produces a working API
+with no UI (the server says so rather than serving a blank page).
 
 ```bash
 cd web && npm ci && npm run build && cd ..
 go build -o portico ./cmd/server
+
+PORTICO_DB_DSN=postgres://portico:portico@localhost:5432/portico?sslmode=disable \
 PORTICO_JWT_SECRET=$(openssl rand -hex 32) ./portico
 ```
 
@@ -67,9 +69,10 @@ Requires Go 1.25.7+ (a dependency sets that floor) and Node 22+.
 
 ### Docker
 
-Nothing to install but Docker — the image build runs both steps itself.
+Brings up PostgreSQL alongside the server; nothing else to install.
 
 ```bash
+export POSTGRES_PASSWORD=$(openssl rand -hex 16)
 export PORTICO_JWT_SECRET=$(openssl rand -hex 32)
 docker compose -f deploy/docker-compose.yml up -d
 ```
@@ -113,6 +116,7 @@ internal/
   handler/         HTTP handlers
   service/         business rules
   store/           database access; sqlcgen/ is generated
+  testdb/          throwaway PostgreSQL for tests
   model/           domain types
   web/             embeds the built frontend
 migrations/        schema, embedded and applied at startup
@@ -125,11 +129,14 @@ deploy/            Dockerfile and compose
 
 Two choices explain most of the rest:
 
-**SQLite by default, behind a driver check.** The requirements ask for
-single-node deployment with no operational burden, and a file-backed
-database is what makes the one-binary install honest. The driver is pure Go,
-so the binary cross-compiles and runs in a `scratch` container. The tradeoff
-is real: SQLite allows one writer, so this does not scale horizontally.
+**PostgreSQL, reached through the pure-Go pgx driver.** An earlier version
+used SQLite, and a file-backed database was the right trade while the scope
+was a single-tenant intranet tool. Multi-tenancy and public-facing SSO
+changed that: tenant isolation wants real constraints, and a single-writer
+database is the wrong shape for an identity provider several systems depend
+on. The driver needs no cgo, so the binary still cross-compiles and still
+ships in a `scratch` container — the cost is that a deployment is now two
+processes rather than one.
 
 **Stateless tokens with a revocation counter.** Each account carries a
 `token_version` that logout, password changes, and disabling all increment.

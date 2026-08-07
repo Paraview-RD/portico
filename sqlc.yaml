@@ -1,25 +1,29 @@
 version: "2"
 sql:
-  - engine: "sqlite"
+  - engine: "postgresql"
     schema: "migrations"
     queries: "internal/store/queries"
     gen:
       go:
         package: "sqlcgen"
         out: "internal/store/sqlcgen"
+        # database/sql with the pgx stdlib driver rather than pgx's native
+        # interface: it keeps *sql.DB, the transaction helper, and the
+        # hand-written dynamic queries working unchanged, and nothing here
+        # needs what the native interface adds.
+        sql_package: "database/sql"
         emit_pointers_for_null_types: true
         emit_empty_slices: true
         overrides:
-          # Timestamps are stored as ISO 8601 text. The sqlite driver returns
-          # that as a string and refuses to scan it into a time.Time, so
-          # dbtime.Time carries the conversion instead.
-          - column: "*.created_at"
+          # emit_pointers_for_null_types is not honoured for postgresql with
+          # database/sql, so nullable text is mapped explicitly. *string keeps
+          # "absent" distinguishable from "empty" without sql.NullString
+          # ceremony at every call site.
+          - db_type: "text"
+            nullable: true
             go_type:
-              import: "github.com/paraview/portico/internal/store/dbtime"
-              package: "dbtime"
-              type: "Time"
-          - column: "*.updated_at"
-            go_type:
-              import: "github.com/paraview/portico/internal/store/dbtime"
-              package: "dbtime"
-              type: "Time"
+              type: "string"
+              pointer: true
+        # No timestamp override. PostgreSQL has a real timestamptz that the
+        # driver scans straight into time.Time, so the conversion shim SQLite
+        # required is gone.

@@ -7,20 +7,20 @@ package sqlcgen
 
 import (
 	"context"
-	"strings"
+	"time"
 
-	dbtime "github.com/paraview/portico/internal/store/dbtime"
+	"github.com/lib/pq"
 )
 
 const bumpUserTokenVersion = `-- name: BumpUserTokenVersion :exec
 UPDATE users
 SET token_version = token_version + 1,
-    updated_at = ?
-WHERE id = ?
+    updated_at = $1
+WHERE id = $2
 `
 
 type BumpUserTokenVersionParams struct {
-	UpdatedAt dbtime.Time
+	UpdatedAt time.Time
 	ID        string
 }
 
@@ -30,11 +30,11 @@ func (q *Queries) BumpUserTokenVersion(ctx context.Context, arg BumpUserTokenVer
 }
 
 const clearUsersOrganization = `-- name: ClearUsersOrganization :exec
-UPDATE users SET organization_id = NULL, updated_at = ? WHERE organization_id = ?
+UPDATE users SET organization_id = NULL, updated_at = $1 WHERE organization_id = $2
 `
 
 type ClearUsersOrganizationParams struct {
-	UpdatedAt      dbtime.Time
+	UpdatedAt      time.Time
 	OrganizationID *string
 }
 
@@ -55,7 +55,7 @@ func (q *Queries) CountUsers(ctx context.Context) (int64, error) {
 }
 
 const countUsersByOrganization = `-- name: CountUsersByOrganization :one
-SELECT COUNT(*) FROM users WHERE organization_id = ?
+SELECT COUNT(*) FROM users WHERE organization_id = $1
 `
 
 func (q *Queries) CountUsersByOrganization(ctx context.Context, organizationID *string) (int64, error) {
@@ -66,7 +66,7 @@ func (q *Queries) CountUsersByOrganization(ctx context.Context, organizationID *
 }
 
 const countUsersByRole = `-- name: CountUsersByRole :one
-SELECT COUNT(*) FROM users WHERE role = ?
+SELECT COUNT(*) FROM users WHERE role = $1
 `
 
 func (q *Queries) CountUsersByRole(ctx context.Context, role string) (int64, error) {
@@ -81,7 +81,7 @@ INSERT INTO users (
     id, username, display_name, password_hash, phone, email,
     role, status, organization_id, token_version, source,
     created_at, updated_at
-) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13)
 `
 
 type CreateUserParams struct {
@@ -96,8 +96,8 @@ type CreateUserParams struct {
 	OrganizationID *string
 	TokenVersion   int64
 	Source         string
-	CreatedAt      dbtime.Time
-	UpdatedAt      dbtime.Time
+	CreatedAt      time.Time
+	UpdatedAt      time.Time
 }
 
 func (q *Queries) CreateUser(ctx context.Context, arg CreateUserParams) error {
@@ -120,7 +120,7 @@ func (q *Queries) CreateUser(ctx context.Context, arg CreateUserParams) error {
 }
 
 const getUserByID = `-- name: GetUserByID :one
-SELECT id, username, display_name, password_hash, phone, email, role, status, organization_id, token_version, source, created_at, updated_at FROM users WHERE id = ? LIMIT 1
+SELECT id, username, display_name, password_hash, phone, email, role, status, organization_id, token_version, source, created_at, updated_at FROM users WHERE id = $1 LIMIT 1
 `
 
 func (q *Queries) GetUserByID(ctx context.Context, id string) (User, error) {
@@ -145,7 +145,7 @@ func (q *Queries) GetUserByID(ctx context.Context, id string) (User, error) {
 }
 
 const getUserByUsername = `-- name: GetUserByUsername :one
-SELECT id, username, display_name, password_hash, phone, email, role, status, organization_id, token_version, source, created_at, updated_at FROM users WHERE username = ? LIMIT 1
+SELECT id, username, display_name, password_hash, phone, email, role, status, organization_id, token_version, source, created_at, updated_at FROM users WHERE username = $1 LIMIT 1
 `
 
 func (q *Queries) GetUserByUsername(ctx context.Context, username string) (User, error) {
@@ -170,21 +170,11 @@ func (q *Queries) GetUserByUsername(ctx context.Context, username string) (User,
 }
 
 const listUsersByIDs = `-- name: ListUsersByIDs :many
-SELECT id, username, display_name, password_hash, phone, email, role, status, organization_id, token_version, source, created_at, updated_at FROM users WHERE id IN (/*SLICE:ids*/?)
+SELECT id, username, display_name, password_hash, phone, email, role, status, organization_id, token_version, source, created_at, updated_at FROM users WHERE id = ANY($1::text[])
 `
 
-func (q *Queries) ListUsersByIDs(ctx context.Context, ids []string) ([]User, error) {
-	query := listUsersByIDs
-	var queryParams []interface{}
-	if len(ids) > 0 {
-		for _, v := range ids {
-			queryParams = append(queryParams, v)
-		}
-		query = strings.Replace(query, "/*SLICE:ids*/?", strings.Repeat(",?", len(ids))[1:], 1)
-	} else {
-		query = strings.Replace(query, "/*SLICE:ids*/?", "NULL", 1)
-	}
-	rows, err := q.db.QueryContext(ctx, query, queryParams...)
+func (q *Queries) ListUsersByIDs(ctx context.Context, dollar_1 []string) ([]User, error) {
+	rows, err := q.db.QueryContext(ctx, listUsersByIDs, pq.Array(dollar_1))
 	if err != nil {
 		return nil, err
 	}
@@ -222,15 +212,15 @@ func (q *Queries) ListUsersByIDs(ctx context.Context, ids []string) ([]User, err
 
 const updateUserPassword = `-- name: UpdateUserPassword :exec
 UPDATE users
-SET password_hash = ?,
+SET password_hash = $1,
     token_version = token_version + 1,
-    updated_at = ?
-WHERE id = ?
+    updated_at = $2
+WHERE id = $3
 `
 
 type UpdateUserPasswordParams struct {
 	PasswordHash string
-	UpdatedAt    dbtime.Time
+	UpdatedAt    time.Time
 	ID           string
 }
 
@@ -242,13 +232,13 @@ func (q *Queries) UpdateUserPassword(ctx context.Context, arg UpdateUserPassword
 
 const updateUserProfile = `-- name: UpdateUserProfile :exec
 UPDATE users
-SET display_name = ?,
-    phone = ?,
-    email = ?,
-    organization_id = ?,
-    role = ?,
-    updated_at = ?
-WHERE id = ?
+SET display_name = $1,
+    phone = $2,
+    email = $3,
+    organization_id = $4,
+    role = $5,
+    updated_at = $6
+WHERE id = $7
 `
 
 type UpdateUserProfileParams struct {
@@ -257,7 +247,7 @@ type UpdateUserProfileParams struct {
 	Email          string
 	OrganizationID *string
 	Role           string
-	UpdatedAt      dbtime.Time
+	UpdatedAt      time.Time
 	ID             string
 }
 
@@ -276,17 +266,17 @@ func (q *Queries) UpdateUserProfile(ctx context.Context, arg UpdateUserProfilePa
 
 const updateUserStatus = `-- name: UpdateUserStatus :exec
 UPDATE users
-SET status = ?1,
-    token_version = CASE WHEN ?1 = 'DISABLED'
+SET status = $1,
+    token_version = CASE WHEN $1 = 'DISABLED'
                          THEN token_version + 1
                          ELSE token_version END,
-    updated_at = ?2
-WHERE id = ?3
+    updated_at = $2
+WHERE id = $3
 `
 
 type UpdateUserStatusParams struct {
 	Status    string
-	UpdatedAt dbtime.Time
+	UpdatedAt time.Time
 	ID        string
 }
 
