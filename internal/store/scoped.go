@@ -362,6 +362,13 @@ func (s *Scoped) CreateRefreshToken(ctx context.Context, arg sqlcgen.CreateRefre
 	return s.q.CreateRefreshToken(ctx, arg)
 }
 
+// GetRefreshTokenByID returns a token row by its primary key, which is what
+// the revocation endpoint is given rather than the token itself.
+func (s *Scoped) GetRefreshTokenByID(ctx context.Context, id string) (sqlcgen.OauthRefreshToken, error) {
+	return s.q.GetRefreshTokenByID(ctx,
+		sqlcgen.GetRefreshTokenByIDParams{TenantID: s.tenantID, ID: id})
+}
+
 // GetRefreshToken returns a token row whatever its state, so the caller can
 // tell an expired token from one that has already been spent.
 func (s *Scoped) GetRefreshToken(ctx context.Context, tokenHash string) (sqlcgen.OauthRefreshToken, error) {

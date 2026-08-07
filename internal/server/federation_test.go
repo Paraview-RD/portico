@@ -13,6 +13,7 @@ import (
 	"time"
 
 	"github.com/zitadel/oidc/v3/pkg/client/rp"
+	"github.com/zitadel/oidc/v3/pkg/client/rs"
 	"github.com/zitadel/oidc/v3/pkg/oidc"
 
 	"github.com/paraview/portico/internal/config"
@@ -760,5 +761,100 @@ func TestDiscoveryDescribesWhatIsActuallyImplemented(t *testing.T) {
 		if probe.StatusCode == http.StatusNotFound {
 			t.Errorf("%s points at %s, which is not mounted", field, endpoint)
 		}
+	}
+}
+
+// Introspection is what a resource server calls when it needs the answer
+// sooner than an access token's expiry. docs/federation.md says a disabled
+// account reports inactive straight away; this is that claim.
+func TestIntrospectionReportsADisabledAccountInactive(t *testing.T) {
+	f := newFederationTest(t)
+	registered := f.registerClient(model.DefaultTenantCode, "introspect-app", false)
+
+	adminToken := f.api.adminToken()
+	userID := f.api.createUser(adminToken, "introspect.me", "introspect-password-1", "USER")
+
+	issuer := f.publicURL + "/t/" + model.DefaultTenantCode
+	party := f.relyingParty(issuer, registered.Client.ClientID, registered.Secret)
+
+	verifier := "a-verifier-for-the-introspection-case"
+	code, _ := f.signIn(
+		rp.AuthURL("s", party, rp.WithCodeChallenge(oidc.NewSHACodeChallenge(verifier))),
+		model.DefaultTenantCode, "introspect.me", "introspect-password-1")
+
+	tokens, err := rp.CodeExchange[*oidc.IDTokenClaims](context.Background(), code, party,
+		rp.WithCodeVerifier(verifier))
+	if err != nil {
+		t.Fatalf("code exchange: %v", err)
+	}
+
+	resource, err := rs.NewResourceServerClientCredentials(context.Background(), issuer,
+		registered.Client.ClientID, registered.Secret)
+	if err != nil {
+		t.Fatalf("build resource server: %v", err)
+	}
+
+	active, err := rs.Introspect[*oidc.IntrospectionResponse](context.Background(), resource, tokens.AccessToken)
+	if err != nil {
+		t.Fatalf("introspect: %v", err)
+	}
+	if !active.Active {
+		t.Fatal("a live account's token introspected as inactive")
+	}
+	if active.PreferredUsername != "introspect.me" {
+		t.Errorf("preferred_username = %q, want %q", active.PreferredUsername, "introspect.me")
+	}
+
+	res := f.api.do(http.MethodPost, "/api/v1/users/"+userID+"/disable", adminToken, nil)
+	if res.Status != http.StatusOK {
+		t.Fatalf("disable: %d %s", res.Status, res.Message)
+	}
+
+	// The access token is unchanged and still verifies offline. What
+	// changed is the answer to asking.
+	after, err := rs.Introspect[*oidc.IntrospectionResponse](context.Background(), resource, tokens.AccessToken)
+	if err != nil {
+		t.Fatalf("introspect after disabling: %v", err)
+	}
+	if after.Active {
+		t.Error("a disabled account's token still introspects as active, " +
+			"which is the one thing introspection is here to answer")
+	}
+}
+
+// A relying party revoking a refresh token it holds. RFC 7009 requires the
+// endpoint to answer successfully whatever it was given, so the assertion
+// that matters is what stops working afterwards.
+func TestARelyingPartyCanRevokeItsRefreshToken(t *testing.T) {
+	f := newFederationTest(t)
+	registered := f.registerClient(model.DefaultTenantCode, "revoke-app", false)
+
+	issuer := f.publicURL + "/t/" + model.DefaultTenantCode
+	party := f.relyingParty(issuer, registered.Client.ClientID, registered.Secret)
+
+	verifier := "a-verifier-for-the-revocation-case-xx"
+	code, _ := f.signIn(
+		rp.AuthURL("s", party, rp.WithCodeChallenge(oidc.NewSHACodeChallenge(verifier))),
+		model.DefaultTenantCode, adminUsername, adminPassword)
+
+	tokens, err := rp.CodeExchange[*oidc.IDTokenClaims](context.Background(), code, party,
+		rp.WithCodeVerifier(verifier))
+	if err != nil {
+		t.Fatalf("code exchange: %v", err)
+	}
+
+	if err := rp.RevokeToken(context.Background(), party, tokens.RefreshToken, "refresh_token"); err != nil {
+		t.Fatalf("revoke: %v", err)
+	}
+
+	if _, err := rp.RefreshTokens[*oidc.IDTokenClaims](context.Background(), party,
+		tokens.RefreshToken, "", ""); err == nil {
+		t.Error("a revoked refresh token was still accepted")
+	}
+
+	// Revocation is idempotent and must not report whether the token was
+	// ever real, since that would make the endpoint an oracle.
+	if err := rp.RevokeToken(context.Background(), party, "not-a-token-at-all", "refresh_token"); err != nil {
+		t.Errorf("revoking an unknown token reported an error: %v", err)
 	}
 }

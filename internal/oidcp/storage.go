@@ -305,10 +305,16 @@ func (s *Storage) TerminateSession(ctx context.Context, userID, clientID string)
 // RevokeToken revokes a refresh token. Access tokens are not stored and
 // cannot be revoked; the endpoint answers successfully anyway, which is what
 // RFC 7009 requires.
-func (s *Storage) RevokeToken(ctx context.Context, tokenOrTokenID, _, clientID string) *oidc.Error {
+//
+// The first argument is an id, not a token. The protocol library resolves
+// whatever was presented to one — through GetRefreshTokenInfo — before
+// calling, so looking it up by hash finds nothing and revokes nothing, and
+// because revocation is required to answer successfully either way, the
+// endpoint reports having done something it did not.
+func (s *Storage) RevokeToken(ctx context.Context, tokenID, _, clientID string) *oidc.Error {
 	q := s.scoped()
 
-	row, err := q.GetRefreshToken(ctx, hashToken(tokenOrTokenID))
+	row, err := q.GetRefreshTokenByID(ctx, tokenID)
 	if err != nil {
 		// Either an access token id or something that was never a token.
 		// Revocation is idempotent and must not report which.
@@ -406,19 +412,26 @@ func (s *Storage) SetUserinfoFromToken(ctx context.Context, userinfo *oidc.UserI
 	return s.setUserinfo(ctx, userinfo, subject, []string{oidc.ScopeOpenID, oidc.ScopeProfile, oidc.ScopeEmail, oidc.ScopePhone})
 }
 
+// errInactiveToken reports a token whose subject may no longer use it.
+//
+// It has to be an error rather than a field, because the endpoint's handler
+// sets Active itself once this returns without one — so writing false here
+// and returning nil reports the token as live, which is the opposite of the
+// answer. Returning an error leaves the response in its zero state, which
+// is `{"active": false}`, exactly what RFC 7662 asks for.
+var errInactiveToken = errors.New("oidcp: the token's subject is not active")
+
 // SetIntrospectionFromToken answers the introspection endpoint.
 func (s *Storage) SetIntrospectionFromToken(ctx context.Context, response *oidc.IntrospectionResponse, _, subject, _ string) error {
 	account, err := s.scoped().GetUserByID(ctx, subject)
 	if err != nil {
 		return err
 	}
-	// A disabled account's tokens report inactive, which is how a resource
-	// server that does introspect finds out promptly.
+	// A disabled account's tokens report inactive, which is the whole reason
+	// a resource server would ask rather than verify offline.
 	if model.Status(account.Status) != model.StatusActive {
-		response.Active = false
-		return nil
+		return errInactiveToken
 	}
-	response.Active = true
 	response.Subject = subject
 
 	// IntrospectionResponse embeds the userinfo claim groups rather than a

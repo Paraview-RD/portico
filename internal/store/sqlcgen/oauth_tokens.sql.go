@@ -87,6 +87,42 @@ func (q *Queries) GetRefreshToken(ctx context.Context, arg GetRefreshTokenParams
 	return i, err
 }
 
+const getRefreshTokenByID = `-- name: GetRefreshTokenByID :one
+SELECT id, tenant_id, client_id, subject, token_hash, scopes, audience, amr, auth_time, replaced_by, used_at, revoked_at, created_at, expires_at FROM oauth_refresh_tokens
+WHERE tenant_id = $1 AND id = $2
+LIMIT 1
+`
+
+type GetRefreshTokenByIDParams struct {
+	TenantID string
+	ID       string
+}
+
+// By primary key rather than by hash. The revocation endpoint is handed an
+// id, not the token: the protocol library resolves the token to one before
+// calling, so a lookup by hash there silently finds nothing.
+func (q *Queries) GetRefreshTokenByID(ctx context.Context, arg GetRefreshTokenByIDParams) (OauthRefreshToken, error) {
+	row := q.db.QueryRowContext(ctx, getRefreshTokenByID, arg.TenantID, arg.ID)
+	var i OauthRefreshToken
+	err := row.Scan(
+		&i.ID,
+		&i.TenantID,
+		&i.ClientID,
+		&i.Subject,
+		&i.TokenHash,
+		pq.Array(&i.Scopes),
+		pq.Array(&i.Audience),
+		pq.Array(&i.Amr),
+		&i.AuthTime,
+		&i.ReplacedBy,
+		&i.UsedAt,
+		&i.RevokedAt,
+		&i.CreatedAt,
+		&i.ExpiresAt,
+	)
+	return i, err
+}
+
 const revokeAllRefreshTokensForUser = `-- name: RevokeAllRefreshTokensForUser :exec
 UPDATE oauth_refresh_tokens
 SET revoked_at = $1

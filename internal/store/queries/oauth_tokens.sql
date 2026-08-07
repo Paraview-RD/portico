@@ -4,6 +4,14 @@ INSERT INTO oauth_refresh_tokens (
     scopes, audience, amr, auth_time, created_at, expires_at
 ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11);
 
+-- name: GetRefreshTokenByID :one
+-- By primary key rather than by hash. The revocation endpoint is handed an
+-- id, not the token: the protocol library resolves the token to one before
+-- calling, so a lookup by hash there silently finds nothing.
+SELECT * FROM oauth_refresh_tokens
+WHERE tenant_id = $1 AND id = $2
+LIMIT 1;
+
 -- name: GetRefreshToken :one
 -- Returns the row whatever its state, because the caller has to be able to
 -- tell "expired" from "already spent" — a spent token being presented means
