@@ -56,6 +56,11 @@ export const enUS = {
   "login.register": "Create one",
   "login.sessionExpired": "Your session ended. Please sign in again.",
 
+  // Signing in on behalf of an application, rather than to Portico itself.
+  "authorize.title": "Signing you in",
+  "authorize.redirecting": "Taking you back to the application…",
+  "authorize.signOutAndRetry": "Sign out and sign in again",
+
   "register.title": "Create an account",
   "register.displayName": "Display name",
   "register.confirmPassword": "Confirm password",

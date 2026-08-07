@@ -3,6 +3,7 @@ package server
 
 import (
 	"context"
+	"crypto/sha256"
 	"fmt"
 	"log/slog"
 	"net/http"
@@ -13,6 +14,7 @@ import (
 	"github.com/paraview/portico/internal/handler"
 	"github.com/paraview/portico/internal/httpx"
 	"github.com/paraview/portico/internal/notify"
+	"github.com/paraview/portico/internal/oidcp"
 	"github.com/paraview/portico/internal/service"
 	"github.com/paraview/portico/internal/store"
 )
@@ -25,6 +27,7 @@ type Server struct {
 	middleware *auth.Middleware
 	users      *service.UserService
 	tenants    *service.TenantService
+	oidc       *oidcp.Providers
 	router     http.Handler
 }
 
@@ -83,13 +86,19 @@ func New(cfg *config.Config, opts ...Option) (*Server, error) {
 	recovery := service.NewRecoveryService(
 		st, users, audit, deps.mailer, deps.sms, cfg.PublicURL)
 
+	clients := service.NewOAuthClientService(st)
+	keys := service.NewSigningKeyService(st)
+	providers := oidcp.NewProviders(cfg.PublicURL, federationCryptoKey(cfg.JWTSecret),
+		st, tenants, users, clients, keys, audit)
+
 	s := &Server{
 		cfg:        cfg,
 		store:      st,
-		handler:    handler.New(users, orgs, audit, settings, tenants, recovery),
+		handler:    handler.New(users, orgs, audit, settings, tenants, recovery, providers),
 		middleware: auth.NewMiddleware(tokens, users),
 		users:      users,
 		tenants:    tenants,
+		oidc:       providers,
 	}
 	s.router = s.routes()
 	return s, nil
@@ -146,8 +155,26 @@ func (s *Server) Bootstrap(ctx context.Context) error {
 	return nil
 }
 
+// federationCryptoKey derives the key the OpenID Provider encrypts
+// authorization codes with.
+//
+// Derived from the signing secret rather than generated, because a random
+// key would invalidate every sign-in in flight each time the process
+// restarted — and because a deployment already has exactly one secret to
+// look after. Hashed rather than truncated so that the two uses of the
+// secret cannot be played against each other.
+func federationCryptoKey(secret []byte) [32]byte {
+	return sha256.Sum256(append([]byte("portico/oidc/code-encryption\x00"), secret...))
+}
+
 // Handler returns the root HTTP handler.
 func (s *Server) Handler() http.Handler { return s.router }
+
+// SweepFederation deletes authorization requests nobody completed. The
+// caller decides how often; see cmd/server.
+func (s *Server) SweepFederation(ctx context.Context) error {
+	return s.oidc.SweepExpired(ctx)
+}
 
 // Close releases resources held by the server.
 func (s *Server) Close() error {

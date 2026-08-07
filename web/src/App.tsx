@@ -3,6 +3,7 @@ import { useEffect } from "react";
 import { Layout } from "./components/Layout";
 import { useT } from "./i18n";
 import { AuditLogsPage } from "./pages/AuditLogsPage";
+import { AuthorizePage } from "./pages/AuthorizePage";
 import { ForgotPasswordPage } from "./pages/ForgotPasswordPage";
 import { LoginPage } from "./pages/LoginPage";
 import { OrganizationsPage } from "./pages/OrganizationsPage";
@@ -19,11 +20,23 @@ export function App() {
   const { user, loading } = useSession();
   const { route, navigate } = useRouter();
 
+  // An application waiting on an authorization request. Read once, from the
+  // URL the OpenID Provider redirected to.
+  const authRequestId = new URLSearchParams(window.location.search).get(
+    "auth_request",
+  );
+
   // Signed-out visitors may only reach sign-in and registration; everyone
   // else lands on sign-in. This mirrors the server's rules so the UI never
   // renders a screen whose data it cannot fetch.
   useEffect(() => {
     if (loading) return;
+    // Except while an authorization request is in flight. Sending an
+    // already-signed-in administrator on to /users would drop the query
+    // parameter, and the application that started the sign-in would wait
+    // forever without ever being told why.
+    if (authRequestId) return;
+
     const publicRoutes = [
       "/login",
       "/register",
@@ -35,7 +48,11 @@ export function App() {
     } else if (user && publicRoutes.includes(route)) {
       navigate(user.role === "SUPER_ADMIN" ? "/users" : "/profile");
     }
-  }, [user, loading, route, navigate]);
+  }, [user, loading, route, navigate, authRequestId]);
+
+  if (authRequestId) {
+    return <AuthorizePage authRequestId={authRequestId} />;
+  }
 
   if (loading) {
     return (

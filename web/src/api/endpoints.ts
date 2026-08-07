@@ -3,6 +3,7 @@
 import { download, request, upload } from "./client";
 import type {
   AuditLog,
+  Authorization,
   ImportResult,
   LogKind,
   Organization,
@@ -210,4 +211,19 @@ export const settingsApi = {
   get: () => request<Settings>("/settings"),
   update: (settings: Settings) =>
     request<Settings>("/settings", { method: "PUT", body: settings }),
+};
+
+export const oauthApi = {
+  /**
+   * Completes an authorization request for the signed-in user, and returns
+   * where the browser must go next.
+   *
+   * The subject is never sent: the server takes it from the token, because
+   * an endpoint that accepted one would issue tokens for other people.
+   */
+  authorize: (authRequestId: string) =>
+    request<Authorization>("/oauth/authorize", {
+      method: "POST",
+      body: { authRequestId },
+    }),
 };

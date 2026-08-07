@@ -139,6 +139,8 @@ func run() error {
 	ctx, stop := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
 	defer stop()
 
+	go sweepFederation(ctx, srv)
+
 	errCh := make(chan error, 1)
 	go func() {
 		slog.Info("listening", "addr", cfg.Addr)
@@ -162,6 +164,33 @@ func run() error {
 	}
 	slog.Info("shutdown complete")
 	return nil
+}
+
+// federationSweepInterval is how often abandoned authorization requests are
+// cleared. Every arrival at /authorize writes a row and most sign-ins that
+// start are never finished, so this is the fastest growing table Portico
+// has; a request lives fifteen minutes, so hourly is frequent enough that
+// the table stays small and infrequent enough to be invisible.
+const federationSweepInterval = time.Hour
+
+// sweepFederation runs the periodic cleanup until the process is asked to
+// stop. A failure is logged and the next tick tries again: nothing else
+// depends on it, and a server that refused to serve because it could not
+// delete expired rows would be worse than a table that grew.
+func sweepFederation(ctx context.Context, srv *server.Server) {
+	ticker := time.NewTicker(federationSweepInterval)
+	defer ticker.Stop()
+
+	for {
+		if err := srv.SweepFederation(ctx); err != nil && ctx.Err() == nil {
+			slog.Warn("could not clear expired authorization requests", "error", err)
+		}
+		select {
+		case <-ctx.Done():
+			return
+		case <-ticker.C:
+		}
+	}
 }
 
 func setupLogging(level string) {

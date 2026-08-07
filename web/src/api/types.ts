@@ -94,3 +94,13 @@ export interface RegistrationStatus {
   tenant: string;
   tenantName: string;
 }
+
+/**
+ * Where a browser goes once a person has signed in for an OAuth
+ * authorization request. The destination is the provider's own callback,
+ * not the application's: the code is issued there and redirected onward.
+ */
+export interface Authorization {
+  redirectTo: string;
+  clientName: string;
+}

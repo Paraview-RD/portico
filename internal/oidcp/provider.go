@@ -2,6 +2,7 @@ package oidcp
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"net/http"
 	"net/url"
@@ -10,6 +11,7 @@ import (
 
 	"github.com/zitadel/oidc/v3/pkg/op"
 
+	"github.com/paraview/portico/internal/auth"
 	"github.com/paraview/portico/internal/model"
 	"github.com/paraview/portico/internal/service"
 	"github.com/paraview/portico/internal/store"
@@ -33,7 +35,7 @@ var (
 // integrator wrote code to check that claim, and no standard library does.
 const TenantPathPrefix = "/t/"
 
-// Providers builds and caches one OpenID Provider per tenant.
+// Providers builds and caches one OpenID Provider per mount.
 //
 // Lazily, because most tenants never federate and an RSA keygen for each one
 // at startup would be a cost paid for nothing. Cached, because the provider
@@ -46,6 +48,7 @@ type Providers struct {
 	users     *service.UserService
 	clients   *service.OAuthClientService
 	keys      *service.SigningKeyService
+	audit     *service.AuditService
 	// cryptoKey encrypts the codes the library hands to clients. It is
 	// derived from the deployment's signing secret so it survives restarts —
 	// a random one would invalidate every authorization in flight whenever
@@ -65,6 +68,7 @@ func NewProviders(
 	users *service.UserService,
 	clients *service.OAuthClientService,
 	keys *service.SigningKeyService,
+	audit *service.AuditService,
 ) *Providers {
 	return &Providers{
 		publicURL: strings.TrimSuffix(publicURL, "/"),
@@ -74,68 +78,75 @@ func NewProviders(
 		users:     users,
 		clients:   clients,
 		keys:      keys,
+		audit:     audit,
 		cache:     map[string]*op.Provider{},
 	}
 }
 
-// Issuer is the issuer identifier for a tenant.
-func (p *Providers) Issuer(tenantCode string) string {
-	return p.publicURL + TenantPathPrefix + tenantCode
-}
+// TenantMount is the path a tenant's endpoints hang off.
+func TenantMount(tenantCode string) string { return TenantPathPrefix + tenantCode }
+
+// Issuer is the issuer identifier for a mount.
+func (p *Providers) Issuer(mount string) string { return p.publicURL + mount }
 
 // LoginURL is where a browser is sent to sign in for an authorization
 // request. It is Portico's own sign-in screen, told which request it is
 // completing and which tenant it belongs to.
+//
+// Where the browser goes afterwards is not in this URL: it comes from the
+// stored request's issuer, so that a mount cannot be chosen by whoever holds
+// the link.
 func (p *Providers) LoginURL(tenantCode, authRequestID string) string {
 	query := url.Values{}
-	query.Set("tenant", tenantCode)
+	if tenantCode != model.DefaultTenantCode {
+		query.Set("tenant", tenantCode)
+	}
 	query.Set("auth_request", authRequestID)
 	return p.publicURL + "/login?" + query.Encode()
 }
 
-// CallbackURL is where the sign-in screen returns once somebody has
-// authenticated, which is what resumes the protocol flow.
-func (p *Providers) CallbackURL(tenantCode, authRequestID string) string {
-	return p.Issuer(tenantCode) + "/authorize/callback?id=" + url.QueryEscape(authRequestID)
-}
+// For returns the provider serving a mount, building it on first use. An
+// empty mount is the root alias, which serves the default tenant.
+func (p *Providers) For(ctx context.Context, mount string) (*op.Provider, error) {
+	code := model.DefaultTenantCode
+	if mount != "" {
+		code = strings.TrimPrefix(mount, TenantPathPrefix)
+	}
 
-// For returns the provider serving a tenant, building it on first use.
-func (p *Providers) For(ctx context.Context, tenantCode string) (*op.Provider, model.Tenant, error) {
-	tenant, err := p.tenants.Resolve(ctx, tenantCode)
+	tenant, err := p.tenants.Resolve(ctx, code)
 	if err != nil {
-		return nil, model.Tenant{}, err
+		return nil, err
 	}
 
 	p.mu.RLock()
-	cached, ok := p.cache[tenant.ID]
+	cached, ok := p.cache[mount]
 	p.mu.RUnlock()
 	if ok {
-		return cached, tenant, nil
+		return cached, nil
 	}
 
 	p.mu.Lock()
 	defer p.mu.Unlock()
-	if cached, ok := p.cache[tenant.ID]; ok {
-		return cached, tenant, nil
+	if cached, ok := p.cache[mount]; ok {
+		return cached, nil
 	}
 
-	provider, err := p.build(tenant)
+	provider, err := p.build(tenant, mount)
 	if err != nil {
-		return nil, model.Tenant{}, err
+		return nil, err
 	}
-	p.cache[tenant.ID] = provider
-	return provider, tenant, nil
+	p.cache[mount] = provider
+	return provider, nil
 }
 
-// Storage returns the adapter for a tenant, which the login bridge needs in
-// order to mark a request authorized.
-func (p *Providers) Storage(tenant model.Tenant) *Storage {
-	return NewStorage(tenant, p.store, p.users, p.clients, p.keys,
+// storage returns the adapter for a tenant at a mount.
+func (p *Providers) storage(tenant model.Tenant, mount string) *Storage {
+	return NewStorage(tenant, p.Issuer(mount), p.store, p.users, p.clients, p.keys,
 		func(authRequestID string) string { return p.LoginURL(tenant.Code, authRequestID) })
 }
 
-func (p *Providers) build(tenant model.Tenant) (*op.Provider, error) {
-	issuer := p.Issuer(tenant.Code)
+func (p *Providers) build(tenant model.Tenant, mount string) (*op.Provider, error) {
+	issuer := p.Issuer(mount)
 
 	config := &op.Config{
 		CryptoKey: p.cryptoKey,
@@ -166,11 +177,9 @@ func (p *Providers) build(tenant model.Tenant) (*op.Provider, error) {
 			"tenant_id", "tenant_code", "role", "organization_id", "organization_name",
 		},
 
-		// Portico serves plain HTTP behind a proxy that terminates TLS, and
-		// says so everywhere else; the issuer is whatever PORTICO_PUBLIC_URL
-		// declares. Allowing an insecure issuer here would let a
-		// misconfigured deployment advertise http:// to relying parties,
-		// which the library is right to refuse.
+		// Where a relying party's end-session request lands when it names no
+		// redirect of its own: Portico's own sign-in screen, which is the
+		// only page a just-signed-out person can use.
 		DefaultLogoutRedirectURI: p.publicURL + "/login",
 	}
 
@@ -178,7 +187,7 @@ func (p *Providers) build(tenant model.Tenant) (*op.Provider, error) {
 	// proxy the Host header is whatever the proxy sends, and an issuer taken
 	// from it would let a caller choose the domain that appears in tokens.
 	// PORTICO_PUBLIC_URL is the declared answer.
-	provider, err := op.NewProvider(config, p.Storage(tenant), op.StaticIssuer(issuer),
+	provider, err := op.NewProvider(config, p.storage(tenant, mount), op.StaticIssuer(issuer),
 		// Portico serves plain HTTP and documents that it must sit behind a
 		// TLS-terminating proxy; without this a http:// public URL — which is
 		// what every local run uses — refuses to start.
@@ -190,19 +199,146 @@ func (p *Providers) build(tenant model.Tenant) (*op.Provider, error) {
 	return provider, nil
 }
 
-// Handler serves a tenant's federation endpoints, with the tenant taken from
-// the path.
+// Handler serves the federation endpoints under a mount.
 //
 // It is a plain http.Handler rather than a router entry per endpoint,
 // because the protocol library owns its own routing and the set of paths is
 // its business, not this application's.
-func (p *Providers) Handler(tenantCode string) http.Handler {
-	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		provider, _, err := p.For(r.Context(), tenantCode)
+func (p *Providers) Handler(mount string) http.Handler {
+	inner := http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		provider, err := p.For(r.Context(), mount)
 		if err != nil {
 			http.Error(w, "unknown tenant", http.StatusNotFound)
 			return
 		}
 		provider.ServeHTTP(w, r)
 	})
+	if mount == "" {
+		return inner
+	}
+	// The provider routes relative to its own issuer, so the mount has to
+	// come off the path before it sees the request.
+	return http.StripPrefix(mount, inner)
+}
+
+// The ways completing an authorization request can fail, as values rather
+// than as HTTP errors: this package sits beside Portico's API rather than
+// inside it, and the handler that calls Complete is where a status code
+// belongs.
+//
+// ErrWrongTenant is separate from ErrAuthRequestNotFound on purpose. It is
+// what somebody sees after signing in perfectly successfully to the wrong
+// tenant, and "unknown or expired request" would read as a Portico fault
+// rather than as something they can act on.
+var (
+	ErrWrongTenant         = errors.New("oidcp: the authorization request belongs to another tenant")
+	ErrAuthRequestNotFound = errors.New("oidcp: no such authorization request")
+	ErrClientNotFound      = errors.New("oidcp: the client is no longer registered")
+	ErrClientDisabled      = errors.New("oidcp: the client is disabled")
+)
+
+// Authorization is where a browser goes once a person has signed in, which
+// resumes the protocol flow the sign-in interrupted.
+type Authorization struct {
+	// RedirectTo is the provider's own callback, not the relying party's:
+	// the library issues the authorization code there and redirects onward
+	// itself.
+	RedirectTo string `json:"redirectTo"`
+	// ClientName is shown by the sign-in screen, so a person knows what
+	// they are being signed in to.
+	ClientName string `json:"clientName"`
+}
+
+// Complete marks an authorization request as belonging to a signed-in
+// person, and returns where to send the browser.
+//
+// This is the one part of the flow the protocol library does not drive.
+// Everything the library needs to hand a code to the relying party is in the
+// stored request; what it cannot know is who is at the keyboard, because
+// that is Portico's own sign-in, not the protocol's.
+func (p *Providers) Complete(ctx context.Context, actor auth.Principal, authRequestID, ip string) (Authorization, error) {
+	q := p.store.ForTenant(actor.TenantID)
+
+	row, err := q.GetAuthRequest(ctx, authRequestID, store.Now())
+	if err != nil {
+		if store.IsNoRows(err) {
+			// It may exist under a different tenant, which is a different
+			// problem with a different remedy.
+			if p.existsElsewhere(ctx, authRequestID) {
+				return Authorization{}, ErrWrongTenant
+			}
+			return Authorization{}, ErrAuthRequestNotFound
+		}
+		return Authorization{}, fmt.Errorf("get authorization request: %w", err)
+	}
+
+	// A client disabled between /authorize and sign-in must fail here.
+	// Redirecting onward would hand the relying party a code that dies at
+	// the token endpoint, with an error nobody can trace back to this.
+	client, err := p.clients.Get(ctx, actor.TenantID, row.ClientID)
+	if err != nil {
+		return Authorization{}, ErrClientNotFound
+	}
+	if client.Status != model.StatusActive {
+		return Authorization{}, ErrClientDisabled
+	}
+
+	if err := q.CompleteAuthRequest(ctx, row.ID, actor.UserID, store.Now(), []string{"pwd"}); err != nil {
+		return Authorization{}, fmt.Errorf("complete authorization request: %w", err)
+	}
+
+	// Who authorized what, and when. An identity provider that cannot answer
+	// that is not one anybody should deploy.
+	p.audit.Log(ctx, actor.TenantID, service.AuditEntry{
+		Kind: model.LogLogin, Action: model.ActionAuthorize,
+		ActorID: actor.UserID, ActorName: actor.Username,
+		TargetType: "OAUTH_CLIENT", TargetID: client.ClientID, TargetName: client.Name,
+		Detail: "scopes: " + strings.Join(row.Scopes, " "),
+		IP:     ip,
+	})
+
+	return Authorization{
+		// The issuer comes from the row rather than from the caller: the same
+		// tenant is reachable at two mounts, and only the request knows which
+		// one it arrived at.
+		RedirectTo: row.Issuer + "/authorize/callback?id=" + url.QueryEscape(row.ID),
+		ClientName: client.Name,
+	}, nil
+}
+
+// existsElsewhere reports whether an authorization request exists in some
+// other tenant. It is only ever asked after a scoped lookup has missed, and
+// only to tell two indistinguishable failures apart.
+func (p *Providers) existsElsewhere(ctx context.Context, authRequestID string) bool {
+	tenants, err := p.tenants.List(ctx)
+	if err != nil {
+		return false
+	}
+	for _, tenant := range tenants {
+		if _, err := p.store.ForTenant(tenant.ID).GetAuthRequest(ctx, authRequestID, store.Now()); err == nil {
+			return true
+		}
+	}
+	return false
+}
+
+// SweepExpired deletes authorization requests nobody completed.
+//
+// Every arrival at /authorize writes a row, and most deployments will have
+// far more abandoned sign-ins than finished ones, so this is the fastest
+// growing table Portico has. The sweep is per tenant because the query is —
+// there is deliberately no way to write across tenants.
+func (p *Providers) SweepExpired(ctx context.Context) error {
+	tenants, err := p.tenants.List(ctx)
+	if err != nil {
+		return fmt.Errorf("list tenants: %w", err)
+	}
+
+	now := store.Now()
+	for _, tenant := range tenants {
+		if err := p.store.ForTenant(tenant.ID).DeleteExpiredAuthRequests(ctx, now); err != nil {
+			return fmt.Errorf("sweep tenant %s: %w", tenant.Code, err)
+		}
+	}
+	return nil
 }

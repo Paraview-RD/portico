@@ -283,6 +283,14 @@ CREATE TABLE oauth_auth_requests (
     tenant_id TEXT NOT NULL REFERENCES tenants (id),
     client_id TEXT NOT NULL,
 
+    -- Which issuer the request arrived at. A tenant is reachable at
+    -- /t/<code>, and the default tenant additionally at the root, so the
+    -- same tenant has two issuers and the sign-in screen cannot work out
+    -- from the tenant alone where to send the browser back. Recording it
+    -- here means the answer comes from the request rather than from a
+    -- parameter somebody could supply.
+    issuer TEXT NOT NULL,
+
     -- Null until the person has signed in. A request that is exchanged for a
     -- token without one would be a token for nobody.
     subject TEXT,

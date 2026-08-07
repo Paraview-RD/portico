@@ -37,7 +37,11 @@ import (
 
 // Storage implements op.Storage for one tenant.
 type Storage struct {
-	tenant  model.Tenant
+	tenant model.Tenant
+	// issuer is this adapter's own issuer identifier. It is recorded on
+	// every authorization request, because the default tenant is reachable
+	// at two mounts and only the request knows which one it arrived at.
+	issuer  string
 	store   *store.Store
 	users   *service.UserService
 	clients *service.OAuthClientService
@@ -52,6 +56,7 @@ type Storage struct {
 // NewStorage binds an adapter to a tenant.
 func NewStorage(
 	tenant model.Tenant,
+	issuer string,
 	st *store.Store,
 	users *service.UserService,
 	clients *service.OAuthClientService,
@@ -59,7 +64,7 @@ func NewStorage(
 	loginURL func(string) string,
 ) *Storage {
 	return &Storage{
-		tenant: tenant, store: st,
+		tenant: tenant, issuer: issuer, store: st,
 		users: users, clients: clients, keys: keys,
 		loginURL: loginURL,
 	}
@@ -106,6 +111,7 @@ func (s *Storage) CreateAuthRequest(ctx context.Context, req *oidc.AuthRequest, 
 	err = s.scoped().CreateAuthRequest(ctx, sqlcgen.CreateAuthRequestParams{
 		ID:                  id,
 		ClientID:            string(req.ClientID),
+		Issuer:              s.issuer,
 		RedirectUri:         req.RedirectURI,
 		ResponseType:        string(req.ResponseType),
 		ResponseMode:        string(req.ResponseMode),

@@ -30,6 +30,7 @@ type OauthAuthRequest struct {
 	ID                  string
 	TenantID            string
 	ClientID            string
+	Issuer              string
 	Subject             *string
 	RedirectUri         string
 	ResponseType        string

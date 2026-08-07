@@ -16,10 +16,14 @@ export function LoginPage() {
   // Remembered from the last sign-in, or taken from a ?tenant= link, so an
   // operator can hand out a URL that lands on the right tenant. Blank means
   // the default tenant, which is all a single-tenant deployment ever needs.
-  const initialTenant =
-    new URLSearchParams(window.location.search).get("tenant") ??
-    tenantStore.get() ??
-    "";
+  const params = new URLSearchParams(window.location.search);
+  const initialTenant = params.get("tenant") ?? tenantStore.get() ?? "";
+
+  // When an application is waiting on this sign-in, the screen must not
+  // navigate anywhere afterwards: AuthorizePage is rendering this form and
+  // takes over the moment the session exists. Navigating would replace the
+  // URL and lose the request along with it.
+  const completingAuthorization = params.has("auth_request");
 
   const [tenant, setTenant] = useState(initialTenant);
   // The tenant the lookup below has run for. It trails the field rather than
@@ -69,7 +73,9 @@ export function LoginPage() {
       // the lookup here too.
       setLookedUpTenant(tenant.trim());
       await signIn(tenant.trim(), identifier, password);
-      navigate("/users");
+      if (!completingAuthorization) {
+        navigate("/users");
+      }
     } catch (err) {
       setError(
         err instanceof ApiError ? err.message : t("common.unexpectedError"),

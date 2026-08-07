@@ -41,16 +41,17 @@ func (q *Queries) CompleteAuthRequest(ctx context.Context, arg CompleteAuthReque
 
 const createAuthRequest = `-- name: CreateAuthRequest :exec
 INSERT INTO oauth_auth_requests (
-    id, tenant_id, client_id, redirect_uri, response_type, response_mode,
-    scopes, audience, state, nonce, code_challenge, code_challenge_method,
-    created_at, expires_at
-) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14)
+    id, tenant_id, client_id, issuer, redirect_uri, response_type,
+    response_mode, scopes, audience, state, nonce, code_challenge,
+    code_challenge_method, created_at, expires_at
+) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15)
 `
 
 type CreateAuthRequestParams struct {
 	ID                  string
 	TenantID            string
 	ClientID            string
+	Issuer              string
 	RedirectUri         string
 	ResponseType        string
 	ResponseMode        string
@@ -69,6 +70,7 @@ func (q *Queries) CreateAuthRequest(ctx context.Context, arg CreateAuthRequestPa
 		arg.ID,
 		arg.TenantID,
 		arg.ClientID,
+		arg.Issuer,
 		arg.RedirectUri,
 		arg.ResponseType,
 		arg.ResponseMode,
@@ -113,7 +115,7 @@ func (q *Queries) DeleteExpiredAuthRequests(ctx context.Context, arg DeleteExpir
 }
 
 const getAuthRequest = `-- name: GetAuthRequest :one
-SELECT id, tenant_id, client_id, subject, redirect_uri, response_type, response_mode, scopes, audience, state, nonce, code_challenge, code_challenge_method, auth_time, amr, done, code_hash, created_at, expires_at FROM oauth_auth_requests
+SELECT id, tenant_id, client_id, issuer, subject, redirect_uri, response_type, response_mode, scopes, audience, state, nonce, code_challenge, code_challenge_method, auth_time, amr, done, code_hash, created_at, expires_at FROM oauth_auth_requests
 WHERE tenant_id = $1 AND id = $2 AND expires_at > $3
 LIMIT 1
 `
@@ -131,6 +133,7 @@ func (q *Queries) GetAuthRequest(ctx context.Context, arg GetAuthRequestParams) 
 		&i.ID,
 		&i.TenantID,
 		&i.ClientID,
+		&i.Issuer,
 		&i.Subject,
 		&i.RedirectUri,
 		&i.ResponseType,
@@ -152,7 +155,7 @@ func (q *Queries) GetAuthRequest(ctx context.Context, arg GetAuthRequestParams) 
 }
 
 const getAuthRequestByCode = `-- name: GetAuthRequestByCode :one
-SELECT id, tenant_id, client_id, subject, redirect_uri, response_type, response_mode, scopes, audience, state, nonce, code_challenge, code_challenge_method, auth_time, amr, done, code_hash, created_at, expires_at FROM oauth_auth_requests
+SELECT id, tenant_id, client_id, issuer, subject, redirect_uri, response_type, response_mode, scopes, audience, state, nonce, code_challenge, code_challenge_method, auth_time, amr, done, code_hash, created_at, expires_at FROM oauth_auth_requests
 WHERE tenant_id = $1 AND code_hash = $2 AND done = TRUE AND expires_at > $3
 LIMIT 1
 `
@@ -172,6 +175,7 @@ func (q *Queries) GetAuthRequestByCode(ctx context.Context, arg GetAuthRequestBy
 		&i.ID,
 		&i.TenantID,
 		&i.ClientID,
+		&i.Issuer,
 		&i.Subject,
 		&i.RedirectUri,
 		&i.ResponseType,

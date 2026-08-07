@@ -7,6 +7,7 @@ import (
 	"github.com/go-chi/chi/v5"
 
 	"github.com/paraview/portico/internal/httpx"
+	"github.com/paraview/portico/internal/oidcp"
 	"github.com/paraview/portico/internal/web"
 )
 
@@ -46,6 +47,11 @@ func (s *Server) routes() http.Handler {
 			r.Use(mw.RequireAuth)
 
 			r.Post("/auth/logout", h.Logout)
+
+			// The seam between Portico's own sign-in and the OpenID
+			// Provider: the sign-in screen calls this once somebody has
+			// authenticated, and is told where to send the browser next.
+			r.Post("/oauth/authorize", h.Authorize)
 			r.Get("/users/me", h.Me)
 			r.Put("/users/me", h.UpdateOwnProfile)
 			r.Post("/users/me/password", h.ChangeOwnPassword)
@@ -93,6 +99,8 @@ func (s *Server) routes() http.Handler {
 		})
 	})
 
+	s.mountFederation(r)
+
 	// Anything outside /api/v1 is the single-page app. API 404s keep
 	// returning the JSON envelope; only non-API paths fall through to the
 	// UI, so a mistyped endpoint never returns HTML to an API client.
@@ -113,6 +121,52 @@ func (s *Server) routes() http.Handler {
 	})
 
 	return r
+}
+
+// federationEndpoints are the OpenID Provider paths Portico serves,
+// relative to an issuer.
+//
+// They are listed rather than delegated wholesale to the protocol library's
+// router, so that the surface is a decision recorded here. The library also
+// routes a device-authorization endpoint and its own liveness probes; the
+// first is a grant this version does not implement, and the second would be
+// a second health endpoint saying something different from /api/v1/health.
+var federationEndpoints = []string{
+	"/.well-known/openid-configuration",
+	"/authorize",
+	"/authorize/callback",
+	"/oauth/token",
+	"/oauth/introspect",
+	"/userinfo",
+	"/revoke",
+	"/end_session",
+	"/keys",
+}
+
+// mountFederation serves each tenant's OpenID Provider under /t/<code>, and
+// the default tenant's additionally at the root.
+//
+// The root alias exists so that a deployment with one tenant has the issuer
+// people expect — https://id.example.com, not https://id.example.com/t/default
+// — and never has to explain tenants to an integrator. The two are separate
+// issuers over the same accounts and the same keys, which is why an
+// authorization request records the one it arrived at.
+func (s *Server) mountFederation(r chi.Router) {
+	root := s.oidc.Handler("")
+	for _, path := range federationEndpoints {
+		r.Handle(path, root)
+	}
+
+	r.Route(oidcp.TenantPathPrefix+"{tenant}", func(r chi.Router) {
+		byTenant := http.HandlerFunc(func(w http.ResponseWriter, req *http.Request) {
+			// The mount comes off the path before the provider sees it,
+			// because the provider routes relative to its own issuer.
+			s.oidc.Handler(oidcp.TenantMount(chi.URLParam(req, "tenant"))).ServeHTTP(w, req)
+		})
+		for _, path := range federationEndpoints {
+			r.Handle(path, byTenant)
+		}
+	})
 }
 
 type healthResponse struct {

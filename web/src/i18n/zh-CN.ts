@@ -57,6 +57,10 @@ export const zhCN: Record<keyof typeof enUS, string> = {
   "login.register": "立即注册",
   "login.sessionExpired": "登录状态已失效，请重新登录。",
 
+  "authorize.title": "正在登录",
+  "authorize.redirecting": "正在返回应用…",
+  "authorize.signOutAndRetry": "退出登录并重新登录",
+
   "register.title": "注册账号",
   "register.displayName": "用户名",
   "register.confirmPassword": "确认密码",

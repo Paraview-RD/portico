@@ -55,6 +55,13 @@ const (
 	ActionPasswordRecoveryRequest  = "PASSWORD_RECOVERY_REQUEST"
 	ActionPasswordRecoveryComplete = "PASSWORD_RECOVERY_COMPLETE"
 
+	// ActionAuthorize is a person completing an OAuth authorization request:
+	// user X signed in to application Y at time T. It is separate from
+	// LOGIN_SUCCESS because they answer different questions — one is "who
+	// signed in to Portico", the other "what did that let them into" — and a
+	// single sign-in can authorize several applications over its lifetime.
+	ActionAuthorize = "OAUTH_AUTHORIZE"
+
 	// ActionProfileSelf is a user editing their own details, as distinct
 	// from USER_UPDATE, which is an administrator editing someone else's.
 	ActionProfileSelf = "PROFILE_UPDATE_SELF"
