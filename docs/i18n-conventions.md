@@ -1,0 +1,118 @@
+# Internationalization Conventions
+
+The interface ships in English and Simplified Chinese, switchable at
+runtime. English is the source language; every key is defined there first.
+
+Adding a screen without following these is the easiest way to create work
+for someone later, because retrofitting strings after the fact means
+revisiting every component.
+
+## Where translations live
+
+```
+web/src/i18n/
+  en-US.ts     source language — every key is defined here
+  zh-CN.ts     typed against en-US
+  index.tsx    the provider, the t() function, language detection
+```
+
+`zh-CN.ts` is declared as `Record<keyof typeof enUS, string>`, so **a
+missing or misspelled key is a compile error**, not a raw key rendered in
+the interface at runtime.
+
+Verify with `npm run typecheck`. Note that a bare `npx tsc --noEmit` checks
+*nothing* here — the root `tsconfig.json` is a project-references stub with
+`"files": []`, so it silently type-checks zero files. Use the script.
+
+## Keys
+
+- **Dot-separated, `camelCase` segments, grouped by area**:
+  `users.colUsername`, `login.sessionExpired`, `common.cancel`.
+- **The first segment is the screen or shared area** — `common`, `nav`,
+  `login`, `register`, `users`, `organizations`, `auditLogs`, `settings`,
+  `profile`. Do not invent a new top-level prefix for a single string; put
+  it in the screen that owns it.
+- **A key names its role, not its text.** `users.confirmDisable`, not
+  `users.areYouSureYouWantToDisable`. When the wording changes — and it
+  will — the key should still make sense.
+- **A key must never contain business data.** `role.SUPER_ADMIN` is
+  correct because the role is a fixed enumeration defined by the system.
+  A key built from a username or an organization name is not.
+
+### Keys derived from enumerations
+
+Where the server returns a stable enum value, the key is built from it:
+
+```tsx
+t(`status.${user.status}`)      // status.ACTIVE / status.DISABLED
+t(`auditLogs.kind.${log.kind}`) // auditLogs.kind.LOGIN, …
+```
+
+This is the reason the API returns `ACTIVE` rather than "Active": **the
+server sends codes, the client renders them**. A server that returns
+display text has made itself monolingual, and no amount of frontend work
+fixes it.
+
+## Placeholders
+
+Positional, `{0}`-style, substituted by argument order:
+
+```ts
+'common.pageOf': 'Page {0} of {1}',
+```
+
+```tsx
+t('common.pageOf', page, lastPage)
+```
+
+Named placeholders read better, but positional ones survive translation
+into a language that needs a different word order, without the translator
+having to preserve identifiers. The tradeoff is that argument order is
+load-bearing — so keep the count small. A string needing five
+substitutions is usually two strings.
+
+**Never build a sentence by concatenation.** `t('greeting') + name` breaks
+in any language where the name does not come last. Put the placeholder in
+the string.
+
+## What does not get translated
+
+- **Server-side messages and logs.** The API's `message` is English; logs
+  are English. The interface localizes by `code` — see
+  [error-conventions.md](error-conventions.md).
+- **Enumeration values on the wire.** `ACTIVE`, `SUPER_ADMIN`, `LOGIN`.
+  Codes are the contract; text is the presentation.
+- **User-entered data.** A display name, an organization name, and a
+  remark are data. They are shown as stored.
+- **Identifiers in the audit log.** Action names like `USER_CREATE` are
+  rendered verbatim, in a monospace column, deliberately: they are what an
+  operator would grep the server logs for, and translating them would break
+  that correspondence.
+
+## Formatting values
+
+- **Timestamps** arrive as ISO 8601 UTC and are formatted in the browser
+  with `toLocaleString()`, so they follow the reader's locale and time
+  zone. Never send a preformatted date string from the server — it commits
+  to one locale and one zone for every reader.
+- **Numbers** likewise: send the number, format at the edge.
+
+## Safety
+
+- Translations are rendered as text. Nothing in this project uses
+  `dangerouslySetInnerHTML`, and a translation must never be the reason to
+  introduce it — a resource bundle is exactly the kind of file that gets
+  edited by someone who is not thinking about script injection.
+- **No personal data in a translated string or its arguments.** A
+  placeholder receives a display name where the interface already shows it;
+  it must not carry an email, a phone number, a token, or an identifier the
+  reader is not already entitled to see.
+
+## Adding a string
+
+1. Add the key to `en-US.ts`, in the group for the screen that owns it.
+2. Add the same key to `zh-CN.ts`. Skipping this fails the build, which is
+   the intent — an untranslated interface should not be shippable by
+   accident.
+3. Use it through `t()`. Never write a literal string in a component; that
+   is the one rule whose violations are hardest to find later.

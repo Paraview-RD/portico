@@ -116,6 +116,7 @@ go test ./...
 golangci-lint run ./...
 
 cd web
+npm run typecheck        # tsc -b; plain `tsc --noEmit` checks nothing here
 npx prettier --check "src/**/*.{ts,tsx,css}"
 npm run lint
 npm run build

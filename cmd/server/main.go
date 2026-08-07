@@ -152,6 +152,11 @@ func setupLogging(level string) {
 		lvl = slog.LevelInfo
 	}
 
+	// JSON to stdout, one record per line: the container runtime or process
+	// supervisor owns collection, so the application never writes files.
 	handler := slog.NewJSONHandler(os.Stdout, &slog.HandlerOptions{Level: lvl})
-	slog.SetDefault(slog.New(handler))
+
+	// service_name is attached once rather than at each call site, so it can
+	// never be forgotten.
+	slog.SetDefault(slog.New(handler).With("service_name", "keylite"))
 }

@@ -71,14 +71,26 @@ func AccessLog(next http.Handler) http.Handler {
 		if rec.status == 0 {
 			rec.status = http.StatusOK
 		}
-		slog.InfoContext(r.Context(), "request",
-			"requestId", RequestIDFrom(r.Context()),
+
+		// The level follows the outcome: a server error has to stand out
+		// from routine traffic, and a rejected request is worth noticing
+		// without being an alert.
+		level := slog.LevelInfo
+		switch {
+		case rec.status >= http.StatusInternalServerError:
+			level = slog.LevelError
+		case rec.status >= http.StatusBadRequest:
+			level = slog.LevelWarn
+		}
+
+		slog.Log(r.Context(), level, "request",
+			"request_id", RequestIDFrom(r.Context()),
 			"method", r.Method,
 			"path", r.URL.Path,
 			"status", rec.status,
 			"bytes", rec.bytes,
-			"durationMs", time.Since(start).Milliseconds(),
-			"ip", ClientIP(r),
+			"duration_ms", time.Since(start).Milliseconds(),
+			"client_ip", ClientIP(r),
 		)
 	})
 }
@@ -90,7 +102,7 @@ func Recover(next http.Handler) http.Handler {
 		defer func() {
 			if rec := recover(); rec != nil {
 				slog.ErrorContext(r.Context(), "panic recovered",
-					"requestId", RequestIDFrom(r.Context()),
+					"request_id", RequestIDFrom(r.Context()),
 					"path", r.URL.Path,
 					"panic", rec,
 					"stack", string(debug.Stack()),

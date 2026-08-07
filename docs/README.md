@@ -17,6 +17,12 @@ actually does, so a reviewer can check a change against them:
   `{code, message, data}` envelope, and which status code means what.
 - **[database-conventions.md](database-conventions.md)** — schema naming,
   types, migrations, and how to write a query safely.
+- **[error-conventions.md](error-conventions.md)** — error codes, choosing a
+  status, wrapping errors in Go, and what must never reach a client.
+- **[logging-conventions.md](logging-conventions.md)** — structured log
+  format, levels, correlation, and what must never be logged.
+- **[i18n-conventions.md](i18n-conventions.md)** — translation keys,
+  placeholders, and what does and does not get translated.
 - **[design-principles.md](design-principles.md)** — design tokens, colour
   roles, and the rules the frontend styles itself by.
 

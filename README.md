@@ -144,9 +144,12 @@ The middleware re-reads the account per request and rejects stale versions.
 That costs one indexed read and buys immediate revocation without a denylist
 to keep consistent.
 
-Conventions this project holds itself to:
+Conventions this project holds itself to — all in [docs/](docs/):
 [API](docs/api-conventions.md) ·
 [database](docs/database-conventions.md) ·
+[errors](docs/error-conventions.md) ·
+[logging](docs/logging-conventions.md) ·
+[i18n](docs/i18n-conventions.md) ·
 [UI](docs/design-principles.md).
 
 ## Contributing

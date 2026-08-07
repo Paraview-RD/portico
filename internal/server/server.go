@@ -3,8 +3,10 @@ package server
 
 import (
 	"context"
+	"fmt"
 	"log/slog"
 	"net/http"
+	"os"
 
 	"github.com/paraview/keylite/internal/auth"
 	"github.com/paraview/keylite/internal/config"
@@ -60,16 +62,32 @@ func (s *Server) Bootstrap(ctx context.Context) error {
 		return err
 	}
 
-	if created && generatedPassword != "" {
-		// Printed once, never stored. The operator is expected to sign in
-		// and change it.
-		slog.Warn("created the initial administrator account",
-			"username", s.cfg.InitialAdminUsername,
-			"password", generatedPassword,
-			"note", "this password is shown only once — sign in and change it")
-	} else if created {
+	if created {
 		slog.Info("created the initial administrator account",
 			"username", s.cfg.InitialAdminUsername)
+	}
+
+	if created && generatedPassword != "" {
+		// Deliberately not through the structured logger. Under any normal
+		// deployment those records are shipped to an aggregator, where a
+		// credential would persist indefinitely, be searchable, and be
+		// readable by a far wider group than "people who may administer
+		// this system". Writing it to stderr as plain text keeps it in the
+		// operator's terminal on first run without entering the log
+		// pipeline.
+		fmt.Fprintf(os.Stderr, `
+────────────────────────────────────────────────────────────────
+  Initial administrator created
+
+    username:  %s
+    password:  %s
+
+  This password is shown once and stored nowhere. Sign in and
+  change it. To choose it yourself instead, set
+  KEYLITE_INITIAL_ADMIN_PASSWORD before first start.
+────────────────────────────────────────────────────────────────
+
+`, s.cfg.InitialAdminUsername, generatedPassword)
 	}
 
 	return nil

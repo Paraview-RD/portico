@@ -10,7 +10,8 @@
     "preview": "vite preview",
     "format": "prettier --write \"src/**/*.{ts,tsx,css}\"",
     "format:check": "prettier --check \"src/**/*.{ts,tsx,css}\"",
-    "prebuild": "node -e \"require('fs').rmSync('../internal/web/dist/assets',{recursive:true,force:true})\""
+    "prebuild": "node -e \"require('fs').rmSync('../internal/web/dist/assets',{recursive:true,force:true})\"",
+    "typecheck": "tsc -b --force"
   },
   "dependencies": {
     "react": "^19.2.8",

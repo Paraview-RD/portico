@@ -16,7 +16,10 @@
 - [ ] `golangci-lint run ./...` is clean
 - [ ] Frontend changes: `npm run build` and `npx prettier --check "src/**/*.{ts,tsx,css}"` pass
 - [ ] Behavior changes have tests
-- [ ] User-facing strings go through i18n (both `web/src/i18n/en-US.ts` and `zh-CN.ts`)
+- [ ] User-facing strings go through i18n in both bundles — see
+      [docs/i18n-conventions.md](../docs/i18n-conventions.md)
+- [ ] No secrets, tokens, or personal data in new log statements — see
+      [docs/logging-conventions.md](../docs/logging-conventions.md)
 - [ ] Schema changes follow [docs/database-conventions.md](../docs/database-conventions.md)
       and add a migration rather than editing a released one
 - [ ] Docs updated if this changes setup, configuration, or the API
@@ -28,4 +31,5 @@
 
 - [ ] This does not weaken authentication, authorization, or session revocation
 - [ ] New endpoints are behind the right middleware (`RequireAuth` / `RequireAdmin`)
-- [ ] No secrets, tokens, or passwords are logged or returned to the client
+- [ ] Errors returned to clients carry no internal detail — see
+      [docs/error-conventions.md](../docs/error-conventions.md)

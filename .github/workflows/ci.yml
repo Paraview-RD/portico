@@ -53,6 +53,7 @@ jobs:
           cache-dependency-path: web/package-lock.json
 
       - run: npm ci
+      - run: npm run typecheck
       - run: npx prettier --check "src/**/*.{ts,tsx,css}"
       - run: npm run lint
       - run: npm run build

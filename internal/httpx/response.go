@@ -125,7 +125,8 @@ func Fail(w http.ResponseWriter, r *http.Request, err error) {
 
 	if apiErr.Status >= http.StatusInternalServerError {
 		slog.ErrorContext(r.Context(), "request failed",
-			"code", apiErr.Code,
+			"error_code", apiErr.Code,
+			"request_id", RequestIDFrom(r.Context()),
 			"method", r.Method,
 			"path", r.URL.Path,
 			"error", apiErr.Error(),
