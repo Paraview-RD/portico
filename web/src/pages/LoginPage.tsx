@@ -17,13 +17,21 @@ export function LoginPage() {
   // operator can hand out a URL that lands on the right tenant. Blank means
   // the default tenant, which is all a single-tenant deployment ever needs.
   const params = new URLSearchParams(window.location.search);
-  const initialTenant = params.get("tenant") ?? tenantStore.get() ?? "";
 
   // When an application is waiting on this sign-in, the screen must not
   // navigate anywhere afterwards: AuthorizePage is rendering this form and
   // takes over the moment the session exists. Navigating would replace the
   // URL and lose the request along with it.
   const completingAuthorization = params.has("auth_request");
+
+  // The remembered tenant is a convenience for someone returning to sign
+  // in. It must not win over an authorization request, whose tenant is
+  // decided by the issuer the application asked: a stale memory would
+  // otherwise pre-fill a different tenant, and signing in there succeeds
+  // and then fails to complete the request they came for.
+  const initialTenant =
+    params.get("tenant") ??
+    (completingAuthorization ? "" : (tenantStore.get() ?? ""));
 
   const [tenant, setTenant] = useState(initialTenant);
   // The tenant the lookup below has run for. It trails the field rather than

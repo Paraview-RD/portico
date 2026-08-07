@@ -160,7 +160,7 @@ administrator disabling the account. Each of them:
 - invalidates every Portico session token immediately, and
 - revokes every refresh token held by every relying party.
 
-Neither of them can withdraw an **access token that has already been
+None of them can withdraw an **access token that has already been
 issued**. That is not a gap in Portico; it is what issuing a self-verifying
 token means. A resource server checks the signature and the expiry and never
 calls back, which is the entire reason to federate rather than to proxy every

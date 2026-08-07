@@ -27,15 +27,22 @@ export function AuthorizePage({ authRequestId }: { authRequestId: string }) {
   const [error, setError] = useState("");
   const [wrongTenant, setWrongTenant] = useState(false);
 
-  // The redirect is a side effect that must happen exactly once. Without
-  // this, React's development double-render would complete the request
-  // twice, and the second attempt would fail against a request the first
-  // one had already consumed.
-  const started = useRef(false);
+  // Completing is a side effect that must happen once per signed-in person,
+  // and exactly once: React's development double-render would otherwise
+  // complete the request twice, the second attempt failing against a
+  // request the first had already consumed.
+  //
+  // Once per *person*, not once per mount. Signing out after the wrong-
+  // tenant error does not change the URL, so this component stays mounted
+  // across it; a plain boolean would leave the error on screen forever and
+  // dead-end whoever did exactly what it told them to.
+  const startedFor = useRef<string | null>(null);
 
   useEffect(() => {
-    if (loading || !user || started.current) return;
-    started.current = true;
+    if (loading || !user || startedFor.current === user.id) return;
+    startedFor.current = user.id;
+    setError("");
+    setWrongTenant(false);
 
     oauthApi
       .authorize(authRequestId)
@@ -47,7 +54,17 @@ export function AuthorizePage({ authRequestId }: { authRequestId: string }) {
       .catch((err: unknown) => {
         if (err instanceof ApiError) {
           setWrongTenant(err.code === "AUTH_REQUEST_WRONG_TENANT");
-          setError(err.message);
+          // These four are the whole failure surface of this endpoint and
+          // each has a different remedy, so they are translated here rather
+          // than shown in the server's own words. Everything else falls back
+          // to the message, which is better than a code.
+          const translated: Record<string, string> = {
+            AUTH_REQUEST_WRONG_TENANT: t("authorize.wrongTenant"),
+            AUTH_REQUEST_NOT_FOUND: t("authorize.expired"),
+            OAUTH_CLIENT_NOT_FOUND: t("authorize.clientGone"),
+            OAUTH_CLIENT_DISABLED: t("authorize.clientDisabled"),
+          };
+          setError(translated[err.code] ?? err.message);
         } else {
           setError(t("common.unexpectedError"));
         }
