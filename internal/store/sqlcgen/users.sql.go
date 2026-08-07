@@ -166,6 +166,40 @@ func (q *Queries) CreateUser(ctx context.Context, arg CreateUserParams) error {
 	return err
 }
 
+const getUserByEmail = `-- name: GetUserByEmail :one
+SELECT id, tenant_id, username, display_name, password_hash, phone, email, role, status, organization_id, token_version, source, created_at, updated_at FROM users WHERE tenant_id = $1 AND email <> '' AND email = $2 LIMIT 1
+`
+
+type GetUserByEmailParams struct {
+	TenantID string
+	Email    string
+}
+
+// For password recovery over email, and only that. Matching the email column
+// alone is what keeps a username that happens to look like an address from
+// routing a reset to the wrong account.
+func (q *Queries) GetUserByEmail(ctx context.Context, arg GetUserByEmailParams) (User, error) {
+	row := q.db.QueryRowContext(ctx, getUserByEmail, arg.TenantID, arg.Email)
+	var i User
+	err := row.Scan(
+		&i.ID,
+		&i.TenantID,
+		&i.Username,
+		&i.DisplayName,
+		&i.PasswordHash,
+		&i.Phone,
+		&i.Email,
+		&i.Role,
+		&i.Status,
+		&i.OrganizationID,
+		&i.TokenVersion,
+		&i.Source,
+		&i.CreatedAt,
+		&i.UpdatedAt,
+	)
+	return i, err
+}
+
 const getUserByID = `-- name: GetUserByID :one
 SELECT id, tenant_id, username, display_name, password_hash, phone, email, role, status, organization_id, token_version, source, created_at, updated_at FROM users WHERE tenant_id = $1 AND id = $2 LIMIT 1
 `
@@ -177,6 +211,93 @@ type GetUserByIDParams struct {
 
 func (q *Queries) GetUserByID(ctx context.Context, arg GetUserByIDParams) (User, error) {
 	row := q.db.QueryRowContext(ctx, getUserByID, arg.TenantID, arg.ID)
+	var i User
+	err := row.Scan(
+		&i.ID,
+		&i.TenantID,
+		&i.Username,
+		&i.DisplayName,
+		&i.PasswordHash,
+		&i.Phone,
+		&i.Email,
+		&i.Role,
+		&i.Status,
+		&i.OrganizationID,
+		&i.TokenVersion,
+		&i.Source,
+		&i.CreatedAt,
+		&i.UpdatedAt,
+	)
+	return i, err
+}
+
+const getUserByIdentifier = `-- name: GetUserByIdentifier :one
+SELECT id, tenant_id, username, display_name, password_hash, phone, email, role, status, organization_id, token_version, source, created_at, updated_at FROM users
+WHERE tenant_id = $1
+  AND (username = $2
+       OR (email <> '' AND email = $2)
+       OR (phone <> '' AND phone = $2))
+ORDER BY CASE
+    WHEN username = $2 THEN 0
+    WHEN email = $2 THEN 1
+    ELSE 2
+END
+LIMIT 1
+`
+
+type GetUserByIdentifierParams struct {
+	TenantID string
+	Username string
+}
+
+// Sign-in accepts any of the three identifiers (§3.4). This is deliberately
+// one query with a declared precedence rather than three tried in turn: a
+// username may look like an email, so "which column matched" has to have a
+// fixed answer, and an implicit one would depend on row order.
+//
+// Username wins. If one account's email equals another's username, the
+// username holder signs in and the email holder cannot use that identifier —
+// an inconvenience for the second account, not access to the first, since
+// the password is still the gate.
+//
+// Password recovery must NOT use this query. It resolves an identifier and
+// then sends a token, so a cross-column collision there would route someone
+// else's reset to the caller. Recovery uses the channel-specific lookups
+// below.
+func (q *Queries) GetUserByIdentifier(ctx context.Context, arg GetUserByIdentifierParams) (User, error) {
+	row := q.db.QueryRowContext(ctx, getUserByIdentifier, arg.TenantID, arg.Username)
+	var i User
+	err := row.Scan(
+		&i.ID,
+		&i.TenantID,
+		&i.Username,
+		&i.DisplayName,
+		&i.PasswordHash,
+		&i.Phone,
+		&i.Email,
+		&i.Role,
+		&i.Status,
+		&i.OrganizationID,
+		&i.TokenVersion,
+		&i.Source,
+		&i.CreatedAt,
+		&i.UpdatedAt,
+	)
+	return i, err
+}
+
+const getUserByPhone = `-- name: GetUserByPhone :one
+SELECT id, tenant_id, username, display_name, password_hash, phone, email, role, status, organization_id, token_version, source, created_at, updated_at FROM users WHERE tenant_id = $1 AND phone <> '' AND phone = $2 LIMIT 1
+`
+
+type GetUserByPhoneParams struct {
+	TenantID string
+	Phone    string
+}
+
+// The same, for recovery over SMS.
+func (q *Queries) GetUserByPhone(ctx context.Context, arg GetUserByPhoneParams) (User, error) {
+	row := q.db.QueryRowContext(ctx, getUserByPhone, arg.TenantID, arg.Phone)
 	var i User
 	err := row.Scan(
 		&i.ID,

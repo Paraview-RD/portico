@@ -38,12 +38,12 @@ CREATE TABLE organizations (
     -- Codes are unique within a tenant, not globally: two tenants
     -- independently naming an organization "SALES" is normal, and a global
     -- constraint would let one tenant's choices deny another's.
-    UNIQUE (tenant_id, code),
+    CONSTRAINT uq_organizations_tenant_code UNIQUE (tenant_id, code),
 
     -- Redundant given the primary key, but it is what lets users declare a
     -- composite foreign key and so have the database itself refuse a
     -- cross-tenant membership.
-    UNIQUE (tenant_id, id)
+    CONSTRAINT uq_organizations_tenant_id UNIQUE (tenant_id, id)
 );
 
 COMMENT ON TABLE organizations IS 'Flat groupings of users. No hierarchy in this version.';
@@ -82,12 +82,37 @@ CREATE TABLE users (
     -- Usernames are unique per tenant. Two tenants both having an "admin" is
     -- the expected case, which is also why sign-in has to be told which
     -- tenant it is for.
-    UNIQUE (tenant_id, username)
+    --
+    -- Constraints are named rather than left to PostgreSQL's generator
+    -- because the service layer discriminates on the constraint name to say
+    -- which field collided. A generated name would make that mapping depend
+    -- on a string nothing declares.
+    CONSTRAINT uq_users_tenant_username UNIQUE (tenant_id, username),
+
+    -- Redundant given the primary key, but it is what lets password_resets
+    -- declare a composite foreign key and so have the database refuse a
+    -- reset row pointing at another tenant's account.
+    CONSTRAINT uq_users_tenant_id UNIQUE (tenant_id, id)
 );
 
 COMMENT ON COLUMN users.token_version IS
     'Bumped on logout, password change, and disable. A token carrying a stale value is rejected, which is how a stateless JWT is revoked immediately.';
 COMMENT ON COLUMN users.source IS 'How the account came to exist, for the registration log.';
+COMMENT ON COLUMN users.email IS
+    'Doubles as a sign-in identifier and as the destination for password recovery. Unique within the tenant when set; empty means not bound.';
+COMMENT ON COLUMN users.phone IS
+    'Doubles as a sign-in identifier and as the destination for password recovery. Unique within the tenant when set; empty means not bound.';
+
+-- Phone and email are sign-in identifiers, so they have to be unambiguous.
+-- The constraint is partial because empty is the default and means "not
+-- bound" — a plain unique index would let exactly one account per tenant
+-- leave either field blank.
+--
+-- Uniqueness is per tenant, like everything else. The same address existing
+-- in two tenants is legitimate; a global constraint would let one tenant's
+-- users deny another's.
+CREATE UNIQUE INDEX uq_users_tenant_email ON users (tenant_id, email) WHERE email <> '';
+CREATE UNIQUE INDEX uq_users_tenant_phone ON users (tenant_id, phone) WHERE phone <> '';
 
 CREATE INDEX idx_users_organization ON users (tenant_id, organization_id);
 CREATE INDEX idx_users_created ON users (tenant_id, created_at);

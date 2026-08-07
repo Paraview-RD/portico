@@ -45,6 +45,8 @@ export const zhCN: Record<keyof typeof enUS, string> = {
   "nav.signOut": "退出登录",
 
   "login.title": "登录",
+  "login.identifier": "账号 / 邮箱 / 手机号",
+  "login.identifierHint": "三者任选其一，登录的是同一个账号。",
   "login.tenant": "租户",
   "login.tenantHint": "如果没有拿到租户编码，留空即可。",
   "login.username": "登录账号",

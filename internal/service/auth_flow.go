@@ -24,42 +24,53 @@ type Session struct {
 
 // Login verifies credentials within a tenant and issues a token.
 //
+// The identifier may be a username, an email address, or a phone number
+// (§3.4). All three produce exactly the same session — there is one
+// credential check, one token, one audit entry, and nothing downstream can
+// tell which was used. That is the requirement: the identifier is a way of
+// naming an account, not a kind of account.
+//
 // The tenant is resolved by the caller before this runs, and is not
-// something the credentials can influence: usernames are unique per tenant,
-// so "which tenant" has to be settled first or the lookup is ambiguous.
+// something the credentials can influence: all three identifiers are unique
+// per tenant, so "which tenant" has to be settled first or the lookup is
+// ambiguous.
 //
 // Every failure returns the same ErrInvalidCredentials regardless of whether
-// the username exists, so the response cannot be used to enumerate accounts.
+// the account exists, so the response cannot be used to enumerate accounts.
 // A disabled account is the one exception: telling the user their account is
 // disabled is more useful than pretending the password is wrong, and the
 // account is known to exist anyway once the password matches.
-func (s *UserService) Login(ctx context.Context, tenant model.Tenant, username, password, ip string) (Session, error) {
-	username = strings.TrimSpace(username)
-	if username == "" || password == "" {
-		return Session{}, httpx.BadRequest("MISSING_CREDENTIALS", "Username and password are required.")
+func (s *UserService) Login(ctx context.Context, tenant model.Tenant, identifier, password, ip string) (Session, error) {
+	identifier = strings.TrimSpace(identifier)
+	if identifier == "" || password == "" {
+		return Session{}, httpx.BadRequest("MISSING_CREDENTIALS",
+			"An identifier and password are required.")
 	}
 
 	q := s.store.ForTenant(tenant.ID)
 
-	row, err := q.GetUserByUsername(ctx, username)
+	row, err := q.GetUserByIdentifier(ctx, identifier)
 	if err != nil {
 		if store.IsNoRows(err) {
 			// Spend the same time as a real password check so response
-			// timing does not reveal which usernames exist.
+			// timing does not reveal which accounts exist.
 			auth.BurnPasswordComparison()
-			s.logLoginFailure(ctx, tenant.ID, "", username, ip, "no such user")
+			s.logLoginFailure(ctx, tenant.ID, "", identifier, ip, "no such user")
 			return Session{}, ErrInvalidCredentials
 		}
 		return Session{}, fmt.Errorf("look up user: %w", err)
 	}
 
 	if !auth.CheckPassword(row.PasswordHash, password) {
-		s.logLoginFailure(ctx, tenant.ID, row.ID, username, ip, "wrong password")
+		// The audit entry records the account, not the identifier that named
+		// it — the trail is about who, and an email and a username reaching
+		// the same account are the same event.
+		s.logLoginFailure(ctx, tenant.ID, row.ID, row.Username, ip, "wrong password")
 		return Session{}, ErrInvalidCredentials
 	}
 
 	if model.Status(row.Status) != model.StatusActive {
-		s.logLoginFailure(ctx, tenant.ID, row.ID, username, ip, "account disabled")
+		s.logLoginFailure(ctx, tenant.ID, row.ID, row.Username, ip, "account disabled")
 		return Session{}, ErrAccountDisabled
 	}
 

@@ -4,6 +4,43 @@ SELECT * FROM users WHERE tenant_id = $1 AND id = $2 LIMIT 1;
 -- name: GetUserByUsername :one
 SELECT * FROM users WHERE tenant_id = $1 AND username = $2 LIMIT 1;
 
+-- name: GetUserByIdentifier :one
+-- Sign-in accepts any of the three identifiers (§3.4). This is deliberately
+-- one query with a declared precedence rather than three tried in turn: a
+-- username may look like an email, so "which column matched" has to have a
+-- fixed answer, and an implicit one would depend on row order.
+--
+-- Username wins. If one account's email equals another's username, the
+-- username holder signs in and the email holder cannot use that identifier —
+-- an inconvenience for the second account, not access to the first, since
+-- the password is still the gate.
+--
+-- Password recovery must NOT use this query. It resolves an identifier and
+-- then sends a token, so a cross-column collision there would route someone
+-- else's reset to the caller. Recovery uses the channel-specific lookups
+-- below.
+SELECT * FROM users
+WHERE tenant_id = $1
+  AND (username = $2
+       OR (email <> '' AND email = $2)
+       OR (phone <> '' AND phone = $2))
+ORDER BY CASE
+    WHEN username = $2 THEN 0
+    WHEN email = $2 THEN 1
+    ELSE 2
+END
+LIMIT 1;
+
+-- name: GetUserByEmail :one
+-- For password recovery over email, and only that. Matching the email column
+-- alone is what keeps a username that happens to look like an address from
+-- routing a reset to the wrong account.
+SELECT * FROM users WHERE tenant_id = $1 AND email <> '' AND email = $2 LIMIT 1;
+
+-- name: GetUserByPhone :one
+-- The same, for recovery over SMS.
+SELECT * FROM users WHERE tenant_id = $1 AND phone <> '' AND phone = $2 LIMIT 1;
+
 -- name: CreateUser :exec
 INSERT INTO users (
     id, tenant_id, username, display_name, password_hash, phone, email,

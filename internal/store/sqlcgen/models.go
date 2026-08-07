@@ -61,12 +61,14 @@ type Tenant struct {
 }
 
 type User struct {
-	ID             string
-	TenantID       string
-	Username       string
-	DisplayName    string
-	PasswordHash   string
-	Phone          string
+	ID           string
+	TenantID     string
+	Username     string
+	DisplayName  string
+	PasswordHash string
+	// Doubles as a sign-in identifier and as the destination for password recovery. Unique within the tenant when set; empty means not bound.
+	Phone string
+	// Doubles as a sign-in identifier and as the destination for password recovery. Unique within the tenant when set; empty means not bound.
 	Email          string
 	Role           string
 	Status         string

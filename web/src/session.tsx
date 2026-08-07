@@ -28,8 +28,15 @@ interface SessionValue {
   loading: boolean;
   /** Set when the previous session ended unexpectedly, for the login page. */
   expired: boolean;
-  /** Signs in to a tenant. An empty code means the default tenant. */
-  signIn: (tenant: string, username: string, password: string) => Promise<void>;
+  /**
+   * Signs in to a tenant with any of the three identifiers. An empty tenant
+   * code means the default tenant.
+   */
+  signIn: (
+    tenant: string,
+    identifier: string,
+    password: string,
+  ) => Promise<void>;
   signOut: () => Promise<void>;
   /** Ends the session locally, for flows the server already invalidated. */
   endSession: () => void;
@@ -81,8 +88,8 @@ export function SessionProvider({ children }: { children: ReactNode }) {
   }, [refresh]);
 
   const signIn = useCallback(
-    async (tenant: string, username: string, password: string) => {
-      const session = await authApi.login(tenant, username, password);
+    async (tenant: string, identifier: string, password: string) => {
+      const session = await authApi.login(tenant, identifier, password);
       tokenStore.set(session.token);
       // Remembered so registration and a reload stay in the same tenant
       // rather than falling back to the default one.

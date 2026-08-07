@@ -29,13 +29,14 @@ function query(params: Record<string, string | number | undefined>): string {
 
 export const authApi = {
   /**
-   * Signs in. An empty tenant means the default one, which is what a
-   * single-tenant deployment always sends.
+   * Signs in. The identifier is a username, email address, or phone number
+   * — the server works out which. An empty tenant means the default one,
+   * which is what a single-tenant deployment always sends.
    */
-  login: (tenant: string, username: string, password: string) =>
+  login: (tenant: string, identifier: string, password: string) =>
     request<Session>("/auth/login", {
       method: "POST",
-      body: { tenant, username, password },
+      body: { tenant, identifier, password },
       anonymous: true,
     }),
 

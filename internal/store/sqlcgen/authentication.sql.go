@@ -23,7 +23,7 @@ SELECT id, tenant_id, username, display_name, password_hash, phone, email, role,
 // Two things keep it from being a hole. The caller compares the row's
 // tenant_id against the tid claim in the token and rejects a mismatch, so a
 // token cannot be replayed against a tenant it was not issued for. And
-// TestTenantScopedQueries asserts that this is the only unscoped read of a
+// TestExactlyOneUnscopedQueryIsAllowed asserts that this is the only unscoped read of a
 // scoped table — adding a second one fails the build rather than passing
 // review unnoticed.
 func (q *Queries) GetUserForAuthentication(ctx context.Context, id string) (User, error) {

@@ -26,7 +26,7 @@ export function LoginPage() {
   // "acme" would otherwise issue four requests, three of them for tenants
   // that do not exist.
   const [lookedUpTenant, setLookedUpTenant] = useState(initialTenant);
-  const [username, setUsername] = useState("");
+  const [identifier, setIdentifier] = useState("");
   const [password, setPassword] = useState("");
   const [error, setError] = useState("");
   const [submitting, setSubmitting] = useState(false);
@@ -67,7 +67,7 @@ export function LoginPage() {
       // Submitting without leaving the field never fires onBlur, so settle
       // the lookup here too.
       setLookedUpTenant(tenant.trim());
-      await signIn(tenant.trim(), username, password);
+      await signIn(tenant.trim(), identifier, password);
       navigate("/users");
     } catch (err) {
       setError(
@@ -103,10 +103,14 @@ export function LoginPage() {
             />
           </Field>
 
-          <Field label={t("login.username")} required>
+          <Field
+            label={t("login.identifier")}
+            hint={t("login.identifierHint")}
+            required
+          >
             <Input
-              value={username}
-              onChange={(e) => setUsername(e.target.value)}
+              value={identifier}
+              onChange={(e) => setIdentifier(e.target.value)}
               autoComplete="username"
               autoFocus
               required

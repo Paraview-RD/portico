@@ -44,6 +44,8 @@ export const enUS = {
   "nav.signOut": "Sign out",
 
   "login.title": "Sign in",
+  "login.identifier": "Username, email, or phone",
+  "login.identifierHint": "Any of the three reaches the same account.",
   "login.tenant": "Tenant",
   "login.tenantHint": "Leave blank unless you were given a tenant code.",
   "login.username": "Username",

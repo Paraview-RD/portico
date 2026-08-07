@@ -76,6 +76,32 @@ func (s *Scoped) GetUserByUsername(ctx context.Context, username string) (sqlcge
 		sqlcgen.GetUserByUsernameParams{TenantID: s.tenantID, Username: username})
 }
 
+// GetUserByIdentifier returns the account a sign-in identifier names — a
+// username, email address, or phone number, in that order of precedence.
+//
+// Only sign-in may use this. Password recovery resolves through
+// GetUserByEmail or GetUserByPhone, which match a single column, because
+// resolving across columns and then sending a token would let a colliding
+// identifier route someone else's reset.
+func (s *Scoped) GetUserByIdentifier(ctx context.Context, identifier string) (sqlcgen.User, error) {
+	return s.q.GetUserByIdentifier(ctx,
+		sqlcgen.GetUserByIdentifierParams{TenantID: s.tenantID, Username: identifier})
+}
+
+// GetUserByEmail returns the account with a bound email address. For
+// password recovery over email.
+func (s *Scoped) GetUserByEmail(ctx context.Context, email string) (sqlcgen.User, error) {
+	return s.q.GetUserByEmail(ctx,
+		sqlcgen.GetUserByEmailParams{TenantID: s.tenantID, Email: email})
+}
+
+// GetUserByPhone returns the account with a bound phone number. For password
+// recovery over SMS.
+func (s *Scoped) GetUserByPhone(ctx context.Context, phone string) (sqlcgen.User, error) {
+	return s.q.GetUserByPhone(ctx,
+		sqlcgen.GetUserByPhoneParams{TenantID: s.tenantID, Phone: phone})
+}
+
 // ListUsersByIDs returns the accounts among ids that belong to this tenant.
 // Ids from elsewhere are silently absent rather than an error, which is
 // what makes a batch lookup safe to call with ids of unknown provenance.

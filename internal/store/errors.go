@@ -35,6 +35,25 @@ func IsUniqueViolation(err error) bool { return hasSQLState(err, sqlStateUniqueV
 // is how the database rejects a reference to a row that does not exist.
 func IsForeignKeyViolation(err error) bool { return hasSQLState(err, sqlStateForeignKeyViolation) }
 
+// ViolatedConstraint returns the name of the constraint err violated, or an
+// empty string if err is not a constraint failure.
+//
+// The caller needs this to say which field collided. A table with more than
+// one unique constraint — users is unique on the username, the email, and
+// the phone within a tenant — otherwise reports every collision as whichever
+// one the code happened to check for first, which sends the person fixing a
+// spreadsheet row to the wrong column.
+//
+// This is why the constraints are named in the migration rather than left to
+// PostgreSQL's generator: the names below are declared, not inferred.
+func ViolatedConstraint(err error) string {
+	var pgErr *pgconn.PgError
+	if errors.As(err, &pgErr) {
+		return pgErr.ConstraintName
+	}
+	return ""
+}
+
 func hasSQLState(err error, code string) bool {
 	var pgErr *pgconn.PgError
 	return errors.As(err, &pgErr) && pgErr.SQLState() == code

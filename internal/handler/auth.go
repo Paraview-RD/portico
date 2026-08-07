@@ -12,9 +12,13 @@ import (
 type loginRequest struct {
 	// Tenant is the tenant code. Empty means the default tenant, so a
 	// single-tenant deployment never has to send it.
-	Tenant   string `json:"tenant"`
-	Username string `json:"username"`
-	Password string `json:"password"`
+	Tenant string `json:"tenant"`
+	// Identifier is a username, email address, or phone number. It is one
+	// field rather than three because they are three ways of naming an
+	// account, not three kinds of sign-in — the caller should not have to
+	// tell the server which one they typed.
+	Identifier string `json:"identifier"`
+	Password   string `json:"password"`
 }
 
 // Login authenticates a user within a tenant and returns a token.
@@ -31,7 +35,7 @@ func (h *Handler) Login(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	session, err := h.users.Login(r.Context(), tenant, req.Username, req.Password, httpx.ClientIP(r))
+	session, err := h.users.Login(r.Context(), tenant, req.Identifier, req.Password, httpx.ClientIP(r))
 	if err != nil {
 		httpx.Fail(w, r, err)
 		return

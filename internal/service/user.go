@@ -3,6 +3,7 @@ package service
 import (
 	"context"
 	"fmt"
+	"net/mail"
 	"strings"
 
 	"github.com/google/uuid"
@@ -20,6 +21,10 @@ var (
 	ErrUserNotFound  = httpx.NotFound("USER_NOT_FOUND", "No such user.")
 	ErrUsernameTaken = httpx.Conflict("USERNAME_TAKEN",
 		"That username is already in use.")
+	ErrEmailTaken = httpx.Conflict("EMAIL_TAKEN",
+		"That email address is already in use.")
+	ErrPhoneTaken = httpx.Conflict("PHONE_TAKEN",
+		"That phone number is already in use.")
 	ErrOrganizationNotFound = httpx.NotFound("ORGANIZATION_NOT_FOUND",
 		"No such organization.")
 	ErrOrganizationDisabled = httpx.UnprocessableEntity("ORGANIZATION_DISABLED",
@@ -224,11 +229,12 @@ func (s *UserService) Create(ctx context.Context, tenantID string, in CreateUser
 		in.Source = model.SourceAdmin
 	}
 
-	q := s.store.ForTenant(tenantID)
-
-	if err := s.checkUsernameFree(ctx, q, in.Username); err != nil {
+	if err := validateContactDetails(in.Phone, in.Email); err != nil {
 		return model.User{}, err
 	}
+
+	q := s.store.ForTenant(tenantID)
+
 	orgID, err := s.resolveAssignableOrganization(ctx, q, in.OrganizationID)
 	if err != nil {
 		return model.User{}, err
@@ -257,10 +263,11 @@ func (s *UserService) Create(ctx context.Context, tenantID string, in CreateUser
 		UpdatedAt:      now,
 	})
 	if err != nil {
-		// A concurrent insert can still lose the race against the check
-		// above; the unique index is what actually guarantees uniqueness.
-		if store.IsUniqueViolation(err) {
-			return model.User{}, ErrUsernameTaken
+		// The unique indexes are the only thing that actually guarantees
+		// uniqueness — a check-then-insert would still lose a race — so the
+		// conflict is recognized here rather than pre-empted.
+		if taken := takenFieldError(err); taken != nil {
+			return model.User{}, taken
 		}
 		return model.User{}, fmt.Errorf("create user: %w", err)
 	}
@@ -297,6 +304,9 @@ func (s *UserService) Update(ctx context.Context, actor auth.Principal, userID s
 	if !in.Role.Valid() {
 		return model.User{}, httpx.BadRequest("INVALID_ROLE", "Role must be SUPER_ADMIN or USER.")
 	}
+	if err := validateContactDetails(in.Phone, in.Email); err != nil {
+		return model.User{}, err
+	}
 
 	// Demoting the last administrator would leave nobody able to administer
 	// this tenant.
@@ -322,6 +332,9 @@ func (s *UserService) Update(ctx context.Context, actor auth.Principal, userID s
 		UpdatedAt:      now,
 	})
 	if err != nil {
+		if taken := takenFieldError(err); taken != nil {
+			return model.User{}, taken
+		}
 		return model.User{}, fmt.Errorf("update user: %w", err)
 	}
 
@@ -453,15 +466,30 @@ func (s *UserService) attachOrganizations(ctx context.Context, q *store.Scoped, 
 	return users, nil
 }
 
-func (s *UserService) checkUsernameFree(ctx context.Context, q *store.Scoped, username string) error {
-	_, err := q.GetUserByUsername(ctx, username)
-	switch {
-	case err == nil:
-		return ErrUsernameTaken
-	case store.IsNoRows(err):
+// takenFieldError maps a unique-constraint failure on users to the field
+// that actually collided, or returns nil if err is something else.
+//
+// Discriminating on the constraint name matters more than it looks: users is
+// unique on three things within a tenant, and reporting all three as
+// "username already in use" sends whoever is fixing a bulk-import row to the
+// wrong column. The names are declared in the migration for this reason.
+func takenFieldError(err error) error {
+	if !store.IsUniqueViolation(err) {
 		return nil
+	}
+	switch store.ViolatedConstraint(err) {
+	case "uq_users_tenant_username":
+		return ErrUsernameTaken
+	case "uq_users_tenant_email":
+		return ErrEmailTaken
+	case "uq_users_tenant_phone":
+		return ErrPhoneTaken
 	default:
-		return fmt.Errorf("check username: %w", err)
+		// A unique violation on users that is none of the three means a
+		// constraint was added without extending this. Reporting the
+		// username is a guess; say plainly that something collided.
+		return httpx.Conflict("ALREADY_EXISTS",
+			"Those details conflict with an existing account.")
 	}
 }
 
@@ -501,6 +529,50 @@ func (s *UserService) ensureNotLastAdmin(ctx context.Context, q *store.Scoped, u
 	if count == 0 {
 		return ErrLastAdmin
 	}
+	return nil
+}
+
+// validateContactDetails checks the two fields that double as sign-in
+// identifiers and as password-recovery destinations. Either may be empty,
+// which means "not bound".
+//
+// The bar is "could this plausibly be delivered to", not "is this the
+// canonical form". An address that cannot receive a reset is worth rejecting
+// at entry; deciding whose numbering plan a phone number belongs to is not
+// something an identity server should be in the business of.
+func validateContactDetails(phone, email string) error {
+	phone = strings.TrimSpace(phone)
+	email = strings.TrimSpace(email)
+
+	if email != "" {
+		parsed, err := mail.ParseAddress(email)
+		// ParseAddress also accepts `Name <a@b.c>`; requiring the parse to
+		// round-trip keeps the stored value to the bare address, which is
+		// what the unique index and the recovery lookup compare.
+		if err != nil || parsed.Address != email {
+			return httpx.BadRequest("INVALID_EMAIL", "That is not a valid email address.")
+		}
+		if len(email) > 254 {
+			// The limit from RFC 5321 on a reverse-path.
+			return httpx.BadRequest("INVALID_EMAIL", "That email address is too long.")
+		}
+	}
+
+	if phone != "" {
+		if len(phone) < 5 || len(phone) > 20 {
+			return httpx.BadRequest("INVALID_PHONE", "That is not a valid phone number.")
+		}
+		for i, r := range phone {
+			switch {
+			case r >= '0' && r <= '9':
+			case r == '+' && i == 0:
+			default:
+				return httpx.BadRequest("INVALID_PHONE",
+					"A phone number may contain only digits, optionally led by +.")
+			}
+		}
+	}
+
 	return nil
 }
 

@@ -371,7 +371,7 @@ func TestDisabledTenantRefusesSignIn(t *testing.T) {
 	}
 
 	res := api.do(http.MethodPost, "/api/v1/auth/login", "", map[string]string{
-		"tenant": second.code, "username": adminUsername, "password": adminPassword,
+		"tenant": second.code, "identifier": adminUsername, "password": adminPassword,
 	})
 	if res.Status != http.StatusForbidden {
 		t.Errorf("status = %d (%s), want 403 for a disabled tenant", res.Status, res.Code)
@@ -390,7 +390,7 @@ func TestUnknownTenantIsReported(t *testing.T) {
 	api := newAPITest(t)
 
 	res := api.do(http.MethodPost, "/api/v1/auth/login", "", map[string]string{
-		"tenant": "no-such-tenant", "username": adminUsername, "password": adminPassword,
+		"tenant": "no-such-tenant", "identifier": adminUsername, "password": adminPassword,
 	})
 	if res.Status != http.StatusNotFound {
 		t.Errorf("status = %d, want 404", res.Status)
@@ -406,7 +406,7 @@ func TestSingleTenantDeploymentNeverMentionsTenants(t *testing.T) {
 	api := newAPITest(t)
 
 	res := api.do(http.MethodPost, "/api/v1/auth/login", "", map[string]string{
-		"username": adminUsername, "password": adminPassword,
+		"identifier": adminUsername, "password": adminPassword,
 	})
 	if res.Status != http.StatusOK {
 		t.Fatalf("sign-in without a tenant failed: %d %s %s", res.Status, res.Code, res.Message)

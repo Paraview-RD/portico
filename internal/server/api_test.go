@@ -144,9 +144,9 @@ func (a *apiTest) loginTo(tenant, username, password string) string {
 	a.t.Helper()
 
 	res := a.do(http.MethodPost, "/api/v1/auth/login", "", map[string]string{
-		"tenant":   tenant,
-		"username": username,
-		"password": password,
+		"tenant":     tenant,
+		"identifier": username,
+		"password":   password,
 	})
 	if res.Status != http.StatusOK {
 		a.t.Fatalf("login as %s in tenant %q failed: %d %s %s",
@@ -253,8 +253,8 @@ func TestLoginRejectsBadCredentials(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			res := api.do(http.MethodPost, "/api/v1/auth/login", "", map[string]string{
-				"username": tt.username,
-				"password": tt.password,
+				"identifier": tt.username,
+				"password":   tt.password,
 			})
 
 			if res.Status == http.StatusOK {
@@ -370,7 +370,7 @@ func TestDisablingUserRevokesTheirSession(t *testing.T) {
 
 	// And they must not be able to sign in again.
 	res = api.do(http.MethodPost, "/api/v1/auth/login", "", map[string]string{
-		"username": "victim", "password": "victim-password-1",
+		"identifier": "victim", "password": "victim-password-1",
 	})
 	if res.Code != "ACCOUNT_DISABLED" {
 		t.Errorf("login code = %q, want ACCOUNT_DISABLED", res.Code)
@@ -620,7 +620,7 @@ func TestAuditTrailRecordsKeyEvents(t *testing.T) {
 
 	// Produce a failed login, which must be recorded as well as successes.
 	api.do(http.MethodPost, "/api/v1/auth/login", "", map[string]string{
-		"username": adminUsername, "password": "wrong",
+		"identifier": adminUsername, "password": "wrong",
 	})
 	api.createUser(token, "audited", "password-12345", "USER")
 
