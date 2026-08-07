@@ -1,0 +1,101 @@
+name: Bug report
+description: Something does not work the way it should
+labels: ["bug", "needs triage"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        **If this is a security vulnerability, stop.** Do not file it here —
+        report it privately through
+        [Security → Report a vulnerability](https://github.com/paraview/keylite/security/advisories/new).
+        See [SECURITY.md](https://github.com/paraview/keylite/blob/main/SECURITY.md).
+
+  - type: textarea
+    id: what-happened
+    attributes:
+      label: What happened
+      description: What did you do, what did you expect, and what did you get instead?
+      placeholder: |
+        I signed in as a normal user and opened the user list. I expected to be
+        told I lack permission; instead the page was blank.
+    validations:
+      required: true
+
+  - type: textarea
+    id: reproduce
+    attributes:
+      label: Steps to reproduce
+      description: >
+        The smaller the better. If it only happens with particular data, say
+        what is special about it.
+      placeholder: |
+        1. Start Keylite with a fresh database
+        2. Sign in as the bootstrap administrator
+        3. …
+    validations:
+      required: true
+
+  - type: input
+    id: version
+    attributes:
+      label: Version
+      description: >
+        From `GET /api/v1/health`, which reports it without needing to sign in:
+        `curl http://localhost:8410/api/v1/health`
+      placeholder: "0.1.0"
+    validations:
+      required: true
+
+  - type: dropdown
+    id: deployment
+    attributes:
+      label: How are you running it?
+      options:
+        - Release binary
+        - Docker / docker compose
+        - Built from source
+        - Development (npm run dev + go run)
+    validations:
+      required: true
+
+  - type: input
+    id: platform
+    attributes:
+      label: Operating system and architecture
+      placeholder: "Ubuntu 24.04, amd64"
+    validations:
+      required: true
+
+  - type: dropdown
+    id: proxy
+    attributes:
+      label: Is it behind a reverse proxy?
+      description: >
+        This matters more than it looks — it affects TLS, client IP handling,
+        and rate limiting.
+      options:
+        - "No, direct"
+        - "Yes, nginx"
+        - "Yes, Caddy"
+        - "Yes, something else"
+    validations:
+      required: true
+
+  - type: textarea
+    id: logs
+    attributes:
+      label: Relevant log output
+      description: >
+        Server logs around the failure. **Redact anything sensitive** — tokens,
+        passwords, and real usernames.
+      render: shell
+
+  - type: checkboxes
+    id: confirmations
+    attributes:
+      label: Before submitting
+      options:
+        - label: This is not a security vulnerability (those go through private reporting)
+          required: true
+        - label: I searched existing issues for this
+          required: true

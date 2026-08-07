@@ -1,0 +1,12 @@
+# Blank issues are disabled so that a security report cannot be filed
+# publicly by someone who skipped the templates.
+blank_issues_enabled: false
+contact_links:
+  - name: Report a security vulnerability
+    url: https://github.com/paraview/keylite/security/advisories/new
+    about: >
+      Never report a vulnerability in a public issue. This opens a private
+      advisory visible only to the maintainers.
+  - name: Question or idea
+    url: https://github.com/paraview/keylite/discussions
+    about: For usage questions and open-ended discussion, rather than a bug.

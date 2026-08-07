@@ -6,7 +6,12 @@ follow [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
-The initial MVP. Nothing has been released yet.
+Nothing yet.
+
+## [0.1.0] - 2026-08-07
+
+The initial release: the MVP scope, complete and verified end to end. Not yet
+used in production anywhere — treat it as early software.
 
 ### Added
 
@@ -44,3 +49,23 @@ The initial MVP. Nothing has been released yet.
   including `none`.
 - The last active administrator cannot be disabled or demoted, and no account
   can disable itself.
+- `KEYLITE_JWT_SECRET` must be at least 32 bytes; the server refuses to start
+  with a shorter one, because HS256 with a low-entropy key can be
+  brute-forced offline from a single captured token.
+- Security headers on every response: Content-Security-Policy,
+  X-Frame-Options, X-Content-Type-Options, Referrer-Policy, and `no-store` on
+  API responses.
+- Forwarding headers (`X-Forwarded-For`, `X-Real-Ip`) are ignored unless
+  explicitly trusted, so a caller cannot forge the IP recorded against their
+  own actions in the audit log.
+- Release artifacts carry an SPDX SBOM, and the checksum file is signed
+  keylessly through Sigstore.
+
+### Known limitations
+
+Keylite has no TLS and no rate limiting, both deliberately. It must run
+behind a reverse proxy that provides them — see
+[SECURITY.md](SECURITY.md) and
+[docs/access-guide.md](docs/access-guide.md).
+
+[0.1.0]: https://github.com/paraview/keylite/releases/tag/v0.1.0

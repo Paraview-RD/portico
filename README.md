@@ -5,11 +5,29 @@ binary with the web UI compiled in, a SQLite file for storage, and no
 external services — built for the "we just need accounts, sign-in, and two
 roles" case that full IAM platforms over-serve.
 
-Once a release is published, installing it is downloading one file and
-running it: the server creates its database, applies its migrations, prints
-an administrator password once, and serves the UI on
-<http://localhost:8410>. Until then, build it yourself — see
-[Running it](#running-it).
+Installing it is downloading one file and running it. The server creates its
+database, applies its migrations, prints an administrator password once, and
+serves the UI on <http://localhost:8410>.
+
+```bash
+# Pick the build for your platform from the releases page
+curl -LO https://github.com/paraview/keylite/releases/latest/download/keylite_0.1.0_linux_amd64.tar.gz
+tar -xzf keylite_0.1.0_linux_amd64.tar.gz
+KEYLITE_JWT_SECRET=$(openssl rand -hex 32) ./keylite
+```
+
+Releases ship binaries for Linux, macOS, and Windows on amd64 and arm64, each
+with an SPDX SBOM, plus a multi-architecture image at
+`ghcr.io/paraview/keylite`. The checksum file is signed through Sigstore —
+[verification instructions](https://github.com/paraview/keylite/releases/latest)
+are on every release.
+
+> **Before exposing this to a network:** Keylite serves plain HTTP and does
+> not rate-limit sign-in attempts, both deliberately. It must run behind a
+> reverse proxy that terminates TLS and throttles `/api/v1/auth/*` — see
+> [SECURITY.md](SECURITY.md) for why and
+> [docs/access-guide.md](docs/access-guide.md) for working nginx and Caddy
+> configurations.
 
 ## What it does
 
@@ -132,8 +150,16 @@ Conventions this project holds itself to:
 
 ## Contributing
 
-Issues and pull requests are welcome. Commits need a DCO sign-off
-(`git commit -s`) — see [CONTRIBUTING.md](CONTRIBUTING.md).
+Issues and pull requests are welcome. Every commit needs a DCO sign-off
+(`git commit -s`); CI enforces it. [CONTRIBUTING.md](CONTRIBUTING.md) has a
+tested walkthrough from clone to running server.
+
+Participation is governed by our
+[Code of Conduct](CODE_OF_CONDUCT.md).
+
+**Found a security problem?** Do not open an issue — report it privately
+through [Security → Report a vulnerability](https://github.com/paraview/keylite/security/advisories/new).
+See [SECURITY.md](SECURITY.md).
 
 ## License
 

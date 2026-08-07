@@ -1,0 +1,24 @@
+# Release image. GoReleaser has already cross-compiled the binary — with the
+# frontend embedded — so there is nothing to build here, only to package.
+#
+# deploy/Dockerfile is the one that builds from source; use that for a local
+# `docker build` and for docker-compose.
+FROM scratch
+
+# GoReleaser lays the build context out as <os>/<arch>/keylite, so the copy
+# has to be platform-aware for the multi-platform build to pick the right one.
+ARG TARGETPLATFORM
+
+# Run unprivileged. scratch has no user database, so this is a bare uid:gid
+# (nobody); the /data volume below is writable by it.
+USER 65534:65534
+
+COPY $TARGETPLATFORM/keylite /keylite
+
+# The database is a file; mount a volume here to keep it across restarts.
+VOLUME ["/data"]
+ENV KEYLITE_DB_DSN=/data/keylite.db
+ENV KEYLITE_ADDR=:8410
+
+EXPOSE 8410
+ENTRYPOINT ["/keylite"]

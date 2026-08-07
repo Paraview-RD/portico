@@ -1,0 +1,13 @@
+# Every pull request gets a review from the maintainers.
+#
+# TODO(paraview): replace with the real team or usernames before making the
+# repository public — an unresolvable owner silently disables review requests.
+*       @paraview/keylite-maintainers
+
+# Changes to the auth paths, the release pipeline, or the security policy
+# warrant a deliberate look even when the rest of the diff is routine.
+/internal/auth/         @paraview/keylite-maintainers
+/internal/httpx/        @paraview/keylite-maintainers
+/.github/workflows/     @paraview/keylite-maintainers
+/.goreleaser.yaml       @paraview/keylite-maintainers
+/SECURITY.md            @paraview/keylite-maintainers

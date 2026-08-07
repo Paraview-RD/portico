@@ -1,0 +1,139 @@
+# Release build. See .github/workflows/release.yml for what invokes this.
+#
+# The frontend is compiled into the binary, so it has to be built before any
+# Go compilation happens — that is what the `before` hook is for. Skipping it
+# produces binaries that serve an API and no UI, which is exactly the bug the
+# README once shipped.
+version: 2
+
+project_name: keylite
+
+before:
+  hooks:
+    - go mod download
+    - sh -c "cd web && npm ci"
+    - sh -c "cd web && npm run build"
+
+builds:
+  - id: keylite
+    main: ./cmd/server
+    binary: keylite
+    # Pure-Go sqlite driver, so cgo stays off and every target
+    # cross-compiles from one machine.
+    env:
+      - CGO_ENABLED=0
+    goos:
+      - linux
+      - darwin
+      - windows
+    goarch:
+      - amd64
+      - arm64
+    ldflags:
+      - -s -w
+      - -X github.com/paraview/keylite/internal/server.Version={{ .Version }}
+    mod_timestamp: "{{ .CommitTimestamp }}"
+
+archives:
+  - id: keylite
+    formats: [tar.gz]
+    format_overrides:
+      - goos: windows
+        formats: [zip]
+    name_template: >-
+      {{ .ProjectName }}_{{ .Version }}_{{ .Os }}_{{ .Arch }}
+    files:
+      - README.md
+      - LICENSE
+      - NOTICE
+      - CHANGELOG.md
+      - SECURITY.md
+      - .env.example
+
+checksum:
+  name_template: checksums.txt
+  algorithm: sha256
+
+# An SBOM per archive. For a security-domain project this is the artifact an
+# enterprise evaluator asks for first.
+sboms:
+  - id: archive-sbom
+    artifacts: archive
+
+signs:
+  # Keyless signing through Sigstore: no long-lived private key to store or
+  # rotate, and the signature is tied to the GitHub Actions identity that
+  # produced it. Verify with:
+  #   cosign verify-blob --certificate <file>.pem --signature <file>.sig \
+  #     --certificate-identity-regexp 'https://github.com/paraview/keylite' \
+  #     --certificate-oidc-issuer https://token.actions.githubusercontent.com <file>
+  - cmd: cosign
+    signature: "${artifact}.sig"
+    certificate: "${artifact}.pem"
+    args:
+      - sign-blob
+      - "--output-signature=${signature}"
+      - "--output-certificate=${certificate}"
+      - "${artifact}"
+      - "--yes"
+    artifacts: checksum
+    output: true
+
+# buildx builds and pushes in one step, so these are produced during the
+# publish phase. The build context is a temp tree laid out per platform, not
+# the source tree — see deploy/Dockerfile.release.
+dockers_v2:
+  - id: keylite
+    dockerfile: deploy/Dockerfile.release
+    images:
+      - "ghcr.io/paraview/keylite"
+    tags:
+      - "{{ .Version }}"
+      - "{{ if not .Prerelease }}latest{{ end }}"
+    platforms:
+      - linux/amd64
+      - linux/arm64
+    labels:
+      org.opencontainers.image.title: "{{ .ProjectName }}"
+      org.opencontainers.image.description: "Lightweight self-hostable identity and access management"
+      org.opencontainers.image.version: "{{ .Version }}"
+      org.opencontainers.image.revision: "{{ .FullCommit }}"
+      org.opencontainers.image.created: "{{ .Date }}"
+      org.opencontainers.image.source: "https://github.com/paraview/keylite"
+      org.opencontainers.image.licenses: "Apache-2.0"
+
+changelog:
+  # CHANGELOG.md is written by hand; the release notes come from it rather
+  # than from a generated commit dump.
+  disable: true
+
+release:
+  draft: false
+  prerelease: auto
+  header: |
+    ## Keylite {{ .Version }}
+
+    A lightweight, self-hostable Identity & Access Management system —
+    one binary, one SQLite file, no external services.
+  footer: |
+    ---
+
+    ### Verifying this release
+
+    ```bash
+    # Checksums
+    sha256sum -c checksums.txt --ignore-missing
+
+    # Signature (keyless, via Sigstore)
+    cosign verify-blob \
+      --certificate checksums.txt.pem \
+      --signature checksums.txt.sig \
+      --certificate-identity-regexp 'https://github.com/paraview/keylite' \
+      --certificate-oidc-issuer https://token.actions.githubusercontent.com \
+      checksums.txt
+    ```
+
+    **Before you deploy:** Keylite serves plain HTTP and does not rate-limit
+    sign-in attempts. It must sit behind a reverse proxy that terminates TLS
+    and throttles `/api/v1/auth/*` — see
+    [SECURITY.md](https://github.com/paraview/keylite/blob/main/SECURITY.md).

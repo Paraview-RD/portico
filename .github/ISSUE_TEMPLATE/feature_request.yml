@@ -1,0 +1,49 @@
+name: Feature request
+description: Suggest something Keylite should do
+labels: ["enhancement", "needs triage"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Keylite is deliberately small. Several things are **out of scope on
+        purpose** — OAuth 2.0 / OIDC / SAML, multi-application isolation,
+        third-party and LDAP sign-in, custom roles and permissions, MFA, and
+        rate limiting. See the README and
+        [the requirements document](https://github.com/paraview/keylite/blob/main/docs/requirements/mvp-requirements.md).
+
+        That does not make them permanently off the table, but a request to add
+        one needs to argue why it belongs in a project whose pitch is
+        minimalism.
+
+  - type: textarea
+    id: problem
+    attributes:
+      label: What problem are you trying to solve?
+      description: >
+        Describe the situation, not the solution. What are you doing today, and
+        where does it fall down?
+    validations:
+      required: true
+
+  - type: textarea
+    id: proposal
+    attributes:
+      label: What would you like it to do?
+    validations:
+      required: true
+
+  - type: textarea
+    id: alternatives
+    attributes:
+      label: What have you considered instead?
+      description: >
+        Including working around it outside Keylite — at the reverse proxy, or
+        in the system consuming it. If that is possible but unpleasant, say why.
+
+  - type: checkboxes
+    id: scope
+    attributes:
+      label: Scope
+      options:
+        - label: I have read the "Deliberately not included" list and this is not one of those, or I have explained why it should be reconsidered
+          required: true

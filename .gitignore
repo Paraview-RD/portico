@@ -23,6 +23,9 @@ web/node_modules/
 internal/web/dist/*
 !internal/web/dist/.gitkeep
 
+# GoReleaser output
+/dist/
+
 # OS / editor
 .DS_Store
 .idea/
