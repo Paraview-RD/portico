@@ -26,15 +26,18 @@
 |---|---|---|
 | 0 | 改名 Portico + 定位重写 + 版本回退 | ✅ `9245b6c` |
 | 1 | 迁移 PostgreSQL | ✅ `22b2b6c` |
-| 2 | 多租户隔离 | 🔄 下一步 |
-| 3 | 多凭证登录 + 自服务闭环 | ⬜ |
+| 2 | 多租户隔离 | ✅ `d16a2a8`（前置修复 `5f879c4`） |
+| 3 | 多凭证登录 + 自服务闭环 | 🔄 下一步 |
 | 4 | OIDC + OAuth 2.1 | ⬜ |
 | 5 | SAML 2.0 | ⬜ |
 | 6 | CAS | ⬜ |
 
 ## 关键约束（易在压缩后丢失）
 
-- **多租户隔离不能靠纪律**：必须做租户作用域 store 包装 + 自动化守卫测试（漏一条查询 = 跨租户泄露，review 看不出来）
+- **多租户隔离已落地，三重保障勿拆**：`internal/store/scoped.go`（租户绑定一次）+ `internal/store/tenancy_guard_test.go`（SQL 漏 `tenant_id` 直接构建失败）+ `internal/server/tenancy_test.go`（双租户行为验证）。唯一免检查询是 `GetUserForAuthentication`，白名单断言恰好 1 条
+- **已认证请求的租户只来自 principal**：`X-Portico-Tenant` 仅公开端点可读（`handler/resolvePublicTenant`），认证后忽略
+- **改了 `00001_init.sql` 本地库不会自动更新**：goose 已记 00001 为已应用，须 drop/create 库；测试不受影响（每个测试独立库），所以 `go test` 全绿也不代表本地库是新的
+- **租户开通走 CLI**：`portico tenant create|list|enable|disable`（`internal/provision`），无 API
 - **分层守卫已存在**：`internal/server/layering_test.go`，改包结构时会失败，这是有意的
 - **前端编译进二进制**：Vite 输出到 `internal/web/dist`，`tsc --noEmit` 检查 0 文件（根 tsconfig 是 references 存根），必须用 `npm run typecheck`
 - **规范文档 8 份在 `docs/`**：改行为要同步改对应规范，文档描述的是代码实际行为
