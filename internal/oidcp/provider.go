@@ -211,6 +211,10 @@ func (p *Providers) Handler(mount string) http.Handler {
 			http.Error(w, "unknown tenant", http.StatusNotFound)
 			return
 		}
+		if r.URL.Path == DiscoveryPath {
+			serveCorrectedDiscovery(w, r, provider)
+			return
+		}
 		provider.ServeHTTP(w, r)
 	})
 	if mount == "" {

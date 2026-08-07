@@ -65,6 +65,14 @@ from, and verifies against that one.
 | Scopes | `openid`, `profile`, `email`, `phone`, `offline_access` |
 | Endpoints | discovery, authorize, token, userinfo, introspect, revoke, end_session, keys |
 
+The discovery document says exactly this. The protocol library Portico is
+built on fills three of those fields from its own defaults rather than from
+the configuration — it would otherwise advertise the implicit flow, the
+JWT-bearer grant, and a device-authorization endpoint that is not mounted —
+so the document is corrected before it is published. A client configures
+itself from that file once, before anybody is watching; anything untrue in
+it fails later, somewhere else, with an error nobody can trace back to it.
+
 Deliberately **not** implemented: the implicit and hybrid flows, the device
 and client-credentials grants, dynamic client registration, front-channel
 logout, DPoP, PAR, and `private_key_jwt` client authentication.
@@ -106,6 +114,18 @@ portico client disable --id grafana    # refuses new sign-ins; deletes nothing
 ```
 
 Add `--tenant acme` to register in a tenant other than the default.
+
+The default scopes are `openid profile email`. **A client that needs refresh
+tokens must be registered with `--scope offline_access`** as well — a scope
+the client was not registered for is dropped rather than refused, so the
+symptom is a token response with no `refresh_token` in it and no error
+anywhere:
+
+```bash
+portico client register --id grafana --name Grafana \
+  --scope openid --scope profile --scope email --scope offline_access \
+  --redirect-uri https://grafana.example.com/login/generic_oauth
+```
 
 Redirect URIs are matched exactly and are validated on registration:
 wildcards, fragments, and non-loopback `http://` are all refused. Loopback

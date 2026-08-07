@@ -7,6 +7,7 @@ import (
 	"net/http"
 	"net/http/httptest"
 	"net/url"
+	"reflect"
 	"strings"
 	"testing"
 	"time"
@@ -16,6 +17,7 @@ import (
 
 	"github.com/paraview/portico/internal/config"
 	"github.com/paraview/portico/internal/model"
+	"github.com/paraview/portico/internal/oidcp"
 	"github.com/paraview/portico/internal/provision"
 	"github.com/paraview/portico/internal/service"
 	"github.com/paraview/portico/internal/store"
@@ -701,5 +703,62 @@ func TestAClientIsUnknownOutsideItsTenant(t *testing.T) {
 
 	if strings.Contains(res.Header.Get("Location"), "auth_request=") {
 		t.Error("another tenant's client was accepted")
+	}
+}
+
+// The discovery document is read once, by a machine, before anybody is
+// watching. Anything in it that is not true here becomes a client
+// configured for something that then fails somewhere else entirely.
+func TestDiscoveryDescribesWhatIsActuallyImplemented(t *testing.T) {
+	f := newFederationTest(t)
+
+	res, err := http.Get(f.publicURL + oidcp.DiscoveryPath)
+	if err != nil {
+		t.Fatalf("fetch discovery: %v", err)
+	}
+	defer func() { _ = res.Body.Close() }()
+
+	var document map[string]any
+	if err := json.NewDecoder(res.Body).Decode(&document); err != nil {
+		t.Fatalf("decode discovery: %v", err)
+	}
+
+	// The implicit and hybrid flows are what OAuth 2.1 exists to remove.
+	if got := document["response_types_supported"]; !reflect.DeepEqual(got, []any{"code"}) {
+		t.Errorf("response_types_supported = %v, want [code]", got)
+	}
+	if got := document["grant_types_supported"]; !reflect.DeepEqual(got,
+		[]any{"authorization_code", "refresh_token"}) {
+		t.Errorf("grant_types_supported = %v, want [authorization_code refresh_token]", got)
+	}
+	// Advertising an endpoint that is not mounted sends a client to a 404.
+	if _, present := document["device_authorization_endpoint"]; present {
+		t.Error("a device-authorization endpoint is advertised but not implemented")
+	}
+	if got := document["code_challenge_methods_supported"]; !reflect.DeepEqual(got, []any{"S256"}) {
+		t.Errorf("code_challenge_methods_supported = %v, want [S256]", got)
+	}
+
+	// Every endpoint it names must answer. A document that points at a path
+	// nothing serves is the failure this test exists for.
+	for _, field := range []string{
+		"authorization_endpoint", "token_endpoint", "userinfo_endpoint",
+		"introspection_endpoint", "revocation_endpoint", "end_session_endpoint",
+		"jwks_uri",
+	} {
+		endpoint, ok := document[field].(string)
+		if !ok || endpoint == "" {
+			t.Errorf("%s is missing from the discovery document", field)
+			continue
+		}
+		probe, err := http.Get(endpoint)
+		if err != nil {
+			t.Errorf("%s (%s): %v", field, endpoint, err)
+			continue
+		}
+		_ = probe.Body.Close()
+		if probe.StatusCode == http.StatusNotFound {
+			t.Errorf("%s points at %s, which is not mounted", field, endpoint)
+		}
 	}
 }
