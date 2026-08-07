@@ -46,6 +46,9 @@ func TestLayeringRules(t *testing.T) {
 		// would mean the protocol was leaking into Portico's own API surface
 		// rather than sitting beside it.
 		"samlp": {"handler", "httpx", "server", "config"},
+		// And the CAS server, which is implemented directly rather than
+		// through a library but sits in exactly the same place.
+		"casp": {"handler", "httpx", "server", "config"},
 		// Provisioning is a second composition root, for the operations that
 		// have no HTTP surface. It builds services directly and must not
 		// reach for the web stack: anything it needed from there would mean

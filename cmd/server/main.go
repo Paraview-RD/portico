@@ -47,6 +47,12 @@ func main() {
 				os.Exit(1)
 			}
 			return
+		case "cas":
+			if err := runCAS(os.Args[2:]); err != nil {
+				fmt.Fprintln(os.Stderr, "portico:", err)
+				os.Exit(1)
+			}
+			return
 		default:
 			fmt.Fprintf(os.Stderr, "portico: unknown argument %q\n\n", os.Args[1])
 			usage()
@@ -70,6 +76,7 @@ Usage:
   portico tenant ...   provision tenants (see: portico tenant --help)
   portico client ...   register OAuth/OIDC applications (see: portico client --help)
   portico sp ...       register SAML service providers (see: portico sp --help)
+  portico cas ...      register CAS services (see: portico cas --help)
   portico --version    print the version
   portico --help       print this message
 

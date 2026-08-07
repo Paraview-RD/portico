@@ -237,4 +237,14 @@ export const oauthApi = {
       method: "POST",
       body: { samlRequestId },
     }),
+
+  /**
+   * And for CAS, where the request is the service URL itself. The server
+   * checks it against the tenant's registrations rather than trusting it.
+   */
+  casAuthorize: (service: string) =>
+    request<Authorization>("/cas/authorize", {
+      method: "POST",
+      body: { service },
+    }),
 };

@@ -8,6 +8,7 @@
 package handler
 
 import (
+	"github.com/paraview/portico/internal/casp"
 	"github.com/paraview/portico/internal/oidcp"
 	"github.com/paraview/portico/internal/samlp"
 	"github.com/paraview/portico/internal/service"
@@ -27,6 +28,8 @@ type Handler struct {
 	oidc *oidcp.Providers
 	// saml is here for the same reason, one endpoint further along.
 	saml *samlp.Providers
+	// cas is the third, and the last.
+	cas *casp.Server
 }
 
 // New returns a Handler backed by the given services.
@@ -39,10 +42,11 @@ func New(
 	recovery *service.RecoveryService,
 	oidc *oidcp.Providers,
 	samlProviders *samlp.Providers,
+	casServer *casp.Server,
 ) *Handler {
 	return &Handler{
 		users: users, orgs: orgs, audit: audit,
 		settings: settings, tenants: tenants, recovery: recovery,
-		oidc: oidc, saml: samlProviders,
+		oidc: oidc, saml: samlProviders, cas: casServer,
 	}
 }

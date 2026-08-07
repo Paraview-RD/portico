@@ -31,6 +31,7 @@ type Provisioner struct {
 
 	serviceProviders *service.SAMLServiceProviderService
 	samlKeys         *service.SAMLKeyService
+	casServices      *service.CASService
 }
 
 // Open connects to the database named by cfg and applies any pending
@@ -47,15 +48,18 @@ func Open(cfg *config.Config) (*Provisioner, error) {
 	// exercised here: provisioning issues no sessions.
 	tokens := auth.NewTokenService(cfg.JWTSecret)
 
+	users := service.NewUserService(st, audit, settings, tokens)
+
 	return &Provisioner{
 		store:   st,
 		tenants: service.NewTenantService(st),
-		users:   service.NewUserService(st, audit, settings, tokens),
+		users:   users,
 		clients: service.NewOAuthClientService(st),
 		keys:    service.NewSigningKeyService(st),
 
 		serviceProviders: service.NewSAMLServiceProviderService(st),
 		samlKeys:         service.NewSAMLKeyService(st),
+		casServices:      service.NewCASService(st, users, audit),
 	}, nil
 }
 
@@ -218,4 +222,33 @@ func (p *Provisioner) RotateSAMLCertificate(ctx context.Context, tenantCode stri
 		return service.SAMLKey{}, err
 	}
 	return p.samlKeys.Rotate(ctx, tenant.ID)
+}
+
+// --- CAS services ---------------------------------------------------------
+
+// RegisterCASService adds a CAS service to a tenant.
+func (p *Provisioner) RegisterCASService(ctx context.Context, tenantCode string, in service.RegisterCASInput) (model.CASService, error) {
+	tenant, err := p.tenants.Resolve(ctx, tenantCode)
+	if err != nil {
+		return model.CASService{}, err
+	}
+	return p.casServices.Register(ctx, tenant.ID, in)
+}
+
+// ListCASServices returns every CAS service in a tenant.
+func (p *Provisioner) ListCASServices(ctx context.Context, tenantCode string) ([]model.CASService, error) {
+	tenant, err := p.tenants.Resolve(ctx, tenantCode)
+	if err != nil {
+		return nil, err
+	}
+	return p.casServices.List(ctx, tenant.ID)
+}
+
+// SetCASServiceStatus enables or disables a CAS service.
+func (p *Provisioner) SetCASServiceStatus(ctx context.Context, tenantCode, prefix string, status model.Status) (model.CASService, error) {
+	tenant, err := p.tenants.Resolve(ctx, tenantCode)
+	if err != nil {
+		return model.CASService{}, err
+	}
+	return p.casServices.SetStatus(ctx, tenant.ID, prefix, status)
 }

@@ -64,6 +64,8 @@ export const enUS = {
   "authorize.expired": "This sign-in request has expired or was already used. Start again from the application.",
   "authorize.clientGone": "The application this sign-in was for is no longer registered.",
   "authorize.clientDisabled": "The application this sign-in was for has been disabled.",
+  "authorize.serviceNotRegistered": "That application is not registered with this server.",
+  "authorize.signedOut": "You have been signed out.",
 
   "register.title": "Create an account",
   "register.displayName": "Display name",

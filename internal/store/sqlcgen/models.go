@@ -26,6 +26,27 @@ type AuditLog struct {
 	CreatedAt     time.Time
 }
 
+type CasService struct {
+	ID        string
+	TenantID  string
+	Name      string
+	UrlPrefix string
+	Status    string
+	CreatedAt time.Time
+	UpdatedAt time.Time
+}
+
+type CasTicket struct {
+	ID         string
+	TenantID   string
+	TicketHash string
+	Service    string
+	Subject    string
+	ConsumedAt *time.Time
+	CreatedAt  time.Time
+	ExpiresAt  time.Time
+}
+
 type OauthAuthRequest struct {
 	ID                  string
 	TenantID            string

@@ -533,6 +533,53 @@ func (s *Scoped) DeleteExpiredSAMLAuthRequests(ctx context.Context, before time.
 		sqlcgen.DeleteExpiredSAMLAuthRequestsParams{TenantID: s.tenantID, ExpiresAt: before})
 }
 
+// --- CAS ------------------------------------------------------------------
+
+// CreateCASService registers a CAS service.
+func (s *Scoped) CreateCASService(ctx context.Context, arg sqlcgen.CreateCASServiceParams) error {
+	arg.TenantID = s.tenantID
+	return s.q.CreateCASService(ctx, arg)
+}
+
+// ListCASServices returns every CAS service in this tenant.
+func (s *Scoped) ListCASServices(ctx context.Context) ([]sqlcgen.CasService, error) {
+	return s.q.ListCASServices(ctx, s.tenantID)
+}
+
+// GetCASService returns one registration by its exact prefix.
+func (s *Scoped) GetCASService(ctx context.Context, prefix string) (sqlcgen.CasService, error) {
+	return s.q.GetCASService(ctx,
+		sqlcgen.GetCASServiceParams{TenantID: s.tenantID, UrlPrefix: prefix})
+}
+
+// UpdateCASServiceStatus enables or disables a CAS service.
+func (s *Scoped) UpdateCASServiceStatus(ctx context.Context, prefix, status string, now time.Time) error {
+	return s.q.UpdateCASServiceStatus(ctx, sqlcgen.UpdateCASServiceStatusParams{
+		TenantID: s.tenantID, UrlPrefix: prefix, Status: status, UpdatedAt: now,
+	})
+}
+
+// CreateCASTicket stores an issued service ticket.
+func (s *Scoped) CreateCASTicket(ctx context.Context, arg sqlcgen.CreateCASTicketParams) error {
+	arg.TenantID = s.tenantID
+	return s.q.CreateCASTicket(ctx, arg)
+}
+
+// ConsumeCASTicket spends a ticket and returns it, in one statement. A read
+// followed by a write would let two validations of the same ticket both
+// succeed.
+func (s *Scoped) ConsumeCASTicket(ctx context.Context, ticketHash string, now time.Time) (sqlcgen.CasTicket, error) {
+	return s.q.ConsumeCASTicket(ctx, sqlcgen.ConsumeCASTicketParams{
+		TenantID: s.tenantID, TicketHash: ticketHash, ConsumedAt: &now,
+	})
+}
+
+// DeleteExpiredCASTickets clears tickets nobody validated.
+func (s *Scoped) DeleteExpiredCASTickets(ctx context.Context, before time.Time) error {
+	return s.q.DeleteExpiredCASTickets(ctx,
+		sqlcgen.DeleteExpiredCASTicketsParams{TenantID: s.tenantID, ExpiresAt: before})
+}
+
 func (s *Scoped) withTx(fn func(*sqlcgen.Queries) error) error {
 	st := &Store{db: s.db, Queries: s.q}
 	return st.WithTx(fn)

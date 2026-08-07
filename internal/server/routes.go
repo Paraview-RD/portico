@@ -6,6 +6,7 @@ import (
 
 	"github.com/go-chi/chi/v5"
 
+	"github.com/paraview/portico/internal/casp"
 	"github.com/paraview/portico/internal/httpx"
 	"github.com/paraview/portico/internal/oidcp"
 	"github.com/paraview/portico/internal/samlp"
@@ -54,6 +55,7 @@ func (s *Server) routes() http.Handler {
 			// authenticated, and is told where to send the browser next.
 			r.Post("/oauth/authorize", h.Authorize)
 			r.Post("/saml/authenticate", h.Authenticate)
+			r.Post("/cas/authorize", h.CASAuthorize)
 			r.Get("/users/me", h.Me)
 			r.Put("/users/me", h.UpdateOwnProfile)
 			r.Post("/users/me/password", h.ChangeOwnPassword)
@@ -164,6 +166,11 @@ func (s *Server) mountFederation(r chi.Router) {
 		r.Handle(path, samlRoot)
 	}
 
+	casRoot := s.cas.Handler("")
+	for _, path := range casp.Paths() {
+		r.Handle(path, casRoot)
+	}
+
 	r.Route(oidcp.TenantPathPrefix+"{tenant}", func(r chi.Router) {
 		byTenant := http.HandlerFunc(func(w http.ResponseWriter, req *http.Request) {
 			// The mount comes off the path before the provider sees it,
@@ -179,6 +186,13 @@ func (s *Server) mountFederation(r chi.Router) {
 		})
 		for _, path := range samlEndpoints {
 			r.Handle(path, samlByTenant)
+		}
+
+		casByTenant := http.HandlerFunc(func(w http.ResponseWriter, req *http.Request) {
+			s.cas.Handler(casp.TenantMount(chi.URLParam(req, "tenant"))).ServeHTTP(w, req)
+		})
+		for _, path := range casp.Paths() {
+			r.Handle(path, casByTenant)
 		}
 	})
 }

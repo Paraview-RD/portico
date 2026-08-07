@@ -16,7 +16,14 @@ import { LoginPage } from "./LoginPage";
  * id means nothing to the other.
  */
 export interface PendingAuthorization {
-  protocol: "oauth" | "saml";
+  protocol: "oauth" | "saml" | "cas";
+  /**
+   * For OAuth and SAML this is the id of a request the server parked. For
+   * CAS it is the service URL itself: CAS parks nothing, because the
+   * service URL is the whole request. The server checks it against the
+   * tenant's registrations either way, so it is never trusted for having
+   * arrived in a URL.
+   */
   id: string;
 }
 
@@ -33,6 +40,9 @@ export function pendingAuthorization(
 
   const saml = params.get("saml_request");
   if (saml) return { protocol: "saml", id: saml };
+
+  const cas = params.get("cas_service");
+  if (cas) return { protocol: "cas", id: cas };
 
   return null;
 }
@@ -80,7 +90,9 @@ export function AuthorizePage({
     const complete =
       request.protocol === "oauth"
         ? oauthApi.authorize(request.id)
-        : oauthApi.authenticate(request.id);
+        : request.protocol === "saml"
+          ? oauthApi.authenticate(request.id)
+          : oauthApi.casAuthorize(request.id);
 
     complete
       .then((authorization) => {
@@ -100,6 +112,7 @@ export function AuthorizePage({
             AUTH_REQUEST_NOT_FOUND: t("authorize.expired"),
             OAUTH_CLIENT_NOT_FOUND: t("authorize.clientGone"),
             OAUTH_CLIENT_DISABLED: t("authorize.clientDisabled"),
+            CAS_SERVICE_NOT_REGISTERED: t("authorize.serviceNotRegistered"),
           };
           setError(translated[err.code] ?? err.message);
         } else {

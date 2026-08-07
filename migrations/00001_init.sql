@@ -454,7 +454,63 @@ CREATE TABLE saml_auth_requests (
 
 CREATE INDEX idx_saml_auth_requests_expiry ON saml_auth_requests (expires_at);
 
+-- A registered CAS service.
+--
+-- CAS's `service` parameter is its redirect_uri: it is where a ticket is
+-- delivered, so anything that may appear there has to be registered first.
+CREATE TABLE cas_services (
+    id        TEXT NOT NULL PRIMARY KEY,
+    tenant_id TEXT NOT NULL REFERENCES tenants (id),
+
+    name TEXT NOT NULL,
+    -- A URL prefix, not a pattern. There are no wildcards: a service URL
+    -- matches when it begins with this value and the next character is a
+    -- path or query separator, so a registration for
+    -- https://app.example.com/ can never match https://app.example.com.evil.
+    -- Prefixes rather than exact URLs because a CAS client legitimately
+    -- appends its own return-to parameters.
+    url_prefix TEXT NOT NULL,
+
+    status     TEXT NOT NULL CHECK (status IN ('ACTIVE', 'DISABLED')),
+    created_at TIMESTAMPTZ NOT NULL,
+    updated_at TIMESTAMPTZ NOT NULL,
+
+    CONSTRAINT uq_cas_services_tenant_prefix UNIQUE (tenant_id, url_prefix)
+);
+
+-- An issued CAS service ticket.
+--
+-- Single use and short lived. There is no ticket-granting ticket: CAS
+-- single sign-on here rides on Portico's own session rather than on a
+-- second long-lived cookie, so signing out, changing a password, and
+-- disabling an account already end it — there is no third credential that
+-- could outlive them.
+CREATE TABLE cas_tickets (
+    id        TEXT NOT NULL PRIMARY KEY,
+    tenant_id TEXT NOT NULL REFERENCES tenants (id),
+
+    -- Hashed, like every other bearer credential here: it is worth nothing
+    -- to somebody who only has the database.
+    ticket_hash TEXT NOT NULL UNIQUE,
+
+    -- The service it was issued for. Validation refuses a ticket presented
+    -- with a different one, which is what stops a service that receives a
+    -- ticket from spending it somewhere else.
+    service TEXT NOT NULL,
+
+    subject TEXT NOT NULL,
+    FOREIGN KEY (tenant_id, subject) REFERENCES users (tenant_id, id),
+
+    consumed_at TIMESTAMPTZ,
+    created_at  TIMESTAMPTZ NOT NULL,
+    expires_at  TIMESTAMPTZ NOT NULL
+);
+
+CREATE INDEX idx_cas_tickets_expiry ON cas_tickets (expires_at);
+
 -- +goose Down
+DROP TABLE cas_tickets;
+DROP TABLE cas_services;
 DROP TABLE saml_auth_requests;
 DROP TABLE saml_service_providers;
 DROP TABLE saml_signing_keys;

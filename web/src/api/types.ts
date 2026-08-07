@@ -106,4 +106,6 @@ export interface Authorization {
   clientName?: string;
   /** Set on the SAML path. */
   serviceProviderName?: string;
+  /** Set on the CAS path. */
+  serviceName?: string;
 }

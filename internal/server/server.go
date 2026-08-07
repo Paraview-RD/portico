@@ -10,6 +10,7 @@ import (
 	"os"
 
 	"github.com/paraview/portico/internal/auth"
+	"github.com/paraview/portico/internal/casp"
 	"github.com/paraview/portico/internal/config"
 	"github.com/paraview/portico/internal/handler"
 	"github.com/paraview/portico/internal/httpx"
@@ -30,6 +31,7 @@ type Server struct {
 	tenants    *service.TenantService
 	oidc       *oidcp.Providers
 	saml       *samlp.Providers
+	cas        *casp.Server
 	router     http.Handler
 }
 
@@ -98,15 +100,19 @@ func New(cfg *config.Config, opts ...Option) (*Server, error) {
 	samlProviders := samlp.NewProviders(cfg.PublicURL,
 		st, tenants, users, serviceProviders, samlKeys, audit)
 
+	casServices := service.NewCASService(st, users, audit)
+	casServer := casp.New(cfg.PublicURL, tenants, casServices, audit)
+
 	s := &Server{
 		cfg:        cfg,
 		store:      st,
-		handler:    handler.New(users, orgs, audit, settings, tenants, recovery, providers, samlProviders),
+		handler:    handler.New(users, orgs, audit, settings, tenants, recovery, providers, samlProviders, casServer),
 		middleware: auth.NewMiddleware(tokens, users),
 		users:      users,
 		tenants:    tenants,
 		oidc:       providers,
 		saml:       samlProviders,
+		cas:        casServer,
 	}
 	s.router = s.routes()
 	return s, nil
@@ -184,7 +190,10 @@ func (s *Server) SweepFederation(ctx context.Context) error {
 	if err := s.oidc.SweepExpired(ctx); err != nil {
 		return err
 	}
-	return s.saml.SweepExpired(ctx)
+	if err := s.saml.SweepExpired(ctx); err != nil {
+		return err
+	}
+	return s.cas.SweepExpired(ctx)
 }
 
 // Close releases resources held by the server.

@@ -130,3 +130,36 @@ func authenticateError(err error) error {
 		return err
 	}
 }
+
+type casAuthorizeRequest struct {
+	// Service is the CAS `service` parameter the sign-in screen was handed.
+	Service string `json:"service"`
+}
+
+// CASAuthorize issues a CAS service ticket for the signed-in caller.
+//
+// The third of these seams, and the simplest: CAS parks nothing, because a
+// service URL is the whole request. It is checked against the tenant's
+// registrations here rather than trusted, so the sign-in screen carrying it
+// in a query parameter cannot turn into a ticket for somewhere else.
+func (h *Handler) CASAuthorize(w http.ResponseWriter, r *http.Request) {
+	principal := auth.MustPrincipal(r.Context())
+
+	var req casAuthorizeRequest
+	if err := httpx.DecodeJSON(w, r, &req); err != nil {
+		httpx.Fail(w, r, err)
+		return
+	}
+	if req.Service == "" {
+		httpx.Fail(w, r, httpx.BadRequest("CAS_SERVICE_REQUIRED",
+			"No service was named."))
+		return
+	}
+
+	authorization, err := h.cas.Complete(r.Context(), principal, req.Service, httpx.ClientIP(r))
+	if err != nil {
+		httpx.Fail(w, r, err)
+		return
+	}
+	httpx.OK(w, authorization)
+}

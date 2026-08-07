@@ -17,7 +17,7 @@ import { useSession } from "./session";
 
 export function App() {
   const t = useT();
-  const { user, loading } = useSession();
+  const { user, loading, signOut } = useSession();
   const { route, navigate } = useRouter();
 
   // An application waiting on a sign-in, over either protocol. Read once,
@@ -30,6 +30,18 @@ export function App() {
     [],
   );
 
+  // A CAS client sent the browser here to end the session. It could not end
+  // it itself: the session is a token this application holds, which a plain
+  // navigation to /cas/logout cannot reach.
+  const casLogout = useMemo(
+    () => new URLSearchParams(window.location.search).has("cas_logout"),
+    [],
+  );
+
+  useEffect(() => {
+    if (casLogout && user) void signOut();
+  }, [casLogout, user, signOut]);
+
   // Signed-out visitors may only reach sign-in and registration; everyone
   // else lands on sign-in. This mirrors the server's rules so the UI never
   // renders a screen whose data it cannot fetch.
@@ -40,6 +52,9 @@ export function App() {
     // parameter, and the application that started the sign-in would wait
     // forever without ever being told why.
     if (pending) return;
+    // Nor while signing out on a CAS client's behalf, which would otherwise
+    // bounce them into the console for the moment before it completes.
+    if (casLogout) return;
 
     const publicRoutes = [
       "/login",
@@ -52,7 +67,7 @@ export function App() {
     } else if (user && publicRoutes.includes(route)) {
       navigate(user.role === "SUPER_ADMIN" ? "/users" : "/profile");
     }
-  }, [user, loading, route, navigate, pending]);
+  }, [user, loading, route, navigate, pending, casLogout]);
 
   if (pending) {
     return <AuthorizePage request={pending} />;

@@ -68,6 +68,9 @@ const (
 	// answer to "how did this system come to trust that identity".
 	ActionSAMLAuthenticate = "SAML_AUTHENTICATE"
 
+	// ActionCASAuthenticate is a person obtaining a CAS service ticket.
+	ActionCASAuthenticate = "CAS_AUTHENTICATE"
+
 	// ActionProfileSelf is a user editing their own details, as distinct
 	// from USER_UPDATE, which is an administrator editing someone else's.
 	ActionProfileSelf = "PROFILE_UPDATE_SELF"

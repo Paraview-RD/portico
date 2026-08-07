@@ -64,6 +64,8 @@ export const zhCN: Record<keyof typeof enUS, string> = {
   "authorize.expired": "该登录请求已过期或已被使用，请从应用重新发起登录。",
   "authorize.clientGone": "发起本次登录的应用已不再注册。",
   "authorize.clientDisabled": "发起本次登录的应用已被停用。",
+  "authorize.serviceNotRegistered": "该应用未在本服务器注册。",
+  "authorize.signedOut": "已退出登录。",
 
   "register.title": "注册账号",
   "register.displayName": "用户名",

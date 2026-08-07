@@ -23,7 +23,12 @@ export function LoginPage() {
   // takes over the moment the session exists. Navigating would replace the
   // URL and lose the request along with it.
   const completingAuthorization =
-    params.has("auth_request") || params.has("saml_request");
+    params.has("auth_request") ||
+    params.has("saml_request") ||
+    params.has("cas_service");
+
+  // A CAS client asked for the session to end, and it has.
+  const signedOut = params.has("cas_logout");
 
   // The remembered tenant is a convenience for someone returning to sign
   // in. It must not win over an authorization request, whose tenant is
@@ -107,6 +112,12 @@ export function LoginPage() {
       {expired && (
         <div className="mb-4">
           <Alert tone="danger">{t("login.sessionExpired")}</Alert>
+        </div>
+      )}
+
+      {signedOut && !expired && (
+        <div className="mb-4">
+          <Alert tone="success">{t("authorize.signedOut")}</Alert>
         </div>
       )}
 
