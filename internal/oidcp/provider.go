@@ -216,8 +216,12 @@ func (p *Providers) Handler(mount string) http.Handler {
 	if mount == "" {
 		return inner
 	}
-	// The provider routes relative to its own issuer, so the mount has to
-	// come off the path before it sees the request.
+	// What actually routes is chi's route context, which the caller's router
+	// has already advanced past the mount and which the protocol library's
+	// own router — also chi — reads in preference to the URL. StripPrefix is
+	// redundant against that and deliberately kept: it makes r.URL.Path
+	// agree with the path space the provider believes it occupies, so that
+	// nothing inside it can be misled by a path it was never meant to see.
 	return http.StripPrefix(mount, inner)
 }
 

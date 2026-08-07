@@ -433,15 +433,24 @@ func (s *Storage) SetIntrospectionFromToken(ctx context.Context, response *oidc.
 	return nil
 }
 
-// GetPrivateClaimsFromScopes adds the claims that are Portico's own rather
-// than OpenID's: the tenant, the role, and the organization, which is what
-// §3.8.2 asks the token to carry.
+// GetPrivateClaimsFromScopes puts Portico's own claims in the access token.
 func (s *Storage) GetPrivateClaimsFromScopes(ctx context.Context, userID, _ string, _ []string) (map[string]any, error) {
 	user, err := s.users.Get(ctx, s.tenant.ID, userID)
 	if err != nil {
 		return nil, err
 	}
+	return s.privateClaims(user), nil
+}
 
+// privateClaims are the claims that are Portico's own rather than OpenID's:
+// the tenant, the role, and the organization, which is what §3.8.2 asks the
+// token to carry.
+//
+// They go into the ID token, the access token, and userinfo alike. A
+// relying party reads identity from the ID token and a resource server from
+// the access token, and a claim present in only one of them is a claim
+// half the integrations cannot see.
+func (s *Storage) privateClaims(user model.User) map[string]any {
 	claims := map[string]any{
 		"tenant_id":   s.tenant.ID,
 		"tenant_code": s.tenant.Code,
@@ -451,7 +460,7 @@ func (s *Storage) GetPrivateClaimsFromScopes(ctx context.Context, userID, _ stri
 		claims["organization_id"] = user.OrganizationID
 		claims["organization_name"] = user.OrganizationName
 	}
-	return claims, nil
+	return claims
 }
 
 // GetKeyByIDAndClientID serves private_key_jwt client authentication, which
@@ -478,6 +487,12 @@ func (s *Storage) setUserinfo(ctx context.Context, userinfo *oidc.UserInfo, subj
 	}
 
 	userinfo.Subject = user.ID
+	// The ID token is built from this object, so anything omitted here is
+	// absent from the ID token however faithfully the access token carries
+	// it.
+	for name, value := range s.privateClaims(user) {
+		userinfo.AppendClaims(name, value)
+	}
 	for _, scope := range scopes {
 		switch scope {
 		case oidc.ScopeProfile:
