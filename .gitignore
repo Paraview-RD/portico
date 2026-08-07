@@ -9,6 +9,11 @@
 /portico.db
 /portico.db-shm
 /portico.db-wal
+# The name this project had before it was Portico. A local database from
+# that era was committed once; the pattern stays so it cannot happen again.
+/keylite.db
+/keylite.db-shm
+/keylite.db-wal
 
 # Env / secrets
 .env

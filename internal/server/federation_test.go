@@ -240,6 +240,35 @@ func (f *federationTest) post(path, token string, body map[string]string) map[st
 	return envelope.Data
 }
 
+// postExpectingFailure is post for the cases where the failure is the point,
+// and returns the error code.
+func (f *federationTest) postExpectingFailure(path, token string, body map[string]string) string {
+	f.t.Helper()
+
+	encoded, _ := json.Marshal(body)
+	req, err := http.NewRequest(http.MethodPost, f.publicURL+path, strings.NewReader(string(encoded)))
+	if err != nil {
+		f.t.Fatalf("build request: %v", err)
+	}
+	req.Header.Set("Content-Type", "application/json")
+	req.Header.Set("Authorization", "Bearer "+token)
+
+	res, err := http.DefaultClient.Do(req)
+	if err != nil {
+		f.t.Fatalf("%s: %v", path, err)
+	}
+	defer func() { _ = res.Body.Close() }()
+
+	var envelope struct {
+		Code string `json:"code"`
+	}
+	_ = json.NewDecoder(res.Body).Decode(&envelope)
+	if res.StatusCode == http.StatusOK {
+		f.t.Fatalf("%s succeeded, and the test needs it to fail", path)
+	}
+	return envelope.Code
+}
+
 // The whole flow, driven by a real relying party: discovery, an
 // authorization request with PKCE, a sign-in, a code exchange, and an ID
 // token whose signature is checked against the published key set.
@@ -882,5 +911,104 @@ func TestRPInitiatedLogoutEndsTheSession(t *testing.T) {
 	if _, err := rp.RefreshTokens[*oidc.IDTokenClaims](context.Background(), party,
 		tokens.RefreshToken, "", ""); err == nil {
 		t.Error("the refresh token survived an RP-initiated logout")
+	}
+}
+
+// An authorization request belongs to whoever completed it, and re-completing
+// one is how it stops doing so.
+//
+// The id travels in a URL, so anybody who has seen that URL has it. Without
+// the check, a second account in the same tenant could take over a request
+// after the first had completed it, and the code the first person's
+// application is about to exchange comes back as tokens for the second.
+func TestAnAuthorizationRequestCannotBeTakenOver(t *testing.T) {
+	f := newFederationTest(t)
+	registered := f.registerClient(model.DefaultTenantCode, "takeover-app", true)
+
+	adminToken := f.api.adminToken()
+	f.api.createUser(adminToken, "bystander", "bystander-password-1", "USER")
+
+	party := f.relyingParty(f.publicURL, registered.Client.ClientID, "")
+	client := &http.Client{CheckRedirect: func(*http.Request, []*http.Request) error {
+		return http.ErrUseLastResponse
+	}}
+
+	res, err := client.Get(rp.AuthURL("s", party,
+		rp.WithCodeChallenge(oidc.NewSHACodeChallenge("a-verifier-for-the-takeover-case"))))
+	if err != nil {
+		t.Fatalf("authorize: %v", err)
+	}
+	_ = res.Body.Close()
+	loginURL, _ := url.Parse(res.Header.Get("Location"))
+	authRequestID := loginURL.Query().Get("auth_request")
+
+	// The administrator completes it, as the person who started the sign-in.
+	first := f.post("/api/v1/oauth/authorize", adminToken,
+		map[string]string{"authRequestId": authRequestID})
+
+	// Doing it again as the same person is a refresh or a double-submit, and
+	// is answered rather than refused.
+	again := f.post("/api/v1/oauth/authorize", adminToken,
+		map[string]string{"authRequestId": authRequestID})
+	if again["redirectTo"] != first["redirectTo"] {
+		t.Errorf("completing twice gave different answers: %v then %v",
+			first["redirectTo"], again["redirectTo"])
+	}
+
+	// Somebody else must not.
+	bystanderToken := f.api.login("bystander", "bystander-password-1")
+	code := f.postExpectingFailure("/api/v1/oauth/authorize", bystanderToken,
+		map[string]string{"authRequestId": authRequestID})
+	if code != "AUTH_REQUEST_TAKEN" {
+		t.Errorf("code = %q, want AUTH_REQUEST_TAKEN — another account completed "+
+			"a request that was already somebody else's", code)
+	}
+}
+
+// Disabling a tenant has to stop it being an identity provider, not only
+// stop sign-in at the console. Otherwise `portico tenant disable` leaves its
+// issuer minting tokens, which is the opposite of what the command says.
+func TestDisablingATenantStopsItsFederation(t *testing.T) {
+	f := newFederationTest(t)
+	f.provisionTenant("acme", "Acme")
+	registered := f.registerClient("acme", "acme-live-app", false)
+
+	issuer := f.publicURL + "/t/acme"
+	party := f.relyingParty(issuer, registered.Client.ClientID, registered.Secret)
+
+	verifier := "a-verifier-for-the-tenant-disable-case"
+	code, _ := f.signIn(
+		rp.AuthURL("s", party, rp.WithCodeChallenge(oidc.NewSHACodeChallenge(verifier))),
+		"acme", adminUsername, adminPassword)
+
+	tokens, err := rp.CodeExchange[*oidc.IDTokenClaims](context.Background(), code, party,
+		rp.WithCodeVerifier(verifier))
+	if err != nil {
+		t.Fatalf("code exchange: %v", err)
+	}
+
+	p, err := provision.Open(f.cfg)
+	if err != nil {
+		t.Fatalf("open provisioner: %v", err)
+	}
+	defer func() { _ = p.Close() }()
+	if _, err := p.SetTenantStatus(context.Background(), "acme", model.StatusDisabled); err != nil {
+		t.Fatalf("disable tenant: %v", err)
+	}
+
+	// Nothing the tenant published is reachable any more...
+	res, err := http.Get(issuer + oidcp.DiscoveryPath)
+	if err != nil {
+		t.Fatalf("fetch discovery: %v", err)
+	}
+	_ = res.Body.Close()
+	if res.StatusCode != http.StatusNotFound {
+		t.Errorf("discovery for a disabled tenant returned %d, want 404", res.StatusCode)
+	}
+
+	// ...and the sessions it had issued cannot be refreshed.
+	if _, err := rp.RefreshTokens[*oidc.IDTokenClaims](context.Background(), party,
+		tokens.RefreshToken, "", ""); err == nil {
+		t.Error("a disabled tenant's refresh token was still accepted")
 	}
 }

@@ -243,6 +243,7 @@ var (
 	ErrAuthRequestNotFound = errors.New("oidcp: no such authorization request")
 	ErrClientNotFound      = errors.New("oidcp: the client is no longer registered")
 	ErrClientDisabled      = errors.New("oidcp: the client is disabled")
+	ErrAuthRequestTaken    = errors.New("oidcp: the authorization request was completed by somebody else")
 )
 
 // Authorization is where a browser goes once a person has signed in, which
@@ -278,6 +279,21 @@ func (p *Providers) Complete(ctx context.Context, actor auth.Principal, authRequ
 			return Authorization{}, ErrAuthRequestNotFound
 		}
 		return Authorization{}, fmt.Errorf("get authorization request: %w", err)
+	}
+
+	// An authorization request is a one-shot object, and re-completing one
+	// is how it stops being about the person it was completed for.
+	//
+	// The id travels in a URL, so anybody who has seen that URL has it.
+	// Without this, a second signed-in account in the same tenant could
+	// complete a request that already belonged to somebody else, and the
+	// code the first person's application is about to exchange would come
+	// back as tokens for the second. Completing it again as the same person
+	// is a refresh or a double-submit, and is answered rather than refused.
+	if row.Done {
+		if row.Subject == nil || *row.Subject != actor.UserID {
+			return Authorization{}, ErrAuthRequestTaken
+		}
 	}
 
 	// A client disabled between /authorize and sign-in must fail here.

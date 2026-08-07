@@ -56,6 +56,9 @@ func authorizeError(err error) error {
 	case errors.Is(err, oidcp.ErrWrongTenant):
 		return httpx.Forbidden("AUTH_REQUEST_WRONG_TENANT",
 			"This sign-in request belongs to a different tenant. Sign out and sign in to the tenant the application asked for.")
+	case errors.Is(err, oidcp.ErrAuthRequestTaken):
+		return httpx.Conflict("AUTH_REQUEST_TAKEN",
+			"This sign-in request has already been completed by another account. Start again from the application.")
 	case errors.Is(err, oidcp.ErrAuthRequestNotFound):
 		return httpx.NotFound("AUTH_REQUEST_NOT_FOUND",
 			"This sign-in request has expired or was already used. Start again from the application.")
