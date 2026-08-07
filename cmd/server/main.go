@@ -4,6 +4,7 @@ package main
 import (
 	"context"
 	"errors"
+	"fmt"
 	"log/slog"
 	"net/http"
 	"os"
@@ -16,10 +17,61 @@ import (
 )
 
 func main() {
+	// A downloaded binary is the primary distribution, so --version and
+	// --help have to do the obvious thing. Without them, someone checking
+	// what they just downloaded accidentally starts a server that creates a
+	// database in the current directory.
+	if len(os.Args) > 1 {
+		switch os.Args[1] {
+		case "--version", "-v", "version":
+			fmt.Println("keylite", server.Version)
+			return
+		case "--help", "-h", "help":
+			usage()
+			return
+		default:
+			fmt.Fprintf(os.Stderr, "keylite: unknown argument %q\n\n", os.Args[1])
+			usage()
+			os.Exit(2)
+		}
+	}
+
 	if err := run(); err != nil {
 		slog.Error("server exited with error", "error", err)
 		os.Exit(1)
 	}
+}
+
+// usage prints the whole interface, which is environment variables — there
+// are no flags beyond the two above.
+func usage() {
+	fmt.Printf(`keylite %s — lightweight identity and access management
+
+Usage:
+  keylite              start the server
+  keylite --version    print the version
+  keylite --help       print this message
+
+Configuration is entirely environment variables:
+
+  KEYLITE_ADDR                     listen address (default ":8410")
+  KEYLITE_DB_DRIVER                storage driver (default "sqlite")
+  KEYLITE_DB_DSN                   database file (default "keylite.db")
+  KEYLITE_JWT_SECRET               token signing secret; at least %d bytes.
+                                   Generate with: openssl rand -hex 32
+  KEYLITE_TOKEN_TTL                token lifetime, e.g. "2h" (default "2h")
+  KEYLITE_TRUST_PROXY_HEADERS      trust X-Forwarded-For (default false; only
+                                   enable behind a proxy you control)
+  KEYLITE_INITIAL_ADMIN_USERNAME   bootstrap admin name (default "admin")
+  KEYLITE_INITIAL_ADMIN_PASSWORD   bootstrap admin password; generated and
+                                   printed once if unset
+  KEYLITE_LOG_LEVEL                debug | info | warn | error (default "info")
+
+Keylite serves plain HTTP and does not rate-limit sign-in attempts. Run it
+behind a reverse proxy that terminates TLS and throttles /api/v1/auth/*.
+
+Documentation: https://github.com/paraview/keylite
+`, server.Version, config.MinJWTSecretLength)
 }
 
 func run() error {
