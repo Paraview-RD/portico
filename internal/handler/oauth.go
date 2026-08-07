@@ -7,6 +7,7 @@ import (
 	"github.com/paraview/portico/internal/auth"
 	"github.com/paraview/portico/internal/httpx"
 	"github.com/paraview/portico/internal/oidcp"
+	"github.com/paraview/portico/internal/samlp"
 )
 
 type authorizeRequest struct {
@@ -66,6 +67,63 @@ func authorizeError(err error) error {
 		return httpx.NotFound("OAUTH_CLIENT_NOT_FOUND",
 			"The application this sign-in was for is no longer registered.")
 	case errors.Is(err, oidcp.ErrClientDisabled):
+		return httpx.Forbidden("OAUTH_CLIENT_DISABLED",
+			"The application this sign-in was for has been disabled.")
+	default:
+		return err
+	}
+}
+
+type samlAuthenticateRequest struct {
+	// SAMLRequestID is the value the sign-in screen was handed in its
+	// `saml_request` query parameter.
+	SAMLRequestID string `json:"samlRequestId"`
+}
+
+// Authenticate completes a SAML authentication request on behalf of the
+// signed-in caller.
+//
+// The SAML counterpart of Authorize, and the same seam: the Identity
+// Provider parked the request and sent the browser here to find out who is
+// at the keyboard.
+func (h *Handler) Authenticate(w http.ResponseWriter, r *http.Request) {
+	principal := auth.MustPrincipal(r.Context())
+
+	var req samlAuthenticateRequest
+	if err := httpx.DecodeJSON(w, r, &req); err != nil {
+		httpx.Fail(w, r, err)
+		return
+	}
+	if req.SAMLRequestID == "" {
+		httpx.Fail(w, r, httpx.BadRequest("AUTH_REQUEST_REQUIRED",
+			"No sign-in request was named."))
+		return
+	}
+
+	authentication, err := h.saml.Complete(r.Context(), principal, req.SAMLRequestID, httpx.ClientIP(r))
+	if err != nil {
+		httpx.Fail(w, r, authenticateError(err))
+		return
+	}
+	httpx.OK(w, authentication)
+}
+
+// authenticateError mirrors authorizeError. The codes are shared with the
+// OAuth path because the remedies are identical and the sign-in screen shows
+// one message for each — a second set of codes meaning the same things would
+// only be a second set of translations to keep in step.
+func authenticateError(err error) error {
+	switch {
+	case errors.Is(err, samlp.ErrWrongTenant):
+		return httpx.Forbidden("AUTH_REQUEST_WRONG_TENANT",
+			"This sign-in request belongs to a different tenant. Sign out and sign in to the tenant the application asked for.")
+	case errors.Is(err, samlp.ErrAuthRequestTaken):
+		return httpx.Conflict("AUTH_REQUEST_TAKEN",
+			"This sign-in request has already been completed by another account. Start again from the application.")
+	case errors.Is(err, samlp.ErrAuthRequestNotFound):
+		return httpx.NotFound("AUTH_REQUEST_NOT_FOUND",
+			"This sign-in request has expired or was already used. Start again from the application.")
+	case errors.Is(err, samlp.ErrProviderDisabled):
 		return httpx.Forbidden("OAUTH_CLIENT_DISABLED",
 			"The application this sign-in was for has been disabled.")
 	default:

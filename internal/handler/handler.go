@@ -9,6 +9,7 @@ package handler
 
 import (
 	"github.com/paraview/portico/internal/oidcp"
+	"github.com/paraview/portico/internal/samlp"
 	"github.com/paraview/portico/internal/service"
 )
 
@@ -24,6 +25,8 @@ type Handler struct {
 	// hands a person back to the OpenID Provider. The provider's own
 	// endpoints do not go through this layer at all.
 	oidc *oidcp.Providers
+	// saml is here for the same reason, one endpoint further along.
+	saml *samlp.Providers
 }
 
 // New returns a Handler backed by the given services.
@@ -35,10 +38,11 @@ func New(
 	tenants *service.TenantService,
 	recovery *service.RecoveryService,
 	oidc *oidcp.Providers,
+	samlProviders *samlp.Providers,
 ) *Handler {
 	return &Handler{
 		users: users, orgs: orgs, audit: audit,
 		settings: settings, tenants: tenants, recovery: recovery,
-		oidc: oidc,
+		oidc: oidc, saml: samlProviders,
 	}
 }

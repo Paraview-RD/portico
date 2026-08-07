@@ -8,6 +8,7 @@ import (
 
 	"github.com/paraview/portico/internal/httpx"
 	"github.com/paraview/portico/internal/oidcp"
+	"github.com/paraview/portico/internal/samlp"
 	"github.com/paraview/portico/internal/web"
 )
 
@@ -52,6 +53,7 @@ func (s *Server) routes() http.Handler {
 			// Provider: the sign-in screen calls this once somebody has
 			// authenticated, and is told where to send the browser next.
 			r.Post("/oauth/authorize", h.Authorize)
+			r.Post("/saml/authenticate", h.Authenticate)
 			r.Get("/users/me", h.Me)
 			r.Put("/users/me", h.UpdateOwnProfile)
 			r.Post("/users/me/password", h.ChangeOwnPassword)
@@ -157,6 +159,11 @@ func (s *Server) mountFederation(r chi.Router) {
 		r.Handle(path, root)
 	}
 
+	samlRoot := s.saml.Handler("")
+	for _, path := range samlEndpoints {
+		r.Handle(path, samlRoot)
+	}
+
 	r.Route(oidcp.TenantPathPrefix+"{tenant}", func(r chi.Router) {
 		byTenant := http.HandlerFunc(func(w http.ResponseWriter, req *http.Request) {
 			// The mount comes off the path before the provider sees it,
@@ -166,7 +173,27 @@ func (s *Server) mountFederation(r chi.Router) {
 		for _, path := range federationEndpoints {
 			r.Handle(path, byTenant)
 		}
+
+		samlByTenant := http.HandlerFunc(func(w http.ResponseWriter, req *http.Request) {
+			s.saml.Handler(samlp.TenantMount(chi.URLParam(req, "tenant"))).ServeHTTP(w, req)
+		})
+		for _, path := range samlEndpoints {
+			r.Handle(path, samlByTenant)
+		}
 	})
+}
+
+// samlEndpoints are the SAML paths Portico serves, relative to an issuer.
+//
+// Three, and no single logout. SAML's logout profile requires the identity
+// provider to reach every service provider a person signed in to, in the
+// browser, and to cope with any of them being unreachable; a half-working
+// one is worse than none, because it reports having ended sessions it did
+// not. See docs/federation.md.
+var samlEndpoints = []string{
+	samlp.MetadataPath,
+	samlp.SSOPath,
+	samlp.CallbackPath,
 }
 
 type healthResponse struct {

@@ -15,6 +15,7 @@ import (
 	"github.com/paraview/portico/internal/httpx"
 	"github.com/paraview/portico/internal/notify"
 	"github.com/paraview/portico/internal/oidcp"
+	"github.com/paraview/portico/internal/samlp"
 	"github.com/paraview/portico/internal/service"
 	"github.com/paraview/portico/internal/store"
 )
@@ -28,6 +29,7 @@ type Server struct {
 	users      *service.UserService
 	tenants    *service.TenantService
 	oidc       *oidcp.Providers
+	saml       *samlp.Providers
 	router     http.Handler
 }
 
@@ -91,14 +93,20 @@ func New(cfg *config.Config, opts ...Option) (*Server, error) {
 	providers := oidcp.NewProviders(cfg.PublicURL, federationCryptoKey(cfg.JWTSecret),
 		st, tenants, users, clients, keys, audit)
 
+	serviceProviders := service.NewSAMLServiceProviderService(st)
+	samlKeys := service.NewSAMLKeyService(st)
+	samlProviders := samlp.NewProviders(cfg.PublicURL,
+		st, tenants, users, serviceProviders, samlKeys, audit)
+
 	s := &Server{
 		cfg:        cfg,
 		store:      st,
-		handler:    handler.New(users, orgs, audit, settings, tenants, recovery, providers),
+		handler:    handler.New(users, orgs, audit, settings, tenants, recovery, providers, samlProviders),
 		middleware: auth.NewMiddleware(tokens, users),
 		users:      users,
 		tenants:    tenants,
 		oidc:       providers,
+		saml:       samlProviders,
 	}
 	s.router = s.routes()
 	return s, nil
@@ -170,10 +178,13 @@ func federationCryptoKey(secret []byte) [32]byte {
 // Handler returns the root HTTP handler.
 func (s *Server) Handler() http.Handler { return s.router }
 
-// SweepFederation deletes authorization requests nobody completed. The
-// caller decides how often; see cmd/server.
+// SweepFederation deletes authorization and authentication requests nobody
+// completed. The caller decides how often; see cmd/server.
 func (s *Server) SweepFederation(ctx context.Context) error {
-	return s.oidc.SweepExpired(ctx)
+	if err := s.oidc.SweepExpired(ctx); err != nil {
+		return err
+	}
+	return s.saml.SweepExpired(ctx)
 }
 
 // Close releases resources held by the server.

@@ -454,6 +454,85 @@ func (s *Scoped) UpsertSettings(ctx context.Context, values map[string]string, u
 	})
 }
 
+// --- SAML -----------------------------------------------------------------
+
+// CreateSAMLSigningKey stores a newly generated key and its certificate.
+func (s *Scoped) CreateSAMLSigningKey(ctx context.Context, arg sqlcgen.CreateSAMLSigningKeyParams) error {
+	arg.TenantID = s.tenantID
+	return s.q.CreateSAMLSigningKey(ctx, arg)
+}
+
+// GetActiveSAMLSigningKey returns the key assertions are signed with.
+func (s *Scoped) GetActiveSAMLSigningKey(ctx context.Context) (sqlcgen.SamlSigningKey, error) {
+	return s.q.GetActiveSAMLSigningKey(ctx, s.tenantID)
+}
+
+// ListSAMLSigningKeys returns every key, active first. Retired keys are kept
+// so an operator can see what a service provider may still be pinning.
+func (s *Scoped) ListSAMLSigningKeys(ctx context.Context) ([]sqlcgen.SamlSigningKey, error) {
+	return s.q.ListSAMLSigningKeys(ctx, s.tenantID)
+}
+
+// RetireSAMLSigningKeys marks the current key retired.
+func (s *Scoped) RetireSAMLSigningKeys(ctx context.Context, now time.Time) error {
+	return s.q.RetireSAMLSigningKeys(ctx,
+		sqlcgen.RetireSAMLSigningKeysParams{TenantID: s.tenantID, RetiredAt: &now})
+}
+
+// CreateSAMLServiceProvider registers a service provider.
+func (s *Scoped) CreateSAMLServiceProvider(ctx context.Context, arg sqlcgen.CreateSAMLServiceProviderParams) error {
+	arg.TenantID = s.tenantID
+	return s.q.CreateSAMLServiceProvider(ctx, arg)
+}
+
+// GetSAMLServiceProvider returns a service provider by its entity id.
+func (s *Scoped) GetSAMLServiceProvider(ctx context.Context, entityID string) (sqlcgen.SamlServiceProvider, error) {
+	return s.q.GetSAMLServiceProvider(ctx,
+		sqlcgen.GetSAMLServiceProviderParams{TenantID: s.tenantID, EntityID: entityID})
+}
+
+// ListSAMLServiceProviders returns every service provider in this tenant.
+func (s *Scoped) ListSAMLServiceProviders(ctx context.Context) ([]sqlcgen.SamlServiceProvider, error) {
+	return s.q.ListSAMLServiceProviders(ctx, s.tenantID)
+}
+
+// UpdateSAMLServiceProviderStatus enables or disables a service provider.
+func (s *Scoped) UpdateSAMLServiceProviderStatus(ctx context.Context, entityID, status string, now time.Time) error {
+	return s.q.UpdateSAMLServiceProviderStatus(ctx, sqlcgen.UpdateSAMLServiceProviderStatusParams{
+		TenantID: s.tenantID, EntityID: entityID, Status: status, UpdatedAt: now,
+	})
+}
+
+// CreateSAMLAuthRequest records an authentication request in flight.
+func (s *Scoped) CreateSAMLAuthRequest(ctx context.Context, arg sqlcgen.CreateSAMLAuthRequestParams) error {
+	arg.TenantID = s.tenantID
+	return s.q.CreateSAMLAuthRequest(ctx, arg)
+}
+
+// GetSAMLAuthRequest returns an unexpired request by id.
+func (s *Scoped) GetSAMLAuthRequest(ctx context.Context, id string, now time.Time) (sqlcgen.SamlAuthRequest, error) {
+	return s.q.GetSAMLAuthRequest(ctx,
+		sqlcgen.GetSAMLAuthRequestParams{TenantID: s.tenantID, ID: id, ExpiresAt: now})
+}
+
+// CompleteSAMLAuthRequest records who signed in.
+func (s *Scoped) CompleteSAMLAuthRequest(ctx context.Context, id, subject string) error {
+	return s.q.CompleteSAMLAuthRequest(ctx,
+		sqlcgen.CompleteSAMLAuthRequestParams{TenantID: s.tenantID, ID: id, Subject: &subject})
+}
+
+// DeleteSAMLAuthRequest removes a request once its assertion has been sent.
+func (s *Scoped) DeleteSAMLAuthRequest(ctx context.Context, id string) error {
+	return s.q.DeleteSAMLAuthRequest(ctx,
+		sqlcgen.DeleteSAMLAuthRequestParams{TenantID: s.tenantID, ID: id})
+}
+
+// DeleteExpiredSAMLAuthRequests clears requests nobody completed.
+func (s *Scoped) DeleteExpiredSAMLAuthRequests(ctx context.Context, before time.Time) error {
+	return s.q.DeleteExpiredSAMLAuthRequests(ctx,
+		sqlcgen.DeleteExpiredSAMLAuthRequestsParams{TenantID: s.tenantID, ExpiresAt: before})
+}
+
 func (s *Scoped) withTx(fn func(*sqlcgen.Queries) error) error {
 	st := &Store{db: s.db, Queries: s.q}
 	return st.WithTx(fn)

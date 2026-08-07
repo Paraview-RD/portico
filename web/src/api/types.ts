@@ -102,5 +102,8 @@ export interface RegistrationStatus {
  */
 export interface Authorization {
   redirectTo: string;
-  clientName: string;
+  /** Set on the OAuth path. */
+  clientName?: string;
+  /** Set on the SAML path. */
+  serviceProviderName?: string;
 }

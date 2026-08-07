@@ -362,7 +362,102 @@ CREATE TABLE oauth_refresh_tokens (
 
 CREATE INDEX idx_oauth_refresh_tokens_subject ON oauth_refresh_tokens (tenant_id, subject, client_id);
 
+-- The signing identity a tenant's SAML assertions carry.
+--
+-- Separate from oauth_signing_keys, which the JWKS publishes, because the
+-- two have incompatible rotation contracts. A relying party refetches the
+-- key set, so retiring an OIDC key and deleting it a day later is safe. A
+-- SAML service provider pins the certificate in its own configuration and
+-- has no way to learn of a new one — so a certificate that disappeared on
+-- the OIDC schedule would break every service provider silently, and
+-- rotating for an OIDC reason would take SAML down with it.
+CREATE TABLE saml_signing_keys (
+    id        TEXT NOT NULL PRIMARY KEY,
+    tenant_id TEXT NOT NULL REFERENCES tenants (id),
+
+    private_key TEXT NOT NULL,
+    -- The self-signed certificate, PEM. SAML carries the whole certificate
+    -- in metadata and in every signature, where OIDC publishes a bare
+    -- public key, so this is stored rather than derived on demand.
+    certificate TEXT NOT NULL,
+
+    status     TEXT NOT NULL CHECK (status IN ('ACTIVE', 'RETIRED')),
+    created_at TIMESTAMPTZ NOT NULL,
+    expires_at TIMESTAMPTZ NOT NULL,
+    retired_at TIMESTAMPTZ
+);
+
+CREATE UNIQUE INDEX uq_saml_signing_keys_active
+    ON saml_signing_keys (tenant_id) WHERE status = 'ACTIVE';
+
+-- A registered SAML service provider.
+--
+-- Registered out of band, like an OAuth client and for the same reason: it
+-- decides who may receive assertions about this tenant's people.
+CREATE TABLE saml_service_providers (
+    id        TEXT NOT NULL PRIMARY KEY,
+    tenant_id TEXT NOT NULL REFERENCES tenants (id),
+
+    -- The entity id the service provider puts in its requests. Unique
+    -- within a tenant, like every other identifier here.
+    entity_id TEXT NOT NULL,
+    name      TEXT NOT NULL,
+
+    -- The service provider's metadata document, stored whole. The protocol
+    -- library reads the assertion consumer service endpoints, the NameID
+    -- formats, and the signing certificates out of it, and keeping the
+    -- document rather than a handful of extracted fields means a service
+    -- provider that offers three endpoints keeps all three.
+    metadata_xml TEXT NOT NULL,
+
+    status     TEXT NOT NULL CHECK (status IN ('ACTIVE', 'DISABLED')),
+    created_at TIMESTAMPTZ NOT NULL,
+    updated_at TIMESTAMPTZ NOT NULL,
+
+    CONSTRAINT uq_saml_sp_tenant_entity UNIQUE (tenant_id, entity_id)
+);
+
+-- A SAML authentication request in flight, held while somebody signs in.
+--
+-- The same shape as oauth_auth_requests and for the same reason: the
+-- protocol hands the browser to Portico's own sign-in, which has to be able
+-- to hand it back.
+CREATE TABLE saml_auth_requests (
+    id        TEXT NOT NULL PRIMARY KEY,
+    tenant_id TEXT NOT NULL REFERENCES tenants (id),
+
+    -- Which issuer the request arrived at, so the browser is returned to the
+    -- mount it came from rather than one a parameter chose.
+    issuer TEXT NOT NULL,
+
+    -- The decoded AuthnRequest, exactly as received. Re-validated on resume
+    -- by the protocol library rather than picked apart here.
+    request_xml TEXT NOT NULL,
+    relay_state TEXT NOT NULL DEFAULT '',
+
+    -- The service provider that sent it, for the audit entry and for
+    -- reporting a disabled one before the browser is redirected onward.
+    sp_entity_id TEXT NOT NULL,
+
+    subject TEXT,
+    FOREIGN KEY (tenant_id, subject) REFERENCES users (tenant_id, id),
+    done BOOLEAN NOT NULL DEFAULT FALSE,
+
+    created_at TIMESTAMPTZ NOT NULL,
+    -- The real sign-in deadline. The protocol library independently refuses
+    -- a request more than 90 seconds older than its issue instant, which is
+    -- far shorter than a person takes to type a password — so freshness is
+    -- judged against the moment Portico accepted the request, and this is
+    -- what bounds how long it may then sit.
+    expires_at TIMESTAMPTZ NOT NULL
+);
+
+CREATE INDEX idx_saml_auth_requests_expiry ON saml_auth_requests (expires_at);
+
 -- +goose Down
+DROP TABLE saml_auth_requests;
+DROP TABLE saml_service_providers;
+DROP TABLE saml_signing_keys;
 DROP TABLE oauth_refresh_tokens;
 DROP TABLE oauth_auth_requests;
 DROP TABLE oauth_clients;

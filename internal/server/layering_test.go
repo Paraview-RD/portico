@@ -41,6 +41,11 @@ func TestLayeringRules(t *testing.T) {
 		// it needed from there would mean the protocol was leaking into
 		// Portico's own API surface rather than sitting beside it.
 		"oidcp": {"handler", "httpx", "server", "config"},
+		// The SAML adapter is glue on the same terms as oidcp: it must not
+		// reach into the web stack, because an endpoint it needed from there
+		// would mean the protocol was leaking into Portico's own API surface
+		// rather than sitting beside it.
+		"samlp": {"handler", "httpx", "server", "config"},
 		// Provisioning is a second composition root, for the operations that
 		// have no HTTP surface. It builds services directly and must not
 		// reach for the web stack: anything it needed from there would mean

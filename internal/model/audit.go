@@ -62,6 +62,12 @@ const (
 	// single sign-in can authorize several applications over its lifetime.
 	ActionAuthorize = "OAUTH_AUTHORIZE"
 
+	// ActionSAMLAuthenticate is a person completing a SAML authentication
+	// request: an assertion about them was issued to a service provider.
+	// Separate from OAUTH_AUTHORIZE because the protocol is part of the
+	// answer to "how did this system come to trust that identity".
+	ActionSAMLAuthenticate = "SAML_AUTHENTICATE"
+
 	// ActionProfileSelf is a user editing their own details, as distinct
 	// from USER_UPDATE, which is an administrator editing someone else's.
 	ActionProfileSelf = "PROFILE_UPDATE_SELF"

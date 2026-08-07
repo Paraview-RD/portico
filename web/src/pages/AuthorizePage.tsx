@@ -9,7 +9,36 @@ import { useSession } from "../session";
 import { LoginPage } from "./LoginPage";
 
 /**
- * The hand-off back to the OpenID Provider.
+ * Which protocol is waiting on this sign-in, and which request.
+ *
+ * The two are told apart by the query parameter the provider redirected
+ * with, because the ids are drawn from separate tables and one protocol's
+ * id means nothing to the other.
+ */
+export interface PendingAuthorization {
+  protocol: "oauth" | "saml";
+  id: string;
+}
+
+/**
+ * Reads the pending request out of the current URL, if there is one.
+ */
+export function pendingAuthorization(
+  search: string,
+): PendingAuthorization | null {
+  const params = new URLSearchParams(search);
+
+  const oauth = params.get("auth_request");
+  if (oauth) return { protocol: "oauth", id: oauth };
+
+  const saml = params.get("saml_request");
+  if (saml) return { protocol: "saml", id: saml };
+
+  return null;
+}
+
+/**
+ * The hand-off back to the OpenID Provider or the SAML Identity Provider.
  *
  * An application sent the browser to /authorize; the provider needed to know
  * who is at the keyboard and redirected here. Once somebody is signed in,
@@ -21,7 +50,11 @@ import { LoginPage } from "./LoginPage";
  * administrator, so there is no third party to consent to; see
  * docs/federation.md.
  */
-export function AuthorizePage({ authRequestId }: { authRequestId: string }) {
+export function AuthorizePage({
+  request,
+}: {
+  request: PendingAuthorization;
+}) {
   const t = useT();
   const { user, loading, signOut } = useSession();
   const [error, setError] = useState("");
@@ -44,8 +77,12 @@ export function AuthorizePage({ authRequestId }: { authRequestId: string }) {
     setError("");
     setWrongTenant(false);
 
-    oauthApi
-      .authorize(authRequestId)
+    const complete =
+      request.protocol === "oauth"
+        ? oauthApi.authorize(request.id)
+        : oauthApi.authenticate(request.id);
+
+    complete
       .then((authorization) => {
         // A full navigation, not a router push: the destination belongs to
         // the provider, which is outside this application.
@@ -69,7 +106,7 @@ export function AuthorizePage({ authRequestId }: { authRequestId: string }) {
           setError(t("common.unexpectedError"));
         }
       });
-  }, [authRequestId, loading, user, t]);
+  }, [request, loading, user, t]);
 
   if (loading) {
     return (

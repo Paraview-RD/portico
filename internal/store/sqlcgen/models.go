@@ -122,6 +122,41 @@ type PasswordReset struct {
 	CreatedAt time.Time
 }
 
+type SamlAuthRequest struct {
+	ID         string
+	TenantID   string
+	Issuer     string
+	RequestXml string
+	RelayState string
+	SpEntityID string
+	Subject    *string
+	Done       bool
+	CreatedAt  time.Time
+	ExpiresAt  time.Time
+}
+
+type SamlServiceProvider struct {
+	ID          string
+	TenantID    string
+	EntityID    string
+	Name        string
+	MetadataXml string
+	Status      string
+	CreatedAt   time.Time
+	UpdatedAt   time.Time
+}
+
+type SamlSigningKey struct {
+	ID          string
+	TenantID    string
+	PrivateKey  string
+	Certificate string
+	Status      string
+	CreatedAt   time.Time
+	ExpiresAt   time.Time
+	RetiredAt   *time.Time
+}
+
 type SystemSetting struct {
 	TenantID  string
 	Key       string

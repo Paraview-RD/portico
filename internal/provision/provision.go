@@ -28,6 +28,9 @@ type Provisioner struct {
 	users   *service.UserService
 	clients *service.OAuthClientService
 	keys    *service.SigningKeyService
+
+	serviceProviders *service.SAMLServiceProviderService
+	samlKeys         *service.SAMLKeyService
 }
 
 // Open connects to the database named by cfg and applies any pending
@@ -50,6 +53,9 @@ func Open(cfg *config.Config) (*Provisioner, error) {
 		users:   service.NewUserService(st, audit, settings, tokens),
 		clients: service.NewOAuthClientService(st),
 		keys:    service.NewSigningKeyService(st),
+
+		serviceProviders: service.NewSAMLServiceProviderService(st),
+		samlKeys:         service.NewSAMLKeyService(st),
 	}, nil
 }
 
@@ -156,4 +162,60 @@ func (p *Provisioner) RotateSigningKey(ctx context.Context, tenantCode string) (
 		return "", err
 	}
 	return key.ID, nil
+}
+
+// --- SAML service providers -----------------------------------------------
+//
+// Registered here for the same reason relying parties are: a registration
+// decides who may receive assertions about this tenant's people.
+
+// RegisterServiceProvider adds a SAML service provider to a tenant.
+func (p *Provisioner) RegisterServiceProvider(ctx context.Context, tenantCode string, in service.RegisterSPInput) (model.SAMLServiceProvider, error) {
+	tenant, err := p.tenants.Resolve(ctx, tenantCode)
+	if err != nil {
+		return model.SAMLServiceProvider{}, err
+	}
+	return p.serviceProviders.Register(ctx, tenant.ID, in)
+}
+
+// ListServiceProviders returns every SAML service provider in a tenant.
+func (p *Provisioner) ListServiceProviders(ctx context.Context, tenantCode string) ([]model.SAMLServiceProvider, error) {
+	tenant, err := p.tenants.Resolve(ctx, tenantCode)
+	if err != nil {
+		return nil, err
+	}
+	return p.serviceProviders.List(ctx, tenant.ID)
+}
+
+// SetServiceProviderStatus enables or disables a SAML service provider.
+func (p *Provisioner) SetServiceProviderStatus(ctx context.Context, tenantCode, entityID string, status model.Status) (model.SAMLServiceProvider, error) {
+	tenant, err := p.tenants.Resolve(ctx, tenantCode)
+	if err != nil {
+		return model.SAMLServiceProvider{}, err
+	}
+	return p.serviceProviders.SetStatus(ctx, tenant.ID, entityID, status)
+}
+
+// SAMLCertificate returns a tenant's active SAML signing certificate, in
+// PEM, generating one if the tenant has none.
+func (p *Provisioner) SAMLCertificate(ctx context.Context, tenantCode string) (service.SAMLKey, error) {
+	tenant, err := p.tenants.Resolve(ctx, tenantCode)
+	if err != nil {
+		return service.SAMLKey{}, err
+	}
+	return p.samlKeys.Active(ctx, tenant.ID)
+}
+
+// RotateSAMLCertificate retires a tenant's SAML certificate and generates a
+// replacement.
+//
+// Nothing is deleted and nothing is automatic. Every service provider has to
+// be reconfigured with the new certificate by hand, so the previous one stays
+// listed until an operator says otherwise.
+func (p *Provisioner) RotateSAMLCertificate(ctx context.Context, tenantCode string) (service.SAMLKey, error) {
+	tenant, err := p.tenants.Resolve(ctx, tenantCode)
+	if err != nil {
+		return service.SAMLKey{}, err
+	}
+	return p.samlKeys.Rotate(ctx, tenant.ID)
 }

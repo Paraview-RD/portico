@@ -226,4 +226,15 @@ export const oauthApi = {
       method: "POST",
       body: { authRequestId },
     }),
+
+  /**
+   * The same, for SAML. A separate endpoint because the two protocols park
+   * their in-flight requests separately, and an id from one is meaningless
+   * to the other.
+   */
+  authenticate: (samlRequestId: string) =>
+    request<Authorization>("/saml/authenticate", {
+      method: "POST",
+      body: { samlRequestId },
+    }),
 };

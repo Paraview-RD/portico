@@ -41,6 +41,12 @@ func main() {
 				os.Exit(1)
 			}
 			return
+		case "sp":
+			if err := runSP(os.Args[2:]); err != nil {
+				fmt.Fprintln(os.Stderr, "portico:", err)
+				os.Exit(1)
+			}
+			return
 		default:
 			fmt.Fprintf(os.Stderr, "portico: unknown argument %q\n\n", os.Args[1])
 			usage()
@@ -62,7 +68,8 @@ func usage() {
 Usage:
   portico              start the server
   portico tenant ...   provision tenants (see: portico tenant --help)
-  portico client ...   register applications (see: portico client --help)
+  portico client ...   register OAuth/OIDC applications (see: portico client --help)
+  portico sp ...       register SAML service providers (see: portico sp --help)
   portico --version    print the version
   portico --help       print this message
 

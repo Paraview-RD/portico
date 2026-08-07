@@ -22,7 +22,8 @@ export function LoginPage() {
   // navigate anywhere afterwards: AuthorizePage is rendering this form and
   // takes over the moment the session exists. Navigating would replace the
   // URL and lose the request along with it.
-  const completingAuthorization = params.has("auth_request");
+  const completingAuthorization =
+    params.has("auth_request") || params.has("saml_request");
 
   // The remembered tenant is a convenience for someone returning to sign
   // in. It must not win over an authorization request, whose tenant is
