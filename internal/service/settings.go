@@ -4,8 +4,6 @@ package service
 
 import (
 	"context"
-	"database/sql"
-	"errors"
 	"fmt"
 	"strconv"
 	"sync"
@@ -166,10 +164,4 @@ func (s *SettingsService) RegistrationEnabled(ctx context.Context) (bool, error)
 		return false, err
 	}
 	return settings.RegistrationEnabled, nil
-}
-
-// isNoRows reports whether err means "no such row", which several callers
-// treat as a normal absence rather than a failure.
-func isNoRows(err error) bool {
-	return errors.Is(err, sql.ErrNoRows)
 }

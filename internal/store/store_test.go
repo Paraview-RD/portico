@@ -2,6 +2,7 @@ package store_test
 
 import (
 	"context"
+	"database/sql"
 	"errors"
 	"testing"
 	"time"
@@ -112,6 +113,58 @@ func TestForeignKeysAreEnforced(t *testing.T) {
 	})
 	if err == nil {
 		t.Fatal("expected a foreign key violation for a nonexistent organization")
+	}
+	if !store.IsForeignKeyViolation(err) {
+		t.Errorf("IsForeignKeyViolation = false for %v", err)
+	}
+}
+
+// The service layer turns a lost insert race into a 409 by asking whether the
+// error was a unique violation. That classification is only correct if it
+// matches what this driver actually returns, which is what this checks — the
+// previous implementation matched SQLite's message text and so answered "no"
+// to every PostgreSQL error, quietly downgrading those conflicts to 500s.
+func TestUniqueViolationIsRecognized(t *testing.T) {
+	s := newTestStore(t)
+	ctx := context.Background()
+	now := store.Now()
+
+	first := sqlcgen.CreateOrganizationParams{
+		ID: "org-a", Name: "Engineering", Code: "ENG",
+		Status: "ACTIVE", CreatedAt: now, UpdatedAt: now,
+	}
+	if err := s.Queries.CreateOrganization(ctx, first); err != nil {
+		t.Fatalf("create first organization: %v", err)
+	}
+
+	duplicate := first
+	duplicate.ID = "org-b"
+	err := s.Queries.CreateOrganization(ctx, duplicate)
+	if err == nil {
+		t.Fatal("expected a unique violation on the duplicate code")
+	}
+	if !store.IsUniqueViolation(err) {
+		t.Errorf("IsUniqueViolation = false for %v", err)
+	}
+	if store.IsForeignKeyViolation(err) {
+		t.Error("a unique violation was classified as a foreign key violation")
+	}
+}
+
+func TestErrorClassifiersRejectUnrelatedErrors(t *testing.T) {
+	for _, err := range []error{nil, errSentinel{}, sql.ErrNoRows} {
+		if store.IsUniqueViolation(err) {
+			t.Errorf("IsUniqueViolation = true for %v", err)
+		}
+		if store.IsForeignKeyViolation(err) {
+			t.Errorf("IsForeignKeyViolation = true for %v", err)
+		}
+	}
+	if !store.IsNoRows(sql.ErrNoRows) {
+		t.Error("IsNoRows = false for sql.ErrNoRows")
+	}
+	if store.IsNoRows(errSentinel{}) {
+		t.Error("IsNoRows = true for an unrelated error")
 	}
 }
 

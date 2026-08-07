@@ -37,7 +37,7 @@ func (s *UserService) Login(ctx context.Context, username, password, ip string) 
 
 	row, err := s.store.Queries.GetUserByUsername(ctx, username)
 	if err != nil {
-		if isNoRows(err) {
+		if store.IsNoRows(err) {
 			// Spend the same time as a real password check so response
 			// timing does not reveal which usernames exist.
 			auth.BurnPasswordComparison()
@@ -118,7 +118,7 @@ func (s *UserService) Logout(ctx context.Context, actor auth.Principal, ip strin
 func (s *UserService) ChangeOwnPassword(ctx context.Context, actor auth.Principal, currentPassword, newPassword, ip string) error {
 	row, err := s.store.Queries.GetUserByID(ctx, actor.UserID)
 	if err != nil {
-		if isNoRows(err) {
+		if store.IsNoRows(err) {
 			return ErrUserNotFound
 		}
 		return fmt.Errorf("get user: %w", err)
@@ -155,7 +155,7 @@ func (s *UserService) ChangeOwnPassword(ctx context.Context, actor auth.Principa
 func (s *UserService) ResetPassword(ctx context.Context, actor auth.Principal, userID, newPassword, ip string) error {
 	target, err := s.store.Queries.GetUserByID(ctx, userID)
 	if err != nil {
-		if isNoRows(err) {
+		if store.IsNoRows(err) {
 			return ErrUserNotFound
 		}
 		return fmt.Errorf("get user: %w", err)

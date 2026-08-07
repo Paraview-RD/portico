@@ -54,7 +54,7 @@ func NewUserService(st *store.Store, audit *AuditService, settings *SettingsServ
 func (s *UserService) LookupForAuth(ctx context.Context, userID string) (auth.Account, error) {
 	row, err := s.store.Queries.GetUserByID(ctx, userID)
 	if err != nil {
-		if isNoRows(err) {
+		if store.IsNoRows(err) {
 			return auth.Account{}, auth.ErrUserNotFound
 		}
 		return auth.Account{}, fmt.Errorf("look up user: %w", err)
@@ -83,7 +83,7 @@ func (s *UserService) LookupForAuth(ctx context.Context, userID string) (auth.Ac
 func (s *UserService) Get(ctx context.Context, userID string) (model.User, error) {
 	row, err := s.store.Queries.GetUserByID(ctx, userID)
 	if err != nil {
-		if isNoRows(err) {
+		if store.IsNoRows(err) {
 			return model.User{}, ErrUserNotFound
 		}
 		return model.User{}, fmt.Errorf("get user: %w", err)
@@ -239,7 +239,7 @@ func (s *UserService) Create(ctx context.Context, in CreateUserInput) (model.Use
 	if err != nil {
 		// A concurrent insert can still lose the race against the check
 		// above; the unique index is what actually guarantees uniqueness.
-		if isUniqueViolation(err) {
+		if store.IsUniqueViolation(err) {
 			return model.User{}, ErrUsernameTaken
 		}
 		return model.User{}, fmt.Errorf("create user: %w", err)
@@ -262,7 +262,7 @@ type UpdateUserInput struct {
 func (s *UserService) Update(ctx context.Context, actor auth.Principal, userID string, in UpdateUserInput) (model.User, error) {
 	current, err := s.store.Queries.GetUserByID(ctx, userID)
 	if err != nil {
-		if isNoRows(err) {
+		if store.IsNoRows(err) {
 			return model.User{}, ErrUserNotFound
 		}
 		return model.User{}, fmt.Errorf("get user: %w", err)
@@ -338,7 +338,7 @@ func (s *UserService) SetStatus(ctx context.Context, actor auth.Principal, userI
 
 	target, err := s.store.Queries.GetUserByID(ctx, userID)
 	if err != nil {
-		if isNoRows(err) {
+		if store.IsNoRows(err) {
 			return model.User{}, ErrUserNotFound
 		}
 		return model.User{}, fmt.Errorf("get user: %w", err)
@@ -433,7 +433,7 @@ func (s *UserService) checkUsernameFree(ctx context.Context, username string) er
 	switch {
 	case err == nil:
 		return ErrUsernameTaken
-	case isNoRows(err):
+	case store.IsNoRows(err):
 		return nil
 	default:
 		return fmt.Errorf("check username: %w", err)
@@ -450,7 +450,7 @@ func (s *UserService) resolveAssignableOrganization(ctx context.Context, orgID s
 
 	org, err := s.store.Queries.GetOrganizationByID(ctx, orgID)
 	if err != nil {
-		if isNoRows(err) {
+		if store.IsNoRows(err) {
 			return nil, ErrOrganizationNotFound
 		}
 		return nil, fmt.Errorf("get organization: %w", err)
@@ -502,11 +502,4 @@ func organizationRef(id *string) string {
 		return ""
 	}
 	return *id
-}
-
-// isUniqueViolation reports whether err is a unique-constraint failure. The
-// sqlite driver does not expose a typed error for this, so the message is
-// the only signal available.
-func isUniqueViolation(err error) bool {
-	return err != nil && strings.Contains(strings.ToUpper(err.Error()), "UNIQUE CONSTRAINT FAILED")
 }

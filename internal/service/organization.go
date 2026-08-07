@@ -63,7 +63,7 @@ func (s *OrganizationService) List(ctx context.Context, activeOnly bool) ([]mode
 func (s *OrganizationService) Get(ctx context.Context, id string) (model.Organization, error) {
 	row, err := s.store.Queries.GetOrganizationByID(ctx, id)
 	if err != nil {
-		if isNoRows(err) {
+		if store.IsNoRows(err) {
 			return model.Organization{}, ErrOrganizationNotFound
 		}
 		return model.Organization{}, fmt.Errorf("get organization: %w", err)
@@ -98,7 +98,7 @@ func (s *OrganizationService) Create(ctx context.Context, actor auth.Principal, 
 
 	if _, err := s.store.Queries.GetOrganizationByCode(ctx, in.Code); err == nil {
 		return model.Organization{}, ErrOrganizationCodeTaken
-	} else if !isNoRows(err) {
+	} else if !store.IsNoRows(err) {
 		return model.Organization{}, fmt.Errorf("check organization code: %w", err)
 	}
 
@@ -115,7 +115,7 @@ func (s *OrganizationService) Create(ctx context.Context, actor auth.Principal, 
 		UpdatedAt: now,
 	})
 	if err != nil {
-		if isUniqueViolation(err) {
+		if store.IsUniqueViolation(err) {
 			return model.Organization{}, ErrOrganizationCodeTaken
 		}
 		return model.Organization{}, fmt.Errorf("create organization: %w", err)
@@ -136,7 +136,7 @@ func (s *OrganizationService) Create(ctx context.Context, actor auth.Principal, 
 // it change would silently break those references.
 func (s *OrganizationService) Update(ctx context.Context, actor auth.Principal, id string, in OrganizationInput) (model.Organization, error) {
 	if _, err := s.store.Queries.GetOrganizationByID(ctx, id); err != nil {
-		if isNoRows(err) {
+		if store.IsNoRows(err) {
 			return model.Organization{}, ErrOrganizationNotFound
 		}
 		return model.Organization{}, fmt.Errorf("get organization: %w", err)
@@ -179,7 +179,7 @@ func (s *OrganizationService) SetStatus(ctx context.Context, actor auth.Principa
 
 	current, err := s.store.Queries.GetOrganizationByID(ctx, id)
 	if err != nil {
-		if isNoRows(err) {
+		if store.IsNoRows(err) {
 			return model.Organization{}, ErrOrganizationNotFound
 		}
 		return model.Organization{}, fmt.Errorf("get organization: %w", err)
