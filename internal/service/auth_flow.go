@@ -113,14 +113,27 @@ func (s *UserService) logLoginFailure(ctx context.Context, tenantID, userID, use
 // With stateless tokens there is nothing to delete, so the account's
 // token_version is bumped instead: existing tokens carry the old value and
 // stop verifying on their next request.
+//
+// Federated sessions go too. This is a choice rather than an obligation:
+// signing out of Portico could reasonably leave a relying party's own
+// session running, since that is what its end_session endpoint is for. It
+// does not, because "sign out" on a single sign-on system is read by the
+// person clicking it as signing out of the things they signed in to, and the
+// surprising failure is the one where it did less than they thought.
 func (s *UserService) Logout(ctx context.Context, actor auth.Principal, ip string) error {
-	err := s.store.ForTenant(actor.TenantID).BumpUserTokenVersion(ctx,
+	q := s.store.ForTenant(actor.TenantID)
+
+	err := q.BumpUserTokenVersion(ctx,
 		sqlcgen.BumpUserTokenVersionParams{
 			ID:        actor.UserID,
 			UpdatedAt: store.Now(),
 		})
 	if err != nil {
 		return fmt.Errorf("revoke sessions: %w", err)
+	}
+
+	if err := q.RevokeAllRefreshTokensForUser(ctx, actor.UserID, store.Now()); err != nil {
+		return fmt.Errorf("revoke federated sessions: %w", err)
 	}
 
 	s.audit.Log(ctx, actor.TenantID, AuditEntry{
@@ -198,6 +211,10 @@ func (s *UserService) ResetPassword(ctx context.Context, actor auth.Principal, u
 
 // setPassword validates, hashes, and stores a new password. The query bumps
 // token_version, so changing a password signs the account out everywhere.
+//
+// It is the single place all three password paths pass through — self
+// change, administrator reset, and recovery — which is what makes it the
+// right place to also cut the federated sessions.
 func (s *UserService) setPassword(ctx context.Context, q *store.Scoped, userID, plaintext string) error {
 	if err := auth.ValidatePassword(plaintext); err != nil {
 		return httpx.BadRequest("WEAK_PASSWORD", err.Error())
@@ -215,6 +232,14 @@ func (s *UserService) setPassword(ctx context.Context, q *store.Scoped, userID, 
 	})
 	if err != nil {
 		return fmt.Errorf("update password: %w", err)
+	}
+
+	// Bumping token_version only reaches Portico's own sessions. A refresh
+	// token issued to a relying party is a separate credential, and leaving
+	// it alive would mean the account somebody just took back could still be
+	// refreshed indefinitely by whoever knew the old password.
+	if err := q.RevokeAllRefreshTokensForUser(ctx, userID, store.Now()); err != nil {
+		return fmt.Errorf("revoke federated sessions: %w", err)
 	}
 	return nil
 }

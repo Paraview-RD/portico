@@ -402,6 +402,16 @@ func (s *UserService) SetStatus(ctx context.Context, actor auth.Principal, userI
 		return model.User{}, fmt.Errorf("update user status: %w", err)
 	}
 
+	if status == model.StatusDisabled {
+		// Disabling has to reach the relying parties too. A refresh token
+		// checks the account's status when it is presented, but the token
+		// itself would otherwise sit there valid for a month, and an
+		// administrator disabling somebody means it now, everywhere.
+		if err := q.RevokeAllRefreshTokensForUser(ctx, userID, store.Now()); err != nil {
+			return model.User{}, fmt.Errorf("revoke federated sessions: %w", err)
+		}
+	}
+
 	action := model.ActionUserEnable
 	if status == model.StatusDisabled {
 		action = model.ActionUserDisable
