@@ -1,11 +1,12 @@
 # What this does
 
-Eight commits, in three groups: finishing work that had shipped without its
+Twelve commits, in four groups: finishing work that had shipped without its
 documentation, adding the two things an open-source IAM is expected to have
-and this one did not, and fixing a navigation structure that had stopped
-describing the product.
+and this one did not, fixing a navigation structure that had stopped
+describing the product, and then a round of defects found by looking at the
+running console rather than at the code.
 
-25 files, +3929 / −104. The bulk of that is one file: `docs/api/openapi.yaml`.
+40 files, +5003 / −309. The bulk of that is one file: `docs/api/openapi.yaml`.
 
 ## Documentation that had stopped being true
 
@@ -111,11 +112,68 @@ other two were the last trace of work that stopped one step early:
   still edited from the groups screen; this answers the opposite question,
   which is asked while looking at the person.
 
+## What looking at the running console found
+
+The four above came from reading the code. These came from opening it, and
+none of them would have been found any other way.
+
+**Nothing was telling browsers what they could cache.** An embedded file has
+a zero modification time, so net/http sent no Last-Modified and no ETag, and
+there was no Cache-Control either — nothing to revalidate against and nothing
+telling a browser not to guess. What it guesses can be a cached index.html
+naming an asset hash the new binary does not serve: a deploy that reaches
+nobody until they clear their cache, and which looks like nothing at all from
+either side. It cost an hour, diagnosing a console two versions old. Hashed
+assets are now immutable and the shell is `no-cache`.
+
+**Fifteen error codes had no message in the console** — every code the
+groups, provisioning, and webhooks features introduced. A missing code falls
+back to the server's own English, which is the right degradation but is
+invisible in English and visible only to a Chinese reader. The existing
+checks compare the two bundles to each other, so they stayed green while both
+were missing the same code, which is the normal case. A new test reads the Go
+source instead, with an exception list whose entries each carry a reason, and
+a second test that fails when an exception outlives its code.
+
+**The signed-out screens said "IDENTITY PLATFORM" while the sidebar said
+身份平台**, because the auth shell had its own hand-assembled copy of the
+brand lockup with the descriptor written in as English — in the component
+whose stated purpose is stopping those screens from drifting apart.
+
+**Three screens had no loading state.** Rows started as `null`, so
+`rows?.length === 0` was false and `rows?.map` was undefined, and the body
+rendered as nothing — identical to "there is nothing here". A reader cannot
+tell a slow query from an empty tenant. The three that did have one were
+writing the row by hand and none passed a `colSpan`.
+
+**Every page decided its own width against the whole viewport**, so a table
+ran to the far edge of a wide display while a form stopped at 448px; the
+settings form sat on the page background while the profile screen's identical
+fields sat in a card; and the profile screen was three cards at one width
+followed by a fourth with no constraint. One column, two named widths, and
+everything on the same kind of surface.
+
 ## Testing
 
 Every guard added here was verified by breaking it and confirming the
 intended test dies — twelve mutations, twelve kills, across the badge, the
-OpenAPI guard, the navigation, and the two finished features.
+OpenAPI guard, the navigation, and the two finished features. The later
+round added ten more.
+
+**Seven of those mutations survived on the first attempt, and every one of
+them was a test that was checking nothing.** Two matched "Loading…" anywhere
+on the page and caught the application shell's own loading state, passing on
+every screen whether or not the screen had one. One asserted the content
+column was "narrower than the viewport", which an unbounded column also
+satisfies. One took the second block after the page header, which is a filter
+bar on half these screens. One counted any bordered element and so reported a
+288px search box as a layout defect. Two did not compile — and a mutation
+that does not compile is not a mutation: the build failed, the previous
+binary was still on disk, and the suite passed against it, which reads
+exactly like the mutation surviving.
+
+That is the argument for the practice. None of those tests would have failed
+when the thing they were named after broke.
 
 New browser coverage: `navigation.spec.ts`, because the rest of the suite
 navigates by URL and could not see the failure that matters — a menu entry
