@@ -20,6 +20,13 @@
 .env.*
 !.env.example
 
+# Working notes for a long task, kept out of the repository. They accumulate
+# the things a scratch file accumulates — the demo tenant's password, which
+# database was dropped, what a history rewrite removed — none of which
+# belongs in a published identity product, and all of which someone will
+# copy because it is written down next to instructions that work.
+/TASK_CONTEXT_*.md
+
 # Frontend
 web/node_modules/
 
