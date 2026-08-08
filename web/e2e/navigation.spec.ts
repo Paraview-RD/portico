@@ -54,6 +54,32 @@ test("each screen sits in the group it belongs to", async ({
 
   const text = (await page.getByRole("navigation").textContent()) ?? "";
 
+  // The positions below mean what they say only if each name occurs once.
+  // "Audit" is a prefix of "Audit logs", and it works today only because the
+  // heading happens to come first — which is luck, not design. Checked here
+  // so that adding an entry whose label contains a group's name fails
+  // outright rather than passing for the wrong reason.
+  const occurrences = (needle: string) => text.split(needle).length - 1;
+  for (const name of [
+    ...new Set([
+      ...entries.map((e) => e.group),
+      ...entries.map((e) => e.label),
+    ]),
+  ]) {
+    // A group name inside a longer label is fine — "Audit" inside "Audit
+    // logs" — as long as the heading itself is the earlier occurrence, which
+    // the ordering assertions then confirm. Two independent occurrences of
+    // the same name are not.
+    const insideLabels = entries.filter(
+      (e) => e.label !== name && e.label.includes(name),
+    ).length;
+    expect(
+      occurrences(name) - insideLabels,
+      `"${name}" appears more than once in the menu; the position checks ` +
+        `below would be comparing the wrong occurrence`,
+    ).toBe(1);
+  }
+
   // Checked by position rather than by presence. A screen filed under the
   // wrong heading is still present, and every per-item assertion passes
   // while the menu says something untrue — which is the defect this whole
