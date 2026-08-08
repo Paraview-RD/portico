@@ -97,8 +97,9 @@ does not change that.
 
 ### There is no consent screen
 
-Every client is registered out of band by an administrator, so there is no
-third party for a person to consent to — the applications are the
+Every client is vetted and registered by an administrator — from the console
+or the command line, never by the application itself — so there is no
+third party for a person to consent to; the applications are the
 deployment's own. A person signing in to Portico for an application sees the
 ordinary sign-in screen and is returned to the application; nothing asks them
 to approve a scope. If Portico ever accepts clients it did not vet, that

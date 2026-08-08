@@ -27,8 +27,7 @@ Working toward 0.1.0 — the first release. Nothing has been published yet.
   than globally, so two tenants may each have an `admin`.
 - Sign-in takes an optional tenant code. Omitting it resolves to the default
   tenant, which is what a single-tenant deployment always does.
-- Settings are per tenant: system name, session lifetime, and the
-  registration toggle are each a tenant's own.
+- Settings are per tenant — every one of them, listed under Added below.
 - Tokens carry the tenant, and it is checked against the account record on
   every request, so a token cannot act outside the tenant it was issued in.
 - **Signing out, changing a password, and disabling an account now revoke
@@ -114,8 +113,8 @@ Working toward 0.1.0 — the first release. Nothing has been published yet.
   session, so signing out, changing a password, and disabling an account
   already end it rather than leaving a third credential to revoke.
 - `portico sp` and `portico cas` register SAML service providers and CAS
-  services, for the same reason `portico client` and `portico tenant` exist:
-  no role in this version could be authorized to do it over HTTP.
+  services from the command line, alongside the console screens, for
+  scripted and out-of-band setup.
 - **OpenID Connect 1.0 and OAuth 2.1.** Portico is an OpenID Provider:
   discovery, authorize, token, userinfo, introspection, revocation,
   end-session, and a published key set. An application points its own OIDC
@@ -140,12 +139,13 @@ Working toward 0.1.0 — the first release. Nothing has been published yet.
 - Signing keys are per tenant, generated on first use, and rotated with
   `portico client rotate-key`. A retired key stays published for 24 hours so
   the tokens it signed keep verifying.
-- Applications are registered from the command line —
-  `portico client register|list|enable|disable|rotate-key`. There is no API,
-  for the same reason there is none for tenants: no role exists that could
-  be authorized to perform it. Redirect URIs are matched exactly, and
+- OIDC clients are registered either from the console or from the command
+  line — `portico client register|list|enable|disable|rotate-key`. Tenants
+  remain CLI-only, because no role within a tenant could be authorized to
+  create another one; an application belongs to a tenant, so a tenant's own
+  administrator can manage it. Redirect URIs are matched exactly, and
   wildcards, fragments, and non-loopback `http://` are refused at
-  registration.
+  registration wherever it happens.
 - `OAUTH_AUTHORIZE` audit entries record who authorized which application,
   and when.
 - Abandoned authorization requests are swept hourly.
@@ -187,12 +187,14 @@ Working toward 0.1.0 — the first release. Nothing has been published yet.
   every administrative endpoint.
 - Organizations with codes, sort order, and member counts, arranged as a
   tree. Disabling one blocks new members without detaching existing ones.
-- Sign-in issuing self-signed JWTs, with immediate revocation on logout,
-  password change, and account disable.
+- Sign-in issuing self-signed JWTs, revoked immediately on signing out,
+  changing a password, or disabling an account — see the sessions entry
+  above for which of those ends one session and which ends all of them.
 - Audit log covering sign-ins, operations, authorization, registrations, and
   organization changes, filterable by type, actor or target, and time range.
-- Runtime settings: system name, session lifetime, and the registration
-  toggle.
+- Runtime settings, per tenant: system name, session lifetime, the
+  registration toggle, the lockout threshold and window, the password
+  policy, and the audit retention period.
 - Two endpoints for downstream systems: the caller's profile with
   organization, and an administrator check.
 - Web UI in English and 简体中文, with navigation driven by the caller's
@@ -217,9 +219,15 @@ Working toward 0.1.0 — the first release. Nothing has been published yet.
   `internal/service/password_policy.go` say so.
 - **Sessions are individually visible and individually revocable.** Each
   sign-in is its own row with its device, address, and last activity, and
-  can be ended on its own from the profile page. Signing out ends that
-  session only; changing a password or disabling an account still ends all
-  of them.
+  can be ended on its own from the profile page, along with a "sign out
+  everywhere" for when one of them looks unfamiliar. An administrator can
+  see and end a user's sessions from the user list, which is what the other
+  end of a "my account is compromised" phone call needs. Signing out ends the
+  session doing it and leaves the others; changing a password or disabling
+  an account still ends every one. Federated sessions are not part of that
+  distinction and always all go — "sign out" on a single sign-on system is
+  read as signing out of the things you signed in to, and the surprising
+  failure is the one where it did less than you thought.
 - **Organizations form a tree**, with a parent that can be changed. Cycles
   are refused in the service layer — a foreign key cannot catch one, because
   every row in a cycle points at something that exists. The list can be
@@ -274,9 +282,9 @@ behind a reverse proxy that provides them — see
 An access token already issued cannot be withdrawn: a resource server
 verifies it offline and never calls back, which is the whole reason to
 federate. They last fifteen minutes, and the introspection endpoint answers
-for anyone who needs to know sooner. There is no consent screen,
-because every client is registered out of band by an administrator and there
-is no third party to consent to.
+for anyone who needs to know sooner. There is no consent screen, because
+every client is vetted and registered by an administrator rather than
+registering itself, and there is no third party to consent to.
 
 Neither SAML nor CAS has single logout, so ending a session in Portico does
 not end a session an application created for itself after accepting an
