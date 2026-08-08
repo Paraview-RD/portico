@@ -60,11 +60,7 @@ export function pendingAuthorization(
  * administrator, so there is no third party to consent to; see
  * docs/federation.md.
  */
-export function AuthorizePage({
-  request,
-}: {
-  request: PendingAuthorization;
-}) {
+export function AuthorizePage({ request }: { request: PendingAuthorization }) {
   const t = useT();
   const { user, loading, signOut } = useSession();
   const [error, setError] = useState("");

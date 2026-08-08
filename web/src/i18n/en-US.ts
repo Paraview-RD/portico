@@ -60,11 +60,16 @@ export const enUS = {
   "authorize.title": "Signing you in",
   "authorize.redirecting": "Taking you back to the application…",
   "authorize.signOutAndRetry": "Sign out and sign in again",
-  "authorize.wrongTenant": "This sign-in request is for a different tenant. Sign out and sign in to the tenant the application asked for.",
-  "authorize.expired": "This sign-in request has expired or was already used. Start again from the application.",
-  "authorize.clientGone": "The application this sign-in was for is no longer registered.",
-  "authorize.clientDisabled": "The application this sign-in was for has been disabled.",
-  "authorize.serviceNotRegistered": "That application is not registered with this server.",
+  "authorize.wrongTenant":
+    "This sign-in request is for a different tenant. Sign out and sign in to the tenant the application asked for.",
+  "authorize.expired":
+    "This sign-in request has expired or was already used. Start again from the application.",
+  "authorize.clientGone":
+    "The application this sign-in was for is no longer registered.",
+  "authorize.clientDisabled":
+    "The application this sign-in was for has been disabled.",
+  "authorize.serviceNotRegistered":
+    "That application is not registered with this server.",
   "authorize.signedOut": "You have been signed out.",
 
   "register.title": "Create an account",

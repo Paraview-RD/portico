@@ -60,7 +60,8 @@ export const zhCN: Record<keyof typeof enUS, string> = {
   "authorize.title": "正在登录",
   "authorize.redirecting": "正在返回应用…",
   "authorize.signOutAndRetry": "退出登录并重新登录",
-  "authorize.wrongTenant": "该登录请求属于另一个租户。请退出后，登录到应用所指定的租户。",
+  "authorize.wrongTenant":
+    "该登录请求属于另一个租户。请退出后，登录到应用所指定的租户。",
   "authorize.expired": "该登录请求已过期或已被使用，请从应用重新发起登录。",
   "authorize.clientGone": "发起本次登录的应用已不再注册。",
   "authorize.clientDisabled": "发起本次登录的应用已被停用。",

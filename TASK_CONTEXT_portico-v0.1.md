@@ -6,7 +6,7 @@
 
 - 位置：`~/workspace/github/portico`（**原 keylite，已改名**）
 - 独立 git 仓库，**零远端、从未推送**
-- **⚠️ 历史已重写过一次**（2026-08-08，用户批准）：`keylite.db` 及其日志文件（改名前的 SQLite 库，含一个 admin 的 bcrypt 哈希）从全部历史清除。50 个提交全部保留、工作树逐字节未变，但**所有 commit hash 已变**——本文件下表已是重写后的新 hash。重写前的完整副本在 `/tmp/portico-backup-before-rewrite`（临时目录，机器重启即失）。首推前若还要再清什么，趁现在。
+- **⚠️ 历史已重写过一次**（2026-08-08，用户批准）：`keylite.db` 及其日志文件（改名前的 SQLite 库，含一个 admin 的 bcrypt 哈希）从全部历史清除。50 个提交全部保留、工作树逐字节未变，但**所有 commit hash 已变**——本文件下表已是重写后的新 hash。重写前的完整副本曾放在 `/tmp/portico-backup-before-rewrite`，**已在验证通过后删除**——macOS 的 `/tmp` 不是重启即清（是按文件年龄定期清扫），把含凭证的旧历史留在那里等于白清一次。首推前若还要再清什么，趁现在。
 - 需求真相源：`docs/requirements/v0.1-requirements.md`（新范围）
   + `docs/requirements/v0.1-baseline-mvp.md`（旧基线，记录了"禁用而非删除"等既有决策的由来）
 
@@ -45,6 +45,13 @@
   - 前端：记忆的租户会盖掉授权请求所属租户
 - **已知缺口（写进 docs/federation.md「Known limitations」）**：过期 refresh token 不清理（授权请求会清）；access token 无法撤销（15 分钟 + 内省）；无 consent 页；无 `private_key_jwt`。
 - **未覆盖**：前端无测试框架，上面两个前端 bug 没有回归测试。
+
+## 首推 checklist（推之前逐条过，不要靠记）
+
+1. **CODE_OF_CONDUCT.md 的举报地址仍是占位**（文件顶部有醒目告示）。无人看的信箱比没有行为准则更糟——填一个真实、有人负责的地址，并确定谁负责。**这是唯一还没做的公开前阻塞项。**
+2. **在 GitHub 仓库设置里开启 Private Vulnerability Reporting**。SECURITY.md 已经把报告入口指向它（`/security/advisories/new`），没开启的话那个链接是死的。这是仓库设置不是代码，只能推的时候手工点。
+3. 建远端、`git push` ——**在此之前先确认 1 和 2**，因为历史一旦公开就不能再悄悄重写。
+4. CI 首次运行会在推送时发生。**已在本地把每一条 CI gate 都跑过**（gofmt / `go test -race` / golangci-lint / govulncheck / prettier --check / oxlint / npm audit / single-binary 冒烟），唯一挂过的是 prettier，已修。
 
 ## 验收实例（阶段 4 交付时的状态）
 
