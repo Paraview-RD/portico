@@ -42,11 +42,16 @@ const (
 // strings means the log stays queryable and a typo cannot create a silent
 // second category.
 const (
-	ActionLoginSuccess  = "LOGIN_SUCCESS"
-	ActionLoginFailure  = "LOGIN_FAILURE"
-	ActionLogout        = "LOGOUT"
-	ActionPasswordReset = "PASSWORD_RESET"
-	ActionPasswordSelf  = "PASSWORD_CHANGE_SELF"
+	ActionLoginSuccess = "LOGIN_SUCCESS"
+	ActionLoginFailure = "LOGIN_FAILURE"
+	ActionLogout       = "LOGOUT"
+	// Ending one session rather than all of them. Separate verbs for
+	// your own and somebody else's: an administrator ending a session
+	ActionSessionRevokeSelf = "SESSION_REVOKE_SELF"
+	ActionSessionRevoke     = "SESSION_REVOKE"
+	ActionLogoutEverywhere  = "LOGOUT_EVERYWHERE"
+	ActionPasswordReset     = "PASSWORD_RESET"
+	ActionPasswordSelf      = "PASSWORD_CHANGE_SELF"
 	// A change forced by expiry, done without a session because Login
 	// refuses to issue one for an expired password.
 	ActionPasswordExpiredChange = "PASSWORD_CHANGE_EXPIRED"

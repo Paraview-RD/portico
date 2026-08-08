@@ -16,6 +16,7 @@ export const errorsZhCN: Record<keyof typeof errorsEnUS, string> = {
   INVALID_TOKEN: "登录状态已失效，请重新登录。",
   TOKEN_EXPIRED: "登录已过期，请重新登录。",
   TOKEN_REVOKED: "登录状态已被终止，请重新登录。",
+  SESSION_NOT_FOUND: "会话不存在。",
   MALFORMED_AUTHORIZATION: "凭据格式无法解析。",
   UNAUTHENTICATED: "尚未登录。",
   ADMIN_REQUIRED: "该操作需要管理员权限。",

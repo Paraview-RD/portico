@@ -226,6 +226,13 @@ actions.
   want it; an instance exposed before anyone finishes setup will not accept
   sign-ups.
 - **Disabling an organization** blocks new members but keeps existing ones.
+- **Signing out ends that session, not all of them.** A laptop and a phone
+  are separate sign-ins; **Sign out everywhere**, on your profile, is the
+  one that ends both. Your profile also lists what is currently signed in as
+  you, with the address and browser as they arrived, and lets you end any of
+  it. An administrator can see and end a user's sessions from the user list,
+  which is what "I think my account is compromised" needs on the other end
+  of the phone.
 - **A reset link ends every session.** Completing recovery changes the
   password, and a password change revokes every live token — which is the
   point, since the reason for recovering is often that somebody else had it.

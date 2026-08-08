@@ -153,6 +153,71 @@ type resetPasswordRequest struct {
 	NewPassword string `json:"newPassword"`
 }
 
+// ListOwnSessions returns the caller's live sessions.
+func (h *Handler) ListOwnSessions(w http.ResponseWriter, r *http.Request) {
+	principal := auth.MustPrincipal(r.Context())
+
+	sessions, err := h.sessions.List(r.Context(),
+		principal.TenantID, principal.UserID, principal.SessionID)
+	if err != nil {
+		httpx.Fail(w, r, err)
+		return
+	}
+	httpx.OK(w, sessions)
+}
+
+// RevokeOwnSession ends one of the caller's own sessions.
+//
+// Ending the current one is allowed and behaves as signing out, because
+// refusing it would be surprising: somebody who cannot tell which row is
+// which and picks wrong should get the obvious outcome, not an error.
+func (h *Handler) RevokeOwnSession(w http.ResponseWriter, r *http.Request) {
+	principal := auth.MustPrincipal(r.Context())
+
+	err := h.sessions.Revoke(r.Context(), principal,
+		principal.UserID, chi.URLParam(r, "sessionID"))
+	if err != nil {
+		httpx.Fail(w, r, err)
+		return
+	}
+	httpx.OK(w, nil)
+}
+
+// ListUserSessions returns another account's live sessions, for an
+// administrator answering "what is signed in as this person".
+func (h *Handler) ListUserSessions(w http.ResponseWriter, r *http.Request) {
+	principal := auth.MustPrincipal(r.Context())
+	userID := chi.URLParam(r, "id")
+
+	// Confirm the account is in this tenant before listing anything about
+	// it, so a session list cannot be used to probe for ids elsewhere.
+	if _, err := h.users.Get(r.Context(), principal.TenantID, userID); err != nil {
+		httpx.Fail(w, r, err)
+		return
+	}
+
+	// No current-session marking: none of these belong to the caller.
+	sessions, err := h.sessions.List(r.Context(), principal.TenantID, userID, "")
+	if err != nil {
+		httpx.Fail(w, r, err)
+		return
+	}
+	httpx.OK(w, sessions)
+}
+
+// RevokeUserSession ends one session belonging to another account.
+func (h *Handler) RevokeUserSession(w http.ResponseWriter, r *http.Request) {
+	principal := auth.MustPrincipal(r.Context())
+
+	err := h.sessions.Revoke(r.Context(), principal,
+		chi.URLParam(r, "id"), chi.URLParam(r, "sessionID"))
+	if err != nil {
+		httpx.Fail(w, r, err)
+		return
+	}
+	httpx.OK(w, nil)
+}
+
 // UnlockUser clears a lockout after repeated failed sign-ins, leaving the
 // password alone.
 func (h *Handler) UnlockUser(w http.ResponseWriter, r *http.Request) {

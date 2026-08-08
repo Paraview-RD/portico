@@ -186,6 +186,19 @@ type SamlSigningKey struct {
 	RetiredAt   *time.Time
 }
 
+type Session struct {
+	ID        string
+	TenantID  string
+	UserID    string
+	Ip        string
+	UserAgent string
+	CreatedAt time.Time
+	// Updated lazily rather than on every request: a write per request would make every read a write, and minute-level accuracy is all a session list needs.
+	LastSeenAt time.Time
+	ExpiresAt  time.Time
+	RevokedAt  *time.Time
+}
+
 type SystemSetting struct {
 	TenantID  string
 	Key       string

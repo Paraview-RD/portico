@@ -43,7 +43,7 @@ type Session struct {
 // somebody who could already establish the account exists. Being vague at
 // that point costs a person who typed the right password the one piece of
 // information that would tell them what to do.
-func (s *UserService) Login(ctx context.Context, tenant model.Tenant, identifier, password, ip string) (Session, error) {
+func (s *UserService) Login(ctx context.Context, tenant model.Tenant, identifier, password, ip, userAgent string) (Session, error) {
 	identifier = strings.TrimSpace(identifier)
 	if identifier == "" || password == "" {
 		return Session{}, httpx.BadRequest("MISSING_CREDENTIALS",
@@ -119,7 +119,28 @@ func (s *UserService) Login(ctx context.Context, tenant model.Tenant, identifier
 		return Session{}, err
 	}
 
-	token, expiresAt, err := s.tokens.Issue(user, tenant.Code, row.TokenVersion, settings.TokenTTL())
+	// The session row comes first: the token names it, so it has to exist
+	// before the token does. A row with no token is harmless — it expires —
+	// whereas a token naming a row that was never written authenticates
+	// nobody, which reads as a broken deployment rather than a failed
+	// sign-in.
+	sessionID := uuid.NewString()
+	now := store.Now()
+	ttl := settings.TokenTTL()
+
+	err = q.CreateSession(ctx, sqlcgen.CreateSessionParams{
+		ID:        sessionID,
+		UserID:    user.ID,
+		Ip:        ip,
+		UserAgent: userAgent,
+		CreatedAt: now,
+		ExpiresAt: now.Add(ttl),
+	})
+	if err != nil {
+		return Session{}, fmt.Errorf("create session: %w", err)
+	}
+
+	token, expiresAt, err := s.tokens.Issue(user, tenant.Code, sessionID, row.TokenVersion, ttl)
 	if err != nil {
 		return Session{}, err
 	}
@@ -145,7 +166,7 @@ func (s *UserService) Login(ctx context.Context, tenant model.Tenant, identifier
 //
 // It refuses when the password is *not* expired, so it cannot be used as an
 // alternative change-password endpoint that skips being signed in.
-func (s *UserService) ChangeExpiredPassword(ctx context.Context, tenant model.Tenant, identifier, currentPassword, newPassword, ip string) (Session, error) {
+func (s *UserService) ChangeExpiredPassword(ctx context.Context, tenant model.Tenant, identifier, currentPassword, newPassword, ip, userAgent string) (Session, error) {
 	identifier = strings.TrimSpace(identifier)
 	if identifier == "" || currentPassword == "" {
 		return Session{}, httpx.BadRequest("MISSING_CREDENTIALS",
@@ -198,7 +219,7 @@ func (s *UserService) ChangeExpiredPassword(ctx context.Context, tenant model.Te
 	// Signing them in afterwards rather than sending them back to the form:
 	// they have just proved the old password and chosen a new one, and
 	// making them type the new one again immediately teaches nothing.
-	return s.Login(ctx, tenant, identifier, newPassword, ip)
+	return s.Login(ctx, tenant, identifier, newPassword, ip, userAgent)
 }
 
 // countFailure records a wrong password and locks the account if that takes
@@ -276,28 +297,27 @@ func (s *UserService) logLoginFailure(ctx context.Context, tenantID, userID, use
 	})
 }
 
-// Logout invalidates every token currently held by the caller.
+// Logout ends the session the caller is using.
 //
-// With stateless tokens there is nothing to delete, so the account's
-// token_version is bumped instead: existing tokens carry the old value and
-// stop verifying on their next request.
+// This one, not all of them. Before sessions existed the only revocation
+// available was bumping token_version, which invalidates every token an
+// account holds — so signing out on a laptop signed you out on your phone
+// as well. That was never intended, only unavoidable. LogoutEverywhere is
+// the deliberate version.
 //
-// Federated sessions go too. This is a choice rather than an obligation:
-// signing out of Portico could reasonably leave a relying party's own
-// session running, since that is what its end_session endpoint is for. It
-// does not, because "sign out" on a single sign-on system is read by the
-// person clicking it as signing out of the things they signed in to, and the
-// surprising failure is the one where it did less than they thought.
+// Federated sessions are a separate question, and they still all go. Signing
+// out of Portico could reasonably leave a relying party's own session
+// running, since that is what its end_session endpoint is for. It does not,
+// because "sign out" on a single sign-on system is read by the person
+// clicking it as signing out of the things they signed in to, and the
+// surprising failure is the one where it did less than they thought. A
+// second browser stays signed in to Portico; nothing stays signed in to the
+// applications.
 func (s *UserService) Logout(ctx context.Context, actor auth.Principal, ip string) error {
 	q := s.store.ForTenant(actor.TenantID)
 
-	err := q.BumpUserTokenVersion(ctx,
-		sqlcgen.BumpUserTokenVersionParams{
-			ID:        actor.UserID,
-			UpdatedAt: store.Now(),
-		})
-	if err != nil {
-		return fmt.Errorf("revoke sessions: %w", err)
+	if err := q.RevokeSession(ctx, actor.SessionID, store.Now()); err != nil {
+		return fmt.Errorf("revoke session: %w", err)
 	}
 
 	if err := q.RevokeAllRefreshTokensForUser(ctx, actor.UserID, store.Now()); err != nil {
@@ -306,6 +326,37 @@ func (s *UserService) Logout(ctx context.Context, actor auth.Principal, ip strin
 
 	s.audit.Log(ctx, actor.TenantID, AuditEntry{
 		Kind: model.LogLogin, Action: model.ActionLogout,
+		ActorID: actor.UserID, ActorName: actor.Username,
+		IP: ip,
+	})
+	return nil
+}
+
+// LogoutEverywhere ends every session the account holds, on every device.
+//
+// What somebody reaches for when they think a session is not theirs. It
+// bumps token_version as well as revoking the rows: that is redundant while
+// both mechanisms agree, and it is the cheap insurance that a token which
+// somehow escaped the session check still stops working.
+func (s *UserService) LogoutEverywhere(ctx context.Context, actor auth.Principal, ip string) error {
+	q := s.store.ForTenant(actor.TenantID)
+	now := store.Now()
+
+	if err := q.RevokeSessionsForUser(ctx, actor.UserID, now); err != nil {
+		return fmt.Errorf("revoke sessions: %w", err)
+	}
+	err := q.BumpUserTokenVersion(ctx, sqlcgen.BumpUserTokenVersionParams{
+		ID: actor.UserID, UpdatedAt: now,
+	})
+	if err != nil {
+		return fmt.Errorf("bump token version: %w", err)
+	}
+	if err := q.RevokeAllRefreshTokensForUser(ctx, actor.UserID, now); err != nil {
+		return fmt.Errorf("revoke federated sessions: %w", err)
+	}
+
+	s.audit.Log(ctx, actor.TenantID, AuditEntry{
+		Kind: model.LogLogin, Action: model.ActionLogoutEverywhere,
 		ActorID: actor.UserID, ActorName: actor.Username,
 		IP: ip,
 	})
@@ -429,6 +480,14 @@ func (s *UserService) setPassword(ctx context.Context, q *store.Scoped, tenantID
 	// forget one.
 	if err := q.ClearLoginFailures(ctx, userID, store.Now()); err != nil {
 		return fmt.Errorf("clear login failures: %w", err)
+	}
+
+	// The session rows too. Bumping token_version above already stops every
+	// token, but leaving the rows live would show somebody a list of
+	// sessions that no longer work — and a list that lies about what is
+	// signed in is worse than no list.
+	if err := q.RevokeSessionsForUser(ctx, userID, store.Now()); err != nil {
+		return fmt.Errorf("revoke sessions: %w", err)
 	}
 
 	// Recorded last, so a password refused for any reason above never lands

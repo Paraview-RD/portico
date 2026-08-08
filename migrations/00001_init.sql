@@ -231,6 +231,41 @@ CREATE TABLE password_history (
 CREATE INDEX idx_password_history_user
     ON password_history (tenant_id, user_id, created_at DESC);
 
+-- One row per sign-in, so a session can be listed and ended on its own.
+--
+-- Portico's own token is a JWT and stays one; this table does not replace
+-- it. What it adds is identity: the token carries a session id, and the
+-- middleware — which already re-reads the account on every request, so that
+-- a disable takes effect immediately — checks this row at the same time.
+-- Without it "sign out" can only mean "sign out everywhere", because there
+-- is nothing to name a single session by.
+--
+-- The token is not stored, not even hashed. It is signed and self-describing
+-- and this row is only ever consulted by the id inside it, so keeping a copy
+-- would add a credential to steal and answer no question.
+CREATE TABLE sessions (
+    id        TEXT NOT NULL PRIMARY KEY,
+    tenant_id TEXT NOT NULL REFERENCES tenants (id),
+    user_id   TEXT NOT NULL,
+    FOREIGN KEY (tenant_id, user_id) REFERENCES users (tenant_id, id),
+
+    -- Recorded so somebody reviewing their own sessions can recognize them.
+    -- Both are attacker-controlled strings that are only ever displayed, so
+    -- they are stored as sent and escaped where rendered.
+    ip         TEXT NOT NULL DEFAULT '',
+    user_agent TEXT NOT NULL DEFAULT '',
+
+    created_at   TIMESTAMPTZ NOT NULL,
+    last_seen_at TIMESTAMPTZ NOT NULL,
+    expires_at   TIMESTAMPTZ NOT NULL,
+    revoked_at   TIMESTAMPTZ
+);
+
+COMMENT ON COLUMN sessions.last_seen_at IS
+    'Updated lazily rather than on every request: a write per request would make every read a write, and minute-level accuracy is all a session list needs.';
+
+CREATE INDEX idx_sessions_user ON sessions (tenant_id, user_id, created_at DESC);
+
 CREATE TABLE system_settings (
     tenant_id  TEXT        NOT NULL REFERENCES tenants (id),
     key        TEXT        NOT NULL,

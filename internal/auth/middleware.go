@@ -27,6 +27,21 @@ type Account struct {
 // ErrUserNotFound is returned by a UserLookup when no such account exists.
 var ErrUserNotFound = errors.New("user not found")
 
+// ErrSessionNotLive is returned by a SessionLookup when the session named by
+// a token has been revoked, has expired, or never existed.
+var ErrSessionNotLive = errors.New("session is not live")
+
+// SessionLookup checks that the session a token names is still live, and
+// records that it was used.
+//
+// It is a second interface rather than part of UserLookup because the two
+// answer different questions — "is this account still usable" and "is this
+// particular sign-in still current" — and because a deployment that wanted
+// the old all-or-nothing behaviour could supply one that always succeeds.
+type SessionLookup interface {
+	CheckSession(ctx context.Context, tenantID, sessionID string) error
+}
+
 // UserLookup fetches the current state of an account. The middleware calls
 // it on every authenticated request, which is what makes revocation take
 // effect immediately rather than at token expiry.
@@ -36,14 +51,16 @@ type UserLookup interface {
 
 // Middleware authenticates requests using bearer tokens.
 type Middleware struct {
-	tokens *TokenService
-	users  UserLookup
+	tokens   *TokenService
+	users    UserLookup
+	sessions SessionLookup
 }
 
-// NewMiddleware returns a Middleware that verifies tokens with tokens and
-// resolves accounts with users.
-func NewMiddleware(tokens *TokenService, users UserLookup) *Middleware {
-	return &Middleware{tokens: tokens, users: users}
+// NewMiddleware returns a Middleware that verifies tokens with tokens,
+// resolves accounts with users, and checks individual sessions with
+// sessions.
+func NewMiddleware(tokens *TokenService, users UserLookup, sessions SessionLookup) *Middleware {
+	return &Middleware{tokens: tokens, users: users, sessions: sessions}
 }
 
 // RequireAuth rejects requests without a valid, unrevoked token, and puts
@@ -122,9 +139,29 @@ func (m *Middleware) authenticate(r *http.Request) (Principal, error) {
 		return Principal{}, httpx.Unauthorized("INVALID_TOKEN", "The provided token is not valid.")
 	}
 
+	// And the individual session, which is what lets one sign-in be ended
+	// without ending the rest. Checked after the account so that a disabled
+	// account still reports itself as disabled rather than as a dead
+	// session, which is the more useful answer and the one that was there
+	// before sessions existed.
+	//
+	// A token minted before sessions existed carries no session id. There is
+	// no such token in any deployment — this shipped before the first
+	// release — but treating an absent id as "no session to check" would
+	// make the check optional in a way nothing would notice, so it is
+	// treated as a token that names a session that is not live.
+	if err := m.sessions.CheckSession(r.Context(), claims.TenantID, claims.SessionID); err != nil {
+		if errors.Is(err, ErrSessionNotLive) {
+			return Principal{}, httpx.Unauthorized("TOKEN_REVOKED",
+				"This session has ended. Please sign in again.")
+		}
+		return Principal{}, httpx.Internal(err)
+	}
+
 	// Prefer the stored values over the token's copy: role or organization
 	// may have changed since the token was minted.
 	return Principal{
+		SessionID:        claims.SessionID,
 		UserID:           user.ID,
 		TenantID:         user.TenantID,
 		Username:         user.Username,

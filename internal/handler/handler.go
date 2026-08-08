@@ -22,6 +22,7 @@ type Handler struct {
 	settings *service.SettingsService
 	tenants  *service.TenantService
 	recovery *service.RecoveryService
+	sessions *service.SessionService
 
 	// The three kinds of registered application, one per protocol, behind
 	// the console's application management.
@@ -47,6 +48,7 @@ func New(
 	settings *service.SettingsService,
 	tenants *service.TenantService,
 	recovery *service.RecoveryService,
+	sessions *service.SessionService,
 	clients *service.OAuthClientService,
 	serviceProviders *service.SAMLServiceProviderService,
 	samlKeys *service.SAMLKeyService,
@@ -58,7 +60,8 @@ func New(
 	return &Handler{
 		users: users, orgs: orgs, audit: audit,
 		settings: settings, tenants: tenants, recovery: recovery,
-		clients: clients, serviceProviders: serviceProviders,
+		sessions: sessions,
+		clients:  clients, serviceProviders: serviceProviders,
 		samlKeys: samlKeys, casServices: casServices,
 		oidc: oidc, saml: samlProviders, cas: casServer,
 	}

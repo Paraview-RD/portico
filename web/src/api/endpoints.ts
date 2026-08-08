@@ -20,6 +20,7 @@ import type {
   Settings,
   Status,
   User,
+  UserSession,
 } from "./types";
 
 /** Builds a query string, omitting empty values. */
@@ -47,7 +48,12 @@ export const authApi = {
       anonymous: true,
     }),
 
+  /** Ends this session. Other devices stay signed in. */
   logout: () => request<null>("/auth/logout", { method: "POST" }),
+
+  /** Ends every session the account holds, everywhere. */
+  logoutEverywhere: () =>
+    request<null>("/auth/logout-everywhere", { method: "POST" }),
 
   register: (input: {
     username: string;
@@ -134,6 +140,18 @@ export const userApi = {
     phone: string;
     email: string;
   }) => request<User>("/users/me", { method: "PUT", body: input }),
+
+  /** The caller's own live sessions, most recently used first. */
+  ownSessions: () => request<UserSession[]>("/users/me/sessions"),
+
+  revokeOwnSession: (sessionId: string) =>
+    request<null>(`/users/me/sessions/${sessionId}`, { method: "DELETE" }),
+
+  /** What is signed in as somebody, for an administrator. */
+  sessionsFor: (id: string) => request<UserSession[]>(`/users/${id}/sessions`),
+
+  revokeSessionFor: (id: string, sessionId: string) =>
+    request<null>(`/users/${id}/sessions/${sessionId}`, { method: "DELETE" }),
 
   changeOwnPassword: (currentPassword: string, newPassword: string) =>
     request<{ reauthenticationRequired: boolean }>("/users/me/password", {

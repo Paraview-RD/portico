@@ -233,3 +233,20 @@ export interface IntegrationEndpoints {
     serviceValidate: string;
   };
 }
+
+/**
+ * One sign-in, as shown to the person it belongs to.
+ *
+ * There is no token here and never will be: the server does not store one,
+ * so there is nothing for this shape to leak even by accident.
+ */
+export interface UserSession {
+  id: string;
+  ip: string;
+  userAgent: string;
+  /** The session making the request, so the screen can say which is yours. */
+  current: boolean;
+  createdAt: string;
+  lastSeenAt: string;
+  expiresAt: string;
+}

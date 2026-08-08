@@ -29,6 +29,7 @@ export const errorsEnUS = {
   INVALID_TOKEN: "Your session is no longer valid. Sign in again.",
   TOKEN_EXPIRED: "Your session has expired. Sign in again.",
   TOKEN_REVOKED: "Your session was ended. Sign in again.",
+  SESSION_NOT_FOUND: "No such session.",
   MALFORMED_AUTHORIZATION: "The credentials sent were not readable.",
   UNAUTHENTICATED: "You are not signed in.",
   ADMIN_REQUIRED: "This needs an administrator.",

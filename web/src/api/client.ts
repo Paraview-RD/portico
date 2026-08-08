@@ -82,7 +82,7 @@ export function setSessionEndedHandler(handler: SessionEndedHandler) {
 
 interface RequestOptions {
   // No DELETE: nothing is deleted, only disabled. See api-conventions.md.
-  method?: "GET" | "POST" | "PUT";
+  method?: "GET" | "POST" | "PUT" | "DELETE";
   body?: unknown;
   /** Skips the bearer header, for the endpoints that run signed out. */
   anonymous?: boolean;

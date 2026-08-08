@@ -34,9 +34,11 @@ rather than the security ones they are not. Recovery needs an SMTP relay; point 
 you already run. SMS recovery is defined as a provider interface and ships
 without one.
 
-**Sessions that revoke** — logout, a password change, and disabling an
-account each end every session Portico can reach, immediately: its own, and
-every refresh token held by a federated application. What no identity
+**Sessions that revoke** — every sign-in is listed on your own profile with
+the address and browser it came from, and any of them can be ended on its
+own. Signing out ends that one; sign out everywhere, a password change, and
+disabling an account each end all of them immediately, along with every
+refresh token held by a federated application. What no identity
 provider can withdraw is a credential somebody else is already holding — an
 access token verified offline, or a session an application created for
 itself after accepting an assertion. [docs/federation.md](docs/federation.md)

@@ -35,10 +35,15 @@ type Claims struct {
 	OrganizationID   string     `json:"organizationId,omitempty"`
 	OrganizationName string     `json:"organizationName,omitempty"`
 
-	// TokenVersion must match the user's current value. Logout, a password
-	// change, and disabling the account each bump that value, which revokes
-	// every token issued before it.
+	// TokenVersion must match the user's current value. A password change
+	// and disabling the account each bump it, which revokes every token
+	// issued before — the blunt instrument, for when everything must go.
 	TokenVersion int64 `json:"tokenVersion"`
+
+	// SessionID names the row this token belongs to, so one session can be
+	// ended without ending the rest. The middleware checks it alongside the
+	// account, in the same round trip it was already making.
+	SessionID string `json:"sid"`
 
 	jwt.RegisteredClaims
 }
@@ -55,7 +60,7 @@ func NewTokenService(secret []byte) *TokenService {
 
 // Issue mints a token for user, valid for ttl. tenantCode is carried for
 // the benefit of downstream systems, which deal in codes rather than ids.
-func (s *TokenService) Issue(user model.User, tenantCode string, tokenVersion int64, ttl time.Duration) (string, time.Time, error) {
+func (s *TokenService) Issue(user model.User, tenantCode, sessionID string, tokenVersion int64, ttl time.Duration) (string, time.Time, error) {
 	now := time.Now()
 	expiresAt := now.Add(ttl)
 
@@ -68,6 +73,7 @@ func (s *TokenService) Issue(user model.User, tenantCode string, tokenVersion in
 		OrganizationID:   user.OrganizationID,
 		OrganizationName: user.OrganizationName,
 		TokenVersion:     tokenVersion,
+		SessionID:        sessionID,
 		RegisteredClaims: jwt.RegisteredClaims{
 			Subject:   user.ID,
 			Issuer:    Issuer,

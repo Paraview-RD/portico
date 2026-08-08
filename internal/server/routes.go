@@ -60,6 +60,12 @@ func (s *Server) routes() http.Handler {
 			r.Use(mw.RequireAuth)
 
 			r.Post("/auth/logout", h.Logout)
+			// Ends this session. Signing out on a laptop no longer signs
+			// you out on a phone; that is what the second one is for.
+			r.Post("/auth/logout-everywhere", h.LogoutEverywhere)
+
+			r.Get("/users/me/sessions", h.ListOwnSessions)
+			r.Delete("/users/me/sessions/{sessionID}", h.RevokeOwnSession)
 
 			// The seam between Portico's own sign-in and the OpenID
 			// Provider: the sign-in screen calls this once somebody has
@@ -98,6 +104,10 @@ func (s *Server) routes() http.Handler {
 				// Clearing a lockout without touching the password: the
 				// person mistyped, they did not lose the password.
 				r.Post("/{id}/unlock", h.UnlockUser)
+
+				// What is signed in as this person, and ending one of them.
+				r.Get("/{id}/sessions", h.ListUserSessions)
+				r.Delete("/{id}/sessions/{sessionID}", h.RevokeUserSession)
 
 				// Bulk import (§3.1). The template is generated from the
 				// same column list the parser reads, so the two cannot drift.

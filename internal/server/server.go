@@ -72,6 +72,7 @@ func New(cfg *config.Config, opts ...Option) (*Server, error) {
 
 	tokens := auth.NewTokenService(cfg.JWTSecret)
 	audit := service.NewAuditService(st)
+	sessions := service.NewSessionService(st, audit)
 	settings := service.NewSettingsService(st, cfg.TokenTTL)
 	users := service.NewUserService(st, audit, settings, tokens)
 	orgs := service.NewOrganizationService(st, audit)
@@ -107,10 +108,10 @@ func New(cfg *config.Config, opts ...Option) (*Server, error) {
 	s := &Server{
 		cfg:   cfg,
 		store: st,
-		handler: handler.New(users, orgs, audit, settings, tenants, recovery,
+		handler: handler.New(users, orgs, audit, settings, tenants, recovery, sessions,
 			clients, serviceProviders, samlKeys, casServices,
 			providers, samlProviders, casServer),
-		middleware: auth.NewMiddleware(tokens, users),
+		middleware: auth.NewMiddleware(tokens, users, sessions),
 		users:      users,
 		tenants:    tenants,
 		oidc:       providers,
@@ -223,6 +224,7 @@ func (s *Server) SweepExpired(ctx context.Context) error {
 const (
 	passwordResetRetention = 30 * 24 * time.Hour
 	refreshTokenRetention  = 30 * 24 * time.Hour
+	sessionRetention       = 30 * 24 * time.Hour
 )
 
 // sweepCredentialRemnants clears spent password resets and dead refresh
@@ -242,6 +244,9 @@ func (s *Server) sweepCredentialRemnants(ctx context.Context) error {
 		}
 		if err := q.DeleteDeadRefreshTokenChains(ctx, now.Add(-refreshTokenRetention)); err != nil {
 			return fmt.Errorf("sweep refresh tokens for tenant %s: %w", tenant.Code, err)
+		}
+		if err := q.DeleteExpiredSessions(ctx, now.Add(-sessionRetention)); err != nil {
+			return fmt.Errorf("sweep sessions for tenant %s: %w", tenant.Code, err)
 		}
 	}
 	return nil

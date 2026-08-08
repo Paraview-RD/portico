@@ -35,7 +35,8 @@ func (h *Handler) Login(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	session, err := h.users.Login(r.Context(), tenant, req.Identifier, req.Password, httpx.ClientIP(r))
+	session, err := h.users.Login(r.Context(), tenant, req.Identifier, req.Password,
+		httpx.ClientIP(r), userAgent(r))
 	if err != nil {
 		httpx.Fail(w, r, err)
 		return
@@ -71,7 +72,8 @@ func (h *Handler) ChangeExpiredPassword(w http.ResponseWriter, r *http.Request) 
 	}
 
 	session, err := h.users.ChangeExpiredPassword(r.Context(), tenant,
-		req.Identifier, req.CurrentPassword, req.NewPassword, httpx.ClientIP(r))
+		req.Identifier, req.CurrentPassword, req.NewPassword,
+		httpx.ClientIP(r), userAgent(r))
 	if err != nil {
 		httpx.Fail(w, r, err)
 		return
@@ -241,4 +243,33 @@ func toRegisterInput(req registerRequest) service.RegisterInput {
 		Phone:       req.Phone,
 		Email:       req.Email,
 	}
+}
+
+// LogoutEverywhere ends every session the caller holds, on every device.
+func (h *Handler) LogoutEverywhere(w http.ResponseWriter, r *http.Request) {
+	principal := auth.MustPrincipal(r.Context())
+
+	if err := h.users.LogoutEverywhere(r.Context(), principal, httpx.ClientIP(r)); err != nil {
+		httpx.Fail(w, r, err)
+		return
+	}
+	httpx.OK(w, nil)
+}
+
+// userAgent is what a session list shows so somebody can recognize their own
+// sessions.
+//
+// Truncated, because it is an attacker-controlled header with no length
+// limit and there is no reason to store an unbounded string. Never parsed
+// into a browser name: that is a guessing game the string does not support,
+// and a wrong guess is worse than the raw value for the one question this
+// answers — "was that me".
+const maxUserAgentLength = 400
+
+func userAgent(r *http.Request) string {
+	ua := r.UserAgent()
+	if len(ua) > maxUserAgentLength {
+		return ua[:maxUserAgentLength]
+	}
+	return ua
 }

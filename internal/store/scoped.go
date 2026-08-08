@@ -140,6 +140,51 @@ func (s *Scoped) BumpUserTokenVersion(ctx context.Context, arg sqlcgen.BumpUserT
 	return s.q.BumpUserTokenVersion(ctx, arg)
 }
 
+// --- sessions ------------------------------------------------------------
+
+// CreateSession records a sign-in.
+func (s *Scoped) CreateSession(ctx context.Context, arg sqlcgen.CreateSessionParams) error {
+	arg.TenantID = s.tenantID
+	return s.q.CreateSession(ctx, arg)
+}
+
+// GetLiveSession returns an unrevoked, unexpired session by id.
+func (s *Scoped) GetLiveSession(ctx context.Context, id string, now time.Time) (sqlcgen.Session, error) {
+	return s.q.GetLiveSession(ctx,
+		sqlcgen.GetLiveSessionParams{TenantID: s.tenantID, ID: id, ExpiresAt: now})
+}
+
+// TouchSession records that a session was used.
+func (s *Scoped) TouchSession(ctx context.Context, id string, now time.Time) error {
+	return s.q.TouchSession(ctx,
+		sqlcgen.TouchSessionParams{TenantID: s.tenantID, ID: id, LastSeenAt: now})
+}
+
+// ListSessionsForUser returns an account's live sessions, most recently used
+// first.
+func (s *Scoped) ListSessionsForUser(ctx context.Context, userID string, now time.Time) ([]sqlcgen.Session, error) {
+	return s.q.ListSessionsForUser(ctx,
+		sqlcgen.ListSessionsForUserParams{TenantID: s.tenantID, UserID: userID, ExpiresAt: now})
+}
+
+// RevokeSession ends one session.
+func (s *Scoped) RevokeSession(ctx context.Context, id string, now time.Time) error {
+	return s.q.RevokeSession(ctx,
+		sqlcgen.RevokeSessionParams{TenantID: s.tenantID, ID: id, RevokedAt: &now})
+}
+
+// RevokeSessionsForUser ends every session an account holds.
+func (s *Scoped) RevokeSessionsForUser(ctx context.Context, userID string, now time.Time) error {
+	return s.q.RevokeSessionsForUser(ctx,
+		sqlcgen.RevokeSessionsForUserParams{TenantID: s.tenantID, UserID: userID, RevokedAt: &now})
+}
+
+// DeleteExpiredSessions clears rows past the retention window.
+func (s *Scoped) DeleteExpiredSessions(ctx context.Context, before time.Time) error {
+	return s.q.DeleteExpiredSessions(ctx,
+		sqlcgen.DeleteExpiredSessionsParams{TenantID: s.tenantID, ExpiresAt: before})
+}
+
 // RecordPasswordInHistory remembers a hash so a policy can refuse reuse.
 func (s *Scoped) RecordPasswordInHistory(ctx context.Context, id, userID, hash string, now time.Time) error {
 	return s.q.RecordPasswordInHistory(ctx, sqlcgen.RecordPasswordInHistoryParams{

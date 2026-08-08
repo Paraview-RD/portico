@@ -19,6 +19,10 @@ const principalKey contextKey = "principal"
 // handlers read out of a header — see docs/api-conventions.md, "Tenant
 // selection".
 type Principal struct {
+	// SessionID names the sign-in this request belongs to, so an action can
+	// end this session specifically — signing out, without signing out of
+	// everywhere else.
+	SessionID        string
 	UserID           string
 	TenantID         string
 	Username         string

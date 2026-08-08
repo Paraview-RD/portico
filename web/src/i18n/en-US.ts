@@ -317,6 +317,16 @@ export const enUS = {
   "login.forgotPassword": "Forgot your password?",
   "profile.details": "Your details",
   "profile.detailsSaved": "Saved.",
+  "profile.sessionsTitle": "Signed-in devices",
+  "profile.sessionsHelp":
+    "Everything currently signed in as you. The address and browser are shown exactly as they arrived — if you do not recognize one, end it.",
+  "profile.sessionCurrent": "This device",
+  "profile.sessionNoAddress": "address not recorded",
+  "profile.sessionNoAgent": "browser not recorded",
+  "profile.sessionLastSeen": "Last used {0}",
+  "profile.sessionEnd": "End",
+  "profile.sessionEndMine": "Sign out here",
+  "profile.sessionEndAll": "Sign out everywhere",
   "profile.email": "Email",
   "profile.phone": "Phone",
   "profile.contactHint":

@@ -1,6 +1,7 @@
-import { useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 
-import { userApi } from "../api/endpoints";
+import { authApi, userApi } from "../api/endpoints";
+import type { UserSession } from "../api/types";
 import {
   Alert,
   Badge,
@@ -212,7 +213,138 @@ function ProfileDetailsForm({ onSaved }: { onSaved: () => Promise<void> }) {
           </div>
         </form>
       </Card>
+
+      <div className="mt-6">
+        <SessionsCard />
+      </div>
     </>
+  );
+}
+
+/**
+ * What is signed in as you, and a way to end any of it.
+ *
+ * The reason this screen exists is the question "is that me?" — somebody
+ * looking at an address or a browser they do not recognize. So the address
+ * and the user agent are shown verbatim rather than prettified into a
+ * browser name: a guess that says "Chrome on Windows" when the truth is a
+ * script is worse than the raw string for the one thing this answers.
+ */
+function SessionsCard() {
+  const t = useT();
+  const describeError = useErrorMessage();
+  const { signOut } = useSession();
+
+  const [sessions, setSessions] = useState<UserSession[] | null>(null);
+  const [error, setError] = useState("");
+  const [busy, setBusy] = useState(false);
+
+  const load = useCallback(async () => {
+    try {
+      setSessions(await userApi.ownSessions());
+    } catch (err) {
+      setError(describeError(err));
+    }
+  }, [describeError]);
+
+  useEffect(() => {
+    void load();
+  }, [load]);
+
+  async function revoke(session: UserSession) {
+    setError("");
+    setBusy(true);
+    try {
+      await userApi.revokeOwnSession(session.id);
+      // Ending your own session means signing out, and the token in hand is
+      // already dead — so go through signOut rather than reloading a list
+      // every request for which would now fail.
+      if (session.current) {
+        await signOut();
+        return;
+      }
+      await load();
+    } catch (err) {
+      setError(describeError(err));
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  async function endEverywhere() {
+    setError("");
+    setBusy(true);
+    try {
+      await authApi.logoutEverywhere();
+      await signOut();
+    } catch (err) {
+      setError(describeError(err));
+      setBusy(false);
+    }
+  }
+
+  return (
+    <Card title={t("profile.sessionsTitle")}>
+      <p className="mb-4 text-[length:var(--font-size-sm)] text-[var(--color-fg-muted)]">
+        {t("profile.sessionsHelp")}
+      </p>
+
+      {error && (
+        <div className="mb-4">
+          <Alert tone="danger">{error}</Alert>
+        </div>
+      )}
+
+      {sessions === null ? (
+        <p className="text-[var(--color-fg-muted)]">{t("common.loading")}</p>
+      ) : (
+        <ul className="flex flex-col gap-3">
+          {sessions.map((session) => (
+            <li
+              key={session.id}
+              className="flex flex-wrap items-center justify-between gap-3 border-b border-[var(--color-border)] pb-3 last:border-0"
+            >
+              <div className="min-w-0">
+                <div className="flex items-center gap-2">
+                  <code className="text-[length:var(--font-size-sm)]">
+                    {session.ip || t("profile.sessionNoAddress")}
+                  </code>
+                  {session.current && (
+                    <Badge tone="success">{t("profile.sessionCurrent")}</Badge>
+                  )}
+                </div>
+                <p className="mt-0.5 break-all text-[length:var(--font-size-xs)] text-[var(--color-fg-muted)]">
+                  {session.userAgent || t("profile.sessionNoAgent")}
+                </p>
+                <p className="mt-0.5 text-[length:var(--font-size-xs)] text-[var(--color-fg-muted)]">
+                  {t(
+                    "profile.sessionLastSeen",
+                    new Date(session.lastSeenAt).toLocaleString(),
+                  )}
+                </p>
+              </div>
+
+              <Button
+                size="sm"
+                variant="ghost"
+                disabled={busy}
+                onClick={() => void revoke(session)}
+              >
+                {session.current
+                  ? t("profile.sessionEndMine")
+                  : t("profile.sessionEnd")}
+              </Button>
+            </li>
+          ))}
+        </ul>
+      )}
+
+      <div className="mt-4">
+        <Button variant="secondary" disabled={busy} onClick={endEverywhere}>
+          {t("profile.sessionEndAll")}
+        </Button>
+      </div>
+    </Card>
   );
 }
 
