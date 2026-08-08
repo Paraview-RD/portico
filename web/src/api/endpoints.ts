@@ -4,13 +4,18 @@ import { download, request, upload } from "./client";
 import type {
   AuditLog,
   Authorization,
+  CASService,
   ImportResult,
+  IntegrationEndpoints,
   LogKind,
+  OAuthClient,
   Organization,
   PageResult,
   RecoveryChannel,
+  RegisteredClient,
   RegistrationStatus,
   Role,
+  SAMLServiceProvider,
   Session,
   Settings,
   Status,
@@ -247,4 +252,131 @@ export const oauthApi = {
       method: "POST",
       body: { service },
     }),
+};
+
+/**
+ * Application management.
+ *
+ * A SAML entity id and a CAS URL prefix are both identifiers containing
+ * slashes, so they are percent-encoded into the path. encodeURIComponent
+ * rather than encodeURI: the latter leaves "/" alone, which would split the
+ * identifier across path segments and route the request somewhere else
+ * entirely.
+ */
+const segment = encodeURIComponent;
+
+export const applicationApi = {
+  /** What to configure at the other end of an integration. */
+  integrationEndpoints: () =>
+    request<IntegrationEndpoints>("/applications/integration-endpoints"),
+
+  oauth: {
+    list: () => request<OAuthClient[]>("/applications/oauth-clients"),
+
+    create: (input: {
+      clientId: string;
+      name: string;
+      public: boolean;
+      applicationType: string;
+      redirectUris: string[];
+      postLogoutRedirectUris: string[];
+      scopes: string[];
+    }) =>
+      request<RegisteredClient>("/applications/oauth-clients", {
+        method: "POST",
+        body: input,
+      }),
+
+    update: (
+      clientId: string,
+      input: {
+        name: string;
+        applicationType: string;
+        redirectUris: string[];
+        postLogoutRedirectUris: string[];
+        scopes: string[];
+      },
+    ) =>
+      request<OAuthClient>(`/applications/oauth-clients/${segment(clientId)}`, {
+        method: "PUT",
+        body: input,
+      }),
+
+    enable: (clientId: string) =>
+      request<OAuthClient>(
+        `/applications/oauth-clients/${segment(clientId)}/enable`,
+        { method: "POST" },
+      ),
+
+    disable: (clientId: string) =>
+      request<OAuthClient>(
+        `/applications/oauth-clients/${segment(clientId)}/disable`,
+        { method: "POST" },
+      ),
+
+    /** Issues a new secret and invalidates the old one immediately. */
+    rotateSecret: (clientId: string) =>
+      request<RegisteredClient>(
+        `/applications/oauth-clients/${segment(clientId)}/rotate-secret`,
+        { method: "POST" },
+      ),
+  },
+
+  saml: {
+    list: () =>
+      request<SAMLServiceProvider[]>("/applications/saml-service-providers"),
+
+    create: (input: { name: string; metadataXml: string }) =>
+      request<SAMLServiceProvider>("/applications/saml-service-providers", {
+        method: "POST",
+        body: input,
+      }),
+
+    /** Replacing the metadata is how a certificate is rotated. */
+    update: (entityId: string, input: { name: string; metadataXml: string }) =>
+      request<SAMLServiceProvider>(
+        `/applications/saml-service-providers/${segment(entityId)}`,
+        { method: "PUT", body: input },
+      ),
+
+    enable: (entityId: string) =>
+      request<SAMLServiceProvider>(
+        `/applications/saml-service-providers/${segment(entityId)}/enable`,
+        { method: "POST" },
+      ),
+
+    disable: (entityId: string) =>
+      request<SAMLServiceProvider>(
+        `/applications/saml-service-providers/${segment(entityId)}/disable`,
+        { method: "POST" },
+      ),
+  },
+
+  cas: {
+    list: () => request<CASService[]>("/applications/cas-services"),
+
+    create: (input: { name: string; urlPrefix: string }) =>
+      request<CASService>("/applications/cas-services", {
+        method: "POST",
+        body: input,
+      }),
+
+    update: (prefix: string, input: { name: string; urlPrefix: string }) =>
+      request<CASService>(`/applications/cas-services/${segment(prefix)}`, {
+        method: "PUT",
+        body: input,
+      }),
+
+    enable: (prefix: string) =>
+      request<CASService>(
+        `/applications/cas-services/${segment(prefix)}/enable`,
+        { method: "POST" },
+      ),
+
+    disable: (prefix: string) =>
+      request<CASService>(
+        `/applications/cas-services/${segment(prefix)}/disable`,
+        { method: "POST" },
+      ),
+  },
 };

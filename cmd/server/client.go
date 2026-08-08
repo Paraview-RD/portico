@@ -14,10 +14,11 @@ import (
 
 // runClient dispatches `portico client <subcommand>`.
 //
-// Relying parties are registered from the command line for the same reason
-// tenants are: deciding who may ask this server for tokens about its users
-// is an administrative act, and no account can act outside its own tenant,
-// so there is nobody the API could authorize to do it.
+// The console can do all of this too; these are the command-line
+// equivalents, for a first deployment before anybody has signed in, for
+// scripting, and for when the console cannot be reached. Both paths go
+// through the same service, so the rules and the audit trail are the same
+// either way.
 func runClient(args []string) error {
 	if len(args) == 0 {
 		clientUsage()

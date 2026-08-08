@@ -11,6 +11,7 @@ import (
 	"github.com/google/uuid"
 	xrv "github.com/mattermost/xml-roundtrip-validator"
 
+	"github.com/paraview/portico/internal/auth"
 	"github.com/paraview/portico/internal/httpx"
 	"github.com/paraview/portico/internal/model"
 	"github.com/paraview/portico/internal/store"
@@ -27,17 +28,19 @@ var (
 
 // SAMLServiceProviderService owns the registered SAML service providers.
 //
-// Registered from the command line, like OAuth clients and tenants, and for
-// the same reason: a registration decides who may receive assertions about
-// this tenant's people, and there is no role in this version that could be
-// authorized to grant that over HTTP.
+// A registration decides who may receive assertions about this tenant's
+// people, which is the same weight of decision as registering an OAuth
+// relying party and is available on the same terms: a tenant administrator,
+// over the API or from the command line, with every mutation audited. See
+// OAuthClientService for why that is the right boundary.
 type SAMLServiceProviderService struct {
 	store *store.Store
+	audit *AuditService
 }
 
 // NewSAMLServiceProviderService wires the service.
-func NewSAMLServiceProviderService(st *store.Store) *SAMLServiceProviderService {
-	return &SAMLServiceProviderService{store: st}
+func NewSAMLServiceProviderService(st *store.Store, audit *AuditService) *SAMLServiceProviderService {
+	return &SAMLServiceProviderService{store: st, audit: audit}
 }
 
 // RegisterSPInput describes a service provider to register.
@@ -54,8 +57,10 @@ type RegisterSPInput struct {
 	Name string
 }
 
-// Register adds a service provider to a tenant.
-func (s *SAMLServiceProviderService) Register(ctx context.Context, tenantID string, in RegisterSPInput) (model.SAMLServiceProvider, error) {
+// Register adds a service provider to the actor's tenant.
+func (s *SAMLServiceProviderService) Register(ctx context.Context, actor auth.Principal, in RegisterSPInput) (model.SAMLServiceProvider, error) {
+	tenantID := actor.TenantID
+
 	descriptor, err := parseSPMetadata(in.MetadataXML)
 	if err != nil {
 		return model.SAMLServiceProvider{}, err
@@ -83,7 +88,84 @@ func (s *SAMLServiceProviderService) Register(ctx context.Context, tenantID stri
 		return model.SAMLServiceProvider{}, fmt.Errorf("register service provider: %w", err)
 	}
 
-	return s.Get(ctx, tenantID, descriptor.EntityID)
+	provider, err := s.Get(ctx, tenantID, descriptor.EntityID)
+	if err != nil {
+		return model.SAMLServiceProvider{}, err
+	}
+
+	s.audit.Log(ctx, tenantID, AuditEntry{
+		Kind: model.LogOperation, Action: model.ActionSPCreate,
+		ActorID: actor.UserID, ActorName: actor.Username,
+		TargetType: targetSAMLSP, TargetID: provider.EntityID, TargetName: provider.Name,
+		Detail: spDetail(provider),
+	})
+
+	return provider, nil
+}
+
+// UpdateSPInput is the editable part of a service provider registration.
+//
+// Replacing the metadata document is how a service provider's signing or
+// encryption certificate is rotated, so it has to be editable for a
+// registration to survive past its first certificate expiry.
+type UpdateSPInput struct {
+	MetadataXML string
+	Name        string
+}
+
+// Update replaces a service provider's name and metadata.
+func (s *SAMLServiceProviderService) Update(ctx context.Context, actor auth.Principal, entityID string, in UpdateSPInput) (model.SAMLServiceProvider, error) {
+	tenantID := actor.TenantID
+
+	current, err := s.Get(ctx, tenantID, entityID)
+	if err != nil {
+		return model.SAMLServiceProvider{}, err
+	}
+
+	metadata := strings.TrimSpace(in.MetadataXML)
+	if metadata == "" {
+		metadata = current.MetadataXML
+	}
+	descriptor, err := parseSPMetadata(metadata)
+	if err != nil {
+		return model.SAMLServiceProvider{}, err
+	}
+
+	// A document declaring a different entity id describes a different
+	// service provider. Storing it under this registration would silently
+	// repoint it: assertions meant for one system would start being issued
+	// to another, and the listing would still show the old name.
+	if descriptor.EntityID != entityID {
+		return model.SAMLServiceProvider{}, httpx.BadRequest("METADATA_ENTITY_ID_MISMATCH",
+			"That metadata declares entity id "+descriptor.EntityID+
+				", but this registration is for "+entityID+
+				". Register it separately rather than replacing this one.")
+	}
+
+	name := strings.TrimSpace(in.Name)
+	if name == "" {
+		name = current.Name
+	}
+
+	err = s.store.ForTenant(tenantID).UpdateSAMLServiceProvider(
+		ctx, entityID, name, metadata, store.Now())
+	if err != nil {
+		return model.SAMLServiceProvider{}, fmt.Errorf("update service provider: %w", err)
+	}
+
+	updated, err := s.Get(ctx, tenantID, entityID)
+	if err != nil {
+		return model.SAMLServiceProvider{}, err
+	}
+
+	s.audit.Log(ctx, tenantID, AuditEntry{
+		Kind: model.LogOperation, Action: model.ActionSPUpdate,
+		ActorID: actor.UserID, ActorName: actor.Username,
+		TargetType: targetSAMLSP, TargetID: entityID, TargetName: updated.Name,
+		Detail: spDetail(updated),
+	})
+
+	return updated, nil
 }
 
 // Get returns one service provider.
@@ -126,21 +208,43 @@ func (s *SAMLServiceProviderService) List(ctx context.Context, tenantID string) 
 }
 
 // SetStatus enables or disables a service provider.
-func (s *SAMLServiceProviderService) SetStatus(ctx context.Context, tenantID, entityID string, status model.Status) (model.SAMLServiceProvider, error) {
+func (s *SAMLServiceProviderService) SetStatus(ctx context.Context, actor auth.Principal, entityID string, status model.Status) (model.SAMLServiceProvider, error) {
+	tenantID := actor.TenantID
+
 	if !status.Valid() {
 		return model.SAMLServiceProvider{}, httpx.BadRequest("INVALID_STATUS",
 			"Status must be ACTIVE or DISABLED.")
 	}
-	if _, err := s.Get(ctx, tenantID, entityID); err != nil {
+	current, err := s.Get(ctx, tenantID, entityID)
+	if err != nil {
 		return model.SAMLServiceProvider{}, err
 	}
 
-	err := s.store.ForTenant(tenantID).UpdateSAMLServiceProviderStatus(
+	err = s.store.ForTenant(tenantID).UpdateSAMLServiceProviderStatus(
 		ctx, entityID, string(status), store.Now())
 	if err != nil {
 		return model.SAMLServiceProvider{}, fmt.Errorf("update service provider status: %w", err)
 	}
+
+	action := model.ActionSPEnable
+	if status == model.StatusDisabled {
+		action = model.ActionSPDisable
+	}
+	s.audit.Log(ctx, tenantID, AuditEntry{
+		Kind: model.LogOperation, Action: action,
+		ActorID: actor.UserID, ActorName: actor.Username,
+		TargetType: targetSAMLSP, TargetID: entityID, TargetName: current.Name,
+	})
+
 	return s.Get(ctx, tenantID, entityID)
+}
+
+// spDetail summarizes a registration for the audit trail. The assertion
+// consumer service endpoints are the security question here — an assertion
+// about somebody is delivered to one of them — in the same way redirect URIs
+// are for an OAuth client.
+func spDetail(p model.SAMLServiceProvider) string {
+	return "assertion consumer services: " + strings.Join(p.ACSURLs, ", ")
 }
 
 // parseSPMetadata reads a service provider's metadata document and checks it

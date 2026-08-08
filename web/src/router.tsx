@@ -23,6 +23,7 @@ export type Route =
   | "/reset-password"
   | "/users"
   | "/organizations"
+  | "/applications"
   | "/audit-logs"
   | "/settings"
   | "/profile";
@@ -34,6 +35,7 @@ const routes: Route[] = [
   "/reset-password",
   "/users",
   "/organizations",
+  "/applications",
   "/audit-logs",
   "/settings",
   "/profile",

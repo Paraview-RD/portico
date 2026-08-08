@@ -17,9 +17,8 @@ import (
 
 // runSP dispatches `portico sp <subcommand>`.
 //
-// SAML service providers are registered from the command line for the same
-// reason relying parties are: a registration decides who may receive
-// assertions about this tenant's people.
+// The command-line equivalent of the console's SAML tab, on the same terms
+// as `portico client`.
 func runSP(args []string) error {
 	if len(args) == 0 {
 		spUsage()

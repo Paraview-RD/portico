@@ -3,6 +3,7 @@ import type { ReactNode } from "react";
 
 import { BrandLockup } from "./brand";
 import {
+  ApplicationsIcon,
   AuditIcon,
   ChevronDownIcon,
   GlobeIcon,
@@ -59,6 +60,12 @@ const navGroups: NavGroup[] = [
   {
     labelKey: "nav.group.operations",
     items: [
+      {
+        route: "/applications",
+        labelKey: "nav.applications",
+        icon: ApplicationsIcon,
+        adminOnly: true,
+      },
       {
         route: "/audit-logs",
         labelKey: "nav.auditLogs",

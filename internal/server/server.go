@@ -90,12 +90,12 @@ func New(cfg *config.Config, opts ...Option) (*Server, error) {
 	recovery := service.NewRecoveryService(
 		st, users, audit, deps.mailer, deps.sms, cfg.PublicURL)
 
-	clients := service.NewOAuthClientService(st)
+	clients := service.NewOAuthClientService(st, audit)
 	keys := service.NewSigningKeyService(st)
 	providers := oidcp.NewProviders(cfg.PublicURL, federationCryptoKey(cfg.JWTSecret),
 		st, tenants, users, clients, keys, audit)
 
-	serviceProviders := service.NewSAMLServiceProviderService(st)
+	serviceProviders := service.NewSAMLServiceProviderService(st, audit)
 	samlKeys := service.NewSAMLKeyService(st)
 	samlProviders := samlp.NewProviders(cfg.PublicURL,
 		st, tenants, users, serviceProviders, samlKeys, audit)
@@ -104,9 +104,11 @@ func New(cfg *config.Config, opts ...Option) (*Server, error) {
 	casServer := casp.New(cfg.PublicURL, tenants, casServices, audit)
 
 	s := &Server{
-		cfg:        cfg,
-		store:      st,
-		handler:    handler.New(users, orgs, audit, settings, tenants, recovery, providers, samlProviders, casServer),
+		cfg:   cfg,
+		store: st,
+		handler: handler.New(users, orgs, audit, settings, tenants, recovery,
+			clients, serviceProviders, samlKeys, casServices,
+			providers, samlProviders, casServer),
 		middleware: auth.NewMiddleware(tokens, users),
 		users:      users,
 		tenants:    tenants,

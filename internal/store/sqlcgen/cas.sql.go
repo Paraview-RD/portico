@@ -180,6 +180,35 @@ func (q *Queries) ListCASServices(ctx context.Context, tenantID string) ([]CasSe
 	return items, nil
 }
 
+const updateCASService = `-- name: UpdateCASService :exec
+UPDATE cas_services
+SET name = $1, url_prefix = $2, updated_at = $3
+WHERE tenant_id = $4 AND url_prefix = $5
+`
+
+type UpdateCASServiceParams struct {
+	Name        string
+	UrlPrefix   string
+	UpdatedAt   time.Time
+	TenantID    string
+	UrlPrefix_2 string
+}
+
+// Matched on the old prefix and able to set a new one, because a prefix is
+// a deployment address rather than an identity: an application that moves to
+// a new host has to be editable, or the only way to follow it is to
+// de-register and re-register.
+func (q *Queries) UpdateCASService(ctx context.Context, arg UpdateCASServiceParams) error {
+	_, err := q.db.ExecContext(ctx, updateCASService,
+		arg.Name,
+		arg.UrlPrefix,
+		arg.UpdatedAt,
+		arg.TenantID,
+		arg.UrlPrefix_2,
+	)
+	return err
+}
+
 const updateCASServiceStatus = `-- name: UpdateCASServiceStatus :exec
 UPDATE cas_services
 SET status = $1, updated_at = $2

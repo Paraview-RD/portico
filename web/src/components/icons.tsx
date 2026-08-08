@@ -58,6 +58,17 @@ export function OrganizationsIcon(props: IconProps) {
   );
 }
 
+export function ApplicationsIcon(props: IconProps) {
+  return (
+    <Svg {...props}>
+      <rect x="3" y="4" width="18" height="14" rx="2" />
+      <path d="M3 9h18" />
+      <path d="M8 22h8" />
+      <path d="M12 18v4" />
+    </Svg>
+  );
+}
+
 export function AuditIcon(props: IconProps) {
   return (
     <Svg {...props}>

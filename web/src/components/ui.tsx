@@ -20,8 +20,9 @@ import type {
   InputHTMLAttributes,
   ReactNode,
   SelectHTMLAttributes,
+  TextareaHTMLAttributes,
 } from "react";
-import { useEffect } from "react";
+import { useEffect, useState } from "react";
 
 import { useT } from "../i18n";
 
@@ -130,6 +131,101 @@ export function Select({
   ...props
 }: SelectHTMLAttributes<HTMLSelectElement>) {
   return <select className={cx(controlClasses, className)} {...props} />;
+}
+
+/**
+ * A multi-line control, for the two things in this application that are
+ * genuinely documents rather than values: a SAML metadata XML file and a
+ * list of redirect URIs.
+ *
+ * It repeats the control styling minus the fixed height rather than reusing
+ * controlClasses, because h-9 on a textarea makes it one line tall and no
+ * amount of className afterwards reliably overrides it — Tailwind resolves
+ * conflicts by stylesheet order, not by the order classes are written.
+ */
+export function Textarea({
+  className,
+  ...props
+}: TextareaHTMLAttributes<HTMLTextAreaElement>) {
+  return (
+    <textarea
+      className={cx(
+        "w-full rounded-[var(--radius-sm)] border border-[var(--color-border)]",
+        "bg-[var(--color-bg)] px-3 py-2 text-[length:var(--font-size-sm)] text-[var(--color-fg)]",
+        "placeholder:text-[var(--color-fg-muted)]",
+        "focus:outline-2 focus:outline-offset-[-1px] focus:outline-[var(--color-primary)]",
+        "disabled:opacity-50",
+        className,
+      )}
+      {...props}
+    />
+  );
+}
+
+/**
+ * A read-only value with a button that copies it.
+ *
+ * Used wherever the screen is handing somebody something to paste into
+ * another system — an endpoint address, a client secret, a certificate. The
+ * value stays selectable so that a browser without clipboard permission is
+ * not a dead end.
+ */
+export function CopyField({
+  label,
+  value,
+  multiline = false,
+}: {
+  label: string;
+  value: string;
+  multiline?: boolean;
+}) {
+  const t = useT();
+  const [copied, setCopied] = useState(false);
+
+  // The confirmation clears itself. Without the cleanup a component
+  // unmounted inside the two seconds would set state after unmount.
+  useEffect(() => {
+    if (!copied) return;
+    const timer = window.setTimeout(() => setCopied(false), 2000);
+    return () => window.clearTimeout(timer);
+  }, [copied]);
+
+  async function copy() {
+    try {
+      await navigator.clipboard.writeText(value);
+      setCopied(true);
+    } catch {
+      // Clipboard access can be refused — an insecure origin, or a browser
+      // policy. The value is on screen and selectable, so there is nothing
+      // to recover from and nothing worth interrupting anyone about.
+    }
+  }
+
+  return (
+    <div className="flex flex-col gap-1">
+      <span className="text-[length:var(--font-size-sm)] font-[weight:var(--font-weight-medium)] text-[var(--color-fg)]">
+        {label}
+      </span>
+      <div className="flex items-start gap-2">
+        <code
+          className={cx(
+            "min-w-0 flex-1 rounded-[var(--radius-sm)] border border-[var(--color-border)]",
+            "bg-[var(--color-bg-soft)] px-2 py-1.5",
+            "text-[length:var(--font-size-xs)] text-[var(--color-fg)]",
+            multiline
+              ? "block max-h-40 overflow-auto whitespace-pre-wrap break-all"
+              : "block truncate",
+          )}
+          title={multiline ? undefined : value}
+        >
+          {value}
+        </code>
+        <Button size="sm" variant="secondary" type="button" onClick={copy}>
+          {copied ? t("common.copied") : t("common.copy")}
+        </Button>
+      </div>
+    </div>
+  );
 }
 
 /* --------------------------------------------------------------- Badge */

@@ -28,18 +28,26 @@ var (
 
 // OAuthClientService owns the registered relying parties.
 //
-// Like tenants, clients are registered from the command line. A client
-// registration decides who may ask this server for tokens about its users,
-// which is an administrative act of the same weight as creating a tenant —
-// and V0.1 has no role that could be authorized to perform it over HTTP.
-// Dynamic client registration is deliberately not implemented.
+// A registration decides who may ask this server for tokens about a tenant's
+// users, so it is an administrative act of real weight — but it is one a
+// tenant administrator is already trusted with. They can reset any password
+// in their own tenant, which is strictly more power than registering an
+// application, and registration is tenant-scoped, so it grants nothing
+// across the boundary. It is therefore available over the API to an
+// administrator, as well as from the command line, and every mutation is
+// audited.
+//
+// Dynamic client registration (RFC 7591) is a different question and remains
+// deliberately absent: that is registration by an anonymous caller, with no
+// administrator in the loop at all.
 type OAuthClientService struct {
 	store *store.Store
+	audit *AuditService
 }
 
 // NewOAuthClientService wires an OAuthClientService.
-func NewOAuthClientService(st *store.Store) *OAuthClientService {
-	return &OAuthClientService{store: st}
+func NewOAuthClientService(st *store.Store, audit *AuditService) *OAuthClientService {
+	return &OAuthClientService{store: st, audit: audit}
 }
 
 // RegisterClientInput describes a relying party to register.
@@ -65,8 +73,9 @@ type RegisteredClient struct {
 	Secret string
 }
 
-// Register adds a relying party to a tenant.
-func (s *OAuthClientService) Register(ctx context.Context, tenantID string, in RegisterClientInput) (RegisteredClient, error) {
+// Register adds a relying party to the actor's tenant.
+func (s *OAuthClientService) Register(ctx context.Context, actor auth.Principal, in RegisterClientInput) (RegisteredClient, error) {
+	tenantID := actor.TenantID
 	in.ClientID = strings.TrimSpace(in.ClientID)
 	in.Name = strings.TrimSpace(in.Name)
 
@@ -160,7 +169,150 @@ func (s *OAuthClientService) Register(ctx context.Context, tenantID string, in R
 	if err != nil {
 		return RegisteredClient{}, err
 	}
+
+	s.audit.Log(ctx, tenantID, AuditEntry{
+		Kind: model.LogOperation, Action: model.ActionClientCreate,
+		ActorID: actor.UserID, ActorName: actor.Username,
+		TargetType: targetOAuthClient, TargetID: in.ClientID, TargetName: in.Name,
+		Detail: clientDetail(client),
+	})
+
 	return RegisteredClient{Client: client, Secret: secret}, nil
+}
+
+// UpdateClientInput is the editable part of a registration.
+//
+// The client id is absent because it is not editable: it is the name the
+// application presents at the token endpoint, and changing it would break
+// every deployment of that application rather than reconfigure it. Whether
+// the client is confidential is absent for the same reason — flipping a
+// public client to confidential would leave it unable to authenticate until
+// somebody noticed, so that is a re-registration.
+type UpdateClientInput struct {
+	Name                   string
+	ApplicationType        string
+	RedirectURIs           []string
+	PostLogoutRedirectURIs []string
+	Scopes                 []string
+}
+
+// Update changes a relying party's settings.
+func (s *OAuthClientService) Update(ctx context.Context, actor auth.Principal, clientID string, in UpdateClientInput) (model.OAuthClient, error) {
+	tenantID := actor.TenantID
+
+	current, err := s.Get(ctx, tenantID, clientID)
+	if err != nil {
+		return model.OAuthClient{}, err
+	}
+
+	name := strings.TrimSpace(in.Name)
+	if name == "" {
+		name = current.ClientID
+	}
+	if err := validateRedirectURIs(in.RedirectURIs); err != nil {
+		return model.OAuthClient{}, err
+	}
+	if len(in.PostLogoutRedirectURIs) > 0 {
+		if err := validateRedirectURIs(in.PostLogoutRedirectURIs); err != nil {
+			return model.OAuthClient{}, err
+		}
+	}
+
+	applicationType := strings.ToUpper(strings.TrimSpace(in.ApplicationType))
+	if applicationType == "" {
+		applicationType = current.ApplicationType
+	}
+	switch applicationType {
+	case model.AppTypeWeb, model.AppTypeNative, model.AppTypeUserAgent:
+	default:
+		return model.OAuthClient{}, httpx.BadRequest("INVALID_APPLICATION_TYPE",
+			"Application type must be WEB, NATIVE, or USER_AGENT.")
+	}
+
+	scopes := in.Scopes
+	if len(scopes) == 0 {
+		scopes = current.Scopes
+	}
+	if !slices.Contains(scopes, "openid") {
+		scopes = append([]string{"openid"}, scopes...)
+	}
+
+	err = s.store.ForTenant(tenantID).UpdateOAuthClient(ctx, sqlcgen.UpdateOAuthClientParams{
+		ClientID:               clientID,
+		Name:                   name,
+		ApplicationType:        applicationType,
+		RedirectUris:           in.RedirectURIs,
+		PostLogoutRedirectUris: emptyIfNil(in.PostLogoutRedirectURIs),
+		Scopes:                 scopes,
+		UpdatedAt:              store.Now(),
+	})
+	if err != nil {
+		return model.OAuthClient{}, fmt.Errorf("update client: %w", err)
+	}
+
+	updated, err := s.Get(ctx, tenantID, clientID)
+	if err != nil {
+		return model.OAuthClient{}, err
+	}
+
+	s.audit.Log(ctx, tenantID, AuditEntry{
+		Kind: model.LogOperation, Action: model.ActionClientUpdate,
+		ActorID: actor.UserID, ActorName: actor.Username,
+		TargetType: targetOAuthClient, TargetID: clientID, TargetName: updated.Name,
+		Detail: clientDetail(updated),
+	})
+
+	return updated, nil
+}
+
+// RotateSecret issues a confidential client a new secret and invalidates the
+// old one immediately.
+//
+// There is no overlap period in which both work. That would be kinder to a
+// running deployment, but the reason to rotate is usually that the old
+// secret leaked, and a rotation that leaves the leaked value working is not
+// a rotation. An operator who is rotating on a schedule instead can register
+// a second client and retire the first.
+func (s *OAuthClientService) RotateSecret(ctx context.Context, actor auth.Principal, clientID string) (RegisteredClient, error) {
+	tenantID := actor.TenantID
+
+	client, err := s.Get(ctx, tenantID, clientID)
+	if err != nil {
+		return RegisteredClient{}, err
+	}
+	if !client.Confidential {
+		// A public client authenticates with PKCE and has no secret to
+		// rotate. Generating one here would make it confidential by
+		// accident, and it would then fail to authenticate.
+		return RegisteredClient{}, httpx.BadRequest("CLIENT_IS_PUBLIC",
+			"This is a public client. It authenticates with PKCE and has no secret.")
+	}
+
+	secret, err := newClientSecret()
+	if err != nil {
+		return RegisteredClient{}, err
+	}
+	hashed, err := auth.HashPassword(secret)
+	if err != nil {
+		return RegisteredClient{}, fmt.Errorf("hash client secret: %w", err)
+	}
+
+	err = s.store.ForTenant(tenantID).UpdateOAuthClientSecret(ctx, clientID, &hashed, store.Now())
+	if err != nil {
+		return RegisteredClient{}, fmt.Errorf("rotate client secret: %w", err)
+	}
+
+	s.audit.Log(ctx, tenantID, AuditEntry{
+		Kind: model.LogOperation, Action: model.ActionClientSecretRotate,
+		ActorID: actor.UserID, ActorName: actor.Username,
+		TargetType: targetOAuthClient, TargetID: clientID, TargetName: client.Name,
+	})
+
+	updated, err := s.Get(ctx, tenantID, clientID)
+	if err != nil {
+		return RegisteredClient{}, err
+	}
+	return RegisteredClient{Client: updated, Secret: secret}, nil
 }
 
 // Get returns one relying party.
@@ -192,18 +344,32 @@ func (s *OAuthClientService) List(ctx context.Context, tenantID string) ([]model
 // SetStatus enables or disables a relying party. A disabled client's
 // authorization requests are refused and its tokens stop refreshing, without
 // anything being deleted.
-func (s *OAuthClientService) SetStatus(ctx context.Context, tenantID, clientID string, status model.Status) (model.OAuthClient, error) {
+func (s *OAuthClientService) SetStatus(ctx context.Context, actor auth.Principal, clientID string, status model.Status) (model.OAuthClient, error) {
+	tenantID := actor.TenantID
+
 	if !status.Valid() {
 		return model.OAuthClient{}, httpx.BadRequest("INVALID_STATUS", "Status must be ACTIVE or DISABLED.")
 	}
-	if _, err := s.Get(ctx, tenantID, clientID); err != nil {
+	current, err := s.Get(ctx, tenantID, clientID)
+	if err != nil {
 		return model.OAuthClient{}, err
 	}
 
-	err := s.store.ForTenant(tenantID).UpdateOAuthClientStatus(ctx, clientID, string(status), store.Now())
+	err = s.store.ForTenant(tenantID).UpdateOAuthClientStatus(ctx, clientID, string(status), store.Now())
 	if err != nil {
 		return model.OAuthClient{}, fmt.Errorf("update client status: %w", err)
 	}
+
+	action := model.ActionClientEnable
+	if status == model.StatusDisabled {
+		action = model.ActionClientDisable
+	}
+	s.audit.Log(ctx, tenantID, AuditEntry{
+		Kind: model.LogOperation, Action: action,
+		ActorID: actor.UserID, ActorName: actor.Username,
+		TargetType: targetOAuthClient, TargetID: clientID, TargetName: current.Name,
+	})
+
 	return s.Get(ctx, tenantID, clientID)
 }
 
@@ -225,7 +391,38 @@ func (s *OAuthClientService) VerifySecret(ctx context.Context, tenantID, clientI
 	if !auth.CheckPassword(*row.SecretHash, secret) {
 		return httpx.Unauthorized("INVALID_CLIENT", "Client authentication failed.")
 	}
+
+	// Checked after the comparison rather than before it, so that a disabled
+	// client and a wrong secret take the same time and neither answer says
+	// which one it was.
+	//
+	// This check has to be here and not only where a client is looked up for
+	// an authorization request. Client authentication is a separate path —
+	// it is what the introspection and revocation endpoints use, and they
+	// never fetch the client any other way. Without this, an operator who
+	// disabled a compromised client would have stopped it signing anybody
+	// in while leaving it able to introspect tokens, which is not what the
+	// word "disabled" promises.
+	if model.Status(row.Status) != model.StatusActive {
+		return httpx.Unauthorized("CLIENT_DISABLED", "This client is disabled.")
+	}
 	return nil
+}
+
+// clientDetail summarizes what a registration permits, for the audit trail.
+//
+// The redirect URIs are the whole of the security question — an authorization
+// code is delivered to one of them — so an entry that omitted them would
+// record that something changed without recording the thing that matters.
+func clientDetail(c model.OAuthClient) string {
+	kind := "confidential"
+	if !c.Confidential {
+		kind = "public"
+	}
+	return fmt.Sprintf("%s %s client; redirect URIs: %s; scopes: %s",
+		kind, strings.ToLower(c.ApplicationType),
+		strings.Join(c.RedirectURIs, ", "),
+		strings.Join(c.Scopes, " "))
 }
 
 // emptyIfNil turns a nil slice into an empty one.

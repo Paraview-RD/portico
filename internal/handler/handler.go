@@ -22,6 +22,13 @@ type Handler struct {
 	settings *service.SettingsService
 	tenants  *service.TenantService
 	recovery *service.RecoveryService
+
+	// The three kinds of registered application, one per protocol, behind
+	// the console's application management.
+	clients          *service.OAuthClientService
+	serviceProviders *service.SAMLServiceProviderService
+	samlKeys         *service.SAMLKeyService
+	casServices      *service.CASService
 	// oidc is here for one endpoint: the seam where Portico's own sign-in
 	// hands a person back to the OpenID Provider. The provider's own
 	// endpoints do not go through this layer at all.
@@ -40,6 +47,10 @@ func New(
 	settings *service.SettingsService,
 	tenants *service.TenantService,
 	recovery *service.RecoveryService,
+	clients *service.OAuthClientService,
+	serviceProviders *service.SAMLServiceProviderService,
+	samlKeys *service.SAMLKeyService,
+	casServices *service.CASService,
 	oidc *oidcp.Providers,
 	samlProviders *samlp.Providers,
 	casServer *casp.Server,
@@ -47,6 +58,8 @@ func New(
 	return &Handler{
 		users: users, orgs: orgs, audit: audit,
 		settings: settings, tenants: tenants, recovery: recovery,
+		clients: clients, serviceProviders: serviceProviders,
+		samlKeys: samlKeys, casServices: casServices,
 		oidc: oidc, saml: samlProviders, cas: casServer,
 	}
 }

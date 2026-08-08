@@ -18,6 +18,15 @@ UPDATE cas_services
 SET status = $1, updated_at = $2
 WHERE tenant_id = $3 AND url_prefix = $4;
 
+-- Matched on the old prefix and able to set a new one, because a prefix is
+-- a deployment address rather than an identity: an application that moves to
+-- a new host has to be editable, or the only way to follow it is to
+-- de-register and re-register.
+-- name: UpdateCASService :exec
+UPDATE cas_services
+SET name = $1, url_prefix = $2, updated_at = $3
+WHERE tenant_id = $4 AND url_prefix = $5;
+
 -- name: CreateCASTicket :exec
 INSERT INTO cas_tickets (
     id, tenant_id, ticket_hash, service, subject, created_at, expires_at

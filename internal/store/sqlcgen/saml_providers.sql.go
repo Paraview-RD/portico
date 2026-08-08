@@ -215,6 +215,36 @@ func (q *Queries) ListSAMLServiceProviders(ctx context.Context, tenantID string)
 	return items, nil
 }
 
+const updateSAMLServiceProvider = `-- name: UpdateSAMLServiceProvider :exec
+UPDATE saml_service_providers
+SET name = $1, metadata_xml = $2, updated_at = $3
+WHERE tenant_id = $4 AND entity_id = $5
+`
+
+type UpdateSAMLServiceProviderParams struct {
+	Name        string
+	MetadataXml string
+	UpdatedAt   time.Time
+	TenantID    string
+	EntityID    string
+}
+
+// Re-uploading metadata is how a service provider's certificate gets
+// rotated, so this has to exist for a registration to survive its first
+// year. The entity id is the match key and is not updated: a document
+// declaring a different one describes a different service provider, and the
+// service layer rejects it rather than silently repointing a registration.
+func (q *Queries) UpdateSAMLServiceProvider(ctx context.Context, arg UpdateSAMLServiceProviderParams) error {
+	_, err := q.db.ExecContext(ctx, updateSAMLServiceProvider,
+		arg.Name,
+		arg.MetadataXml,
+		arg.UpdatedAt,
+		arg.TenantID,
+		arg.EntityID,
+	)
+	return err
+}
+
 const updateSAMLServiceProviderStatus = `-- name: UpdateSAMLServiceProviderStatus :exec
 UPDATE saml_service_providers
 SET status = $1, updated_at = $2

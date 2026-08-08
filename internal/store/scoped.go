@@ -312,6 +312,19 @@ func (s *Scoped) UpdateOAuthClientStatus(ctx context.Context, clientID, status s
 	})
 }
 
+// UpdateOAuthClient changes a relying party's settings.
+func (s *Scoped) UpdateOAuthClient(ctx context.Context, arg sqlcgen.UpdateOAuthClientParams) error {
+	arg.TenantID = s.tenantID
+	return s.q.UpdateOAuthClient(ctx, arg)
+}
+
+// UpdateOAuthClientSecret replaces a confidential client's secret hash.
+func (s *Scoped) UpdateOAuthClientSecret(ctx context.Context, clientID string, secretHash *string, now time.Time) error {
+	return s.q.UpdateOAuthClientSecret(ctx, sqlcgen.UpdateOAuthClientSecretParams{
+		TenantID: s.tenantID, ClientID: clientID, SecretHash: secretHash, UpdatedAt: now,
+	})
+}
+
 // CreateAuthRequest records an authorization request in flight.
 func (s *Scoped) CreateAuthRequest(ctx context.Context, arg sqlcgen.CreateAuthRequestParams) error {
 	arg.TenantID = s.tenantID
@@ -503,6 +516,14 @@ func (s *Scoped) UpdateSAMLServiceProviderStatus(ctx context.Context, entityID, 
 	})
 }
 
+// UpdateSAMLServiceProvider replaces a service provider's name and metadata.
+func (s *Scoped) UpdateSAMLServiceProvider(ctx context.Context, entityID, name, metadataXML string, now time.Time) error {
+	return s.q.UpdateSAMLServiceProvider(ctx, sqlcgen.UpdateSAMLServiceProviderParams{
+		TenantID: s.tenantID, EntityID: entityID,
+		Name: name, MetadataXml: metadataXML, UpdatedAt: now,
+	})
+}
+
 // CreateSAMLAuthRequest records an authentication request in flight.
 func (s *Scoped) CreateSAMLAuthRequest(ctx context.Context, arg sqlcgen.CreateSAMLAuthRequestParams) error {
 	arg.TenantID = s.tenantID
@@ -556,6 +577,16 @@ func (s *Scoped) GetCASService(ctx context.Context, prefix string) (sqlcgen.CasS
 func (s *Scoped) UpdateCASServiceStatus(ctx context.Context, prefix, status string, now time.Time) error {
 	return s.q.UpdateCASServiceStatus(ctx, sqlcgen.UpdateCASServiceStatusParams{
 		TenantID: s.tenantID, UrlPrefix: prefix, Status: status, UpdatedAt: now,
+	})
+}
+
+// UpdateCASService changes a registration's name and URL prefix. The
+// registration to change is named by its current prefix; UrlPrefix is the
+// new one.
+func (s *Scoped) UpdateCASService(ctx context.Context, currentPrefix, name, newPrefix string, now time.Time) error {
+	return s.q.UpdateCASService(ctx, sqlcgen.UpdateCASServiceParams{
+		TenantID: s.tenantID, UrlPrefix_2: currentPrefix,
+		Name: name, UrlPrefix: newPrefix, UpdatedAt: now,
 	})
 }
 

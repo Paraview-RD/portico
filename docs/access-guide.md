@@ -109,7 +109,11 @@ The MVP has exactly two roles and no way to define more (requirements §3.3).
 
 Can do everything: create/edit users, enable and disable accounts, reset
 other people's passwords, bulk-import from a spreadsheet, manage
-organizations, read the audit log, and change system settings.
+organizations, register the applications that sign in through Portico, read
+the audit log, and change system settings.
+
+Everything an administrator does is scoped to their own tenant. There is no
+cross-tenant role.
 
 Typical journey — onboard a batch of existing users:
 
@@ -119,6 +123,27 @@ Typical journey — onboard a batch of existing users:
 3. Read the per-row result. Failed rows are listed with the row number and
    reason; fix those rows and re-upload just them.
 4. **Audit logs** → filter to *Registration* to confirm what landed.
+
+Typical journey — connect an application:
+
+1. **Applications** → pick the protocol tab the application speaks.
+2. **Register** — for OAuth/OIDC give it a client id and its redirect URIs;
+   for SAML upload or paste the service provider's metadata document; for
+   CAS give its URL prefix.
+3. A confidential OAuth client's secret is shown **once**. Copy it then —
+   only a hash is stored, so the only way to get another is **Rotate
+   secret**, which invalidates the current one immediately.
+4. **Integration endpoints** → copy the issuer, discovery document, SAML
+   metadata address, or CAS server URL into the application's own
+   configuration. These come from the running deployment, so they always
+   match what is actually served.
+5. **Audit logs** → the registration is recorded with the redirect URIs or
+   assertion consumer services it permits.
+
+Disabling an application stops it immediately — it can no longer sign anyone
+in, and its credentials stop authenticating at the introspection and
+revocation endpoints too. Nothing is deleted, and there is no delete: the
+audit trail keeps pointing at something that still exists.
 
 ### User (`USER`)
 

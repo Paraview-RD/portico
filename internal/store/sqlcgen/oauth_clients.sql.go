@@ -131,6 +131,68 @@ func (q *Queries) ListOAuthClients(ctx context.Context, tenantID string) ([]Oaut
 	return items, nil
 }
 
+const updateOAuthClient = `-- name: UpdateOAuthClient :exec
+UPDATE oauth_clients
+SET name = $1,
+    application_type = $2,
+    redirect_uris = $3,
+    post_logout_redirect_uris = $4,
+    scopes = $5,
+    updated_at = $6
+WHERE tenant_id = $7 AND client_id = $8
+`
+
+type UpdateOAuthClientParams struct {
+	Name                   string
+	ApplicationType        string
+	RedirectUris           []string
+	PostLogoutRedirectUris []string
+	Scopes                 []string
+	UpdatedAt              time.Time
+	TenantID               string
+	ClientID               string
+}
+
+// The client_id is not in the SET list. It is the name the application
+// presents at the token endpoint, so changing it would silently break every
+// deployment of that application rather than reconfigure it.
+func (q *Queries) UpdateOAuthClient(ctx context.Context, arg UpdateOAuthClientParams) error {
+	_, err := q.db.ExecContext(ctx, updateOAuthClient,
+		arg.Name,
+		arg.ApplicationType,
+		pq.Array(arg.RedirectUris),
+		pq.Array(arg.PostLogoutRedirectUris),
+		pq.Array(arg.Scopes),
+		arg.UpdatedAt,
+		arg.TenantID,
+		arg.ClientID,
+	)
+	return err
+}
+
+const updateOAuthClientSecret = `-- name: UpdateOAuthClientSecret :exec
+UPDATE oauth_clients
+SET secret_hash = $1, updated_at = $2
+WHERE tenant_id = $3 AND client_id = $4
+`
+
+type UpdateOAuthClientSecretParams struct {
+	SecretHash *string
+	UpdatedAt  time.Time
+	TenantID   string
+	ClientID   string
+}
+
+func (q *Queries) UpdateOAuthClientSecret(ctx context.Context, arg UpdateOAuthClientSecretParams) error {
+	_, err := q.db.ExecContext(ctx, updateOAuthClientSecret,
+		arg.SecretHash,
+		arg.UpdatedAt,
+		arg.TenantID,
+		arg.ClientID,
+	)
+	return err
+}
+
 const updateOAuthClientStatus = `-- name: UpdateOAuthClientStatus :exec
 UPDATE oauth_clients
 SET status = $1, updated_at = $2

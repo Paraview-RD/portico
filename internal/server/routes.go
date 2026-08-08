@@ -100,6 +100,44 @@ func (s *Server) routes() http.Handler {
 
 			r.Get("/settings", h.GetSettings)
 			r.Put("/settings", h.UpdateSettings)
+
+			// Application management, one group per protocol. Everything an
+			// integrator needs from this end is at /integration-endpoints,
+			// derived from what the server actually serves rather than
+			// retyped into a screen.
+			r.Get("/applications/integration-endpoints", h.IntegrationEndpoints)
+
+			r.Route("/applications/oauth-clients", func(r chi.Router) {
+				r.Get("/", h.ListClients)
+				r.Post("/", h.CreateClient)
+				r.Get("/{clientID}", h.GetClient)
+				r.Put("/{clientID}", h.UpdateClient)
+				r.Post("/{clientID}/enable", h.EnableClient)
+				r.Post("/{clientID}/disable", h.DisableClient)
+				r.Post("/{clientID}/rotate-secret", h.RotateClientSecret)
+			})
+
+			// A SAML entity id is a URI and a CAS registration is a URL
+			// prefix, so both identifiers contain slashes. They arrive
+			// percent-encoded and the handlers decode them; chi matches the
+			// raw segment, which is why these are single {…} parameters
+			// rather than wildcards.
+			r.Route("/applications/saml-service-providers", func(r chi.Router) {
+				r.Get("/", h.ListServiceProviders)
+				r.Post("/", h.CreateServiceProvider)
+				r.Get("/{entityID}", h.GetServiceProvider)
+				r.Put("/{entityID}", h.UpdateServiceProvider)
+				r.Post("/{entityID}/enable", h.EnableServiceProvider)
+				r.Post("/{entityID}/disable", h.DisableServiceProvider)
+			})
+
+			r.Route("/applications/cas-services", func(r chi.Router) {
+				r.Get("/", h.ListCASServices)
+				r.Post("/", h.CreateCASService)
+				r.Put("/{prefix}", h.UpdateCASService)
+				r.Post("/{prefix}/enable", h.EnableCASService)
+				r.Post("/{prefix}/disable", h.DisableCASService)
+			})
 		})
 	})
 

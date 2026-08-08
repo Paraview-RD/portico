@@ -12,6 +12,7 @@ import (
 
 	"github.com/google/uuid"
 
+	"github.com/paraview/portico/internal/auth"
 	"github.com/paraview/portico/internal/httpx"
 	"github.com/paraview/portico/internal/model"
 	"github.com/paraview/portico/internal/store"
@@ -57,8 +58,10 @@ type RegisterCASInput struct {
 	URLPrefix string
 }
 
-// Register adds a CAS service to a tenant.
-func (s *CASService) Register(ctx context.Context, tenantID string, in RegisterCASInput) (model.CASService, error) {
+// Register adds a CAS service to the actor's tenant.
+func (s *CASService) Register(ctx context.Context, actor auth.Principal, in RegisterCASInput) (model.CASService, error) {
+	tenantID := actor.TenantID
+
 	prefix, err := normalizeCASPrefix(in.URLPrefix)
 	if err != nil {
 		return model.CASService{}, err
@@ -84,7 +87,80 @@ func (s *CASService) Register(ctx context.Context, tenantID string, in RegisterC
 		}
 		return model.CASService{}, fmt.Errorf("register CAS service: %w", err)
 	}
-	return s.Get(ctx, tenantID, prefix)
+
+	registered, err := s.Get(ctx, tenantID, prefix)
+	if err != nil {
+		return model.CASService{}, err
+	}
+
+	s.audit.Log(ctx, tenantID, AuditEntry{
+		Kind: model.LogOperation, Action: model.ActionCASServiceCreate,
+		ActorID: actor.UserID, ActorName: actor.Username,
+		TargetType: targetCASService, TargetID: registered.URLPrefix, TargetName: registered.Name,
+		Detail: "URL prefix: " + registered.URLPrefix,
+	})
+
+	return registered, nil
+}
+
+// UpdateCASInput is the editable part of a CAS registration.
+type UpdateCASInput struct {
+	Name string
+	// URLPrefix may be changed: it is a deployment address rather than an
+	// identity, and an application that moves host has to be followable
+	// without de-registering it.
+	URLPrefix string
+}
+
+// Update changes a CAS registration's name and URL prefix.
+func (s *CASService) Update(ctx context.Context, actor auth.Principal, currentPrefix string, in UpdateCASInput) (model.CASService, error) {
+	tenantID := actor.TenantID
+
+	current, err := s.Get(ctx, tenantID, currentPrefix)
+	if err != nil {
+		return model.CASService{}, err
+	}
+
+	prefix := strings.TrimSpace(in.URLPrefix)
+	if prefix == "" {
+		prefix = current.URLPrefix
+	}
+	normalized, err := normalizeCASPrefix(prefix)
+	if err != nil {
+		return model.CASService{}, err
+	}
+
+	name := strings.TrimSpace(in.Name)
+	if name == "" {
+		name = current.Name
+	}
+
+	err = s.store.ForTenant(tenantID).UpdateCASService(
+		ctx, currentPrefix, name, normalized, store.Now())
+	if err != nil {
+		if store.IsUniqueViolation(err) {
+			return model.CASService{}, ErrCASServiceTaken
+		}
+		return model.CASService{}, fmt.Errorf("update CAS service: %w", err)
+	}
+
+	updated, err := s.Get(ctx, tenantID, normalized)
+	if err != nil {
+		return model.CASService{}, err
+	}
+
+	detail := "URL prefix: " + updated.URLPrefix
+	if normalized != current.URLPrefix {
+		detail = "URL prefix changed from " + current.URLPrefix + " to " + updated.URLPrefix
+	}
+	s.audit.Log(ctx, tenantID, AuditEntry{
+		Kind: model.LogOperation, Action: model.ActionCASServiceUpdate,
+		ActorID: actor.UserID, ActorName: actor.Username,
+		TargetType: targetCASService, TargetID: updated.URLPrefix, TargetName: updated.Name,
+		Detail: detail,
+	})
+
+	return updated, nil
 }
 
 // Get returns one registration by its exact prefix.
@@ -114,19 +190,33 @@ func (s *CASService) List(ctx context.Context, tenantID string) ([]model.CASServ
 }
 
 // SetStatus enables or disables a CAS service.
-func (s *CASService) SetStatus(ctx context.Context, tenantID, prefix string, status model.Status) (model.CASService, error) {
+func (s *CASService) SetStatus(ctx context.Context, actor auth.Principal, prefix string, status model.Status) (model.CASService, error) {
+	tenantID := actor.TenantID
+
 	if !status.Valid() {
 		return model.CASService{}, httpx.BadRequest("INVALID_STATUS",
 			"Status must be ACTIVE or DISABLED.")
 	}
-	if _, err := s.Get(ctx, tenantID, prefix); err != nil {
+	current, err := s.Get(ctx, tenantID, prefix)
+	if err != nil {
 		return model.CASService{}, err
 	}
 
-	err := s.store.ForTenant(tenantID).UpdateCASServiceStatus(ctx, prefix, string(status), store.Now())
+	err = s.store.ForTenant(tenantID).UpdateCASServiceStatus(ctx, prefix, string(status), store.Now())
 	if err != nil {
 		return model.CASService{}, fmt.Errorf("update CAS service status: %w", err)
 	}
+
+	action := model.ActionCASServiceEnable
+	if status == model.StatusDisabled {
+		action = model.ActionCASServiceDisable
+	}
+	s.audit.Log(ctx, tenantID, AuditEntry{
+		Kind: model.LogOperation, Action: action,
+		ActorID: actor.UserID, ActorName: actor.Username,
+		TargetType: targetCASService, TargetID: prefix, TargetName: current.Name,
+	})
+
 	return s.Get(ctx, tenantID, prefix)
 }
 

@@ -2,6 +2,7 @@ import { useEffect, useMemo } from "react";
 
 import { Layout } from "./components/Layout";
 import { useT } from "./i18n";
+import { ApplicationsPage } from "./pages/ApplicationsPage";
 import { AuditLogsPage } from "./pages/AuditLogsPage";
 import { AuthorizePage, pendingAuthorization } from "./pages/AuthorizePage";
 import { ForgotPasswordPage } from "./pages/ForgotPasswordPage";
@@ -118,6 +119,8 @@ function AuthenticatedRoute({
   switch (route) {
     case "/organizations":
       return <OrganizationsPage />;
+    case "/applications":
+      return <ApplicationsPage />;
     case "/audit-logs":
       return <AuditLogsPage />;
     case "/settings":

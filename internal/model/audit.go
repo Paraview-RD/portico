@@ -88,6 +88,33 @@ const (
 	ActionOrgDisable = "ORG_DISABLE"
 	ActionOrgAssign  = "ORG_ASSIGN"
 
+	// Application registration, one set of verbs per protocol.
+	//
+	// These are the most privileged administrative acts in the system, and
+	// the reason they are audited at this weight: registering a relying
+	// party, a service provider, or a CAS service decides who may be handed
+	// credentials about this tenant's people. A registration nobody
+	// remembers making is the shape a compromise takes here, so each of
+	// them has to be answerable after the fact.
+	ActionClientCreate  = "OAUTH_CLIENT_CREATE"
+	ActionClientUpdate  = "OAUTH_CLIENT_UPDATE"
+	ActionClientEnable  = "OAUTH_CLIENT_ENABLE"
+	ActionClientDisable = "OAUTH_CLIENT_DISABLE"
+	// An audit verb, not a credential — gosec matches on the word "SECRET"
+	// in the identifier. Renaming it to appease the scanner would make the
+	// trail say something other than what happened.
+	ActionClientSecretRotate = "OAUTH_CLIENT_SECRET_ROTATE" //nolint:gosec // an audit action verb
+
+	ActionSPCreate  = "SAML_SP_CREATE"
+	ActionSPUpdate  = "SAML_SP_UPDATE"
+	ActionSPEnable  = "SAML_SP_ENABLE"
+	ActionSPDisable = "SAML_SP_DISABLE"
+
+	ActionCASServiceCreate  = "CAS_SERVICE_CREATE"
+	ActionCASServiceUpdate  = "CAS_SERVICE_UPDATE"
+	ActionCASServiceEnable  = "CAS_SERVICE_ENABLE"
+	ActionCASServiceDisable = "CAS_SERVICE_DISABLE"
+
 	ActionSettingsUpdate = "SETTINGS_UPDATE"
 
 	ActionDownstreamSync = "DOWNSTREAM_SYNC"

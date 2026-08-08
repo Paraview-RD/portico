@@ -3,6 +3,38 @@ package service
 import (
 	"fmt"
 	"strings"
+
+	"github.com/paraview/portico/internal/auth"
+	"github.com/paraview/portico/internal/model"
+)
+
+// CommandLineActor is who an administrative act is attributed to when it was
+// performed with the `portico` command rather than through the API.
+//
+// The user id is deliberately left empty, which the audit service stores as
+// null: there was no user. Recording a real administrator's id would be a
+// lie, and inventing a synthetic one would put a row in the trail that looks
+// like an account somebody could go and disable.
+//
+// The command line is not a lesser path that can skip the trail. Whoever
+// reads the audit log later is asking "who let this application in", and
+// "somebody with shell access, at this time" is a far better answer than
+// silence.
+func CommandLineActor(tenantID string) auth.Principal {
+	return auth.Principal{
+		TenantID: tenantID,
+		Username: "command line",
+		Role:     model.RoleSuperAdmin,
+	}
+}
+
+// Audit target types for the three kinds of registered application. They
+// are constants for the same reason the action verbs are: so a trail stays
+// queryable and a typo cannot create a silent second category.
+const (
+	targetOAuthClient = "OAUTH_CLIENT"
+	targetSAMLSP      = "SAML_SERVICE_PROVIDER"
+	targetCASService  = "CAS_SERVICE"
 )
 
 // Page is the limit/offset pair a list query runs with. Handlers translate

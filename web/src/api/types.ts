@@ -109,3 +109,100 @@ export interface Authorization {
   /** Set on the CAS path. */
   serviceName?: string;
 }
+
+/** Which protocol an application signs in with. */
+export type Protocol = "oauth" | "saml" | "cas";
+
+/** A registered OAuth 2.1 / OpenID Connect relying party. */
+export interface OAuthClient {
+  id: string;
+  tenantId: string;
+  clientId: string;
+  name: string;
+  /**
+   * False for a browser or mobile application, which cannot keep a secret
+   * and authenticates with PKCE alone.
+   */
+  confidential: boolean;
+  applicationType: "WEB" | "NATIVE" | "USER_AGENT";
+  authMethod: string;
+  redirectUris: string[];
+  postLogoutRedirectUris: string[];
+  grantTypes: string[];
+  scopes: string[];
+  status: Status;
+  createdAt: string;
+  updatedAt: string;
+}
+
+/**
+ * A client together with a freshly generated secret.
+ *
+ * The secret is present on exactly two responses — registration and
+ * rotation — and is never readable afterwards, because only a hash is
+ * stored. The screen that receives one has to say so.
+ */
+export interface RegisteredClient {
+  client: OAuthClient;
+  secret?: string;
+}
+
+/** A registered SAML 2.0 service provider. */
+export interface SAMLServiceProvider {
+  id: string;
+  tenantId: string;
+  entityId: string;
+  name: string;
+  metadataXml: string;
+  /** Where assertions are delivered, read out of the metadata document. */
+  acsUrls: string[];
+  status: Status;
+  createdAt: string;
+  updatedAt: string;
+}
+
+/** A registered CAS service. */
+export interface CASService {
+  id: string;
+  tenantId: string;
+  name: string;
+  /** A prefix, not a pattern: there are no wildcards. */
+  urlPrefix: string;
+  status: Status;
+  createdAt: string;
+  updatedAt: string;
+}
+
+/**
+ * The addresses to configure at the other end of an integration.
+ *
+ * Every value is derived by the server from its own public URL and the
+ * tenant's code, so what this screen shows cannot drift from what the
+ * server actually serves.
+ */
+export interface IntegrationEndpoints {
+  tenantCode: string;
+  issuer: string;
+  oidc: {
+    discovery: string;
+    authorize: string;
+    token: string;
+    userinfo: string;
+    jwks: string;
+    endSession: string;
+    introspect: string;
+    revoke: string;
+  };
+  saml: {
+    entityId: string;
+    metadata: string;
+    sso: string;
+    certificatePem: string;
+  };
+  cas: {
+    baseUrl: string;
+    login: string;
+    logout: string;
+    serviceValidate: string;
+  };
+}

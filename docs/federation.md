@@ -16,9 +16,10 @@ The sections below are OpenID Connect first, then [SAML](#saml-20), then
 
 ## The short version
 
-Portico is an OpenID Provider. Register your application from the command
-line, point your OIDC library at the issuer, and you are done — there is
-nothing Portico-specific to write.
+Portico is an OpenID Provider. Register your application — in the console
+under **Applications**, or from the command line — point your OIDC library
+at the issuer, and you are done: there is nothing Portico-specific to
+write.
 
 ```bash
 portico client register --id grafana --name "Grafana" \
@@ -105,10 +106,18 @@ changes, and it will be a deliberate change rather than an oversight.
 
 ## Registering an application
 
-There is no API for this, on purpose: a client registration decides who may
-ask Portico for tokens about its users, which is an administrative act of the
-same weight as creating a tenant, and this version has no role that could be
-authorized to perform it over HTTP.
+Two equivalent paths, both restricted to a tenant administrator and both
+audited: the console's **Applications** screen, or the commands below. They
+go through the same service, so the validation and the audit trail are
+identical either way. The console additionally shows the endpoints to
+configure at the other end, derived from the running deployment.
+
+Dynamic client registration ([RFC 7591](https://www.rfc-editor.org/rfc/rfc7591))
+is deliberately absent: that is registration by an anonymous caller, with no
+administrator in the loop.
+
+The command line remains the answer for a first deployment before anybody
+has signed in, for scripting, and for when the console cannot be reached.
 
 ```bash
 # A server-side application. The secret is printed once and stored hashed.
@@ -252,6 +261,13 @@ Portico is a SAML identity provider. Hand the service provider Portico's
 metadata, register the service provider's metadata with Portico, and that is
 the whole exchange — the documents carry everything either side needs.
 
+Either side of that exchange can be done in the console under
+**Applications → SAML 2.0**, which accepts an uploaded or pasted metadata
+document and offers Portico's own metadata and certificate for copying.
+Portico never fetches metadata from a URL you supply: that would make the
+server issue requests to an address a caller names, which is a server-side
+request forgery against whatever else it can reach.
+
 ```bash
 # Portico's metadata, for the service provider's configuration:
 #   {PORTICO_PUBLIC_URL}/saml/metadata           the default tenant
@@ -332,8 +348,9 @@ to be able to look up. That is why the two live in separate tables and why
 
 ## CAS
 
-Portico speaks CAS 2.0 and 3.0. Point the client's CAS server URL at the
-part before `/login`:
+Portico speaks CAS 2.0 and 3.0. Register the service in the console under
+**Applications → CAS**, or with `portico cas register`, and point the
+client's CAS server URL at the part before `/login`:
 
 ```
 {PORTICO_PUBLIC_URL}/cas             the default tenant

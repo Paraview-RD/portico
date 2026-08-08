@@ -16,3 +16,21 @@ SELECT * FROM oauth_clients WHERE tenant_id = $1 ORDER BY created_at;
 UPDATE oauth_clients
 SET status = $1, updated_at = $2
 WHERE tenant_id = $3 AND client_id = $4;
+
+-- The client_id is not in the SET list. It is the name the application
+-- presents at the token endpoint, so changing it would silently break every
+-- deployment of that application rather than reconfigure it.
+-- name: UpdateOAuthClient :exec
+UPDATE oauth_clients
+SET name = $1,
+    application_type = $2,
+    redirect_uris = $3,
+    post_logout_redirect_uris = $4,
+    scopes = $5,
+    updated_at = $6
+WHERE tenant_id = $7 AND client_id = $8;
+
+-- name: UpdateOAuthClientSecret :exec
+UPDATE oauth_clients
+SET secret_hash = $1, updated_at = $2
+WHERE tenant_id = $3 AND client_id = $4;

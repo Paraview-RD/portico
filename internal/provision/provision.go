@@ -1,7 +1,9 @@
-// Package provision performs the operations that have no HTTP surface.
+// Package provision performs the operations available from the command
+// line.
 //
-// Tenants are created, listed, and disabled from the command line rather
-// than through the API. That is a deliberate consequence of V0.1 having no
+// Tenant provisioning is the one that has no HTTP surface at all. Tenants
+// are created, listed, and disabled from the command line rather than
+// through the API. That is a deliberate consequence of V0.1 having no
 // cross-tenant role (docs/requirements/v0.1-requirements.md §3.1): if no
 // account can act outside its own tenant, then no account can create one,
 // and the capability has to live somewhere a signed-in user is not. Whoever
@@ -54,10 +56,10 @@ func Open(cfg *config.Config) (*Provisioner, error) {
 		store:   st,
 		tenants: service.NewTenantService(st),
 		users:   users,
-		clients: service.NewOAuthClientService(st),
+		clients: service.NewOAuthClientService(st, audit),
 		keys:    service.NewSigningKeyService(st),
 
-		serviceProviders: service.NewSAMLServiceProviderService(st),
+		serviceProviders: service.NewSAMLServiceProviderService(st, audit),
 		samlKeys:         service.NewSAMLKeyService(st),
 		casServices:      service.NewCASService(st, users, audit),
 	}, nil
@@ -121,10 +123,14 @@ func (p *Provisioner) SetTenantStatus(ctx context.Context, code string, status m
 
 // --- relying parties ------------------------------------------------------
 //
-// Registered here for the same reason tenants are: deciding who may ask this
-// server for tokens about its users is an administrative act, and V0.1 has
-// no role that could be authorized to perform it over HTTP. Dynamic client
-// registration is deliberately absent.
+// Also available to a tenant administrator through the API and the console;
+// these are the command-line equivalents, which is what a first deployment
+// needs before anybody has signed in, and what remains reachable if the
+// console cannot be. Both paths go through the same service, so the rules
+// and the audit trail are the same either way.
+//
+// Dynamic client registration (RFC 7591) — registration by an anonymous
+// caller, with no administrator in the loop — is deliberately absent.
 
 // RegisterClient adds a relying party to a tenant.
 func (p *Provisioner) RegisterClient(ctx context.Context, tenantCode string, in service.RegisterClientInput) (service.RegisteredClient, error) {
@@ -132,7 +138,7 @@ func (p *Provisioner) RegisterClient(ctx context.Context, tenantCode string, in 
 	if err != nil {
 		return service.RegisteredClient{}, err
 	}
-	return p.clients.Register(ctx, tenant.ID, in)
+	return p.clients.Register(ctx, service.CommandLineActor(tenant.ID), in)
 }
 
 // ListClients returns every relying party in a tenant.
@@ -150,7 +156,7 @@ func (p *Provisioner) SetClientStatus(ctx context.Context, tenantCode, clientID 
 	if err != nil {
 		return model.OAuthClient{}, err
 	}
-	return p.clients.SetStatus(ctx, tenant.ID, clientID, status)
+	return p.clients.SetStatus(ctx, service.CommandLineActor(tenant.ID), clientID, status)
 }
 
 // RotateSigningKey retires a tenant's current signing key and generates a
@@ -170,8 +176,8 @@ func (p *Provisioner) RotateSigningKey(ctx context.Context, tenantCode string) (
 
 // --- SAML service providers -----------------------------------------------
 //
-// Registered here for the same reason relying parties are: a registration
-// decides who may receive assertions about this tenant's people.
+// On the same terms as relying parties: the console can do this too, and
+// both paths go through the same service.
 
 // RegisterServiceProvider adds a SAML service provider to a tenant.
 func (p *Provisioner) RegisterServiceProvider(ctx context.Context, tenantCode string, in service.RegisterSPInput) (model.SAMLServiceProvider, error) {
@@ -179,7 +185,7 @@ func (p *Provisioner) RegisterServiceProvider(ctx context.Context, tenantCode st
 	if err != nil {
 		return model.SAMLServiceProvider{}, err
 	}
-	return p.serviceProviders.Register(ctx, tenant.ID, in)
+	return p.serviceProviders.Register(ctx, service.CommandLineActor(tenant.ID), in)
 }
 
 // ListServiceProviders returns every SAML service provider in a tenant.
@@ -197,7 +203,7 @@ func (p *Provisioner) SetServiceProviderStatus(ctx context.Context, tenantCode, 
 	if err != nil {
 		return model.SAMLServiceProvider{}, err
 	}
-	return p.serviceProviders.SetStatus(ctx, tenant.ID, entityID, status)
+	return p.serviceProviders.SetStatus(ctx, service.CommandLineActor(tenant.ID), entityID, status)
 }
 
 // SAMLCertificate returns a tenant's active SAML signing certificate, in
@@ -232,7 +238,7 @@ func (p *Provisioner) RegisterCASService(ctx context.Context, tenantCode string,
 	if err != nil {
 		return model.CASService{}, err
 	}
-	return p.casServices.Register(ctx, tenant.ID, in)
+	return p.casServices.Register(ctx, service.CommandLineActor(tenant.ID), in)
 }
 
 // ListCASServices returns every CAS service in a tenant.
@@ -250,5 +256,5 @@ func (p *Provisioner) SetCASServiceStatus(ctx context.Context, tenantCode, prefi
 	if err != nil {
 		return model.CASService{}, err
 	}
-	return p.casServices.SetStatus(ctx, tenant.ID, prefix, status)
+	return p.casServices.SetStatus(ctx, service.CommandLineActor(tenant.ID), prefix, status)
 }

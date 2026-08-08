@@ -68,9 +68,10 @@ func newFederationTest(t *testing.T) *federationTest {
 	ts.Start()
 	t.Cleanup(ts.Close)
 
-	// A second connection to the same database, for the two things that have
-	// no HTTP surface by design: provisioning a tenant and registering a
-	// relying party.
+	// A second connection to the same database. Provisioning a tenant has no
+	// HTTP surface by design; registering a relying party does have one, but
+	// these tests drive it as the command line would, so that the fixture
+	// stays independent of the console's own API.
 	st, err := store.Open(cfg.DatabaseDriver, cfg.DatabaseDSN)
 	if err != nil {
 		t.Fatalf("open store: %v", err)
@@ -79,7 +80,7 @@ func newFederationTest(t *testing.T) *federationTest {
 
 	return &federationTest{
 		t: t, api: api, http: ts, publicURL: publicURL,
-		clients: service.NewOAuthClientService(st),
+		clients: service.NewOAuthClientService(st, service.NewAuditService(st)),
 		tenants: service.NewTenantService(st),
 		db:      st.DB(),
 		cfg:     cfg,
@@ -95,13 +96,14 @@ func (f *federationTest) registerClient(tenantCode, clientID string, public bool
 		f.t.Fatalf("resolve tenant %s: %v", tenantCode, err)
 	}
 
-	registered, err := f.clients.Register(context.Background(), tenant.ID, service.RegisterClientInput{
-		ClientID:     clientID,
-		Name:         "Test Application",
-		Public:       public,
-		RedirectURIs: []string{"http://127.0.0.1:9999/callback"},
-		Scopes:       []string{"openid", "profile", "email", "offline_access"},
-	})
+	registered, err := f.clients.Register(context.Background(),
+		service.CommandLineActor(tenant.ID), service.RegisterClientInput{
+			ClientID:     clientID,
+			Name:         "Test Application",
+			Public:       public,
+			RedirectURIs: []string{"http://127.0.0.1:9999/callback"},
+			Scopes:       []string{"openid", "profile", "email", "offline_access"},
+		})
 	if err != nil {
 		f.t.Fatalf("register client: %v", err)
 	}
