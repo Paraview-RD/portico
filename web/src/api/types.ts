@@ -2,7 +2,15 @@
 
 export type Role = "SUPER_ADMIN" | "USER";
 export type Status = "ACTIVE" | "DISABLED";
-export type UserSource = "ADMIN" | "IMPORT" | "REGISTRATION";
+/**
+ * How an account came to exist.
+ *
+ * Three of these are past tense — they say how it was born and nothing about
+ * it now. `SCIM` is present tense: a directory still owns the record and the
+ * next sync will overwrite what an administrator changes here. That is why
+ * the list marks only this one.
+ */
+export type UserSource = "ADMIN" | "IMPORT" | "REGISTRATION" | "SCIM";
 
 export interface User {
   id: string;

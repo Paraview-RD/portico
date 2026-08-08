@@ -38,6 +38,13 @@ export const enUS = {
   "source.ADMIN": "Created by admin",
   "source.IMPORT": "Imported",
   "source.REGISTRATION": "Self-registered",
+  // The same word groups use for the same situation, and for the same
+  // reason: what matters is not that a directory created it but that a
+  // directory still maintains it.
+  "source.SCIM": "Directory",
+  "users.directoryManaged":
+    "This account is maintained by a directory. Changes made here may be " +
+    "overwritten the next time it synchronizes.",
 
   "nav.users": "Users",
   "nav.organizations": "Organizations",

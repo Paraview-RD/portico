@@ -39,6 +39,9 @@ export const zhCN: Record<keyof typeof enUS, string> = {
   "source.ADMIN": "管理员创建",
   "source.IMPORT": "批量导入",
   "source.REGISTRATION": "自主注册",
+  "source.SCIM": "目录系统",
+  "users.directoryManaged":
+    "该账号由目录系统维护，此处的修改可能在下次同步时被覆盖。",
 
   "nav.users": "用户管理",
   "nav.organizations": "机构管理",

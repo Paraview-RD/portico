@@ -196,7 +196,19 @@ export function UsersPage() {
           ) : (
             users.map((user) => (
               <tr key={user.id}>
-                <Td>{user.username}</Td>
+                <Td>
+                  <div className="flex flex-wrap items-center gap-1">
+                    {user.username}
+                    {/* Only the directory-managed case gets a mark. The
+                        other three sources say how the account was born,
+                        which is history; this one says who owns it now,
+                        which changes what an edit here will do. A column
+                        showing all four would give them equal weight. */}
+                    {user.source === "SCIM" && (
+                      <Badge tone="warning">{t("source.SCIM")}</Badge>
+                    )}
+                  </div>
+                </Td>
                 <Td>{user.displayName}</Td>
                 <Td>
                   <Badge
@@ -432,6 +444,13 @@ function UserFormDialog({
         onSubmit={handleSubmit}
         className="flex flex-col gap-4"
       >
+        {/* Where the harm actually happens. The badge in the list warns
+            before the click; this warns while the edit is being typed,
+            which is the last moment it is still free to abandon. */}
+        {isEdit && user?.source === "SCIM" && (
+          <Alert tone="warning">{t("users.directoryManaged")}</Alert>
+        )}
+
         {!isEdit && (
           <Field label={t("login.username")} required>
             <Input
