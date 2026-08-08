@@ -77,6 +77,15 @@ jobs:
       - run: npm run typecheck
       - run: npx prettier --check "src/**/*.{ts,tsx,css}"
       - run: npm run lint
+
+      # Component tests. They do not replace the browser pass — a
+      # Content-Security-Policy that blocks the page passes a jsdom test just
+      # as happily as it passed eleven Go tests — but they hold the things a
+      # browser shows once and nobody rechecks: that a control points at the
+      # right identifier, that a toggle reports its state, that an error
+      # renders in the reader's language.
+      - run: npm test
+
       - run: npm run build
 
       # A known-vulnerable dependency should fail the build, not sit in the

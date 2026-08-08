@@ -1,3 +1,4 @@
+/// <reference types="vitest/config" />
 import { defineConfig } from 'vite'
 import tailwindcss from '@tailwindcss/vite'
 import react from '@vitejs/plugin-react'
@@ -12,6 +13,19 @@ export default defineConfig({
     // has a file to match in a fresh clone, and emptying deletes it. The
     // prebuild script clears stale output instead.
     emptyOutDir: false,
+  },
+  // Component tests run against a DOM rather than a browser. They are not a
+  // substitute for the browser pass — the Content-Security-Policy bug that
+  // broke every SAML sign-in passed eleven Go tests and would pass these too
+  // — but they hold the things a browser pass checks once and then forgets:
+  // that a control is wired to the right identifier, that a toggle exposes
+  // its state, that an error renders in the reader's language.
+  test: {
+    environment: 'jsdom',
+    globals: true,
+    setupFiles: ['./src/test/setup.ts'],
+    // Only files under src/test and *.test.tsx; nothing in the build.
+    include: ['src/**/*.test.{ts,tsx}'],
   },
   server: {
     port: 5410,
