@@ -6,6 +6,7 @@
 
 - 位置：`~/workspace/github/portico`（**原 keylite，已改名**）
 - 独立 git 仓库，**零远端、从未推送**
+- **⚠️ 历史已重写过一次**（2026-08-08，用户批准）：`keylite.db` 及其日志文件（改名前的 SQLite 库，含一个 admin 的 bcrypt 哈希）从全部历史清除。50 个提交全部保留、工作树逐字节未变，但**所有 commit hash 已变**——本文件下表已是重写后的新 hash。重写前的完整副本在 `/tmp/portico-backup-before-rewrite`（临时目录，机器重启即失）。首推前若还要再清什么，趁现在。
 - 需求真相源：`docs/requirements/v0.1-requirements.md`（新范围）
   + `docs/requirements/v0.1-baseline-mvp.md`（旧基线，记录了"禁用而非删除"等既有决策的由来）
 
@@ -24,13 +25,13 @@
 
 | # | 阶段 | 状态 |
 |---|---|---|
-| 0 | 改名 Portico + 定位重写 + 版本回退 | ✅ `9245b6c` |
-| 1 | 迁移 PostgreSQL | ✅ `22b2b6c` |
-| 2 | 多租户隔离 | ✅ `d16a2a8`（前置修复 `5f879c4`） |
-| 3 | 多凭证登录 + 自服务闭环 | ✅ `5e29d2f` + `08f0086` |
-| 4 | OIDC + OAuth 2.1 | ✅ `430d41d` `eae63ca` `bfb8e0f` `fdac3da` `197c299` `619d90e` `7aa7829` `407d081` `eefe263` `52f29c8` |
-| 5 | SAML 2.0 | ✅ `41da8b1` `dbb1c75` |
-| 6 | CAS | ✅ `089578a` `3576d84` |
+| 0 | 改名 Portico + 定位重写 + 版本回退 | ✅ `cbf7732` |
+| 1 | 迁移 PostgreSQL | ✅ `b93f628` |
+| 2 | 多租户隔离 | ✅ `990d77e`（+ `a4de204` 补缺口） |
+| 3 | 多凭证登录 + 自服务闭环 | ✅ `29bdf7c` + `2bad299` + `ea6feb2` |
+| 4 | OIDC + OAuth 2.1 | ✅ `e05391e` `f17f915` `c902994` `14396d9` `8d0accc` `9dadbf3` `8e18e5d` `3e70c74` `f4ed007` `a1e2e74` `b2be73c` |
+| 5 | SAML 2.0 | ✅ `0fb808b` `a23354b` |
+| 6 | CAS | ✅ `4d07e2e` `1e4107b` `be3701c` |
 
 ## 阶段 4 已完成（收尾记录）
 
