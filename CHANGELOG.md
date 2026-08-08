@@ -344,6 +344,24 @@ Working toward 0.1.0 — the first release. Nothing has been published yet.
   the two defects a browser had already found — a `role="tab"` with no
   panel, and a status toggle addressing the wrong identifier, which the type
   checker could not see because both were strings.
+- **An OpenAPI 3.1 description of the API**, at
+  [docs/api/openapi.yaml](docs/api/openapi.yaml) — every operation under
+  `/api/v1`, so an integrator can generate a client instead of reading
+  prose. It stops at `/api/v1` on purpose: SCIM, OpenID Connect, SAML, and
+  CAS have their own specifications, and a hand-maintained restatement of
+  somebody else's protocol can only disagree with it.
+- The document is checked both ways round against the running router by
+  `TestOpenAPIDescribesEveryRoute`, and validated in CI by a real OpenAPI
+  linter. The first catches an endpoint that exists without being described
+  and a path described without existing; the second catches the document
+  being invalid, which the first cannot see. It found a dangling `$ref` on
+  its first run.
+- **Accounts a directory provisions are marked as such in the console**, and
+  editing one warns that the next synchronization may overwrite the change.
+  Groups have carried this since they landed; accounts knew where they came
+  from and did not say. The wire type was also short a value — `source`
+  listed three where the server has four — so a provisioned account was
+  something the type checker believed could not arrive.
 
 ### Security
 
