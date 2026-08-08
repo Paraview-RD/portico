@@ -780,6 +780,95 @@ func (s *Scoped) SetUserExternalID(ctx context.Context, arg sqlcgen.SetUserExter
 	return s.q.SetUserExternalID(ctx, arg)
 }
 
+// --- groups ----------------------------------------------------------
+
+// CreateGroup adds a group to this tenant.
+func (s *Scoped) CreateGroup(ctx context.Context, arg sqlcgen.CreateGroupParams) error {
+	arg.TenantID = s.tenantID
+	return s.q.CreateGroup(ctx, arg)
+}
+
+// GetGroup returns one by id.
+func (s *Scoped) GetGroup(ctx context.Context, id string) (sqlcgen.Group, error) {
+	return s.q.GetGroup(ctx, sqlcgen.GetGroupParams{TenantID: s.tenantID, ID: id})
+}
+
+// GetGroupByDisplayName resolves the name a directory pushes.
+func (s *Scoped) GetGroupByDisplayName(ctx context.Context, name string) (sqlcgen.Group, error) {
+	return s.q.GetGroupByDisplayName(ctx,
+		sqlcgen.GetGroupByDisplayNameParams{TenantID: s.tenantID, DisplayName: name})
+}
+
+// GetGroupByExternalID resolves the identifier a directory knows it by.
+func (s *Scoped) GetGroupByExternalID(ctx context.Context, externalID string) (sqlcgen.Group, error) {
+	return s.q.GetGroupByExternalID(ctx,
+		sqlcgen.GetGroupByExternalIDParams{TenantID: s.tenantID, ExternalID: &externalID})
+}
+
+// ListGroups returns the tenant's groups by name.
+func (s *Scoped) ListGroups(ctx context.Context) ([]sqlcgen.Group, error) {
+	return s.q.ListGroups(ctx, s.tenantID)
+}
+
+// ListGroupsWithMemberCounts returns the console's list in one query.
+func (s *Scoped) ListGroupsWithMemberCounts(ctx context.Context) ([]sqlcgen.ListGroupsWithMemberCountsRow, error) {
+	return s.q.ListGroupsWithMemberCounts(ctx, s.tenantID)
+}
+
+// CountGroups returns how many the tenant has.
+func (s *Scoped) CountGroups(ctx context.Context) (int64, error) {
+	return s.q.CountGroups(ctx, s.tenantID)
+}
+
+// UpdateGroup changes a group's name, description, and external id.
+func (s *Scoped) UpdateGroup(ctx context.Context, arg sqlcgen.UpdateGroupParams) error {
+	arg.TenantID = s.tenantID
+	return s.q.UpdateGroup(ctx, arg)
+}
+
+// DeleteGroup removes a group and its memberships.
+func (s *Scoped) DeleteGroup(ctx context.Context, id string) error {
+	return s.q.DeleteGroup(ctx, sqlcgen.DeleteGroupParams{TenantID: s.tenantID, ID: id})
+}
+
+// AddGroupMember adds one account to one group, idempotently.
+func (s *Scoped) AddGroupMember(ctx context.Context, groupID, userID string, at time.Time) error {
+	return s.q.AddGroupMember(ctx, sqlcgen.AddGroupMemberParams{
+		TenantID: s.tenantID, GroupID: groupID, UserID: userID, AddedAt: at,
+	})
+}
+
+// RemoveGroupMember takes one out.
+func (s *Scoped) RemoveGroupMember(ctx context.Context, groupID, userID string) error {
+	return s.q.RemoveGroupMember(ctx, sqlcgen.RemoveGroupMemberParams{
+		TenantID: s.tenantID, GroupID: groupID, UserID: userID,
+	})
+}
+
+// RemoveAllGroupMembers empties a group, for a wholesale replacement.
+func (s *Scoped) RemoveAllGroupMembers(ctx context.Context, groupID string) error {
+	return s.q.RemoveAllGroupMembers(ctx,
+		sqlcgen.RemoveAllGroupMembersParams{TenantID: s.tenantID, GroupID: groupID})
+}
+
+// ListGroupMembers returns a group's members with their usernames.
+func (s *Scoped) ListGroupMembers(ctx context.Context, groupID string) ([]sqlcgen.ListGroupMembersRow, error) {
+	return s.q.ListGroupMembers(ctx,
+		sqlcgen.ListGroupMembersParams{TenantID: s.tenantID, GroupID: groupID})
+}
+
+// CountGroupMembers returns how many people are in a group.
+func (s *Scoped) CountGroupMembers(ctx context.Context, groupID string) (int64, error) {
+	return s.q.CountGroupMembers(ctx,
+		sqlcgen.CountGroupMembersParams{TenantID: s.tenantID, GroupID: groupID})
+}
+
+// ListGroupsForUser returns the groups an account belongs to.
+func (s *Scoped) ListGroupsForUser(ctx context.Context, userID string) ([]sqlcgen.ListGroupsForUserRow, error) {
+	return s.q.ListGroupsForUser(ctx,
+		sqlcgen.ListGroupsForUserParams{TenantID: s.tenantID, UserID: userID})
+}
+
 // --- webhooks --------------------------------------------------------
 
 // CreateWebhookSubscription registers an outbound subscription.

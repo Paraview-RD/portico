@@ -7,6 +7,7 @@ import { AuditLogsPage } from "./pages/AuditLogsPage";
 import { AuthorizePage, pendingAuthorization } from "./pages/AuthorizePage";
 import { ForgotPasswordPage } from "./pages/ForgotPasswordPage";
 import { LoginPage } from "./pages/LoginPage";
+import { GroupsPage } from "./pages/GroupsPage";
 import { OrganizationsPage } from "./pages/OrganizationsPage";
 import { ProfilePage } from "./pages/ProfilePage";
 import { RegisterPage } from "./pages/RegisterPage";
@@ -119,6 +120,8 @@ function AuthenticatedRoute({
   switch (route) {
     case "/organizations":
       return <OrganizationsPage />;
+    case "/groups":
+      return <GroupsPage />;
     case "/applications":
       return <ApplicationsPage />;
     case "/audit-logs":

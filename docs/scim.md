@@ -16,9 +16,9 @@ own configuration screen shows the truth.
 | | |
 |---|---|
 | **Users** | Create, read, replace, patch, deactivate, and filter |
-| **Groups** | **Not implemented.** See below |
-| PATCH | Supported, for `active`, `userName`, `displayName`, `externalId`, `emails`, `phoneNumbers` |
-| Filter | `userName eq "..."` and `externalId eq "..."` |
+| **Groups** | Create, read, replace, patch, delete, filter, and full membership management |
+| PATCH | Users: `active`, `userName`, `displayName`, `externalId`, `emails`, `phoneNumbers`. Groups: `members`, `displayName`, `externalId` |
+| Filter | Users: `userName eq "..."`, `externalId eq "..."`. Groups: `displayName eq "..."`, `externalId eq "..."` |
 | Bulk | Not supported |
 | Sort | Not supported |
 | ETag | Not supported |
@@ -28,18 +28,30 @@ own configuration screen shows the truth.
 asserts the two agree: every capability advertised has a handler that works,
 and nothing unadvertised quietly does.
 
-### Why there are no Groups
+### Groups are not organizations
 
-An account in Portico belongs to at most one organization. SCIM group
-membership is many-to-many, and `PATCH /Groups` with `add members` is the
-operation directories lean on hardest. Mapping that onto a single-valued
-field would either silently reassign somebody's organization or fail partway
-through a push — and silent reassignment in an identity system is the worse
-of the two.
+Portico has both, and they are different things:
 
-So `/ResourceTypes` offers `User` only. Configure users-only provisioning;
-both Okta and Entra support it as a first-class option. Assign roles and
-organizations in Portico, where they mean something.
+| | Organization | Group |
+|---|---|---|
+| How many per person | Exactly one | Any number |
+| Shape | A tree | Flat |
+| Identified by | A stable code downstream systems store | Its name |
+| Usually maintained by | An administrator | A directory |
+
+SCIM Groups map onto **groups**. They deliberately do not touch
+organizations: group membership is many-to-many, and forcing it onto the
+single-valued organization field would either break the org chart that
+downstream systems depend on or silently reassign somebody the first time a
+directory added them to a second group.
+
+So a group push does exactly what it says and changes nothing else. If you
+also want the directory to decide where people sit in the org chart, that is
+a different feature and this is not it.
+
+**Membership grants nothing.** There are two fixed roles and no RBAC, so
+there is nothing for a group to carry — and if that changes it will change
+deliberately, not because a directory wrote an attribute.
 
 ### Why DELETE does not delete
 
@@ -83,7 +95,7 @@ the console, cannot read the API, and has no account behind it.
 | SCIM base URL | `https://<host>/scim/v2` |
 | Authentication | HTTP Header / OAuth Bearer Token |
 | Token | The one issued above |
-| Provisioning | Users only — create, update, deactivate |
+| Provisioning | Users and groups — create, update, deactivate, and group membership |
 
 ### 3. Check it
 
@@ -91,6 +103,38 @@ the console, cannot read the API, and has no account behind it.
 curl https://<host>/scim/v2/ServiceProviderConfig \
   -H "Authorization: Bearer <scim token>"
 ```
+
+## Group membership
+
+`PATCH /Groups/{id}` is what a directory runs, and all of these are
+understood, because different providers send different ones:
+
+```jsonc
+// add
+{"op":"add","path":"members","value":[{"value":"<userId>"}]}
+
+// remove — the id in the path, which is what Okta sends
+{"op":"remove","path":"members[value eq \"<userId>\"]"}
+
+// remove — the id in the value
+{"op":"remove","path":"members","value":[{"value":"<userId>"}]}
+
+// replace: this is now the whole membership, which is how Entra reconciles
+{"op":"replace","path":"members","value":[{"value":"<userId>"}]}
+```
+
+`PUT /Groups/{id}` also replaces the membership, because PUT replaces the
+resource and members are part of it.
+
+**A member that does not exist fails the request**, with 400 and
+`scimType: invalidValue`. It is not skipped: a silently dropped member
+leaves a group that looks synchronized and is not, which is the one failure
+your directory cannot detect from its own side.
+
+`GET /Users/{id}` reports the groups an account belongs to, so a client can
+read back that its push landed. That field is read-only — membership is
+changed through the Group resource, so there is one way to do it and no
+question of which side wins.
 
 ## What a directory may and may not change
 

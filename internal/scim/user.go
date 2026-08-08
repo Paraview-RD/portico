@@ -24,7 +24,11 @@ type User struct {
 	Emails       []Multi  `json:"emails,omitempty"`
 	PhoneNumbers []Multi  `json:"phoneNumbers,omitempty"`
 	Active       bool     `json:"active"`
-	Meta         Meta     `json:"meta"`
+	// Groups the account belongs to. Read-only, per RFC 7643 §4.1.2:
+	// membership is changed through the Group resource, never here, so that
+	// there is one way to do it and no question of which side wins.
+	Groups []Member `json:"groups,omitempty"`
+	Meta   Meta     `json:"meta"`
 }
 
 // Name is SCIM's structured name.
@@ -53,6 +57,15 @@ type Meta struct {
 
 // FromModel renders an account as a SCIM user.
 func FromModel(u model.User, baseURL string) User {
+	return fromModelWithGroups(u, nil, baseURL)
+}
+
+// FromModelWithGroups is the same, with the account's group membership.
+func FromModelWithGroups(u model.User, groups []model.GroupRef, baseURL string) User {
+	return fromModelWithGroups(u, groups, baseURL)
+}
+
+func fromModelWithGroups(u model.User, groups []model.GroupRef, baseURL string) User {
 	out := User{
 		Schemas:     []string{SchemaUser},
 		ID:          u.ID,
@@ -81,6 +94,13 @@ func FromModel(u model.User, baseURL string) User {
 	}
 	if u.Phone != "" {
 		out.PhoneNumbers = []Multi{{Value: u.Phone, Type: "work", Primary: true}}
+	}
+	for _, group := range groups {
+		out.Groups = append(out.Groups, Member{
+			Value:   group.ID,
+			Display: group.DisplayName,
+			Ref:     strings.TrimSuffix(baseURL, "/") + "/Groups/" + group.ID,
+		})
 	}
 	return out
 }

@@ -110,6 +110,7 @@ func (s *Server) routes() http.Handler {
 				r.Post("/{id}/unlock", h.UnlockUser)
 
 				// What is signed in as this person, and ending one of them.
+				r.Get("/{id}/groups", h.ListUserGroups)
 				r.Get("/{id}/sessions", h.ListUserSessions)
 				r.Delete("/{id}/sessions/{sessionID}", h.RevokeUserSession)
 
@@ -117,6 +118,19 @@ func (s *Server) routes() http.Handler {
 				// same column list the parser reads, so the two cannot drift.
 				r.Post("/import", h.ImportUsers)
 				r.Get("/import/template", h.ImportTemplate)
+			})
+
+			// Groups are sets of people; organizations below are the org
+			// chart. Separate concepts, separate screens.
+			r.Route("/groups", func(r chi.Router) {
+				r.Get("/", h.ListGroups)
+				r.Post("/", h.CreateGroup)
+				r.Get("/{id}", h.GetGroup)
+				r.Put("/{id}", h.UpdateGroup)
+				r.Delete("/{id}", h.DeleteGroup)
+				r.Get("/{id}/members", h.ListGroupMembers)
+				r.Post("/{id}/members", h.AddGroupMembers)
+				r.Delete("/{id}/members/{userID}", h.RemoveGroupMember)
 			})
 
 			r.Post("/organizations", h.CreateOrganization)

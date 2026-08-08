@@ -8,8 +8,8 @@ import "net/http"
 // decide what its own configuration screen offers, so a server that
 // advertises a capability it does not have produces an administrator
 // configuring a Group push that fails halfway through — while one that
-// advertises honestly produces an administrator who sets up users-only
-// provisioning and never has the problem.
+// advertises honestly produces an administrator whose configuration matches
+// what will actually happen.
 //
 // TestAdvertisedCapabilitiesMatchTheImplementation exists because that is
 // the failure mode of a partial SCIM implementation, and it is the one thing
@@ -117,22 +117,36 @@ type resourceMeta struct {
 
 func (h *Handler) resourceTypes(w http.ResponseWriter, _ *http.Request) {
 	base := h.baseURL()
-	// One entry, and the absence of Group is the message. An identity
-	// provider reading this configures users-only provisioning; one that
-	// found a Group entry here would offer group push and discover it does
-	// not work at the worst possible moment.
-	types := []ResourceType{{
-		Schemas:     []string{SchemaResourceType},
-		ID:          "User",
-		Name:        "User",
-		Endpoint:    "/Users",
-		Description: "Portico accounts.",
-		Schema:      SchemaUser,
-		Meta: resourceMeta{
-			ResourceType: "ResourceType",
-			Location:     base + "/ResourceTypes/User",
+	// Both, and an identity provider reads this to decide what its own
+	// configuration screen offers — so anything listed here has to work.
+	// TestEveryAdvertisedResourceTypeHasARoute holds that.
+	types := []ResourceType{
+		{
+			Schemas:     []string{SchemaResourceType},
+			ID:          "User",
+			Name:        "User",
+			Endpoint:    "/Users",
+			Description: "Portico accounts.",
+			Schema:      SchemaUser,
+			Meta: resourceMeta{
+				ResourceType: "ResourceType",
+				Location:     base + "/ResourceTypes/User",
+			},
 		},
-	}}
+		{
+			Schemas:  []string{SchemaResourceType},
+			ID:       "Group",
+			Name:     "Group",
+			Endpoint: "/Groups",
+			Description: "Sets of people. Separate from organizations, " +
+				"which are the org chart; membership grants no permissions.",
+			Schema: SchemaGroup,
+			Meta: resourceMeta{
+				ResourceType: "ResourceType",
+				Location:     base + "/ResourceTypes/Group",
+			},
+		},
+	}
 
 	WriteResource(w, http.StatusOK, map[string]any{
 		"schemas":      []string{SchemaListResponse},
@@ -169,12 +183,28 @@ func (h *Handler) schemas(w http.ResponseWriter, _ *http.Request) {
 		},
 	}
 
+	groupSchema := map[string]any{
+		"schemas":     []string{"urn:ietf:params:scim:schemas:core:2.0:Schema"},
+		"id":          SchemaGroup,
+		"name":        "Group",
+		"description": "A set of Portico accounts",
+		"attributes": []map[string]any{
+			attr("displayName", "string", "readWrite", true, true),
+			attr("externalId", "string", "readWrite", false, true),
+			multiAttr("members"),
+		},
+		"meta": map[string]any{
+			"resourceType": "Schema",
+			"location":     base + "/Schemas/" + SchemaGroup,
+		},
+	}
+
 	WriteResource(w, http.StatusOK, map[string]any{
 		"schemas":      []string{SchemaListResponse},
-		"totalResults": 1,
+		"totalResults": 2,
 		"startIndex":   1,
-		"itemsPerPage": 1,
-		"Resources":    []any{userSchema},
+		"itemsPerPage": 2,
+		"Resources":    []any{userSchema, groupSchema},
 	})
 }
 

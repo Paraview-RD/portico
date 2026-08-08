@@ -48,6 +48,24 @@ type CasTicket struct {
 	ExpiresAt  time.Time
 }
 
+type Group struct {
+	ID          string
+	TenantID    string
+	DisplayName string
+	Description string
+	ExternalID  *string
+	Source      string
+	CreatedAt   time.Time
+	UpdatedAt   time.Time
+}
+
+type GroupMember struct {
+	TenantID string
+	GroupID  string
+	UserID   string
+	AddedAt  time.Time
+}
+
 type OauthAuthRequest struct {
 	ID                  string
 	TenantID            string

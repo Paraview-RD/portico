@@ -32,15 +32,17 @@ type Provisioner interface {
 // Handler serves the SCIM endpoints.
 type Handler struct {
 	users       Provisioner
+	groups      GroupProvisioner
 	credentials *service.SCIMCredentialService
 	publicURL   string
 	docsURL     string
 }
 
 // NewHandler wires a SCIM handler.
-func NewHandler(users Provisioner, credentials *service.SCIMCredentialService, publicURL string) *Handler {
+func NewHandler(users Provisioner, groups GroupProvisioner, credentials *service.SCIMCredentialService, publicURL string) *Handler {
 	return &Handler{
 		users:       users,
+		groups:      groups,
 		credentials: credentials,
 		publicURL:   strings.TrimSuffix(publicURL, "/"),
 		docsURL:     "https://github.com/paraview/portico/blob/main/docs/scim.md",
@@ -73,14 +75,21 @@ func (h *Handler) Routes() http.Handler {
 		r.Delete("/{id}", h.deleteUser)
 	})
 
-	// Anything else under /scim/v2 — /Groups above all — answers in SCIM's
-	// error shape rather than Portico's. A client that asks for Groups
-	// despite ResourceTypes not offering them gets a parseable answer naming
-	// the endpoint, not an envelope it cannot read.
+	r.Route("/Groups", func(r chi.Router) {
+		r.Get("/", h.listGroups)
+		r.Post("/", h.createGroup)
+		r.Get("/{id}", h.getGroup)
+		r.Put("/{id}", h.replaceGroup)
+		r.Patch("/{id}", h.patchGroup)
+		r.Delete("/{id}", h.deleteGroup)
+	})
+
+	// Anything else under /scim/v2 answers in SCIM's error shape rather than
+	// Portico's, so a client gets something it can parse and report rather
+	// than an envelope it does not understand.
 	r.NotFound(func(w http.ResponseWriter, r *http.Request) {
 		WriteError(w, r, http.StatusNotFound, "",
-			"No such SCIM endpoint: "+r.URL.Path+
-				". This server provisions Users only; see /ServiceProviderConfig.")
+			"No such SCIM endpoint: "+r.URL.Path+". See /ResourceTypes.")
 	})
 	r.MethodNotAllowed(func(w http.ResponseWriter, r *http.Request) {
 		WriteError(w, r, http.StatusMethodNotAllowed, "",
@@ -140,12 +149,22 @@ func (h *Handler) baseURL() string {
 }
 
 func (h *Handler) getUser(w http.ResponseWriter, r *http.Request) {
-	user, err := h.users.Get(r.Context(), tenantOf(r), chi.URLParam(r, "id"))
+	tenantID := tenantOf(r)
+	user, err := h.users.Get(r.Context(), tenantID, chi.URLParam(r, "id"))
 	if err != nil {
 		h.fail(w, r, err)
 		return
 	}
-	WriteResource(w, http.StatusOK, FromModel(user, h.baseURL()))
+
+	// Groups are included on the single-resource read and not on the
+	// listing: a client reads one back to confirm a push landed, while a
+	// listing of a thousand accounts would cost a query each.
+	groups, err := h.groups.GroupsForUser(r.Context(), tenantID, user.ID)
+	if err != nil {
+		h.fail(w, r, err)
+		return
+	}
+	WriteResource(w, http.StatusOK, FromModelWithGroups(user, groups, h.baseURL()))
 }
 
 func (h *Handler) createUser(w http.ResponseWriter, r *http.Request) {

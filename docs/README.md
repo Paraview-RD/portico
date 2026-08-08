@@ -12,8 +12,8 @@
   database dump on its own is not a backup of this system, and the three
   things a point-in-time restore does that nobody expects.
 - **[scim.md](scim.md)** — provisioning accounts from a directory: what is
-  implemented, why there are no Groups, and why DELETE deactivates rather
-  than deletes.
+  implemented, how groups differ from organizations, and why DELETE
+  deactivates rather than deletes.
 - **[webhooks.md](webhooks.md)** — being told when something changes here:
   the signature scheme, which destinations are refused and why, and what
   "delivered" does and does not mean.

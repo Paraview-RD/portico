@@ -107,7 +107,13 @@ describing an account somebody has since re-enabled.
 ## Events
 
 `user.created`, `user.updated`, `user.enabled`, `user.disabled`,
-`organization.created`, `organization.updated`.
+`organization.created`, `organization.updated`, `group.created`,
+`group.updated`, `group.deleted`, `group.members_changed`.
+
+`group.members_changed` carries the group as it now stands rather than the
+delta — a subscriber wanting to know who is in a group reads the group, and
+an event per member would turn a bulk replacement into a burst nobody asked
+for.
 
 Subscribe to `*` for everything including types added in future versions, or
 name the ones your endpoint can handle. `GET /api/v1/webhooks/events` returns

@@ -21,6 +21,7 @@ const publicScreens = [
 const authenticatedScreens = [
   { path: "/users", heading: "Users" },
   { path: "/organizations", heading: "Organizations" },
+  { path: "/groups", heading: "Groups" },
   { path: "/applications", heading: "Applications" },
   { path: "/audit-logs", heading: "Audit logs" },
   { path: "/settings", heading: "Settings" },

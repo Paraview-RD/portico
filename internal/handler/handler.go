@@ -35,6 +35,8 @@ type Handler struct {
 	scimCredentials *service.SCIMCredentialService
 	// Outbound event subscriptions.
 	webhooks *service.WebhookService
+	// Groups: sets of people, as distinct from the organization chart.
+	groups *service.GroupService
 	// oidc is here for one endpoint: the seam where Portico's own sign-in
 	// hands a person back to the OpenID Provider. The provider's own
 	// endpoints do not go through this layer at all.
@@ -60,6 +62,7 @@ func New(
 	casServices *service.CASService,
 	scimCredentials *service.SCIMCredentialService,
 	webhooks *service.WebhookService,
+	groups *service.GroupService,
 	oidc *oidcp.Providers,
 	samlProviders *samlp.Providers,
 	casServer *casp.Server,
@@ -70,7 +73,7 @@ func New(
 		sessions: sessions,
 		clients:  clients, serviceProviders: serviceProviders,
 		samlKeys: samlKeys, casServices: casServices,
-		scimCredentials: scimCredentials, webhooks: webhooks,
+		scimCredentials: scimCredentials, webhooks: webhooks, groups: groups,
 		oidc: oidc, saml: samlProviders, cas: casServer,
 	}
 }

@@ -320,3 +320,35 @@ export interface WebhookDelivery {
   createdAt: string;
   deliveredAt: string | null;
 }
+
+/**
+ * A group: a set of people.
+ *
+ * Not an organization. An organization is where somebody sits — one of them,
+ * in a tree, with a code downstream systems store. A group is a set they
+ * belong to — any number of them, flat. Membership grants nothing.
+ */
+export interface Group {
+  id: string;
+  displayName: string;
+  description: string;
+  /** Present when a directory maintains it, empty otherwise. */
+  externalId?: string;
+  source: "ADMIN" | "SCIM";
+  memberCount: number;
+  createdAt: string;
+  updatedAt: string;
+}
+
+/** One person in a group. */
+export interface GroupMember {
+  userId: string;
+  username: string;
+  displayName: string;
+}
+
+/** A group as it appears on a user: enough to name it, no more. */
+export interface GroupRef {
+  id: string;
+  displayName: string;
+}

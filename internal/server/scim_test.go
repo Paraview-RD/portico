@@ -169,40 +169,6 @@ func TestEveryAdvertisedResourceTypeHasARoute(t *testing.T) {
 	}
 }
 
-func TestGroupsAreNotAdvertisedAndNotServed(t *testing.T) {
-	api := newAPITest(t)
-	client := newSCIMClient(t, api, "no-groups")
-
-	var listing struct {
-		Resources []struct {
-			Name string `json:"name"`
-		} `json:"Resources"`
-	}
-	client.do(t, http.MethodGet, "/ResourceTypes", nil).decode(t, &listing)
-
-	for _, rt := range listing.Resources {
-		if rt.Name == "Group" {
-			t.Fatal("Group is advertised. An account belongs to at most one " +
-				"organization, so group membership cannot be stored — an identity " +
-				"provider reading this would offer a group push that cannot work.")
-		}
-	}
-
-	// And the endpoint answers in SCIM's shape rather than the application's,
-	// so a client that tries anyway gets something it can parse and report.
-	resp := client.do(t, http.MethodGet, "/Groups", nil)
-	if resp.Status != http.StatusNotFound {
-		t.Errorf("GET /Groups returned %d, want 404", resp.Status)
-	}
-	var body struct {
-		Schemas []string `json:"schemas"`
-	}
-	resp.decode(t, &body)
-	if len(body.Schemas) == 0 || body.Schemas[0] != "urn:ietf:params:scim:api:messages:2.0:Error" {
-		t.Error("the 404 is not a SCIM error; a provisioning client cannot read it")
-	}
-}
-
 // --- Authentication ---------------------------------------------------
 
 func TestSCIMRefusesEverythingWithoutACredential(t *testing.T) {

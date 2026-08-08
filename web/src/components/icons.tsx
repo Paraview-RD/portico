@@ -47,6 +47,18 @@ export function UsersIcon(props: IconProps) {
   );
 }
 
+// Overlapping circles: a set, and sets that share members. Deliberately
+// unlike the organization icon, which is a hierarchy — the two concepts are
+// distinct and the sidebar should not suggest otherwise.
+export function GroupsIcon(props: IconProps) {
+  return (
+    <Svg {...props}>
+      <circle cx="9" cy="9" r="5" />
+      <circle cx="15" cy="15" r="5" />
+    </Svg>
+  );
+}
+
 export function OrganizationsIcon(props: IconProps) {
   return (
     <Svg {...props}>

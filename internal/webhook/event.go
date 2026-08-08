@@ -18,12 +18,23 @@ const (
 	EventUserDisabled = "user.disabled"
 	EventOrgCreated   = "organization.created"
 	EventOrgUpdated   = "organization.updated"
+
+	EventGroupCreated = "group.created"
+	EventGroupUpdated = "group.updated"
+	EventGroupDeleted = "group.deleted"
+	// EventGroupMembersChanged carries the group as it now stands rather
+	// than the delta. A subscriber wanting to know who is in a group reads
+	// the group; an event per member would turn a bulk replacement into a
+	// burst nobody asked for.
+	EventGroupMembersChanged = "group.members_changed"
 )
 
 // AllEvents is what a subscription gets when it asks for everything.
 var AllEvents = []string{
 	EventUserCreated, EventUserUpdated, EventUserEnabled, EventUserDisabled,
 	EventOrgCreated, EventOrgUpdated,
+	EventGroupCreated, EventGroupUpdated, EventGroupDeleted,
+	EventGroupMembersChanged,
 }
 
 // Wildcard subscribes to every event, including ones added later.

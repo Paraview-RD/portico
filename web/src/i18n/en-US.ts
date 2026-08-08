@@ -314,6 +314,34 @@ export const enUS = {
   "common.done": "Done",
   "common.delete": "Delete",
 
+  "groups.title": "Groups",
+  "groups.subtitle":
+    "Sets of people. Separate from organizations, which are the org chart — somebody sits in one organization and belongs to any number of groups. Membership grants no permissions.",
+  "groups.new": "New group",
+  "groups.edit": "Edit group",
+  "groups.name": "Name",
+  "groups.description": "Description",
+  "groups.colName": "Name",
+  "groups.colDescription": "Description",
+  "groups.colMembers": "Members",
+  "groups.colSource": "Maintained by",
+  "groups.source.ADMIN": "Console",
+  "groups.source.SCIM": "Directory",
+  "groups.members": "Members",
+  "groups.membersOf": "Members — {0}",
+  "groups.addMember": "Add someone",
+  "groups.selectUser": "Choose a person…",
+  "groups.add": "Add",
+  "groups.remove": "Remove",
+  "groups.colMemberName": "Name",
+  "groups.colUsername": "Username",
+  "groups.confirmDeleteTitle": "Delete this group?",
+  "groups.confirmDelete":
+    "“{0}” and its membership will be removed. The accounts themselves are not affected.",
+  "groups.ofUser": "Groups",
+  "groups.none": "None",
+  "nav.groups": "Groups",
+
   "webhooks.title": "Event subscriptions (webhooks)",
   "webhooks.subtitle":
     "Where to send a signed notification when something changes here. Https only, and never an address inside your network.",
@@ -349,7 +377,7 @@ export const enUS = {
 
   "scim.title": "Directory provisioning (SCIM)",
   "scim.subtitle":
-    "Credentials a directory uses to create, update, and deactivate accounts here. Users only — groups are not provisioned.",
+    "Credentials a directory uses to create, update, and deactivate accounts here, and to maintain group membership.",
   "scim.new": "New credential",
   "scim.name": "Name",
   "scim.nameHint":

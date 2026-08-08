@@ -7,6 +7,7 @@ import {
   AuditIcon,
   ChevronDownIcon,
   GlobeIcon,
+  GroupsIcon,
   OrganizationsIcon,
   ProfileIcon,
   SettingsIcon,
@@ -53,6 +54,15 @@ const navGroups: NavGroup[] = [
         route: "/organizations",
         labelKey: "nav.organizations",
         icon: OrganizationsIcon,
+        adminOnly: true,
+      },
+      {
+        // Beside organizations rather than under them: they are siblings,
+        // not a hierarchy. One is where somebody sits, the other is a set
+        // they belong to.
+        route: "/groups",
+        labelKey: "nav.groups",
+        icon: GroupsIcon,
         adminOnly: true,
       },
     ],

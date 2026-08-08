@@ -303,6 +303,33 @@ export const zhCN: Record<keyof typeof enUS, string> = {
   "common.done": "完成",
   "common.delete": "删除",
 
+  "groups.title": "用户组",
+  "groups.subtitle":
+    "人员的集合。与机构（组织架构）是两回事——一个人只归属一个机构，却可以属于任意多个组。组成员身份不授予任何权限。",
+  "groups.new": "新建用户组",
+  "groups.edit": "编辑用户组",
+  "groups.name": "名称",
+  "groups.description": "描述",
+  "groups.colName": "名称",
+  "groups.colDescription": "描述",
+  "groups.colMembers": "成员数",
+  "groups.colSource": "维护方",
+  "groups.source.ADMIN": "控制台",
+  "groups.source.SCIM": "目录系统",
+  "groups.members": "成员",
+  "groups.membersOf": "成员——{0}",
+  "groups.addMember": "添加成员",
+  "groups.selectUser": "选择人员…",
+  "groups.add": "添加",
+  "groups.remove": "移除",
+  "groups.colMemberName": "姓名",
+  "groups.colUsername": "账号",
+  "groups.confirmDeleteTitle": "删除此用户组？",
+  "groups.confirmDelete": "“{0}”及其成员关系将被删除。账号本身不受影响。",
+  "groups.ofUser": "所属用户组",
+  "groups.none": "无",
+  "nav.groups": "用户组",
+
   "webhooks.title": "事件订阅（Webhook）",
   "webhooks.subtitle":
     "此处发生变更时，向哪里发送带签名的通知。仅限 https，且不得指向内网地址。",
@@ -337,7 +364,7 @@ export const zhCN: Record<keyof typeof enUS, string> = {
 
   "scim.title": "目录同步（SCIM）",
   "scim.subtitle":
-    "目录系统用于在此创建、更新、停用账号的凭据。仅同步用户，不同步组。",
+    "目录系统用于在此创建、更新、停用账号，以及维护用户组成员关系的凭据。",
   "scim.new": "新建凭据",
   "scim.name": "名称",
   "scim.nameHint": "便于事后辨认，例如“Okta 生产”。",

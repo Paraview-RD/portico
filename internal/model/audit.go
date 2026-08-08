@@ -159,6 +159,17 @@ const (
 	ActionWebhookDisable = "WEBHOOK_DISABLE"
 	ActionWebhookDelete  = "WEBHOOK_DELETE"
 
+	// Groups and their membership. Membership is audited as its own verb
+	// rather than as a group update because the questions differ: "who
+	// renamed this group" and "when was this person added to it" are asked
+	// by different people for different reasons.
+	ActionGroupCreate        = "GROUP_CREATE"
+	ActionGroupUpdate        = "GROUP_UPDATE"
+	ActionGroupDelete        = "GROUP_DELETE"
+	ActionGroupMemberAdd     = "GROUP_MEMBER_ADD"
+	ActionGroupMemberRemove  = "GROUP_MEMBER_REMOVE"
+	ActionGroupMemberReplace = "GROUP_MEMBER_REPLACE"
+
 	ActionSettingsUpdate = "SETTINGS_UPDATE"
 )
 

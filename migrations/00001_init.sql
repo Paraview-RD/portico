@@ -770,7 +770,85 @@ CREATE INDEX idx_webhook_deliveries_subscription
     ON webhook_deliveries (tenant_id, subscription_id, created_at DESC);
 
 
+
+-- Groups are sets of people, and are not the organization chart.
+--
+-- Both exist because they answer different questions and have incompatible
+-- shapes. An organization is where somebody sits: one of them, arranged as a
+-- tree, with a stable code that downstream systems store. A group is a set
+-- somebody belongs to: any number of them, flat, and maintained by whatever
+-- directory pushes them. Folding groups into organizations would mean either
+-- breaking single membership — which the org chart depends on — or silently
+-- reassigning people when a directory adds them to a second group.
+--
+-- Membership grants nothing. A directory says who somebody is; it does not
+-- say what they may do, and there is nothing here for it to say that with:
+-- roles are two fixed values and there is no RBAC to attach a group to. If
+-- that changes, it changes deliberately and not by a directory writing an
+-- attribute.
+CREATE TABLE groups (
+    id        TEXT PRIMARY KEY,
+    tenant_id TEXT NOT NULL REFERENCES tenants (id),
+
+    -- SCIM's displayName, and the name a person recognises. Unique per
+    -- tenant so a push that renames rather than creates has something to
+    -- collide with.
+    display_name TEXT NOT NULL,
+
+    description TEXT NOT NULL DEFAULT '',
+
+    -- SCIM's externalId, on exactly the same terms as users': the only
+    -- stable correlation key when the display name is the thing being
+    -- changed. Nullable, unique per tenant through a partial index.
+    external_id TEXT,
+
+    -- How the group came to exist, so an administrator can see that a
+    -- directory owns it before wondering why their edit was overwritten.
+    source TEXT NOT NULL DEFAULT 'ADMIN' CHECK (source IN ('ADMIN', 'SCIM')),
+
+    created_at TIMESTAMPTZ NOT NULL,
+    updated_at TIMESTAMPTZ NOT NULL,
+
+    CONSTRAINT uq_groups_tenant_display_name UNIQUE (tenant_id, display_name),
+
+    -- Redundant given the primary key, and what lets group_members declare a
+    -- composite foreign key so a membership cannot cross tenants.
+    CONSTRAINT uq_groups_tenant_id UNIQUE (tenant_id, id)
+);
+
+CREATE UNIQUE INDEX uq_groups_tenant_external_id
+    ON groups (tenant_id, external_id) WHERE external_id IS NOT NULL;
+
+CREATE INDEX idx_groups_tenant ON groups (tenant_id, display_name);
+
+-- Membership. Many-to-many, which is the whole reason groups are a separate
+-- table from organizations.
+CREATE TABLE group_members (
+    tenant_id TEXT NOT NULL REFERENCES tenants (id),
+
+    group_id TEXT NOT NULL,
+    FOREIGN KEY (tenant_id, group_id) REFERENCES groups (tenant_id, id) ON DELETE CASCADE,
+
+    user_id TEXT NOT NULL,
+    -- Composite, so the database refuses a membership pointing at another
+    -- tenant's account. ON DELETE is absent because accounts are disabled,
+    -- never deleted — a disabled member stays in the group, since removing
+    -- them would lose what a directory said and make re-enabling incomplete.
+    FOREIGN KEY (tenant_id, user_id) REFERENCES users (tenant_id, id),
+
+    added_at TIMESTAMPTZ NOT NULL,
+
+    PRIMARY KEY (tenant_id, group_id, user_id)
+);
+
+-- The reverse lookup: which groups is this person in. Needed by the user
+-- detail screen and by SCIM's GET /Users/{id}, which returns them so a
+-- client can read back that its push landed.
+CREATE INDEX idx_group_members_user ON group_members (tenant_id, user_id);
+
 -- +goose Down
+DROP TABLE group_members;
+DROP TABLE groups;
 DROP TABLE webhook_deliveries;
 DROP TABLE webhook_subscriptions;
 DROP TABLE scim_credentials;

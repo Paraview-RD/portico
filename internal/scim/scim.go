@@ -9,19 +9,15 @@
 //
 // # Scope
 //
-// Users only. Groups are not implemented, and that is a decision rather than
-// an omission: an account in Portico belongs to at most one organization,
-// while a SCIM group membership is many-to-many and `PATCH /Groups` with
-// `add members` is the operation both Okta and Entra lean on hardest.
-// Mapping it onto a single-valued field would either silently reassign
-// somebody's organization or fail halfway through a push, and silent
-// reassignment in an IAM system is the worse of the two.
+// Users and Groups. SCIM groups map onto Portico's groups, which are a
+// separate concept from organizations: an organization is where somebody
+// sits — one of them, in a tree — while a group is a set they belong to, any
+// number of them, flat. Group membership is many-to-many, so it could not be
+// stored in the organization field without either breaking single membership
+// or silently reassigning people.
 //
-// So /ServiceProviderConfig and /ResourceTypes advertise exactly what is
-// here — no Group resource type — which is what makes an identity provider's
-// own configuration screen show users-only provisioning rather than letting
-// an administrator discover it when a sync half-works. Both Okta and Entra
-// support that configuration as a first-class option.
+// Membership grants nothing. A directory says who somebody is; it does not
+// say what they may do.
 //
 // # Deviations worth knowing
 //

@@ -17,6 +17,9 @@ import type {
   RegistrationStatus,
   Role,
   CreatedWebhookSubscription,
+  Group,
+  GroupMember,
+  GroupRef,
   SAMLServiceProvider,
   SCIMCredential,
   Session,
@@ -492,4 +495,37 @@ export const webhooksApi = {
 
   remove: (id: string) =>
     request<void>(`/webhooks/${segment(id)}`, { method: "DELETE" }),
+};
+
+/**
+ * Groups: sets of people, as distinct from the organization chart.
+ */
+export const groupsApi = {
+  list: () => request<Group[]>("/groups"),
+
+  create: (input: { displayName: string; description: string }) =>
+    request<Group>("/groups", { method: "POST", body: input }),
+
+  update: (id: string, input: { displayName: string; description: string }) =>
+    request<Group>(`/groups/${segment(id)}`, { method: "PUT", body: input }),
+
+  remove: (id: string) =>
+    request<void>(`/groups/${segment(id)}`, { method: "DELETE" }),
+
+  members: (id: string) =>
+    request<GroupMember[]>(`/groups/${segment(id)}/members`),
+
+  addMembers: (id: string, userIds: string[]) =>
+    request<void>(`/groups/${segment(id)}/members`, {
+      method: "POST",
+      body: { userIds },
+    }),
+
+  removeMember: (id: string, userId: string) =>
+    request<void>(`/groups/${segment(id)}/members/${segment(userId)}`, {
+      method: "DELETE",
+    }),
+
+  forUser: (userId: string) =>
+    request<GroupRef[]>(`/users/${segment(userId)}/groups`),
 };

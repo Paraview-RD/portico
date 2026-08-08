@@ -279,15 +279,25 @@ Working toward 0.1.0 — the first release. Nothing has been published yet.
   is this project's first outbound TLS, and a `scratch` image has no root
   store — every delivery would have failed certificate verification in a
   deployment while working on a developer's machine.
-- **SCIM 2.0 provisioning** at `/scim/v2`, so a directory creates, updates,
-  and deactivates accounts without anyone typing them twice. Users only:
-  an account belongs to at most one organization while SCIM group membership
-  is many-to-many, so mapping Groups onto it would silently reassign
-  somebody or fail partway through a push. `/ServiceProviderConfig` and
-  `/ResourceTypes` advertise exactly that, which is what makes an identity
-  provider's own configuration screen offer users-only provisioning rather
-  than letting an administrator discover the gap when a sync half-works.
+- **SCIM 2.0 provisioning** at `/scim/v2`, for users and groups, so a
+  directory creates, updates, and deactivates accounts and maintains group
+  membership without anyone typing any of it twice.
   [docs/scim.md](docs/scim.md) is the integrator's guide.
+- **Groups are a new concept, and are not organizations.** An organization is
+  where somebody sits — one of them, in a tree, with a code downstream
+  systems store. A group is a set they belong to — any number of them, flat.
+  Group membership is many-to-many, so storing it in the organization field
+  would have meant either breaking single membership or silently reassigning
+  people the first time a directory added somebody to a second group.
+  Membership grants nothing: there are two fixed roles and no RBAC, so there
+  is nothing for a group to carry.
+- `PATCH /Groups/{id}` understands the shapes providers actually send,
+  including `members[value eq "<id>"]` with the member inside the path —
+  which is what Okta sends for a removal, and what a naive path lookup
+  mangles — and full-set `replace`, which is how Entra reconciles. A member
+  that does not exist fails the request with `invalidValue` rather than
+  being skipped: a silently dropped member leaves a group that looks
+  synchronized and is not.
 - Provisioning authenticates with its own kind of credential, issued from
   the console and scoped to `/scim/v2`. Not an account: a directory has no
   session, no password to recover, and no way into the console, and

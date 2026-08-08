@@ -124,20 +124,22 @@ func New(cfg *config.Config, opts ...Option) (*Server, error) {
 	casServices := service.NewCASService(st, users, audit)
 	casServer := casp.New(cfg.PublicURL, tenants, casServices, audit)
 
+	groups := service.NewGroupService(st, audit)
 	webhooks := service.NewWebhookService(st, audit)
 	// Attached after construction: the webhook service is built from the same
 	// store and the account operations only need to know it exists.
 	users.WithEvents(webhooks)
+	groups.WithEvents(webhooks)
 
 	scimCredentials := service.NewSCIMCredentialService(st, audit)
-	scimHandler := scim.NewHandler(users, scimCredentials, cfg.PublicURL)
+	scimHandler := scim.NewHandler(users, groups, scimCredentials, cfg.PublicURL)
 
 	s := &Server{
 		cfg:   cfg,
 		store: st,
 		handler: handler.New(users, orgs, audit, settings, tenants, recovery, sessions,
 			clients, serviceProviders, samlKeys, casServices, scimCredentials,
-			webhooks, providers, samlProviders, casServer),
+			webhooks, groups, providers, samlProviders, casServer),
 		middleware:    auth.NewMiddleware(tokens, users, sessions),
 		metrics:       registry,
 		scim:          scimHandler,
