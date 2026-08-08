@@ -185,7 +185,11 @@ export function SCIMCredentials() {
           </>
         }
       >
-        <form id="scim-create" onSubmit={create} className="flex flex-col gap-4">
+        <form
+          id="scim-create"
+          onSubmit={create}
+          className="flex flex-col gap-4"
+        >
           <Field label={t("scim.name")} hint={t("scim.nameHint")} required>
             <Input
               value={name}

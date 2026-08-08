@@ -5,6 +5,7 @@
 package sqlcgen
 
 import (
+	"database/sql"
 	"time"
 )
 
@@ -259,4 +260,31 @@ type User struct {
 	PasswordChangedAt *time.Time
 	CreatedAt         time.Time
 	UpdatedAt         time.Time
+}
+
+type WebhookDelivery struct {
+	ID             string
+	TenantID       string
+	SubscriptionID string
+	EventType      string
+	Payload        string
+	Status         string
+	Attempts       int32
+	LastError      string
+	LastStatus     sql.NullInt32
+	NextAttemptAt  *time.Time
+	CreatedAt      time.Time
+	DeliveredAt    *time.Time
+}
+
+type WebhookSubscription struct {
+	ID        string
+	TenantID  string
+	Name      string
+	Url       string
+	Secret    string
+	Events    string
+	Status    string
+	CreatedAt time.Time
+	UpdatedAt time.Time
 }

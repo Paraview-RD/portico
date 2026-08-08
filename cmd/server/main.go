@@ -166,6 +166,7 @@ func run() error {
 	defer stop()
 
 	go sweepExpired(ctx, srv)
+	go dispatchWebhooks(ctx, srv)
 
 	errCh := make(chan error, 1)
 	go func() {
@@ -227,6 +228,32 @@ func run() error {
 	}
 	slog.Info("shutdown complete")
 	return nil
+}
+
+// webhookInterval is how often queued events are delivered.
+//
+// Fifteen seconds, against the sweep's hour. The two are on different
+// timescales because they answer to different things: the sweep tidies rows
+// nobody is waiting for, while a queued event is somebody waiting to be told
+// that an account was disabled. A minute of latency there would be noticed;
+// an hour would make the feature pointless.
+const webhookInterval = 15 * time.Second
+
+// dispatchWebhooks delivers due events until the process is asked to stop.
+func dispatchWebhooks(ctx context.Context, srv *server.Server) {
+	ticker := time.NewTicker(webhookInterval)
+	defer ticker.Stop()
+
+	for {
+		if err := srv.DispatchWebhooks(ctx); err != nil && ctx.Err() == nil {
+			slog.Warn("could not dispatch webhooks", "error", err)
+		}
+		select {
+		case <-ctx.Done():
+			return
+		case <-ticker.C:
+		}
+	}
 }
 
 // sweepInterval is how often the expired-row cleanup runs.

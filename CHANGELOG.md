@@ -252,6 +252,33 @@ Working toward 0.1.0 — the first release. Nothing has been published yet.
   can return has an English and a 简体中文 rendering; the Chinese table is
   typed against the English one, so a missing translation fails the build
   rather than showing a code to a user.
+- **Webhooks.** A tenant registers an https endpoint and Portico posts a
+  signed body when an account is created, updated, enabled, or disabled.
+  Queued when the event happens and delivered by a worker, so the operation
+  that caused it never waits for a subscriber and never fails because one is
+  down. [docs/webhooks.md](docs/webhooks.md) is the subscriber's guide.
+- The destination rules are not configurable, because they are what stops a
+  tenant administrator from using this server as a proxy into the network it
+  runs in: https only, and never loopback, a private range, link-local —
+  which is where every cloud puts the metadata service that hands out
+  credentials — or carrier-grade NAT. Redirects are not followed.
+- **The address is checked again at connection time**, inside the dialer.
+  Checking only at registration is defeated by a name that resolves publicly
+  then and to 127.0.0.1 later, which needs nothing but a DNS record the
+  attacker controls.
+- The signature is HMAC-SHA256 over the timestamp, a dot, and the raw body.
+  The timestamp is inside the signature rather than beside it: a signature
+  over the body alone is replayable forever by anyone who ever saw one,
+  including from the receiver's own logs.
+- Retries are five attempts over about half an hour, for the failures that
+  might become successes. A 4xx is not retried — the receiver understood and
+  refused, and sending it again produces the same refusal. Delivery records
+  are kept for thirty days and shown in the console, which is what answers
+  "we are not receiving anything" without asking the receiver.
+- The container image now carries a CA certificate bundle. Webhook delivery
+  is this project's first outbound TLS, and a `scratch` image has no root
+  store — every delivery would have failed certificate verification in a
+  deployment while working on a developer's machine.
 - **SCIM 2.0 provisioning** at `/scim/v2`, so a directory creates, updates,
   and deactivates accounts without anyone typing them twice. Users only:
   an account belongs to at most one organization while SCIM group membership

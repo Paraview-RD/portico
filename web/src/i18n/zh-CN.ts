@@ -303,6 +303,38 @@ export const zhCN: Record<keyof typeof enUS, string> = {
   "common.done": "完成",
   "common.delete": "删除",
 
+  "webhooks.title": "事件订阅（Webhook）",
+  "webhooks.subtitle":
+    "此处发生变更时，向哪里发送带签名的通知。仅限 https，且不得指向内网地址。",
+  "webhooks.new": "新建订阅",
+  "webhooks.name": "名称",
+  "webhooks.url": "接收地址",
+  "webhooks.urlHint":
+    "必须是 https 且可公网解析。内网地址、回环地址、云元数据地址一律拒绝——否则本服务将代你向自己的内网发请求。",
+  "webhooks.events": "事件",
+  "webhooks.allEvents": "全部事件",
+  "webhooks.allEventsHint": "全部，包括今后版本新增的事件类型",
+  "webhooks.colName": "名称",
+  "webhooks.colUrl": "接收地址",
+  "webhooks.colEvents": "事件",
+  "webhooks.colStatus": "状态",
+  "webhooks.deliveries": "投递记录",
+  "webhooks.deliveriesFor": "投递记录——{0}",
+  "webhooks.colEvent": "事件",
+  "webhooks.colDeliveryStatus": "结果",
+  "webhooks.colAttempts": "尝试次数",
+  "webhooks.colResponse": "响应",
+  "webhooks.status.PENDING": "待投递",
+  "webhooks.status.DELIVERED": "已投递",
+  "webhooks.status.FAILED": "已失败",
+  "webhooks.created": "订阅已创建",
+  "webhooks.secret": "签名密钥",
+  "webhooks.secretWarning":
+    "请立即复制——它只显示一次。你的接收端用它验证投递确实来自此处：对「时间戳 + 句点 + 原始报文」重算 HMAC-SHA256，再与签名头比对。",
+  "webhooks.confirmDeleteTitle": "删除此订阅？",
+  "webhooks.confirmDelete":
+    "“{0}”将立即停止接收事件，投递记录也会一并删除。若只是暂停，请改用“禁用”。",
+
   "scim.title": "目录同步（SCIM）",
   "scim.subtitle":
     "目录系统用于在此创建、更新、停用账号的凭据。仅同步用户，不同步组。",

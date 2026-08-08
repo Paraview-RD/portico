@@ -13,6 +13,7 @@ import (
 	"github.com/paraview/portico/internal/model"
 	"github.com/paraview/portico/internal/store"
 	"github.com/paraview/portico/internal/store/sqlcgen"
+	"github.com/paraview/portico/internal/webhook"
 )
 
 // Provisioning: the operations a directory performs, as distinct from the
@@ -148,7 +149,12 @@ func (s *UserService) ProvisionUser(ctx context.Context, tenantID string, in Pro
 		Detail: "externalId=" + in.ExternalID,
 	})
 
-	return s.Get(ctx, tenantID, id)
+	created, err := s.Get(ctx, tenantID, id)
+	if err != nil {
+		return model.User{}, err
+	}
+	s.publish(ctx, tenantID, webhook.EventUserCreated, created)
+	return created, nil
 }
 
 // UpdateProvisionedUser applies a directory's view of an account.
@@ -233,7 +239,21 @@ func (s *UserService) UpdateProvisionedUser(ctx context.Context, tenantID, userI
 		TargetType: targetUser, TargetID: userID, TargetName: in.Username,
 	})
 
-	return s.Get(ctx, tenantID, userID)
+	updated, err := s.Get(ctx, tenantID, userID)
+	if err != nil {
+		return model.User{}, err
+	}
+	// A directory-driven change is still a change, and a subscriber wanting
+	// to know when somebody is deprovisioned wants this one most of all.
+	event := webhook.EventUserUpdated
+	if status != model.Status(current.Status) {
+		event = webhook.EventUserEnabled
+		if status != model.StatusActive {
+			event = webhook.EventUserDisabled
+		}
+	}
+	s.publish(ctx, tenantID, event, updated)
+	return updated, nil
 }
 
 // SetProvisionedUserActive is deprovisioning on its own, for DELETE.

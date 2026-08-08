@@ -314,6 +314,39 @@ export const enUS = {
   "common.done": "Done",
   "common.delete": "Delete",
 
+  "webhooks.title": "Event subscriptions (webhooks)",
+  "webhooks.subtitle":
+    "Where to send a signed notification when something changes here. Https only, and never an address inside your network.",
+  "webhooks.new": "New subscription",
+  "webhooks.name": "Name",
+  "webhooks.url": "Endpoint URL",
+  "webhooks.urlHint":
+    "Must be https and publicly resolvable. Internal, loopback, and cloud-metadata addresses are refused — otherwise this server would make requests inside its own network on your behalf.",
+  "webhooks.events": "Events",
+  "webhooks.allEvents": "All events",
+  "webhooks.allEventsHint":
+    "Everything, including event types added in future versions",
+  "webhooks.colName": "Name",
+  "webhooks.colUrl": "Endpoint",
+  "webhooks.colEvents": "Events",
+  "webhooks.colStatus": "Status",
+  "webhooks.deliveries": "Deliveries",
+  "webhooks.deliveriesFor": "Deliveries — {0}",
+  "webhooks.colEvent": "Event",
+  "webhooks.colDeliveryStatus": "Result",
+  "webhooks.colAttempts": "Attempts",
+  "webhooks.colResponse": "Response",
+  "webhooks.status.PENDING": "Pending",
+  "webhooks.status.DELIVERED": "Delivered",
+  "webhooks.status.FAILED": "Failed",
+  "webhooks.created": "Subscription created",
+  "webhooks.secret": "Signing secret",
+  "webhooks.secretWarning":
+    "Copy this secret now — it is shown once. Your endpoint uses it to verify that a delivery came from here: recompute HMAC-SHA256 over the timestamp header, a dot, and the raw body, then compare it to the signature header.",
+  "webhooks.confirmDeleteTitle": "Delete this subscription?",
+  "webhooks.confirmDelete":
+    "“{0}” will stop receiving events immediately and its delivery history will be removed. To pause it instead, disable it.",
+
   "scim.title": "Directory provisioning (SCIM)",
   "scim.subtitle":
     "Credentials a directory uses to create, update, and deactivate accounts here. Users only — groups are not provisioned.",

@@ -122,6 +122,15 @@ at the reverse proxy; never expose Portico directly.
   leaked one as a key compromise rather than a data breach — the response is
   different and larger. See
   [docs/backup-and-restore.md](docs/backup-and-restore.md).
+- **A webhook subscription is an outbound request this server makes on an
+  administrator's behalf**, which is why the destination rules are not
+  configurable: https only, and never an address that resolves inside your
+  network — loopback, private ranges, link-local (cloud metadata), or
+  carrier-grade NAT. The address is checked again at connection time, because
+  a name that resolved publicly at registration can resolve to 127.0.0.1 by
+  the time anything is sent. Signing secrets are stored in the clear, since
+  they sign rather than authenticate; see
+  [docs/webhooks.md](docs/webhooks.md).
 - **A metrics port, if you configure one, is unauthenticated.** So is every
   Prometheus endpoint; that is why `PORTICO_METRICS_ADDR` opens a second
   listener rather than adding a route. Bind it where only your monitoring

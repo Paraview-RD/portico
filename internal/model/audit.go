@@ -149,6 +149,16 @@ const (
 	ActionSCIMUserDisable = "SCIM_USER_DISABLE"
 	ActionSCIMUserEnable  = "SCIM_USER_ENABLE"
 
+	// Outbound event subscriptions. Audited because a subscription is an
+	// instruction to send this tenant's directory activity to an address
+	// somebody chose — who exists, when they were disabled — and one nobody
+	// remembers creating is an exfiltration channel with a signature on it.
+	ActionWebhookCreate  = "WEBHOOK_CREATE"
+	ActionWebhookUpdate  = "WEBHOOK_UPDATE"
+	ActionWebhookEnable  = "WEBHOOK_ENABLE"
+	ActionWebhookDisable = "WEBHOOK_DISABLE"
+	ActionWebhookDelete  = "WEBHOOK_DELETE"
+
 	ActionSettingsUpdate = "SETTINGS_UPDATE"
 )
 

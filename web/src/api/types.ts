@@ -288,3 +288,35 @@ export interface SCIMCredential {
 export interface IssuedSCIMCredential extends SCIMCredential {
   token: string;
 }
+
+/** An outbound event subscription, as the console sees it. */
+export interface WebhookSubscription {
+  id: string;
+  name: string;
+  url: string;
+  events: string[];
+  status: "ACTIVE" | "DISABLED";
+  createdAt: string;
+}
+
+/**
+ * What creating one returns. The secret is here and nowhere else — it is
+ * stored in the clear because it signs rather than authenticates, which is
+ * exactly why no endpoint serves it a second time.
+ */
+export interface CreatedWebhookSubscription extends WebhookSubscription {
+  secret: string;
+}
+
+/** One attempt to deliver one event. */
+export interface WebhookDelivery {
+  id: string;
+  eventType: string;
+  status: "PENDING" | "DELIVERED" | "FAILED";
+  attempts: number;
+  /** Null when the request never reached a server at all. */
+  lastStatus: number | null;
+  lastError: string;
+  createdAt: string;
+  deliveredAt: string | null;
+}

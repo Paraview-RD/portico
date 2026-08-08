@@ -16,6 +16,7 @@ import type {
   RegisteredClient,
   RegistrationStatus,
   Role,
+  CreatedWebhookSubscription,
   SAMLServiceProvider,
   SCIMCredential,
   Session,
@@ -23,6 +24,8 @@ import type {
   Status,
   User,
   UserSession,
+  WebhookDelivery,
+  WebhookSubscription,
 } from "./types";
 
 /** Builds a query string, omitting empty values. */
@@ -461,4 +464,32 @@ export const scimCredentialsApi = {
 
   remove: (id: string) =>
     request<void>(`/scim-credentials/${segment(id)}`, { method: "DELETE" }),
+};
+
+/**
+ * Outbound event subscriptions, and the delivery history that answers "we
+ * are not receiving anything" without having to ask the receiver.
+ */
+export const webhooksApi = {
+  list: () => request<WebhookSubscription[]>("/webhooks"),
+
+  events: () => request<string[]>("/webhooks/events"),
+
+  create: (input: { name: string; url: string; events: string[] }) =>
+    request<CreatedWebhookSubscription>("/webhooks", {
+      method: "POST",
+      body: input,
+    }),
+
+  deliveries: (id: string) =>
+    request<WebhookDelivery[]>(`/webhooks/${segment(id)}/deliveries`),
+
+  enable: (id: string) =>
+    request<void>(`/webhooks/${segment(id)}/enable`, { method: "POST" }),
+
+  disable: (id: string) =>
+    request<void>(`/webhooks/${segment(id)}/disable`, { method: "POST" }),
+
+  remove: (id: string) =>
+    request<void>(`/webhooks/${segment(id)}`, { method: "DELETE" }),
 };

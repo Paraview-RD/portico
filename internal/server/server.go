@@ -22,6 +22,7 @@ import (
 	"github.com/paraview/portico/internal/scim"
 	"github.com/paraview/portico/internal/service"
 	"github.com/paraview/portico/internal/store"
+	"github.com/paraview/portico/internal/webhook"
 )
 
 // Server owns every long-lived dependency the HTTP layer needs.
@@ -31,14 +32,19 @@ type Server struct {
 	handler    *handler.Handler
 	middleware *auth.Middleware
 	metrics    *metrics.Registry
-	users      *service.UserService
-	tenants    *service.TenantService
-	settings   *service.SettingsService
-	oidc       *oidcp.Providers
-	saml       *samlp.Providers
-	cas        *casp.Server
-	scim       *scim.Handler
-	router     http.Handler
+	webhooks   *service.WebhookService
+	// The client webhook deliveries go out through. One per server: its
+	// transport pools connections, and its dialer is what refuses a
+	// destination that has started resolving somewhere local.
+	webhookClient *http.Client
+	users         *service.UserService
+	tenants       *service.TenantService
+	settings      *service.SettingsService
+	oidc          *oidcp.Providers
+	saml          *samlp.Providers
+	cas           *casp.Server
+	scim          *scim.Handler
+	router        http.Handler
 }
 
 // Option overrides a dependency New would otherwise build from cfg.
@@ -118,6 +124,11 @@ func New(cfg *config.Config, opts ...Option) (*Server, error) {
 	casServices := service.NewCASService(st, users, audit)
 	casServer := casp.New(cfg.PublicURL, tenants, casServices, audit)
 
+	webhooks := service.NewWebhookService(st, audit)
+	// Attached after construction: the webhook service is built from the same
+	// store and the account operations only need to know it exists.
+	users.WithEvents(webhooks)
+
 	scimCredentials := service.NewSCIMCredentialService(st, audit)
 	scimHandler := scim.NewHandler(users, scimCredentials, cfg.PublicURL)
 
@@ -126,16 +137,18 @@ func New(cfg *config.Config, opts ...Option) (*Server, error) {
 		store: st,
 		handler: handler.New(users, orgs, audit, settings, tenants, recovery, sessions,
 			clients, serviceProviders, samlKeys, casServices, scimCredentials,
-			providers, samlProviders, casServer),
-		middleware: auth.NewMiddleware(tokens, users, sessions),
-		metrics:    registry,
-		scim:       scimHandler,
-		users:      users,
-		tenants:    tenants,
-		settings:   settings,
-		oidc:       providers,
-		saml:       samlProviders,
-		cas:        casServer,
+			webhooks, providers, samlProviders, casServer),
+		middleware:    auth.NewMiddleware(tokens, users, sessions),
+		metrics:       registry,
+		scim:          scimHandler,
+		webhooks:      webhooks,
+		webhookClient: webhook.NewClient(webhook.RequestTimeout),
+		users:         users,
+		tenants:       tenants,
+		settings:      settings,
+		oidc:          providers,
+		saml:          samlProviders,
+		cas:           casServer,
 	}
 	s.router = s.routes()
 	return s, nil
@@ -269,6 +282,9 @@ func (s *Server) sweepCredentialRemnants(ctx context.Context) error {
 		if err := q.DeleteExpiredSessions(ctx, now.Add(-sessionRetention)); err != nil {
 			return fmt.Errorf("sweep sessions for tenant %s: %w", tenant.Code, err)
 		}
+		if err := s.webhooks.SweepDeliveries(ctx, tenant.ID, now); err != nil {
+			return fmt.Errorf("sweep webhook deliveries for tenant %s: %w", tenant.Code, err)
+		}
 
 		settings, err := s.settings.Get(ctx, tenant.ID)
 		if err != nil {
@@ -279,6 +295,32 @@ func (s *Server) sweepCredentialRemnants(ctx context.Context) error {
 			if err := q.DeleteAuditLogsBefore(ctx, cutoff); err != nil {
 				return fmt.Errorf("prune audit log for tenant %s: %w", tenant.Code, err)
 			}
+		}
+	}
+	return nil
+}
+
+// DispatchWebhooks delivers whatever is due, across every tenant.
+//
+// Separate from SweepExpired and on a much shorter timer: a sweep tidies up
+// after things, while this is how an event reaches anybody at all. An hourly
+// pass would mean a deprovisioning notice arriving up to an hour after the
+// account was disabled, which is exactly the delay a webhook exists to
+// remove.
+//
+// A tenant whose pass fails does not stop the others. One unreachable
+// subscriber is that tenant's problem, and letting it abort the loop would
+// make it everybody's.
+func (s *Server) DispatchWebhooks(ctx context.Context) error {
+	tenants, err := s.tenants.List(ctx)
+	if err != nil {
+		return fmt.Errorf("list tenants: %w", err)
+	}
+
+	for _, tenant := range tenants {
+		if _, err := s.webhooks.DispatchDue(ctx, tenant.ID, s.webhookClient); err != nil {
+			slog.WarnContext(ctx, "webhook dispatch failed for tenant",
+				"tenant", tenant.Code, "error", err)
 		}
 	}
 	return nil

@@ -173,6 +173,18 @@ func (s *Server) routes() http.Handler {
 			// Issuing and revoking the credentials a directory syncs with.
 			// The SCIM API itself is elsewhere and authenticates differently;
 			// this is only the administrative side of it.
+			// Outbound subscriptions, and the delivery history that answers
+			// "we are not receiving anything" without asking the receiver.
+			r.Route("/webhooks", func(r chi.Router) {
+				r.Get("/", h.ListWebhooks)
+				r.Post("/", h.CreateWebhook)
+				r.Get("/events", h.WebhookEvents)
+				r.Get("/{id}/deliveries", h.ListWebhookDeliveries)
+				r.Post("/{id}/enable", h.EnableWebhook)
+				r.Post("/{id}/disable", h.DisableWebhook)
+				r.Delete("/{id}", h.DeleteWebhook)
+			})
+
 			r.Route("/scim-credentials", func(r chi.Router) {
 				r.Get("/", h.ListSCIMCredentials)
 				r.Post("/", h.CreateSCIMCredential)

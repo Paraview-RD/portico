@@ -28,9 +28,21 @@ FROM scratch
 # Run unprivileged. scratch has no user database, so this is a bare uid:gid
 # (nobody); /data below must be writable by it, which the volume mount is.
 USER 65534:65534
-# Certificates are not needed today (no outbound TLS), but time zone data is:
-# without it the container reports UTC only, which is fine, and adding tzdata
-# would mean leaving scratch. Timestamps are stored in UTC for this reason.
+# Root certificates, which this image did not have until webhooks existed.
+#
+# Portico now makes one kind of outbound TLS connection: delivering an event
+# to a subscriber's https endpoint. Without a CA bundle every one of those
+# fails certificate verification inside the container while working perfectly
+# on a developer's machine, which has a system store — the failure would
+# appear only in a deployment, and only for the one feature that is hardest
+# to notice is broken.
+#
+# The bundle is copied rather than the image rebased, so this stays FROM
+# scratch and stays one binary plus one file of certificates.
+COPY --from=build /etc/ssl/certs/ca-certificates.crt /etc/ssl/certs/ca-certificates.crt
+# Time zone data is deliberately absent: without it the container reports UTC
+# only, which is fine, and adding tzdata would mean leaving scratch.
+# Timestamps are stored in UTC for this reason.
 COPY --from=build /portico /portico
 
 # No volume: state lives in PostgreSQL, so the container is disposable.

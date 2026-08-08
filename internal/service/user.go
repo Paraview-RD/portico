@@ -14,6 +14,7 @@ import (
 	"github.com/paraview/portico/internal/model"
 	"github.com/paraview/portico/internal/store"
 	"github.com/paraview/portico/internal/store/sqlcgen"
+	"github.com/paraview/portico/internal/webhook"
 )
 
 // Errors surfaced to the API layer. They are httpx errors so the status and
@@ -72,6 +73,36 @@ type UserService struct {
 	// that only cares about behaviour should not have to build a registry to
 	// get one.
 	metrics *metrics.Registry
+	// events may be nil too, for the same reason. Publishing is best-effort
+	// by design — see WebhookService.Publish — so a nil one is the same as a
+	// tenant with no subscriptions.
+	events EventPublisher
+}
+
+// EventPublisher is the slice of the webhook service the account operations
+// need.
+//
+// An interface so that user.go states its dependency as the one method it
+// calls, and so the two do not form a cycle when the webhook service comes
+// to describe a user.
+type EventPublisher interface {
+	Publish(ctx context.Context, tenantID, eventType string, data any)
+}
+
+// WithEvents attaches a publisher. Separate from the constructor because the
+// webhook service is built after this one and only needs to be known by the
+// operations that emit.
+func (s *UserService) WithEvents(publisher EventPublisher) *UserService {
+	s.events = publisher
+	return s
+}
+
+// publish emits an event if there is anywhere to send it.
+func (s *UserService) publish(ctx context.Context, tenantID, eventType string, user model.User) {
+	if s.events == nil {
+		return
+	}
+	s.events.Publish(ctx, tenantID, eventType, user)
 }
 
 // NewUserService wires a UserService.
@@ -324,7 +355,12 @@ func (s *UserService) Create(ctx context.Context, tenantID string, in CreateUser
 		return model.User{}, fmt.Errorf("create user: %w", err)
 	}
 
-	return s.Get(ctx, tenantID, id)
+	created, err := s.Get(ctx, tenantID, id)
+	if err != nil {
+		return model.User{}, err
+	}
+	s.publish(ctx, tenantID, webhook.EventUserCreated, created)
+	return created, nil
 }
 
 // UpdateUserInput changes an account's profile. Password and status have
@@ -400,6 +436,7 @@ func (s *UserService) Update(ctx context.Context, actor auth.Principal, userID s
 		ActorID: actor.UserID, ActorName: actor.Username,
 		TargetType: "USER", TargetID: userID, TargetName: updated.Username,
 	})
+	s.publish(ctx, actor.TenantID, webhook.EventUserUpdated, updated)
 
 	// An organization change is also an organization-log event, since §3.9
 	// calls for membership moves to be traceable there.
@@ -500,7 +537,21 @@ func (s *UserService) SetStatus(ctx context.Context, actor auth.Principal, userI
 		TargetType: "USER", TargetID: userID, TargetName: target.Username,
 	})
 
-	return s.Get(ctx, actor.TenantID, userID)
+	result, err := s.Get(ctx, actor.TenantID, userID)
+	if err != nil {
+		return model.User{}, err
+	}
+
+	// Emitted after the change is committed and the sessions are revoked, so
+	// a receiver acting on "disabled" the instant it arrives cannot observe
+	// an account that is disabled here but still has a live session.
+	event := webhook.EventUserEnabled
+	if status == model.StatusDisabled {
+		event = webhook.EventUserDisabled
+	}
+	s.publish(ctx, actor.TenantID, event, result)
+
+	return result, nil
 }
 
 // attachOrganizations resolves organization names for a batch of rows in one

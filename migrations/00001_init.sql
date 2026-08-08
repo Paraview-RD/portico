@@ -677,7 +677,102 @@ CREATE UNIQUE INDEX uq_scim_credentials_token ON scim_credentials (token_hash);
 
 CREATE INDEX idx_scim_credentials_tenant ON scim_credentials (tenant_id, status);
 
+
+-- Where a tenant wants to be told about changes here.
+--
+-- The URL is supplied by an administrator and this process usually runs
+-- inside a network, so the destination rules are part of the schema's
+-- meaning rather than a detail of the caller: https only, never an address
+-- that resolves inside. See internal/webhook for the checks and for why one
+-- of them has to happen at connection time rather than at registration.
+CREATE TABLE webhook_subscriptions (
+    id        TEXT PRIMARY KEY,
+    tenant_id TEXT NOT NULL REFERENCES tenants (id),
+
+    -- What an operator recognises it by.
+    name TEXT NOT NULL,
+
+    url TEXT NOT NULL,
+
+    -- The HMAC key, in the clear.
+    --
+    -- Unlike a client secret or a SCIM token, this one is not compared
+    -- against something a caller presents — it is used to *produce* a
+    -- signature, so a digest would be useless and there is nothing to hash.
+    -- It is therefore in the same category as the signing keys two tables
+    -- above: a database dump contains it, and docs/backup-and-restore.md
+    -- says so.
+    secret TEXT NOT NULL,
+
+    -- Which events to send, comma-separated, or '*' for all of them.
+    --
+    -- A list rather than a row per event: a subscription is one endpoint
+    -- with one secret and one delivery history, and splitting it would make
+    -- "this integration has stopped working" a question about several rows.
+    events TEXT NOT NULL DEFAULT '*',
+
+    status TEXT NOT NULL DEFAULT 'ACTIVE' CHECK (status IN ('ACTIVE', 'DISABLED')),
+
+    created_at TIMESTAMPTZ NOT NULL,
+    updated_at TIMESTAMPTZ NOT NULL,
+
+    CONSTRAINT uq_webhook_subscriptions_tenant_name UNIQUE (tenant_id, name),
+
+    -- Redundant given the primary key, and what lets webhook_deliveries
+    -- declare a composite foreign key so a delivery cannot point at another
+    -- tenant's subscription.
+    CONSTRAINT uq_webhook_subscriptions_tenant_id UNIQUE (tenant_id, id)
+);
+
+CREATE INDEX idx_webhook_subscriptions_tenant ON webhook_subscriptions (tenant_id, status);
+
+-- One attempt to tell somebody something, and its history.
+--
+-- Rows are kept after success, not deleted, because "did they receive the
+-- deactivation" is exactly the question asked afterwards — and answering it
+-- from the recipient's logs means asking the recipient. The sweep removes
+-- them on the same schedule as everything else.
+CREATE TABLE webhook_deliveries (
+    id        TEXT PRIMARY KEY,
+    tenant_id TEXT NOT NULL REFERENCES tenants (id),
+
+    subscription_id TEXT NOT NULL,
+    FOREIGN KEY (tenant_id, subscription_id)
+        REFERENCES webhook_subscriptions (tenant_id, id) ON DELETE CASCADE,
+
+    event_type TEXT NOT NULL,
+    -- The rendered body, stored as sent. Re-rendering it at delivery time
+    -- from the current state of the account would send what is true now
+    -- rather than what happened — an event that says "disabled" would
+    -- arrive describing an account somebody has since re-enabled.
+    payload TEXT NOT NULL,
+
+    status TEXT NOT NULL DEFAULT 'PENDING'
+        CHECK (status IN ('PENDING', 'DELIVERED', 'FAILED')),
+
+    attempts     INT NOT NULL DEFAULT 0,
+    last_error   TEXT NOT NULL DEFAULT '',
+    last_status  INT,
+
+    -- When to try next. NULL once the delivery is finished either way.
+    next_attempt_at TIMESTAMPTZ,
+
+    created_at   TIMESTAMPTZ NOT NULL,
+    delivered_at TIMESTAMPTZ
+);
+
+-- The claim query: what is due, oldest first.
+CREATE INDEX idx_webhook_deliveries_due
+    ON webhook_deliveries (next_attempt_at)
+    WHERE status = 'PENDING';
+
+CREATE INDEX idx_webhook_deliveries_subscription
+    ON webhook_deliveries (tenant_id, subscription_id, created_at DESC);
+
+
 -- +goose Down
+DROP TABLE webhook_deliveries;
+DROP TABLE webhook_subscriptions;
 DROP TABLE scim_credentials;
 DROP TABLE cas_tickets;
 DROP TABLE cas_services;

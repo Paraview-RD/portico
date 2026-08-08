@@ -780,6 +780,81 @@ func (s *Scoped) SetUserExternalID(ctx context.Context, arg sqlcgen.SetUserExter
 	return s.q.SetUserExternalID(ctx, arg)
 }
 
+// --- webhooks --------------------------------------------------------
+
+// CreateWebhookSubscription registers an outbound subscription.
+func (s *Scoped) CreateWebhookSubscription(ctx context.Context, arg sqlcgen.CreateWebhookSubscriptionParams) error {
+	arg.TenantID = s.tenantID
+	return s.q.CreateWebhookSubscription(ctx, arg)
+}
+
+// ListWebhookSubscriptions returns all of a tenant's subscriptions.
+func (s *Scoped) ListWebhookSubscriptions(ctx context.Context) ([]sqlcgen.WebhookSubscription, error) {
+	return s.q.ListWebhookSubscriptions(ctx, s.tenantID)
+}
+
+// ListActiveWebhookSubscriptions returns the ones that would receive an event.
+func (s *Scoped) ListActiveWebhookSubscriptions(ctx context.Context) ([]sqlcgen.WebhookSubscription, error) {
+	return s.q.ListActiveWebhookSubscriptions(ctx, s.tenantID)
+}
+
+// GetWebhookSubscription returns one by id.
+func (s *Scoped) GetWebhookSubscription(ctx context.Context, id string) (sqlcgen.WebhookSubscription, error) {
+	return s.q.GetWebhookSubscription(ctx,
+		sqlcgen.GetWebhookSubscriptionParams{TenantID: s.tenantID, ID: id})
+}
+
+// SetWebhookSubscriptionStatus pauses or resumes one.
+func (s *Scoped) SetWebhookSubscriptionStatus(ctx context.Context, arg sqlcgen.SetWebhookSubscriptionStatusParams) error {
+	arg.TenantID = s.tenantID
+	return s.q.SetWebhookSubscriptionStatus(ctx, arg)
+}
+
+// DeleteWebhookSubscription removes one and its deliveries.
+func (s *Scoped) DeleteWebhookSubscription(ctx context.Context, id string) error {
+	return s.q.DeleteWebhookSubscription(ctx,
+		sqlcgen.DeleteWebhookSubscriptionParams{TenantID: s.tenantID, ID: id})
+}
+
+// EnqueueWebhookDelivery queues one event for one subscription.
+func (s *Scoped) EnqueueWebhookDelivery(ctx context.Context, arg sqlcgen.EnqueueWebhookDeliveryParams) error {
+	arg.TenantID = s.tenantID
+	return s.q.EnqueueWebhookDelivery(ctx, arg)
+}
+
+// ClaimDueWebhookDeliveries takes up to limit deliveries that are due.
+// Must run inside a transaction: the claim is the row lock.
+func (s *Scoped) ClaimDueWebhookDeliveries(ctx context.Context, q *sqlcgen.Queries, now time.Time, limit int32) ([]sqlcgen.WebhookDelivery, error) {
+	return q.ClaimDueWebhookDeliveries(ctx, sqlcgen.ClaimDueWebhookDeliveriesParams{
+		TenantID: s.tenantID, NextAttemptAt: &now, Limit: limit,
+	})
+}
+
+// MarkWebhookDelivered records a success.
+func (s *Scoped) MarkWebhookDelivered(ctx context.Context, arg sqlcgen.MarkWebhookDeliveredParams) error {
+	arg.TenantID = s.tenantID
+	return s.q.MarkWebhookDelivered(ctx, arg)
+}
+
+// MarkWebhookAttemptFailed records a failure and when to try again.
+func (s *Scoped) MarkWebhookAttemptFailed(ctx context.Context, arg sqlcgen.MarkWebhookAttemptFailedParams) error {
+	arg.TenantID = s.tenantID
+	return s.q.MarkWebhookAttemptFailed(ctx, arg)
+}
+
+// ListWebhookDeliveries returns a subscription's recent attempts.
+func (s *Scoped) ListWebhookDeliveries(ctx context.Context, subscriptionID string, limit int32) ([]sqlcgen.WebhookDelivery, error) {
+	return s.q.ListWebhookDeliveries(ctx, sqlcgen.ListWebhookDeliveriesParams{
+		TenantID: s.tenantID, SubscriptionID: subscriptionID, Limit: limit,
+	})
+}
+
+// DeleteOldWebhookDeliveries clears finished deliveries past their retention.
+func (s *Scoped) DeleteOldWebhookDeliveries(ctx context.Context, before time.Time) error {
+	return s.q.DeleteOldWebhookDeliveries(ctx,
+		sqlcgen.DeleteOldWebhookDeliveriesParams{TenantID: s.tenantID, CreatedAt: before})
+}
+
 func (s *Scoped) withTx(fn func(*sqlcgen.Queries) error) error {
 	st := &Store{db: s.db, Queries: s.q}
 	return st.WithTx(fn)

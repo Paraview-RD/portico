@@ -14,6 +14,9 @@
 - **[scim.md](scim.md)** — provisioning accounts from a directory: what is
   implemented, why there are no Groups, and why DELETE deactivates rather
   than deletes.
+- **[webhooks.md](webhooks.md)** — being told when something changes here:
+  the signature scheme, which destinations are refused and why, and what
+  "delivered" does and does not mean.
 - **[integrations.md](integrations.md)** — external services Portico depends
   on at runtime (there are none, deliberately) and what that implies.
 
