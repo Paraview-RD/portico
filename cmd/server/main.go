@@ -53,6 +53,14 @@ func main() {
 				os.Exit(1)
 			}
 			return
+		case "ready":
+			// Exit status is the whole answer here: a container runtime
+			// reads it and nothing else.
+			if err := runReady(os.Args[2:]); err != nil {
+				fmt.Fprintln(os.Stderr, "portico:", err)
+				os.Exit(1)
+			}
+			return
 		default:
 			fmt.Fprintf(os.Stderr, "portico: unknown argument %q\n\n", os.Args[1])
 			usage()
@@ -77,6 +85,9 @@ Usage:
   portico client ...   register OAuth/OIDC applications (see: portico client --help)
   portico sp ...       register SAML service providers (see: portico sp --help)
   portico cas ...      register CAS services (see: portico cas --help)
+  portico ready        ask a running instance whether it can serve, and exit
+                       0 or 1. The release image is FROM scratch, so this is
+                       what a container health check has to run.
   portico --version    print the version
   portico --help       print this message
 

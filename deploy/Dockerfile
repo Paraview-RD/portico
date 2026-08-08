@@ -37,4 +37,15 @@ COPY --from=build /portico /portico
 ENV PORTICO_ADDR=:8410
 
 EXPOSE 8410
+
+# The image has no shell, so the check has to be something the image already
+# contains — which is this binary and nothing else. `portico ready` asks the
+# running instance whether it can reach its database and exits 0 or 1.
+#
+# start-period is generous because the first start applies migrations, and a
+# container reported unhealthy while it is legitimately still starting gets
+# killed and restarted into the same delay.
+HEALTHCHECK --interval=15s --timeout=5s --start-period=60s --retries=3 \
+    CMD ["/portico", "ready"]
+
 ENTRYPOINT ["/portico"]

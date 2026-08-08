@@ -82,6 +82,19 @@ func newAPITestWithConfig(t *testing.T, cfg *config.Config) *apiTest {
 	return &apiTest{t: t, srv: srv, dsn: cfg.DatabaseDSN}
 }
 
+// closeDatabase takes the database away from a running server, which is what
+// an outage looks like from inside the process.
+//
+// Closing the pool rather than stopping the container: the effect on every
+// query is the same, and it does not disturb the other tests sharing the
+// instance.
+func (a *apiTest) closeDatabase(t *testing.T) {
+	t.Helper()
+	if err := a.srv.Close(); err != nil {
+		t.Fatalf("close database: %v", err)
+	}
+}
+
 // silenceLogs suppresses the server's structured logging for the duration of
 // a test, so a failure message is not buried in access-log lines.
 func silenceLogs(t *testing.T) {

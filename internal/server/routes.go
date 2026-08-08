@@ -1,8 +1,11 @@
 package server
 
 import (
+	"context"
+	"log/slog"
 	"net/http"
 	"strings"
+	"time"
 
 	"github.com/go-chi/chi/v5"
 
@@ -32,6 +35,8 @@ func (s *Server) routes() http.Handler {
 	r.Route("/api/v1", func(r chi.Router) {
 		// --- Public ---------------------------------------------------
 		r.Get("/health", s.handleHealth)
+		// Liveness and readiness are separate on purpose; see handleReady.
+		r.Get("/ready", s.handleReady)
 		r.Post("/auth/login", h.Login)
 		r.Post("/auth/register", h.Register)
 		// Lets the sign-in screen decide whether to offer registration.
@@ -259,4 +264,53 @@ type healthResponse struct {
 // failing database does not make the process look dead to an orchestrator.
 func (s *Server) handleHealth(w http.ResponseWriter, _ *http.Request) {
 	httpx.OK(w, healthResponse{Status: "ok", Version: Version})
+}
+
+// readinessResponse says whether this instance can actually serve.
+type readinessResponse struct {
+	Status  string `json:"status"`
+	Version string `json:"version"`
+	// Database is "ok" or the reason it is not.
+	Database string `json:"database"`
+}
+
+// readinessProbeTimeout bounds the check. A database that is reachable but
+// wedged should read as not ready rather than hang the probe until the
+// orchestrator's own timeout, which is usually much longer and looks like a
+// stuck process rather than a failing dependency.
+const readinessProbeTimeout = 2 * time.Second
+
+// handleReady reports whether this instance can serve requests, which means
+// whether it can reach its database.
+//
+// Separate from /health rather than folded into it, because the two answer
+// different questions and an orchestrator does different things with them.
+// Liveness asks "is this process broken, should I restart it" — and a
+// database outage is not fixed by restarting every instance; doing so turns
+// one failing dependency into a restart loop across the fleet at the moment
+// it is least able to cope. Readiness asks "should I send traffic here", and
+// there the answer during an outage is no.
+//
+// That is why /health stays dependency-free. This endpoint is the place to
+// add a dependency check, not that one.
+func (s *Server) handleReady(w http.ResponseWriter, r *http.Request) {
+	ctx, cancel := context.WithTimeout(r.Context(), readinessProbeTimeout)
+	defer cancel()
+
+	if err := s.store.DB().PingContext(ctx); err != nil {
+		// The reason is logged with the request, not returned: this endpoint
+		// is reachable without authentication, and a driver error can carry
+		// a host name, a port, and sometimes a user.
+		slog.WarnContext(ctx, "readiness probe failed", "error", err)
+		httpx.Fail(w, r, httpx.NewError(
+			http.StatusServiceUnavailable,
+			"NOT_READY",
+			"This instance cannot reach its database.",
+		))
+		return
+	}
+
+	httpx.OK(w, readinessResponse{
+		Status: "ready", Version: Version, Database: "ok",
+	})
 }
