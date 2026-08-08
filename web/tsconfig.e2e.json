@@ -1,0 +1,41 @@
+{
+  /*
+   * The browser tests and their config.
+   *
+   * They need a project of their own because `tsconfig.app.json` includes
+   * only `src`, and a file in no project is a file `npm run typecheck`
+   * silently does not check — which is the same trap the root tsconfig
+   * already documents for `tsc --noEmit`. Without this, the one part of the
+   * suite that has no test watching it would also have no type checking.
+   *
+   * `strict` is inherited from nothing here, so it is set explicitly rather
+   * than assumed.
+   */
+  "compilerOptions": {
+    "tsBuildInfoFile": "./node_modules/.tmp/tsconfig.e2e.tsbuildinfo",
+    "target": "es2023",
+    "lib": ["ES2023", "DOM"],
+    "types": ["node"],
+    "skipLibCheck": true,
+
+    /*
+     * Bundler resolution, matching how Playwright actually loads these:
+     * it transpiles them itself and does not require file extensions on
+     * relative imports. Under nodenext, every import in this directory is a
+     * type error that the runner does not care about — which is a check
+     * nobody can act on rather than a check.
+     */
+    "module": "esnext",
+    "moduleResolution": "bundler",
+    "verbatimModuleSyntax": true,
+    "moduleDetection": "force",
+    "noEmit": true,
+
+    "strict": true,
+    "noUnusedLocals": true,
+    "noUnusedParameters": true,
+    "erasableSyntaxOnly": true,
+    "noFallthroughCasesInSwitch": true
+  },
+  "include": ["e2e", "playwright.config.ts"]
+}

@@ -144,3 +144,39 @@ jobs:
           curl -sf http://localhost:8410/api/v1/health | grep -q '"status":"ok"'
           # ...and the embedded UI is really in there.
           curl -sf http://localhost:8410/ | grep -qi '<div id="root">'
+
+      # Browser tests, against the binary built above — which is the point.
+      # A Content-Security-Policy is set by Go middleware and enforced only
+      # by a browser: the component tests and eleven Go tests all passed
+      # while a policy blocked every SAML sign-in. Running these against the
+      # dev server would reproduce that blind spot exactly.
+      - name: Install Chromium
+        run: npx playwright install --with-deps chromium
+        working-directory: web
+
+      # Its own database, not the smoke test's. The initial administrator is
+      # created once per database and never has its password changed
+      # afterwards, so a shared one would leave these tests signing in with
+      # the wrong password against an account created by the step above.
+      - name: Create the browser-test database
+        run: psql "$DSN" -c 'CREATE DATABASE portico_e2e'
+        env:
+          DSN: postgres://portico:portico@localhost:5432/portico?sslmode=disable
+
+      - name: Browser tests
+        run: npm run e2e
+        working-directory: web
+        env:
+          PORTICO_E2E_DB_DSN: postgres://portico:portico@localhost:5432/portico_e2e?sslmode=disable
+
+      - uses: actions/upload-artifact@v4
+        # Traces and screenshots are kept only for a failure, and are the
+        # difference between "a browser test failed" and knowing why without
+        # reproducing it locally.
+        if: failure()
+        with:
+          name: playwright-report
+          path: |
+            web/test-results/
+            web/playwright-report/
+          retention-days: 7

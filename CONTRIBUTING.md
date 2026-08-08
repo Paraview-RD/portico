@@ -149,6 +149,36 @@ into a browser and nowhere else. So these tests hold the things nobody
 re-checks by hand after the first look, and they do not stand in for opening
 the page.
 
+### Browser tests
+
+The suite in `web/e2e/` is what does stand in for opening the page. It runs a
+real browser against the real binary, and every test in it fails if the
+browser reported a Content-Security-Policy violation or an uncaught error,
+whether or not that test was looking for one — because a blocked script does
+not fail an assertion, it just quietly does not run.
+
+It needs a built binary and a database of its own:
+
+```bash
+createdb portico_e2e                             # or any empty database
+
+cd web
+npm run build                                    # embeds the frontend
+(cd .. && CGO_ENABLED=0 go build -o portico ./cmd/server)
+npx playwright install chromium                  # first time only
+
+PORTICO_E2E_DB_DSN='postgres://…/portico_e2e?sslmode=disable' npm run e2e
+```
+
+Playwright starts and stops the server itself, on port 8411, with a fixed
+throwaway administrator password. It will not reuse a server already
+listening there — these tests write, and a server you did not start may be
+pointed at a database you care about.
+
+Rebuild the binary after changing frontend code. The tests run against what
+is embedded in it, so a stale binary silently tests the previous version;
+that is the one confusing failure mode of this setup.
+
 ## Pull requests
 
 - Keep PRs scoped to one concern.

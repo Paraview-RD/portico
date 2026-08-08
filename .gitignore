@@ -30,6 +30,13 @@
 # Frontend
 web/node_modules/
 
+# Browser test output: traces, screenshots, and the HTML report. Kept as a
+# CI artifact on failure, never committed.
+web/test-results/
+web/playwright-report/
+web/blob-report/
+web/.playwright/
+
 # Built frontend: the directory must exist for go:embed, but its contents
 # are build output. See internal/web/embed.go.
 internal/web/dist/*

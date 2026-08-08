@@ -18,11 +18,18 @@
 import type {
   ButtonHTMLAttributes,
   InputHTMLAttributes,
+  ReactElement,
   ReactNode,
   SelectHTMLAttributes,
   TextareaHTMLAttributes,
 } from "react";
-import { useEffect, useState } from "react";
+import {
+  cloneElement,
+  isValidElement,
+  useEffect,
+  useId,
+  useState,
+} from "react";
 
 import { useT } from "../i18n";
 
@@ -88,26 +95,79 @@ interface FieldProps {
   children: ReactNode;
 }
 
-/** Wraps a control with its label, hint, and error text. */
+/**
+ * Wraps a control with its label, hint, and error text.
+ *
+ * Two things here exist for assistive technology, both found by the browser
+ * suite, which addresses fields the way a screen reader does rather than the
+ * way a developer remembers writing them.
+ *
+ * The required marker is hidden from it: the asterisk restates the control's
+ * own `required` attribute, which is already announced, and while it was
+ * exposed the field's accessible name was "Password *".
+ *
+ * The hint and the error sit outside the label and are attached with
+ * aria-describedby. A wrapping label contributes everything inside it to the
+ * accessible name, so the sign-in field was named "Username, email, or phone
+ * Any of the three reaches the same account." — the entire hint, read out as
+ * though it were the field's name, every time focus arrived. As a
+ * description it is announced after the name and can be skipped, which is
+ * what a hint is for.
+ */
 export function Field({ label, hint, error, required, children }: FieldProps) {
+  const id = useId();
+  const hintId = `${id}-hint`;
+  const errorId = `${id}-error`;
+
+  // The error replaces the hint rather than joining it, matching what is
+  // rendered: pointing at a description that is not on the page would leave
+  // the control describedby nothing.
+  const describedBy = error ? errorId : hint ? hintId : undefined;
+
+  // Every control this is used with spreads its props onto a real element,
+  // so the attribute lands where it has to. Anything else is passed through
+  // untouched rather than silently dropped.
+  const control =
+    describedBy && isValidElement(children)
+      ? cloneElement(
+          children as ReactElement<{ "aria-describedby"?: string }>,
+          {
+            "aria-describedby": describedBy,
+          },
+        )
+      : children;
+
   return (
-    <label className="flex flex-col gap-1.5">
-      <span className="text-[length:var(--font-size-sm)] font-[weight:var(--font-weight-medium)] text-[var(--color-fg)]">
-        {label}
-        {required && <span className="text-[var(--color-danger)]"> *</span>}
-      </span>
-      {children}
+    <div className="flex flex-col gap-1.5">
+      <label className="flex flex-col gap-1.5">
+        <span className="text-[length:var(--font-size-sm)] font-[weight:var(--font-weight-medium)] text-[var(--color-fg)]">
+          {label}
+          {required && (
+            <span className="text-[var(--color-danger)]" aria-hidden="true">
+              {" "}
+              *
+            </span>
+          )}
+        </span>
+        {control}
+      </label>
       {hint && !error && (
-        <span className="text-[length:var(--font-size-sm)] text-[var(--color-fg-muted)]">
+        <span
+          id={hintId}
+          className="text-[length:var(--font-size-sm)] text-[var(--color-fg-muted)]"
+        >
           {hint}
         </span>
       )}
       {error && (
-        <span className="text-[length:var(--font-size-sm)] text-[var(--color-danger)]">
+        <span
+          id={errorId}
+          className="text-[length:var(--font-size-sm)] text-[var(--color-danger)]"
+        >
           {error}
         </span>
       )}
-    </label>
+    </div>
   );
 }
 
