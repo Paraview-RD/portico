@@ -14,7 +14,7 @@ what each role can actually do.
 | OpenID discovery | `http://<host>:8410/.well-known/openid-configuration` | The default tenant. Others at `/t/<code>/…` |
 | SAML metadata | `http://<host>:8410/saml/metadata` | Hand this to a service provider. Others at `/t/<code>/saml/metadata` |
 | CAS | `http://<host>:8410/cas` | The client's "CAS server URL". Others at `/t/<code>/cas` |
-| SCIM 2.0 | `http://<host>:8410/scim/v2` | The "base URL" a directory asks for. Authenticated by a bearer token issued in **Settings → Provisioning**, not by an administrator session — see [scim.md](scim.md) |
+| SCIM 2.0 | `http://<host>:8410/scim/v2` | The "base URL" a directory asks for. Authenticated by a bearer token issued under **Integration → Provisioning**, not by an administrator session — see [scim.md](scim.md) |
 | Metrics | `http://<host>:9410/metrics` | **A separate port, off by default, and not authenticated.** See below |
 
 The port is `PORTICO_ADDR` (default `:8410`). In development the frontend
@@ -185,10 +185,9 @@ audit trail keeps pointing at something that still exists.
 
 Typical journey — let a directory keep the accounts up to date:
 
-1. **Settings** → **Directory provisioning (SCIM)** → issue a credential.
-   Like a client secret it is shown once, and it is a tenant-wide token that
-   can create, update, and disable every account — treat issuing one as the
-   privileged act it is.
+1. **Provisioning** → issue a credential. Like a client secret it is shown
+   once, and it is a tenant-wide token that can create, update, and disable
+   every account — treat issuing one as the privileged act it is.
 2. In the directory, set the base URL to `/scim/v2` from the entry table
    above and the token as the bearer credential.
 3. Push a small test group first. Failures come back in SCIM's own error

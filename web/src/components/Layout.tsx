@@ -10,9 +10,11 @@ import {
   GroupsIcon,
   OrganizationsIcon,
   ProfileIcon,
+  ProvisioningIcon,
   SettingsIcon,
   SignOutIcon,
   UsersIcon,
+  WebhooksIcon,
 } from "./icons";
 import { request } from "../api/client";
 import { useLanguage, useT, languageNames } from "../i18n";
@@ -37,9 +39,17 @@ interface NavGroup {
   items: NavItem[];
 }
 
-// Grouping is what keeps a menu legible as it grows: "who is in the system"
-// is a different question from "how does the system behave", and the two
-// stop competing for attention once they are visually separated.
+// Each group answers one question, and that is what decides what goes in it:
+// who is in the system, who connects to it, what has happened, and how it is
+// configured. A group defined that way stays right as the menu grows,
+// because a new screen answers one of those questions or reveals a fifth.
+//
+// The earlier arrangement had two groups, and the second was "operations" —
+// which is not a question, it is where things go when the first group will
+// not have them. Application registration ended up there beside the audit
+// log and the password rules, though it is neither a record of the past nor
+// a preference: it is the list of systems that trust this one to say who
+// somebody is, which is close to the point of the product.
 const navGroups: NavGroup[] = [
   {
     labelKey: "nav.group.directory",
@@ -68,7 +78,12 @@ const navGroups: NavGroup[] = [
     ],
   },
   {
-    labelKey: "nav.group.operations",
+    // Everything that connects another system to this one, in the three
+    // directions it can happen: applications ask Portico who somebody is, a
+    // directory pushes accounts in, and webhooks push events out. All three
+    // were reachable before — two of them buried as sections of the settings
+    // page, which is where a capability goes to be undiscovered.
+    labelKey: "nav.group.integration",
     items: [
       {
         route: "/applications",
@@ -77,11 +92,37 @@ const navGroups: NavGroup[] = [
         adminOnly: true,
       },
       {
+        route: "/provisioning",
+        labelKey: "nav.provisioning",
+        icon: ProvisioningIcon,
+        adminOnly: true,
+      },
+      {
+        route: "/webhooks",
+        labelKey: "nav.webhooks",
+        icon: WebhooksIcon,
+        adminOnly: true,
+      },
+    ],
+  },
+  {
+    // On its own rather than beside settings. Reading the audit log is a job
+    // somebody comes here to do, and often the only one they came for;
+    // filing it under configuration would make the record of what happened
+    // look like a knob.
+    labelKey: "nav.group.audit",
+    items: [
+      {
         route: "/audit-logs",
         labelKey: "nav.auditLogs",
         icon: AuditIcon,
         adminOnly: true,
       },
+    ],
+  },
+  {
+    labelKey: "nav.group.system",
+    items: [
       {
         route: "/settings",
         labelKey: "nav.settings",
@@ -91,6 +132,9 @@ const navGroups: NavGroup[] = [
     ],
   },
   {
+    // The only group an ordinary user sees, which is why it survives as its
+    // own rather than being folded into the account menu in the top bar:
+    // doing that would leave them looking at an empty sidebar.
     labelKey: "nav.group.account",
     items: [
       {

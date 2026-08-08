@@ -47,6 +47,8 @@ export const zhCN: Record<keyof typeof enUS, string> = {
   "nav.organizations": "机构管理",
   "nav.auditLogs": "日志审计",
   "nav.applications": "应用管理",
+  "nav.provisioning": "目录供给",
+  "nav.webhooks": "事件订阅",
   "nav.settings": "系统设置",
   "nav.profile": "个人中心",
   "nav.signOut": "退出登录",
@@ -432,6 +434,8 @@ export const zhCN: Record<keyof typeof enUS, string> = {
   "brand.descriptor": "身份平台",
   "nav.language": "语言",
   "nav.group.directory": "目录",
-  "nav.group.operations": "运维",
+  "nav.group.integration": "接入",
+  "nav.group.audit": "审计",
+  "nav.group.system": "系统",
   "nav.group.account": "账户",
 };

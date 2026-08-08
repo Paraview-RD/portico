@@ -10,10 +10,12 @@ import { LoginPage } from "./pages/LoginPage";
 import { GroupsPage } from "./pages/GroupsPage";
 import { OrganizationsPage } from "./pages/OrganizationsPage";
 import { ProfilePage } from "./pages/ProfilePage";
+import { ProvisioningPage } from "./pages/ProvisioningPage";
 import { RegisterPage } from "./pages/RegisterPage";
 import { ResetPasswordPage } from "./pages/ResetPasswordPage";
 import { SettingsPage } from "./pages/SettingsPage";
 import { UsersPage } from "./pages/UsersPage";
+import { WebhooksPage } from "./pages/WebhooksPage";
 import { useRouter } from "./router";
 import { useSession } from "./session";
 
@@ -124,6 +126,10 @@ function AuthenticatedRoute({
       return <GroupsPage />;
     case "/applications":
       return <ApplicationsPage />;
+    case "/provisioning":
+      return <ProvisioningPage />;
+    case "/webhooks":
+      return <WebhooksPage />;
     case "/audit-logs":
       return <AuditLogsPage />;
     case "/settings":

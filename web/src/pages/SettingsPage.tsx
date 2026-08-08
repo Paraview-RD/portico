@@ -1,8 +1,6 @@
 import { useEffect, useState } from "react";
 
 import { settingsApi } from "../api/endpoints";
-import { SCIMCredentials } from "../components/SCIMCredentials";
-import { Webhooks } from "../components/Webhooks";
 import type { Settings } from "../api/types";
 import { Alert, Button, Field, Input, PageHeader } from "../components/ui";
 import { useErrorMessage, useT } from "../i18n";
@@ -282,18 +280,6 @@ export function SettingsPage() {
           </Button>
         </div>
       </form>
-
-      {/* Outside the settings form on purpose: these are not settings that
-          are saved together with the rest, they are credentials that take
-          effect the moment they are issued. Putting them inside the form
-          would put a "Save" button under something already saved. */}
-      <div className="mt-10 border-t border-[var(--color-border)] pt-8">
-        <SCIMCredentials />
-      </div>
-
-      <div className="mt-10 border-t border-[var(--color-border)] pt-8">
-        <Webhooks />
-      </div>
     </>
   );
 }

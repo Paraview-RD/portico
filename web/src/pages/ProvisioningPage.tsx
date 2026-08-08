@@ -12,10 +12,11 @@ import {
   Field,
   Input,
   Modal,
+  PageHeader,
   Table,
   Td,
   Th,
-} from "./ui";
+} from "../components/ui";
 import { useErrorMessage, useT } from "../i18n";
 
 /**
@@ -25,8 +26,14 @@ import { useErrorMessage, useT } from "../i18n";
  * the response to creating it. There is no "reveal" and no "copy again",
  * because the server keeps a digest and has nothing to give back — so the
  * dialog that shows it says so, and does not close on a stray click.
+ *
+ * Its own screen rather than a section of the settings page. Issuing one of
+ * these is not configuration — it is handing a directory the ability to
+ * create, update, and disable every account in the tenant — and it belongs
+ * beside the other things that connect to Portico rather than below the
+ * password rules.
  */
-export function SCIMCredentials() {
+export function ProvisioningPage() {
   const t = useT();
   const describeError = useErrorMessage();
 
@@ -96,20 +103,20 @@ export function SCIMCredentials() {
   }
 
   return (
-    <section className="flex flex-col gap-4">
-      <div className="flex items-start justify-between gap-4">
-        <div>
-          <h2 className="text-[length:var(--font-size-lg)] font-[weight:var(--font-weight-medium)]">
-            {t("scim.title")}
-          </h2>
-          <p className="text-[length:var(--font-size-sm)] text-[var(--color-fg-muted)]">
-            {t("scim.subtitle")}
-          </p>
-        </div>
-        <Button onClick={() => setCreating(true)}>{t("scim.new")}</Button>
-      </div>
+    <>
+      <PageHeader
+        title={t("scim.title")}
+        subtitle={t("scim.subtitle")}
+        actions={
+          <Button onClick={() => setCreating(true)}>{t("scim.new")}</Button>
+        }
+      />
 
-      {error && <Alert tone="danger">{error}</Alert>}
+      {error && (
+        <div className="mb-4">
+          <Alert tone="danger">{error}</Alert>
+        </div>
+      )}
 
       <Table>
         <thead>
@@ -223,6 +230,6 @@ export function SCIMCredentials() {
         onConfirm={() => void remove()}
         onCancel={() => setDeleting(null)}
       />
-    </section>
+    </>
   );
 }

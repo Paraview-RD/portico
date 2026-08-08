@@ -71,7 +71,7 @@ deprovisioning cannot work one way and not the other.
 
 ### 1. Issue a credential
 
-**Settings → SCIM credentials → New credential** in the console, or:
+**Provisioning → New credential** in the console, or:
 
 ```bash
 curl -X POST https://<host>/api/v1/scim-credentials \

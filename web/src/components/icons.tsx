@@ -2,7 +2,7 @@
  * The icon set, hand-drawn as inline SVG.
  *
  * An icon library would be a dependency measured in hundreds of kilobytes
- * and thousands of glyphs for the eleven this app uses, plus one more thing
+ * and thousands of glyphs for the handful this app uses, plus one more thing
  * with a supply chain. These are 24×24 on a 2px stroke grid, inherit
  * `currentColor`, and are sized by the caller.
  */
@@ -77,6 +77,32 @@ export function ApplicationsIcon(props: IconProps) {
       <path d="M3 9h18" />
       <path d="M8 22h8" />
       <path d="M12 18v4" />
+    </Svg>
+  );
+}
+
+/** Provisioning: a directory pushing accounts in. */
+export function ProvisioningIcon(props: IconProps) {
+  return (
+    <Svg {...props}>
+      <ellipse cx="7" cy="5" rx="4" ry="2" />
+      <path d="M3 5v6c0 1.1 1.8 2 4 2s4-.9 4-2V5" />
+      <path d="M3 11v6c0 1.1 1.8 2 4 2" />
+      <path d="M14 12h7" />
+      <path d="m18 9 3 3-3 3" />
+    </Svg>
+  );
+}
+
+/** Webhooks: an event leaving for somewhere else. */
+export function WebhooksIcon(props: IconProps) {
+  return (
+    <Svg {...props}>
+      <circle cx="6" cy="18" r="3" />
+      <circle cx="18" cy="6" r="3" />
+      <circle cx="18" cy="18" r="3" />
+      <path d="M8.5 16 15.5 8" />
+      <path d="M9 18h6" />
     </Svg>
   );
 }

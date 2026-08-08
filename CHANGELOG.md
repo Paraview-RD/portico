@@ -356,6 +356,17 @@ Working toward 0.1.0 — the first release. Nothing has been published yet.
   and a path described without existing; the second catches the document
   being invalid, which the first cannot see. It found a dangling `$ref` on
   its first run.
+- **Provisioning and webhooks are screens of their own**, at `/provisioning`
+  and `/webhooks`, instead of sections near the bottom of the settings page.
+  Issuing a credential that lets a directory create and disable every
+  account in a tenant is not a preference, and a delivery history is
+  something an operator comes to read rather than something they set once.
+- **The navigation is grouped by the question each group answers** —
+  directory, integration, audit, system — rather than by "people" and "the
+  rest". Application registration used to sit under Operations beside the
+  password rules, though it is the list of systems that trust this one to
+  say who somebody is. A label meaning "everything else" collects whatever
+  the other label will not take, and that is what it had collected.
 - **Accounts a directory provisions are marked as such in the console**, and
   editing one warns that the next synchronization may overwrite the change.
   Groups have carried this since they landed; accounts knew where they came

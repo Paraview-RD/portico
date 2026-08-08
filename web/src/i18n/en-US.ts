@@ -50,6 +50,11 @@ export const enUS = {
   "nav.organizations": "Organizations",
   "nav.auditLogs": "Audit logs",
   "nav.applications": "Applications",
+  // Shorter than the page's own heading, which says "Directory provisioning
+  // (SCIM)". A menu entry has to fit beside an icon; the heading has room to
+  // name the protocol, and the person looking for it knows one of the two.
+  "nav.provisioning": "Provisioning",
+  "nav.webhooks": "Webhooks",
   "nav.settings": "Settings",
   "nav.profile": "My profile",
   "nav.signOut": "Sign out",
@@ -453,8 +458,14 @@ export const enUS = {
   "reset.requestAnother": "Request a new link",
   "brand.descriptor": "Identity Platform",
   "nav.language": "Language",
+  // Each names the question its group answers. "Operations" used to be the
+  // second of two, which is how application registration ended up beside
+  // the password rules — a label that means "the rest" collects whatever
+  // the first label will not take.
   "nav.group.directory": "Directory",
-  "nav.group.operations": "Operations",
+  "nav.group.integration": "Integration",
+  "nav.group.audit": "Audit",
+  "nav.group.system": "System",
   "nav.group.account": "Account",
 } as const;
 

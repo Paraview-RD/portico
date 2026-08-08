@@ -5,7 +5,7 @@ changes: an account is created, updated, enabled, or disabled.
 
 ## Registering one
 
-**Settings → Event subscriptions → New subscription**, or:
+**Webhooks → New subscription** in the console, or:
 
 ```bash
 curl -X POST https://<host>/api/v1/webhooks \
@@ -144,7 +144,7 @@ deliver what happened while it was paused — that is what pausing means.
 
 ## When a subscriber says they are receiving nothing
 
-**Settings → Event subscriptions → Deliveries** shows what was attempted,
+**Webhooks → Deliveries** shows what was attempted,
 what came back, and how many times. That is the difference between "we never
 sent it" and "your endpoint answered 500 five times", and it does not require
 asking the receiver to check their own logs.

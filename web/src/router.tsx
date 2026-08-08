@@ -1,7 +1,7 @@
 /**
  * A minimal hash-free router over the History API.
  *
- * The app has eight screens and no nested or parameterized routes, so a
+ * The app has a dozen screens and no nested or parameterized routes, so a
  * routing library would be more code than it saves — and the current
  * react-router releases carry an open advisory. This is the whole router.
  */
@@ -25,6 +25,8 @@ export type Route =
   | "/organizations"
   | "/groups"
   | "/applications"
+  | "/provisioning"
+  | "/webhooks"
   | "/audit-logs"
   | "/settings"
   | "/profile";
@@ -38,6 +40,8 @@ const routes: Route[] = [
   "/organizations",
   "/groups",
   "/applications",
+  "/provisioning",
+  "/webhooks",
   "/audit-logs",
   "/settings",
   "/profile",

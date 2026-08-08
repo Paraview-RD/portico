@@ -17,10 +17,11 @@ import {
   Field,
   Input,
   Modal,
+  PageHeader,
   Table,
   Td,
   Th,
-} from "./ui";
+} from "../components/ui";
 
 /**
  * Outbound event subscriptions.
@@ -29,8 +30,13 @@ import {
  * appears once at creation and is never served again. And the delivery
  * history — the answer to "we are not receiving your events", which is
  * otherwise a question only the receiver's logs can settle.
+ *
+ * Its own screen rather than a section of the settings page, for the same
+ * reason as provisioning: this is a connection to another system, not a
+ * preference, and the delivery history is something an operator comes here
+ * to read rather than something they set once.
  */
-export function Webhooks() {
+export function WebhooksPage() {
   const t = useT();
   const describeError = useErrorMessage();
 
@@ -131,20 +137,20 @@ export function Webhooks() {
   }
 
   return (
-    <section className="flex flex-col gap-4">
-      <div className="flex items-start justify-between gap-4">
-        <div>
-          <h2 className="text-[length:var(--font-size-lg)] font-[weight:var(--font-weight-medium)]">
-            {t("webhooks.title")}
-          </h2>
-          <p className="text-[length:var(--font-size-sm)] text-[var(--color-fg-muted)]">
-            {t("webhooks.subtitle")}
-          </p>
-        </div>
-        <Button onClick={() => setCreating(true)}>{t("webhooks.new")}</Button>
-      </div>
+    <>
+      <PageHeader
+        title={t("webhooks.title")}
+        subtitle={t("webhooks.subtitle")}
+        actions={
+          <Button onClick={() => setCreating(true)}>{t("webhooks.new")}</Button>
+        }
+      />
 
-      {error && <Alert tone="danger">{error}</Alert>}
+      {error && (
+        <div className="mb-4">
+          <Alert tone="danger">{error}</Alert>
+        </div>
+      )}
 
       <Table>
         <thead>
@@ -359,7 +365,7 @@ export function Webhooks() {
         onConfirm={() => void remove()}
         onCancel={() => setDeleting(null)}
       />
-    </section>
+    </>
   );
 }
 
