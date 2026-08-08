@@ -47,7 +47,9 @@ export const zhCN: Record<keyof typeof enUS, string> = {
   "nav.organizations": "机构管理",
   "nav.auditLogs": "日志审计",
   "nav.applications": "应用管理",
-  "nav.provisioning": "目录供给",
+  // 与页面标题「目录同步（SCIM）」用同一个词。菜单项和它打开的页面各叫一个
+  // 名字，读者要多想一步才能确认是同一件事。
+  "nav.provisioning": "目录同步",
   "nav.webhooks": "事件订阅",
   "nav.settings": "系统设置",
   "nav.profile": "个人中心",
