@@ -147,6 +147,11 @@ export const enUS = {
   "organizations.codeHelp":
     "Used by imports and downstream systems. Cannot be changed later.",
   "organizations.remark": "Note",
+  "organizations.searchPlaceholder": "Search name or code",
+  "organizations.parent": "Parent organization",
+  "organizations.parentHelp":
+    "Leave as none for a top-level organization. An organization cannot be moved inside its own branch.",
+  "organizations.noParent": "None (top level)",
   "organizations.sortOrder": "Sort order",
   "organizations.confirmDisable":
     "Disable {0}? Existing members stay, but no new members can be assigned.",

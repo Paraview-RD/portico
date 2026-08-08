@@ -6,16 +6,18 @@ SELECT * FROM organizations WHERE tenant_id = $1 AND code = $2 LIMIT 1;
 
 -- name: CreateOrganization :exec
 INSERT INTO organizations (
-    id, tenant_id, name, code, remark, status, sort_order, created_at, updated_at
-) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9);
+    id, tenant_id, name, code, remark, parent_id, status, sort_order,
+    created_at, updated_at
+) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10);
 
 -- name: UpdateOrganization :exec
 UPDATE organizations
 SET name = $1,
     remark = $2,
-    sort_order = $3,
-    updated_at = $4
-WHERE tenant_id = $5 AND id = $6;
+    parent_id = $3,
+    sort_order = $4,
+    updated_at = $5
+WHERE tenant_id = $6 AND id = $7;
 
 -- name: UpdateOrganizationStatus :exec
 UPDATE organizations
@@ -32,3 +34,4 @@ ORDER BY sort_order, created_at;
 
 -- name: ListOrganizationsByIDs :many
 SELECT * FROM organizations WHERE tenant_id = $1 AND id = ANY($2::text[]);
+

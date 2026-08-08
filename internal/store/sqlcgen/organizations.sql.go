@@ -14,8 +14,9 @@ import (
 
 const createOrganization = `-- name: CreateOrganization :exec
 INSERT INTO organizations (
-    id, tenant_id, name, code, remark, status, sort_order, created_at, updated_at
-) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)
+    id, tenant_id, name, code, remark, parent_id, status, sort_order,
+    created_at, updated_at
+) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)
 `
 
 type CreateOrganizationParams struct {
@@ -24,6 +25,7 @@ type CreateOrganizationParams struct {
 	Name      string
 	Code      string
 	Remark    string
+	ParentID  *string
 	Status    string
 	SortOrder int64
 	CreatedAt time.Time
@@ -37,6 +39,7 @@ func (q *Queries) CreateOrganization(ctx context.Context, arg CreateOrganization
 		arg.Name,
 		arg.Code,
 		arg.Remark,
+		arg.ParentID,
 		arg.Status,
 		arg.SortOrder,
 		arg.CreatedAt,
@@ -46,7 +49,7 @@ func (q *Queries) CreateOrganization(ctx context.Context, arg CreateOrganization
 }
 
 const getOrganizationByCode = `-- name: GetOrganizationByCode :one
-SELECT id, tenant_id, name, code, remark, status, sort_order, created_at, updated_at FROM organizations WHERE tenant_id = $1 AND code = $2 LIMIT 1
+SELECT id, tenant_id, name, code, remark, parent_id, status, sort_order, created_at, updated_at FROM organizations WHERE tenant_id = $1 AND code = $2 LIMIT 1
 `
 
 type GetOrganizationByCodeParams struct {
@@ -63,6 +66,7 @@ func (q *Queries) GetOrganizationByCode(ctx context.Context, arg GetOrganization
 		&i.Name,
 		&i.Code,
 		&i.Remark,
+		&i.ParentID,
 		&i.Status,
 		&i.SortOrder,
 		&i.CreatedAt,
@@ -72,7 +76,7 @@ func (q *Queries) GetOrganizationByCode(ctx context.Context, arg GetOrganization
 }
 
 const getOrganizationByID = `-- name: GetOrganizationByID :one
-SELECT id, tenant_id, name, code, remark, status, sort_order, created_at, updated_at FROM organizations WHERE tenant_id = $1 AND id = $2 LIMIT 1
+SELECT id, tenant_id, name, code, remark, parent_id, status, sort_order, created_at, updated_at FROM organizations WHERE tenant_id = $1 AND id = $2 LIMIT 1
 `
 
 type GetOrganizationByIDParams struct {
@@ -89,6 +93,7 @@ func (q *Queries) GetOrganizationByID(ctx context.Context, arg GetOrganizationBy
 		&i.Name,
 		&i.Code,
 		&i.Remark,
+		&i.ParentID,
 		&i.Status,
 		&i.SortOrder,
 		&i.CreatedAt,
@@ -98,7 +103,7 @@ func (q *Queries) GetOrganizationByID(ctx context.Context, arg GetOrganizationBy
 }
 
 const listActiveOrganizations = `-- name: ListActiveOrganizations :many
-SELECT id, tenant_id, name, code, remark, status, sort_order, created_at, updated_at FROM organizations
+SELECT id, tenant_id, name, code, remark, parent_id, status, sort_order, created_at, updated_at FROM organizations
 WHERE tenant_id = $1 AND status = 'ACTIVE'
 ORDER BY sort_order, created_at
 `
@@ -118,6 +123,7 @@ func (q *Queries) ListActiveOrganizations(ctx context.Context, tenantID string) 
 			&i.Name,
 			&i.Code,
 			&i.Remark,
+			&i.ParentID,
 			&i.Status,
 			&i.SortOrder,
 			&i.CreatedAt,
@@ -137,7 +143,7 @@ func (q *Queries) ListActiveOrganizations(ctx context.Context, tenantID string) 
 }
 
 const listOrganizations = `-- name: ListOrganizations :many
-SELECT id, tenant_id, name, code, remark, status, sort_order, created_at, updated_at FROM organizations WHERE tenant_id = $1 ORDER BY sort_order, created_at
+SELECT id, tenant_id, name, code, remark, parent_id, status, sort_order, created_at, updated_at FROM organizations WHERE tenant_id = $1 ORDER BY sort_order, created_at
 `
 
 func (q *Queries) ListOrganizations(ctx context.Context, tenantID string) ([]Organization, error) {
@@ -155,6 +161,7 @@ func (q *Queries) ListOrganizations(ctx context.Context, tenantID string) ([]Org
 			&i.Name,
 			&i.Code,
 			&i.Remark,
+			&i.ParentID,
 			&i.Status,
 			&i.SortOrder,
 			&i.CreatedAt,
@@ -174,7 +181,7 @@ func (q *Queries) ListOrganizations(ctx context.Context, tenantID string) ([]Org
 }
 
 const listOrganizationsByIDs = `-- name: ListOrganizationsByIDs :many
-SELECT id, tenant_id, name, code, remark, status, sort_order, created_at, updated_at FROM organizations WHERE tenant_id = $1 AND id = ANY($2::text[])
+SELECT id, tenant_id, name, code, remark, parent_id, status, sort_order, created_at, updated_at FROM organizations WHERE tenant_id = $1 AND id = ANY($2::text[])
 `
 
 type ListOrganizationsByIDsParams struct {
@@ -197,6 +204,7 @@ func (q *Queries) ListOrganizationsByIDs(ctx context.Context, arg ListOrganizati
 			&i.Name,
 			&i.Code,
 			&i.Remark,
+			&i.ParentID,
 			&i.Status,
 			&i.SortOrder,
 			&i.CreatedAt,
@@ -219,14 +227,16 @@ const updateOrganization = `-- name: UpdateOrganization :exec
 UPDATE organizations
 SET name = $1,
     remark = $2,
-    sort_order = $3,
-    updated_at = $4
-WHERE tenant_id = $5 AND id = $6
+    parent_id = $3,
+    sort_order = $4,
+    updated_at = $5
+WHERE tenant_id = $6 AND id = $7
 `
 
 type UpdateOrganizationParams struct {
 	Name      string
 	Remark    string
+	ParentID  *string
 	SortOrder int64
 	UpdatedAt time.Time
 	TenantID  string
@@ -237,6 +247,7 @@ func (q *Queries) UpdateOrganization(ctx context.Context, arg UpdateOrganization
 	_, err := q.db.ExecContext(ctx, updateOrganization,
 		arg.Name,
 		arg.Remark,
+		arg.ParentID,
 		arg.SortOrder,
 		arg.UpdatedAt,
 		arg.TenantID,

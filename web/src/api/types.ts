@@ -34,6 +34,13 @@ export interface Organization {
   userCount: number;
   createdAt: string;
   updatedAt: string;
+
+  /**
+   * Empty for a root. The list arrives flat with each row naming its
+   * parent; the screen assembles the tree, because a nested payload cannot
+   * be sorted or filtered without being taken apart again.
+   */
+  parentId: string;
 }
 
 export type LogKind =

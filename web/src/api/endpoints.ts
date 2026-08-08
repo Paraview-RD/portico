@@ -222,13 +222,19 @@ export const organizationApi = {
     name: string;
     code: string;
     remark?: string;
+    parentId?: string;
     sortOrder?: number;
   }) =>
     request<Organization>("/organizations", { method: "POST", body: input }),
 
   update: (
     id: string,
-    input: { name: string; remark?: string; sortOrder?: number },
+    input: {
+      name: string;
+      remark?: string;
+      parentId?: string;
+      sortOrder?: number;
+    },
   ) =>
     request<Organization>(`/organizations/${id}`, {
       method: "PUT",

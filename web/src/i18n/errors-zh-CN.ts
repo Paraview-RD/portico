@@ -57,6 +57,8 @@ export const errorsZhCN: Record<keyof typeof errorsEnUS, string> = {
   ORGANIZATION_NOT_FOUND: "机构不存在。",
   ORGANIZATION_DISABLED: "该机构已被停用。",
   ORGANIZATION_CODE_TAKEN: "该机构编码已被占用。",
+  ORGANIZATION_CYCLE: "这会把机构移动到它自己或其下级之内。",
+  ORGANIZATION_TOO_DEEP: "机构层级嵌套过深。",
   NAME_REQUIRED: "请填写名称。",
   CODE_REQUIRED: "请填写编码。",
 

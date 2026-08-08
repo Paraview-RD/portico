@@ -116,7 +116,7 @@ type OauthSigningKey struct {
 	RetiredAt  *time.Time
 }
 
-// Flat groupings of users. No hierarchy in this version.
+// Groupings of users, arranged as a tree.
 type Organization struct {
 	ID       string
 	TenantID string
@@ -124,6 +124,8 @@ type Organization struct {
 	// Stable identifier used by bulk import and downstream systems. Immutable once created.
 	Code   string
 	Remark string
+	// NULL for a root. Cycles and depth are enforced in the service layer: the foreign key alone cannot see a cycle, because every row in one is individually valid.
+	ParentID *string
 	// DISABLED blocks new members but keeps existing ones.
 	Status    string
 	SortOrder int64

@@ -40,9 +40,11 @@ func (h *Handler) GetOrganization(w http.ResponseWriter, r *http.Request) {
 }
 
 type createOrganizationRequest struct {
-	Name      string `json:"name"`
-	Code      string `json:"code"`
-	Remark    string `json:"remark"`
+	Name   string `json:"name"`
+	Code   string `json:"code"`
+	Remark string `json:"remark"`
+	// Empty for a root.
+	ParentID  string `json:"parentId"`
 	SortOrder int    `json:"sortOrder"`
 }
 
@@ -60,6 +62,7 @@ func (h *Handler) CreateOrganization(w http.ResponseWriter, r *http.Request) {
 		Name:      req.Name,
 		Code:      req.Code,
 		Remark:    req.Remark,
+		ParentID:  req.ParentID,
 		SortOrder: req.SortOrder,
 	})
 	if err != nil {
@@ -70,8 +73,10 @@ func (h *Handler) CreateOrganization(w http.ResponseWriter, r *http.Request) {
 }
 
 type updateOrganizationRequest struct {
-	Name      string `json:"name"`
-	Remark    string `json:"remark"`
+	Name   string `json:"name"`
+	Remark string `json:"remark"`
+	// The move. Empty promotes to a root.
+	ParentID  string `json:"parentId"`
 	SortOrder int    `json:"sortOrder"`
 }
 
@@ -89,6 +94,7 @@ func (h *Handler) UpdateOrganization(w http.ResponseWriter, r *http.Request) {
 	org, err := h.orgs.Update(r.Context(), principal, chi.URLParam(r, "id"), service.OrganizationInput{
 		Name:      req.Name,
 		Remark:    req.Remark,
+		ParentID:  req.ParentID,
 		SortOrder: req.SortOrder,
 	})
 	if err != nil {

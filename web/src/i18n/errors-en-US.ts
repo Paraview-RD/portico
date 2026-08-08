@@ -75,6 +75,9 @@ export const errorsEnUS = {
   ORGANIZATION_NOT_FOUND: "No such organization.",
   ORGANIZATION_DISABLED: "That organization has been disabled.",
   ORGANIZATION_CODE_TAKEN: "That organization code is already in use.",
+  ORGANIZATION_CYCLE:
+    "That would put the organization inside itself or one of its own descendants.",
+  ORGANIZATION_TOO_DEEP: "Organizations may not be nested that deeply.",
   NAME_REQUIRED: "A name is required.",
   CODE_REQUIRED: "A code is required.",
 

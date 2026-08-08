@@ -85,10 +85,95 @@ func (s *OrganizationService) Get(ctx context.Context, tenantID, id string) (mod
 
 // OrganizationInput is the writable part of an organization.
 type OrganizationInput struct {
-	Name      string
-	Code      string
-	Remark    string
+	Name   string
+	Code   string
+	Remark string
+	// ParentID is empty for a root. On an update it is the move: a
+	// different value reparents, an empty one promotes to a root.
+	ParentID  string
 	SortOrder int
+}
+
+// MaxOrganizationDepth bounds how deep the tree may go.
+//
+// Not a schema constraint, because the schema cannot express it, and not
+// arbitrary either: every check that walks upwards has to stop somewhere,
+// and a bound that is never reached in practice is what makes those walks
+// safe to write as simple loops. Ten is far past any organization chart
+// anybody navigates willingly.
+const MaxOrganizationDepth = 10
+
+// ErrOrganizationCycle is returned when a move would put an organization
+// inside itself.
+var ErrOrganizationCycle = httpx.BadRequest("ORGANIZATION_CYCLE",
+	"That would put the organization inside itself or one of its own descendants.")
+
+// ErrOrganizationTooDeep is returned when a move would exceed the depth
+// limit.
+var ErrOrganizationTooDeep = httpx.BadRequest("ORGANIZATION_TOO_DEEP",
+	fmt.Sprintf("Organizations may be nested at most %d levels deep.", MaxOrganizationDepth))
+
+// resolveParent validates a proposed parent and returns it in the form the
+// column takes.
+//
+// childID is empty when creating, in which case there is nothing to be a
+// cycle with. On a move it is the organization being moved, and the walk
+// upwards from the proposed parent must not meet it.
+//
+// The walk is a bounded loop of single-row lookups rather than a recursive
+// query. At a depth of ten that is ten indexed reads on the one operation
+// that moves an organization, which is not a hot path — and it reads as what
+// it is, which a recursive CTE does not.
+func (s *OrganizationService) resolveParent(ctx context.Context, q *store.Scoped, childID, parentID string) (*string, error) {
+	parentID = strings.TrimSpace(parentID)
+	if parentID == "" {
+		return nil, nil
+	}
+	if parentID == childID {
+		return nil, ErrOrganizationCycle
+	}
+
+	parent, err := q.GetOrganizationByID(ctx, parentID)
+	if err != nil {
+		if store.IsNoRows(err) {
+			return nil, ErrOrganizationNotFound
+		}
+		return nil, fmt.Errorf("get parent organization: %w", err)
+	}
+
+	// Walk up from the proposed parent. Meeting childID means the parent is
+	// somewhere below it, so the move would detach a subtree into a loop —
+	// which the foreign key cannot catch, because every row in a cycle
+	// satisfies it individually.
+	// ancestors counts the proposed parent and everything above it, so the
+	// child would sit at ancestors+1. The loop is bounded independently of
+	// that limit as well: if a cycle ever did reach the table, an unbounded
+	// walk would spin until the connection died, which is a far worse
+	// failure than the one being checked for.
+	current := parent
+	ancestors := 1
+	for ancestors <= MaxOrganizationDepth {
+		if childID != "" && current.ID == childID {
+			return nil, ErrOrganizationCycle
+		}
+		if current.ParentID == nil {
+			break
+		}
+
+		current, err = q.GetOrganizationByID(ctx, *current.ParentID)
+		if err != nil {
+			// A dangling parent is not a state this system produces; the
+			// foreign key forbids it. Reporting it as a cycle would be a
+			// lie, so it surfaces as what it is.
+			return nil, fmt.Errorf("walk organization ancestry: %w", err)
+		}
+		ancestors++
+	}
+
+	if ancestors >= MaxOrganizationDepth {
+		return nil, ErrOrganizationTooDeep
+	}
+	return &parent.ID, nil
 }
 
 // Create adds an organization to the actor's tenant.
@@ -111,13 +196,19 @@ func (s *OrganizationService) Create(ctx context.Context, actor auth.Principal, 
 		return model.Organization{}, fmt.Errorf("check organization code: %w", err)
 	}
 
+	parentID, err := s.resolveParent(ctx, q, "", in.ParentID)
+	if err != nil {
+		return model.Organization{}, err
+	}
+
 	now := store.Now()
 	id := uuid.NewString()
-	err := q.CreateOrganization(ctx, sqlcgen.CreateOrganizationParams{
+	err = q.CreateOrganization(ctx, sqlcgen.CreateOrganizationParams{
 		ID:        id,
 		Name:      in.Name,
 		Code:      in.Code,
 		Remark:    strings.TrimSpace(in.Remark),
+		ParentID:  parentID,
 		Status:    string(model.StatusActive),
 		SortOrder: int64(in.SortOrder),
 		CreatedAt: now,
@@ -139,10 +230,12 @@ func (s *OrganizationService) Create(ctx context.Context, actor auth.Principal, 
 	return s.Get(ctx, actor.TenantID, id)
 }
 
-// Update changes an organization's name, remark, and ordering.
+// Update changes an organization's name, remark, parent, and ordering.
 //
 // The code is immutable: downstream systems may have stored it, and letting
-// it change would silently break those references.
+// it change would silently break those references. The parent is not — an
+// organization chart is exactly the thing that gets rearranged — but a move
+// that would put an organization inside its own subtree is refused.
 func (s *OrganizationService) Update(ctx context.Context, actor auth.Principal, id string, in OrganizationInput) (model.Organization, error) {
 	q := s.store.ForTenant(actor.TenantID)
 
@@ -158,10 +251,16 @@ func (s *OrganizationService) Update(ctx context.Context, actor auth.Principal, 
 		return model.Organization{}, httpx.BadRequest("NAME_REQUIRED", "An organization name is required.")
 	}
 
-	err := q.UpdateOrganization(ctx, sqlcgen.UpdateOrganizationParams{
+	parentID, err := s.resolveParent(ctx, q, id, in.ParentID)
+	if err != nil {
+		return model.Organization{}, err
+	}
+
+	err = q.UpdateOrganization(ctx, sqlcgen.UpdateOrganizationParams{
 		ID:        id,
 		Name:      in.Name,
 		Remark:    strings.TrimSpace(in.Remark),
+		ParentID:  parentID,
 		SortOrder: int64(in.SortOrder),
 		UpdatedAt: store.Now(),
 	})
@@ -239,7 +338,7 @@ func (s *OrganizationService) memberCounts(ctx context.Context, q *store.Scoped)
 }
 
 func toOrganization(row sqlcgen.Organization, userCount int64) model.Organization {
-	return model.Organization{
+	org := model.Organization{
 		ID:        row.ID,
 		Name:      row.Name,
 		Code:      row.Code,
@@ -250,6 +349,10 @@ func toOrganization(row sqlcgen.Organization, userCount int64) model.Organizatio
 		UpdatedAt: row.UpdatedAt,
 		UserCount: userCount,
 	}
+	if row.ParentID != nil {
+		org.ParentID = *row.ParentID
+	}
+	return org
 }
 
 func validateOrganizationCode(code string) error {

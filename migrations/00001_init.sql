@@ -22,14 +22,26 @@ COMMENT ON COLUMN tenants.code IS
     'What a user types at sign-in to say which tenant they belong to. Immutable once created, because it appears in sign-in URLs and downstream configuration.';
 COMMENT ON COLUMN tenants.status IS 'DISABLED refuses sign-in without deleting anything.';
 
--- Organizations are a single flat tier: no parent_id, no hierarchy.
--- See docs/requirements/v0.1-requirements.md §3.7.
+-- Organizations form a tree. The depth is bounded by the service layer
+-- rather than by the schema, and cycles are refused there too: PostgreSQL
+-- will happily let A be B's parent and B be A's, because each row on its own
+-- satisfies the foreign key.
 CREATE TABLE organizations (
     id         TEXT PRIMARY KEY,
     tenant_id  TEXT        NOT NULL REFERENCES tenants (id),
     name       TEXT        NOT NULL,
     code       TEXT        NOT NULL,
     remark     TEXT        NOT NULL DEFAULT '',
+
+    -- NULL is a root. The reference is composite so the database refuses a
+    -- parent in another tenant, for the same reason users' organization
+    -- reference is: application code would not normally build such a row,
+    -- and "would not normally" is not a guarantee.
+    --
+    -- ON DELETE is not declared because organizations are disabled, never
+    -- deleted.
+    parent_id TEXT,
+    FOREIGN KEY (tenant_id, parent_id) REFERENCES organizations (tenant_id, id),
     status     TEXT        NOT NULL DEFAULT 'ACTIVE' CHECK (status IN ('ACTIVE', 'DISABLED')),
     sort_order BIGINT      NOT NULL DEFAULT 0,
     created_at TIMESTAMPTZ NOT NULL,
@@ -46,7 +58,9 @@ CREATE TABLE organizations (
     CONSTRAINT uq_organizations_tenant_id UNIQUE (tenant_id, id)
 );
 
-COMMENT ON TABLE organizations IS 'Flat groupings of users. No hierarchy in this version.';
+COMMENT ON TABLE organizations IS 'Groupings of users, arranged as a tree.';
+COMMENT ON COLUMN organizations.parent_id IS
+    'NULL for a root. Cycles and depth are enforced in the service layer: the foreign key alone cannot see a cycle, because every row in one is individually valid.';
 COMMENT ON COLUMN organizations.code IS 'Stable identifier used by bulk import and downstream systems. Immutable once created.';
 COMMENT ON COLUMN organizations.status IS 'DISABLED blocks new members but keeps existing ones.';
 

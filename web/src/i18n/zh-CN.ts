@@ -140,6 +140,11 @@ export const zhCN: Record<keyof typeof enUS, string> = {
   "organizations.code": "机构编码",
   "organizations.codeHelp": "用于批量导入与下游系统对接，创建后不可修改。",
   "organizations.remark": "备注",
+  "organizations.searchPlaceholder": "搜索名称或编码",
+  "organizations.parent": "上级机构",
+  "organizations.parentHelp":
+    "选「无」即为顶级机构。机构不能移动到自己所在的分支之下。",
+  "organizations.noParent": "无（顶级）",
   "organizations.sortOrder": "排序",
   "organizations.confirmDisable":
     "确定停用 {0}？已有成员保留，但不能再分配新成员。",

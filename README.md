@@ -20,7 +20,7 @@ role exists that can see across all of them.
 
 **Accounts and organizations** — create, edit, enable/disable, bulk-import
 from a spreadsheet. Accounts are disabled, never deleted, so the audit trail
-stays intact. Users belong to one organization.
+stays intact. Users belong to one organization; organizations form a tree.
 
 **Sign in three ways** — username, phone, or email, all producing the same
 credential.

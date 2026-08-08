@@ -225,7 +225,13 @@ actions.
 - **Registration is off by default.** Turn it on in **Settings** when you
   want it; an instance exposed before anyone finishes setup will not accept
   sign-ups.
+- **Organizations are a tree.** Set a parent when creating one, or change
+  it later to rearrange — the code stays fixed, because downstream systems
+  may have stored it. A move that would put an organization inside its own
+  branch is refused; a foreign key cannot catch that, since every row in a
+  cycle is individually valid.
 - **Disabling an organization** blocks new members but keeps existing ones.
+  It does not cascade to children, which stay as they were.
 - **Signing out ends that session, not all of them.** A laptop and a phone
   are separate sign-ins; **Sign out everywhere**, on your profile, is the
   one that ends both. Your profile also lists what is currently signed in as

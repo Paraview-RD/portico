@@ -12,6 +12,7 @@ import {
   Input,
   Modal,
   PageHeader,
+  Select,
   Table,
   Td,
   Th,
@@ -31,6 +32,27 @@ export function OrganizationsPage() {
     org: Organization;
     enable: boolean;
   } | null>(null);
+  const [keyword, setKeyword] = useState("");
+
+  // Filtering flattens the tree on purpose. A match three levels down is
+  // easier to act on as a plain row than as a branch the reader has to
+  // reassemble, and showing its ancestors as context would put rows on
+  // screen that do not match — which reads as the filter being broken.
+  const filtered = keyword.trim()
+    ? organizations.filter((org) =>
+        [org.name, org.code].some((field) =>
+          field.toLowerCase().includes(keyword.trim().toLowerCase()),
+        ),
+      )
+    : null;
+
+  // Unfiltered, rows are ordered so a child always follows its parent, with
+  // a depth for indentation. Pagination is deliberately absent: a page
+  // boundary through a tree separates children from parents, and the
+  // resulting list is not a tree or a list.
+  const rows = filtered
+    ? filtered.map((org) => ({ org, depth: 0 }))
+    : arrangeAsTree(organizations);
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -75,6 +97,14 @@ export function OrganizationsPage() {
         }
       />
 
+      <div className="mb-4 w-72">
+        <Input
+          placeholder={t("organizations.searchPlaceholder")}
+          value={keyword}
+          onChange={(e) => setKeyword(e.target.value)}
+        />
+      </div>
+
       {error && (
         <div className="mb-4">
           <Alert tone="danger">{error}</Alert>
@@ -97,12 +127,27 @@ export function OrganizationsPage() {
             <tr>
               <Td className="py-10 text-center">{t("common.loading")}</Td>
             </tr>
-          ) : organizations.length === 0 ? (
+          ) : rows.length === 0 ? (
             <EmptyRow colSpan={6} />
           ) : (
-            organizations.map((org) => (
+            rows.map(({ org, depth }) => (
               <tr key={org.id}>
-                <Td>{org.name}</Td>
+                <Td>
+                  <span
+                    style={{ paddingLeft: `${depth * 1.25}rem` }}
+                    className="inline-block"
+                  >
+                    {depth > 0 && (
+                      <span
+                        aria-hidden="true"
+                        className="mr-1.5 text-[var(--color-fg-muted)]"
+                      >
+                        └
+                      </span>
+                    )}
+                    {org.name}
+                  </span>
+                </Td>
                 <Td>
                   <code className="text-[length:var(--font-size-sm)] text-[var(--color-fg-muted)]">
                     {org.code}
@@ -146,6 +191,7 @@ export function OrganizationsPage() {
       <OrganizationFormDialog
         open={creating || editing !== null}
         organization={editing}
+        all={organizations}
         onClose={() => {
           setCreating(false);
           setEditing(null);
@@ -177,14 +223,62 @@ export function OrganizationsPage() {
   );
 }
 
+/**
+ * Orders a flat list so every child immediately follows its parent, with the
+ * depth to indent by.
+ *
+ * Rows whose parent is missing — filtered out, or disabled and not returned
+ * — are treated as roots rather than dropped. A row that exists and is not
+ * shown is the worse failure: an administrator looking for an organization
+ * they can see in the database would find the list simply lacking it, with
+ * nothing to say why.
+ */
+export function arrangeAsTree(
+  organizations: Organization[],
+): { org: Organization; depth: number }[] {
+  const byParent = new Map<string, Organization[]>();
+  const known = new Set(organizations.map((org) => org.id));
+
+  for (const org of organizations) {
+    const parent = org.parentId && known.has(org.parentId) ? org.parentId : "";
+    const siblings = byParent.get(parent) ?? [];
+    siblings.push(org);
+    byParent.set(parent, siblings);
+  }
+
+  const rows: { org: Organization; depth: number }[] = [];
+
+  // Iterative rather than recursive. The server bounds the depth at ten, so
+  // recursion would be safe — but this runs against whatever the server
+  // sent, and a stack overflow in a list component is a blank screen with
+  // no explanation.
+  const stack = [...(byParent.get("") ?? [])]
+    .reverse()
+    .map((org) => ({ org, depth: 0 }));
+
+  while (stack.length > 0) {
+    const entry = stack.pop() as { org: Organization; depth: number };
+    rows.push(entry);
+
+    const children = byParent.get(entry.org.id) ?? [];
+    for (let i = children.length - 1; i >= 0; i--) {
+      stack.push({ org: children[i], depth: entry.depth + 1 });
+    }
+  }
+
+  return rows;
+}
+
 function OrganizationFormDialog({
   open,
   organization,
+  all,
   onClose,
   onSaved,
 }: {
   open: boolean;
   organization: Organization | null;
+  all: Organization[];
   onClose: () => void;
   onSaved: () => void;
 }) {
@@ -196,6 +290,7 @@ function OrganizationFormDialog({
     name: "",
     code: "",
     remark: "",
+    parentId: "",
     sortOrder: 0,
   });
   const [error, setError] = useState("");
@@ -208,6 +303,7 @@ function OrganizationFormDialog({
       name: organization?.name ?? "",
       code: organization?.code ?? "",
       remark: organization?.remark ?? "",
+      parentId: organization?.parentId ?? "",
       sortOrder: organization?.sortOrder ?? 0,
     });
   }, [open, organization]);
@@ -221,6 +317,7 @@ function OrganizationFormDialog({
         await organizationApi.update(organization.id, {
           name: form.name,
           remark: form.remark,
+          parentId: form.parentId,
           sortOrder: form.sortOrder,
         });
       } else {
@@ -278,6 +375,31 @@ function OrganizationFormDialog({
             disabled={isEdit}
             required={!isEdit}
           />
+        </Field>
+
+        {/* The organization being edited is not offered as its own parent.
+            Its descendants are still offered, and the server refuses those
+            — the check has to be there anyway, since it is the only place
+            that can see the whole tree. */}
+        <Field
+          label={t("organizations.parent")}
+          hint={t("organizations.parentHelp")}
+        >
+          <Select
+            value={form.parentId}
+            onChange={(e) =>
+              setForm((f) => ({ ...f, parentId: e.target.value }))
+            }
+          >
+            <option value="">{t("organizations.noParent")}</option>
+            {all
+              .filter((candidate) => candidate.id !== organization?.id)
+              .map((candidate) => (
+                <option key={candidate.id} value={candidate.id}>
+                  {candidate.name}
+                </option>
+              ))}
+          </Select>
         </Field>
 
         <Field label={t("organizations.remark")}>
