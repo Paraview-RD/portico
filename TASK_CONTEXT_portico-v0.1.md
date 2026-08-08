@@ -32,6 +32,7 @@
 | 4 | OIDC + OAuth 2.1 | ✅ `e05391e` `f17f915` `c902994` `14396d9` `8d0accc` `9dadbf3` `8e18e5d` `3e70c74` `f4ed007` `a1e2e74` `b2be73c` |
 | 5 | SAML 2.0 | ✅ `0fb808b` `a23354b` |
 | 6 | CAS | ✅ `4d07e2e` `1e4107b` `be3701c` |
+| 7 | 应用管理进控制台 + 已实现功能加固（13 项） | ✅ `15b608f` `13fef4f` `97e7878` `d48a8ee` `3b89868` `2cac43a` `3c91556` `263983c` `0a2dcc8` `9085916` `ff1d4ea` |
 
 ## 阶段 4 已完成（收尾记录）
 
@@ -43,15 +44,15 @@
   - 撤销端点收到的是 **token id 不是 token**，按 hash 查恒 miss → 静默不撤销
   - 前端：错租户后退出登录，错误信息卡死（once-guard 按挂载而非按账号）
   - 前端：记忆的租户会盖掉授权请求所属租户
-- **已知缺口（写进 docs/federation.md「Known limitations」）**：过期 refresh token 不清理（授权请求会清）；access token 无法撤销（15 分钟 + 内省）；无 consent 页；无 `private_key_jwt`。
-- **未覆盖**：前端无测试框架，上面两个前端 bug 没有回归测试。
+- **已知缺口（写进 docs/federation.md「Known limitations」）**：access token 无法撤销（15 分钟 + 内省）；无 consent 页；无 `private_key_jwt`。~~过期 refresh token 不清理~~ 已在阶段 7 补上（整链死透 + 30 天，**不能按行按过期删**，否则废掉重用检测）。
+- ~~**未覆盖**：前端无测试框架~~ 阶段 7 已接 vitest + RTL，首批测试写的正是这两个 bug。
 
 ## 首推 checklist（推之前逐条过，不要靠记）
 
 1. **CODE_OF_CONDUCT.md 的举报地址仍是占位**（文件顶部有醒目告示）。无人看的信箱比没有行为准则更糟——填一个真实、有人负责的地址，并确定谁负责。**这是唯一还没做的公开前阻塞项。**
 2. **在 GitHub 仓库设置里开启 Private Vulnerability Reporting**。SECURITY.md 已经把报告入口指向它（`/security/advisories/new`），没开启的话那个链接是死的。这是仓库设置不是代码，只能推的时候手工点。
 3. 建远端、`git push` ——**在此之前先确认 1 和 2**，因为历史一旦公开就不能再悄悄重写。
-4. CI 首次运行会在推送时发生。**已在本地把每一条 CI gate 都跑过**（gofmt / `go test -race` / golangci-lint / govulncheck / prettier --check / oxlint / npm audit / single-binary 冒烟），唯一挂过的是 prettier，已修。
+4. CI 首次运行会在推送时发生。**已在本地把每一条 CI gate 都跑过**（gofmt / `go test -race` / golangci-lint / govulncheck / prettier --check / oxlint / `npm test` / npm audit / single-binary 冒烟），唯一挂过的是 prettier，已修。
 
 ## 验收实例（阶段 4 交付时的状态）
 
@@ -104,5 +105,5 @@
 
 ```bash
 go build ./... && go vet ./... && golangci-lint run ./... && go test ./...
-cd web && npm run typecheck && npm run build
+cd web && npm run typecheck && npm run lint && npm test && npm run build
 ```

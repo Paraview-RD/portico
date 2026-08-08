@@ -138,8 +138,16 @@ cd web
 npm run typecheck        # tsc -b; plain `tsc --noEmit` checks nothing here
 npx prettier --check "src/**/*.{ts,tsx,css}"
 npm run lint
+npm test                 # vitest, jsdom
 npm run build
 ```
+
+`npm test` runs component tests under jsdom, which is not a browser. A
+Content-Security-Policy that blocks the page passes a jsdom test exactly as
+happily as it passed eleven Go tests once — a real bug this project shipped
+into a browser and nowhere else. So these tests hold the things nobody
+re-checks by hand after the first look, and they do not stand in for opening
+the page.
 
 ## Pull requests
 

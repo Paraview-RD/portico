@@ -11,14 +11,17 @@ revisiting every component.
 
 ```
 web/src/i18n/
-  en-US.ts     source language — every key is defined here
-  zh-CN.ts     typed against en-US
-  index.tsx    the provider, the t() function, language detection
+  en-US.ts           source language — every key is defined here
+  zh-CN.ts           typed against en-US
+  errors-en-US.ts    one entry per error code the API can return
+  errors-zh-CN.ts    typed against errors-en-US
+  index.tsx          the provider, the t() function, language detection
 ```
 
 `zh-CN.ts` is declared as `Record<keyof typeof enUS, string>`, so **a
 missing or misspelled key is a compile error**, not a raw key rendered in
-the interface at runtime.
+the interface at runtime. The error tables are typed the same way, for the
+same reason.
 
 Verify with `npm run typecheck`. Note that a bare `npx tsc --noEmit` checks
 *nothing* here — the root `tsconfig.json` is a project-references stub with
@@ -78,8 +81,18 @@ the string.
 ## What does not get translated
 
 - **Server-side messages and logs.** The API's `message` is English; logs
-  are English. The interface localizes by `code` — see
-  [error-conventions.md](error-conventions.md).
+  are English. The interface localizes by `code`, through the error tables
+  above — see [error-conventions.md](error-conventions.md). A code with no
+  entry falls back to the server's English `message` rather than to a blank
+  or to the code itself: the reader gets a sentence in the wrong language,
+  which is worse than a translation and much better than nothing.
+- **The detail inside a message, for a handful of codes.** A rejected
+  redirect URI, an entity id that did not match, the row a bulk import
+  failed on — the translation cannot carry those, and dropping them makes
+  the error tidier and useless. Those codes are listed in
+  `codesCarryingDetail`, and the server's own text follows the translation
+  in parentheses. Add a code there only when the specifics are what the
+  reader has to act on.
 - **Enumeration values on the wire.** `ACTIVE`, `SUPER_ADMIN`, `LOGIN`.
   Codes are the contract; text is the presentation.
 - **User-entered data.** A display name, an organization name, and a
@@ -116,3 +129,15 @@ the string.
    accident.
 3. Use it through `t()`. Never write a literal string in a component; that
    is the one rule whose violations are hardest to find later.
+
+## Adding an error code
+
+A new code on the server needs the same two entries, in
+`errors-en-US.ts` and `errors-zh-CN.ts`. Omitting them does not fail the
+Go build — nothing on the server knows the tables exist — so it is the
+frontend that has to be looked at, and the type on the Chinese table is
+what catches the second half of the mistake once the first half is done.
+
+Write the English entry as a sentence to a person who has just been
+stopped, not as a restatement of the code. `USER_LAST_ADMIN` renders as
+"The last administrator cannot be disabled", not "user last admin".
