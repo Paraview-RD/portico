@@ -79,6 +79,16 @@ export function UsersPage() {
       .catch(() => setOrganizations([]));
   }, []);
 
+  async function unlock(user: User) {
+    setError("");
+    try {
+      await userApi.unlock(user.id);
+      await load();
+    } catch (err) {
+      setError(describeError(err));
+    }
+  }
+
   async function toggleStatus(user: User, enable: boolean) {
     setConfirming(null);
     setError("");
@@ -197,9 +207,24 @@ export function UsersPage() {
                 </Td>
                 <Td>{user.organizationName || t("users.noOrganization")}</Td>
                 <Td>
-                  <Badge tone={user.status === "ACTIVE" ? "success" : "danger"}>
-                    {t(`status.${user.status}`)}
-                  </Badge>
+                  <div className="flex flex-wrap items-center gap-1">
+                    <Badge
+                      tone={user.status === "ACTIVE" ? "success" : "danger"}
+                    >
+                      {t(`status.${user.status}`)}
+                    </Badge>
+                    {/* Shown next to the status rather than instead of it:
+                        locked and disabled are different situations with
+                        different remedies, and an account can be both. */}
+                    {user.lockedUntil && (
+                      <Badge tone="warning">
+                        {t(
+                          "users.lockedUntil",
+                          new Date(user.lockedUntil).toLocaleString(),
+                        )}
+                      </Badge>
+                    )}
+                  </div>
                 </Td>
                 <Td>
                   <div className="flex gap-1">
@@ -217,6 +242,15 @@ export function UsersPage() {
                     >
                       {t("users.resetPassword")}
                     </Button>
+                    {user.lockedUntil && (
+                      <Button
+                        size="sm"
+                        variant="ghost"
+                        onClick={() => void unlock(user)}
+                      >
+                        {t("users.unlock")}
+                      </Button>
+                    )}
                     <Button
                       size="sm"
                       variant="ghost"

@@ -89,6 +89,9 @@ func (s *Server) routes() http.Handler {
 				r.Post("/{id}/enable", h.EnableUser)
 				r.Post("/{id}/disable", h.DisableUser)
 				r.Post("/{id}/password", h.ResetUserPassword)
+				// Clearing a lockout without touching the password: the
+				// person mistyped, they did not lose the password.
+				r.Post("/{id}/unlock", h.UnlockUser)
 
 				// Bulk import (§3.1). The template is generated from the
 				// same column list the parser reads, so the two cannot drift.

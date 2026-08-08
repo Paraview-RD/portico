@@ -236,3 +236,71 @@ func readFile(t *testing.T, path string) string {
 	}
 	return string(data)
 }
+
+// A hand-written SELECT that names its columns has to name all of them.
+//
+// The user listing cannot be generated — its WHERE clause depends on which
+// filters the caller supplied — so its column list is written out by hand
+// and has to be kept in step with the table. It was not: adding the lockout
+// columns left the listing scanning the old set, and the symptom was an
+// administrator seeing no lock on an account that was locked. Nothing else
+// noticed, because every other read of a user goes through a generated
+// query.
+func TestHandWrittenUserSelectNamesEveryColumn(t *testing.T) {
+	columns := tableColumns(t, "users")
+	if len(columns) == 0 {
+		t.Fatal("found no columns for users; the guard would pass vacuously")
+	}
+
+	source := readFile(t, filepath.Join("..", "service", "user.go"))
+	flat := flatten(source)
+
+	// The listing is the only hand-written SELECT over users. Locating it by
+	// the FROM clause rather than by line number so that moving it does not
+	// silently stop this checking anything.
+	if !strings.Contains(flat, "FROM users WHERE tenant_id = $1") {
+		t.Fatal("could not find the hand-written user listing; either it moved " +
+			"or this test stopped working")
+	}
+
+	for _, column := range columns {
+		// password_hash is selected but never returned to a caller; every
+		// column has to be *scannable*, which is what this is about.
+		if !strings.Contains(flat, column) {
+			t.Errorf("the hand-written user listing does not select %q.\n"+
+				"Every column of users must appear, or a row scanned from it "+
+				"carries a zero value that looks like real data — an unset "+
+				"lock, an empty organization — with nothing to say it was "+
+				"never read.", column)
+		}
+	}
+}
+
+// tableColumns reads a table's columns out of the migration.
+func tableColumns(t *testing.T, table string) []string {
+	t.Helper()
+
+	var schema strings.Builder
+	for _, path := range globOrFail(t, filepath.Join("..", "..", "migrations", "*.sql")) {
+		schema.WriteString(readFile(t, path))
+	}
+
+	createTable := regexp.MustCompile(`(?is)CREATE TABLE ` + table + ` \((.*?)\n\);`)
+	m := createTable.FindStringSubmatch(schema.String())
+	if m == nil {
+		return nil
+	}
+
+	// Column definitions are the lines that start with an identifier; the
+	// rest are constraints and comments.
+	column := regexp.MustCompile(`(?m)^\s{4}([a-z_]+)\s`)
+	var columns []string
+	for _, found := range column.FindAllStringSubmatch(m[1], -1) {
+		switch found[1] {
+		case "constraint", "foreign", "primary", "unique", "check":
+			continue
+		}
+		columns = append(columns, found[1])
+	}
+	return columns
+}

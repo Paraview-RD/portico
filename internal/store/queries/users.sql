@@ -105,3 +105,48 @@ WHERE tenant_id = $1 AND role = $2 AND status = $3 AND id <> $4;
 
 -- name: ListUsersByIDs :many
 SELECT * FROM users WHERE tenant_id = $1 AND id = ANY($2::text[]);
+
+-- name: RecordFailedLogin :one
+-- Counts a failed sign-in and locks the account when the threshold is met.
+--
+-- One statement, so that concurrent attempts cannot interleave a read and a
+-- write and lose a count — which is exactly what an attacker running
+-- parallel guesses would produce.
+--
+-- The count restarts if the previous failure is older than the counting
+-- window, so five failures spread over a year are not a lockout.
+--
+-- An account already locked keeps its existing locked_until. Extending it on
+-- every further attempt would let anyone hold a known account locked
+-- indefinitely just by guessing at it.
+UPDATE users
+SET failed_login_attempts = CASE
+        WHEN last_failed_login_at IS NULL OR last_failed_login_at < sqlc.arg(window_start)::timestamptz
+        THEN 1
+        ELSE failed_login_attempts + 1
+    END,
+    last_failed_login_at = sqlc.arg(now)::timestamptz,
+    locked_until = CASE
+        WHEN locked_until IS NOT NULL AND locked_until > sqlc.arg(now)::timestamptz
+        THEN locked_until
+        WHEN (CASE
+                WHEN last_failed_login_at IS NULL OR last_failed_login_at < sqlc.arg(window_start)::timestamptz
+                THEN 1
+                ELSE failed_login_attempts + 1
+              END) >= sqlc.arg(threshold)::int
+        THEN sqlc.arg(lock_until)::timestamptz
+        ELSE NULL
+    END,
+    updated_at = sqlc.arg(now)::timestamptz
+WHERE tenant_id = sqlc.arg(tenant_id) AND id = sqlc.arg(id)
+RETURNING failed_login_attempts, locked_until;
+
+-- name: ClearLoginFailures :exec
+-- Forgets the failures. A successful sign-in, a completed password recovery,
+-- and an administrator unlocking all mean the same thing here.
+UPDATE users
+SET failed_login_attempts = 0,
+    last_failed_login_at = NULL,
+    locked_until = NULL,
+    updated_at = sqlc.arg(now)::timestamptz
+WHERE tenant_id = sqlc.arg(tenant_id) AND id = sqlc.arg(id);

@@ -23,6 +23,8 @@ export const errorsEnUS = {
   INVALID_CREDENTIALS: "Wrong username or password.",
   MISSING_CREDENTIALS: "Enter your username and password.",
   ACCOUNT_DISABLED: "This account has been disabled.",
+  ACCOUNT_LOCKED:
+    "Too many failed sign-in attempts. Try again later, or ask an administrator to unlock the account.",
   MISSING_TOKEN: "You are not signed in.",
   INVALID_TOKEN: "Your session is no longer valid. Sign in again.",
   TOKEN_EXPIRED: "Your session has expired. Sign in again.",

@@ -30,6 +30,28 @@ func (q *Queries) BumpUserTokenVersion(ctx context.Context, arg BumpUserTokenVer
 	return err
 }
 
+const clearLoginFailures = `-- name: ClearLoginFailures :exec
+UPDATE users
+SET failed_login_attempts = 0,
+    last_failed_login_at = NULL,
+    locked_until = NULL,
+    updated_at = $1::timestamptz
+WHERE tenant_id = $2 AND id = $3
+`
+
+type ClearLoginFailuresParams struct {
+	Now      time.Time
+	TenantID string
+	ID       string
+}
+
+// Forgets the failures. A successful sign-in, a completed password recovery,
+// and an administrator unlocking all mean the same thing here.
+func (q *Queries) ClearLoginFailures(ctx context.Context, arg ClearLoginFailuresParams) error {
+	_, err := q.db.ExecContext(ctx, clearLoginFailures, arg.Now, arg.TenantID, arg.ID)
+	return err
+}
+
 const countOtherActiveAdmins = `-- name: CountOtherActiveAdmins :one
 SELECT COUNT(*) FROM users
 WHERE tenant_id = $1 AND role = $2 AND status = $3 AND id <> $4
@@ -167,7 +189,7 @@ func (q *Queries) CreateUser(ctx context.Context, arg CreateUserParams) error {
 }
 
 const getUserByEmail = `-- name: GetUserByEmail :one
-SELECT id, tenant_id, username, display_name, password_hash, phone, email, role, status, organization_id, token_version, source, created_at, updated_at FROM users WHERE tenant_id = $1 AND email <> '' AND email = $2 LIMIT 1
+SELECT id, tenant_id, username, display_name, password_hash, phone, email, role, status, organization_id, token_version, source, failed_login_attempts, last_failed_login_at, locked_until, created_at, updated_at FROM users WHERE tenant_id = $1 AND email <> '' AND email = $2 LIMIT 1
 `
 
 type GetUserByEmailParams struct {
@@ -194,6 +216,9 @@ func (q *Queries) GetUserByEmail(ctx context.Context, arg GetUserByEmailParams) 
 		&i.OrganizationID,
 		&i.TokenVersion,
 		&i.Source,
+		&i.FailedLoginAttempts,
+		&i.LastFailedLoginAt,
+		&i.LockedUntil,
 		&i.CreatedAt,
 		&i.UpdatedAt,
 	)
@@ -201,7 +226,7 @@ func (q *Queries) GetUserByEmail(ctx context.Context, arg GetUserByEmailParams) 
 }
 
 const getUserByID = `-- name: GetUserByID :one
-SELECT id, tenant_id, username, display_name, password_hash, phone, email, role, status, organization_id, token_version, source, created_at, updated_at FROM users WHERE tenant_id = $1 AND id = $2 LIMIT 1
+SELECT id, tenant_id, username, display_name, password_hash, phone, email, role, status, organization_id, token_version, source, failed_login_attempts, last_failed_login_at, locked_until, created_at, updated_at FROM users WHERE tenant_id = $1 AND id = $2 LIMIT 1
 `
 
 type GetUserByIDParams struct {
@@ -225,6 +250,9 @@ func (q *Queries) GetUserByID(ctx context.Context, arg GetUserByIDParams) (User,
 		&i.OrganizationID,
 		&i.TokenVersion,
 		&i.Source,
+		&i.FailedLoginAttempts,
+		&i.LastFailedLoginAt,
+		&i.LockedUntil,
 		&i.CreatedAt,
 		&i.UpdatedAt,
 	)
@@ -232,7 +260,7 @@ func (q *Queries) GetUserByID(ctx context.Context, arg GetUserByIDParams) (User,
 }
 
 const getUserByIdentifier = `-- name: GetUserByIdentifier :one
-SELECT id, tenant_id, username, display_name, password_hash, phone, email, role, status, organization_id, token_version, source, created_at, updated_at FROM users
+SELECT id, tenant_id, username, display_name, password_hash, phone, email, role, status, organization_id, token_version, source, failed_login_attempts, last_failed_login_at, locked_until, created_at, updated_at FROM users
 WHERE tenant_id = $1
   AND (username = $2
        OR (email <> '' AND email = $2)
@@ -280,6 +308,9 @@ func (q *Queries) GetUserByIdentifier(ctx context.Context, arg GetUserByIdentifi
 		&i.OrganizationID,
 		&i.TokenVersion,
 		&i.Source,
+		&i.FailedLoginAttempts,
+		&i.LastFailedLoginAt,
+		&i.LockedUntil,
 		&i.CreatedAt,
 		&i.UpdatedAt,
 	)
@@ -287,7 +318,7 @@ func (q *Queries) GetUserByIdentifier(ctx context.Context, arg GetUserByIdentifi
 }
 
 const getUserByPhone = `-- name: GetUserByPhone :one
-SELECT id, tenant_id, username, display_name, password_hash, phone, email, role, status, organization_id, token_version, source, created_at, updated_at FROM users WHERE tenant_id = $1 AND phone <> '' AND phone = $2 LIMIT 1
+SELECT id, tenant_id, username, display_name, password_hash, phone, email, role, status, organization_id, token_version, source, failed_login_attempts, last_failed_login_at, locked_until, created_at, updated_at FROM users WHERE tenant_id = $1 AND phone <> '' AND phone = $2 LIMIT 1
 `
 
 type GetUserByPhoneParams struct {
@@ -312,6 +343,9 @@ func (q *Queries) GetUserByPhone(ctx context.Context, arg GetUserByPhoneParams) 
 		&i.OrganizationID,
 		&i.TokenVersion,
 		&i.Source,
+		&i.FailedLoginAttempts,
+		&i.LastFailedLoginAt,
+		&i.LockedUntil,
 		&i.CreatedAt,
 		&i.UpdatedAt,
 	)
@@ -319,7 +353,7 @@ func (q *Queries) GetUserByPhone(ctx context.Context, arg GetUserByPhoneParams) 
 }
 
 const getUserByUsername = `-- name: GetUserByUsername :one
-SELECT id, tenant_id, username, display_name, password_hash, phone, email, role, status, organization_id, token_version, source, created_at, updated_at FROM users WHERE tenant_id = $1 AND username = $2 LIMIT 1
+SELECT id, tenant_id, username, display_name, password_hash, phone, email, role, status, organization_id, token_version, source, failed_login_attempts, last_failed_login_at, locked_until, created_at, updated_at FROM users WHERE tenant_id = $1 AND username = $2 LIMIT 1
 `
 
 type GetUserByUsernameParams struct {
@@ -343,6 +377,9 @@ func (q *Queries) GetUserByUsername(ctx context.Context, arg GetUserByUsernamePa
 		&i.OrganizationID,
 		&i.TokenVersion,
 		&i.Source,
+		&i.FailedLoginAttempts,
+		&i.LastFailedLoginAt,
+		&i.LockedUntil,
 		&i.CreatedAt,
 		&i.UpdatedAt,
 	)
@@ -350,7 +387,7 @@ func (q *Queries) GetUserByUsername(ctx context.Context, arg GetUserByUsernamePa
 }
 
 const listUsersByIDs = `-- name: ListUsersByIDs :many
-SELECT id, tenant_id, username, display_name, password_hash, phone, email, role, status, organization_id, token_version, source, created_at, updated_at FROM users WHERE tenant_id = $1 AND id = ANY($2::text[])
+SELECT id, tenant_id, username, display_name, password_hash, phone, email, role, status, organization_id, token_version, source, failed_login_attempts, last_failed_login_at, locked_until, created_at, updated_at FROM users WHERE tenant_id = $1 AND id = ANY($2::text[])
 `
 
 type ListUsersByIDsParams struct {
@@ -380,6 +417,9 @@ func (q *Queries) ListUsersByIDs(ctx context.Context, arg ListUsersByIDsParams) 
 			&i.OrganizationID,
 			&i.TokenVersion,
 			&i.Source,
+			&i.FailedLoginAttempts,
+			&i.LastFailedLoginAt,
+			&i.LockedUntil,
 			&i.CreatedAt,
 			&i.UpdatedAt,
 		); err != nil {
@@ -394,6 +434,70 @@ func (q *Queries) ListUsersByIDs(ctx context.Context, arg ListUsersByIDsParams) 
 		return nil, err
 	}
 	return items, nil
+}
+
+const recordFailedLogin = `-- name: RecordFailedLogin :one
+UPDATE users
+SET failed_login_attempts = CASE
+        WHEN last_failed_login_at IS NULL OR last_failed_login_at < $1::timestamptz
+        THEN 1
+        ELSE failed_login_attempts + 1
+    END,
+    last_failed_login_at = $2::timestamptz,
+    locked_until = CASE
+        WHEN locked_until IS NOT NULL AND locked_until > $2::timestamptz
+        THEN locked_until
+        WHEN (CASE
+                WHEN last_failed_login_at IS NULL OR last_failed_login_at < $1::timestamptz
+                THEN 1
+                ELSE failed_login_attempts + 1
+              END) >= $3::int
+        THEN $4::timestamptz
+        ELSE NULL
+    END,
+    updated_at = $2::timestamptz
+WHERE tenant_id = $5 AND id = $6
+RETURNING failed_login_attempts, locked_until
+`
+
+type RecordFailedLoginParams struct {
+	WindowStart time.Time
+	Now         time.Time
+	Threshold   int32
+	LockUntil   time.Time
+	TenantID    string
+	ID          string
+}
+
+type RecordFailedLoginRow struct {
+	FailedLoginAttempts int32
+	LockedUntil         *time.Time
+}
+
+// Counts a failed sign-in and locks the account when the threshold is met.
+//
+// One statement, so that concurrent attempts cannot interleave a read and a
+// write and lose a count — which is exactly what an attacker running
+// parallel guesses would produce.
+//
+// The count restarts if the previous failure is older than the counting
+// window, so five failures spread over a year are not a lockout.
+//
+// An account already locked keeps its existing locked_until. Extending it on
+// every further attempt would let anyone hold a known account locked
+// indefinitely just by guessing at it.
+func (q *Queries) RecordFailedLogin(ctx context.Context, arg RecordFailedLoginParams) (RecordFailedLoginRow, error) {
+	row := q.db.QueryRowContext(ctx, recordFailedLogin,
+		arg.WindowStart,
+		arg.Now,
+		arg.Threshold,
+		arg.LockUntil,
+		arg.TenantID,
+		arg.ID,
+	)
+	var i RecordFailedLoginRow
+	err := row.Scan(&i.FailedLoginAttempts, &i.LockedUntil)
+	return i, err
 }
 
 const updateUserPassword = `-- name: UpdateUserPassword :exec

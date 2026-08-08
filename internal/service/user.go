@@ -35,6 +35,14 @@ var (
 		"This is the only active administrator; promote another account first.")
 	ErrInvalidCredentials = httpx.Unauthorized("INVALID_CREDENTIALS",
 		"Incorrect username or password.")
+	// ErrAccountLocked is returned to somebody whose password was right but
+	// whose account is temporarily locked after repeated failures. It is
+	// deliberately distinguishable from a wrong password: at this point the
+	// caller has proved they know the password, so the only thing left to
+	// tell them is why it did not work.
+	ErrAccountLocked = httpx.Unauthorized("ACCOUNT_LOCKED",
+		"Too many failed sign-in attempts. Try again later, or ask an administrator to unlock the account.")
+
 	ErrAccountDisabled = httpx.Unauthorized("ACCOUNT_DISABLED",
 		"This account has been disabled.")
 	ErrRegistrationDisabled = httpx.UnprocessableEntity("REGISTRATION_DISABLED",
@@ -163,8 +171,17 @@ func (s *UserService) List(ctx context.Context, tenantID string, q UserQuery, pa
 
 	pageClause, args := f.Paginate(page)
 	rows, err := s.store.DB().QueryContext(ctx,
+		// The column list is explicit and has to stay in step with the scan
+		// below and with sqlcgen.User. A generated query would keep itself
+		// honest; this one cannot be generated because its WHERE clause
+		// depends on which filters the caller supplied. Adding the lockout
+		// columns and forgetting this listing is exactly what happened once,
+		// and the symptom was an administrator seeing no lock on a locked
+		// account — hence TestHandWrittenUserSelectNamesEveryColumn.
 		`SELECT id, tenant_id, username, display_name, password_hash, phone, email, role, status,
-		        organization_id, token_version, source, created_at, updated_at
+		        organization_id, token_version, source,
+		        failed_login_attempts, last_failed_login_at, locked_until,
+		        created_at, updated_at
 		 FROM users WHERE tenant_id = $1`+clause+`
 		 ORDER BY created_at DESC, id DESC`+pageClause, args...)
 	if err != nil {
@@ -178,6 +195,7 @@ func (s *UserService) List(ctx context.Context, tenantID string, q UserQuery, pa
 		if err := rows.Scan(
 			&u.ID, &u.TenantID, &u.Username, &u.DisplayName, &u.PasswordHash, &u.Phone, &u.Email,
 			&u.Role, &u.Status, &u.OrganizationID, &u.TokenVersion, &u.Source,
+			&u.FailedLoginAttempts, &u.LastFailedLoginAt, &u.LockedUntil,
 			&u.CreatedAt, &u.UpdatedAt,
 		); err != nil {
 			return nil, 0, fmt.Errorf("scan user: %w", err)
@@ -364,6 +382,32 @@ func (s *UserService) Update(ctx context.Context, actor auth.Principal, userID s
 	return updated, nil
 }
 
+// Unlock clears a lockout without changing the password.
+//
+// Separate from resetting the password because the two answer different
+// situations. Somebody who mistyped five times and cannot wait fifteen
+// minutes needs the lock gone and their password left alone; forcing a reset
+// on them would be an administrator handing out a password over the phone,
+// which is worse than the lockout.
+func (s *UserService) Unlock(ctx context.Context, actor auth.Principal, userID string) (model.User, error) {
+	target, err := s.Get(ctx, actor.TenantID, userID)
+	if err != nil {
+		return model.User{}, err
+	}
+
+	if err := s.store.ForTenant(actor.TenantID).ClearLoginFailures(ctx, userID, store.Now()); err != nil {
+		return model.User{}, fmt.Errorf("unlock account: %w", err)
+	}
+
+	s.audit.Log(ctx, actor.TenantID, AuditEntry{
+		Kind: model.LogOperation, Action: model.ActionUserUnlock,
+		ActorID: actor.UserID, ActorName: actor.Username,
+		TargetType: "USER", TargetID: target.ID, TargetName: target.Username,
+	})
+
+	return s.Get(ctx, actor.TenantID, userID)
+}
+
 // SetStatus enables or disables an account. Disabling also revokes any live
 // session, which the query handles by bumping token_version.
 func (s *UserService) SetStatus(ctx context.Context, actor auth.Principal, userID string, status model.Status) (model.User, error) {
@@ -466,6 +510,12 @@ func (s *UserService) attachOrganizations(ctx context.Context, q *store.Scoped, 
 			Source:      model.UserSource(row.Source),
 			CreatedAt:   row.CreatedAt,
 			UpdatedAt:   row.UpdatedAt,
+		}
+		// Only while it is actually in force. A stale timestamp on a lock
+		// that has already expired would show an administrator a problem
+		// that is no longer there.
+		if row.LockedUntil != nil && row.LockedUntil.After(store.Now()) {
+			user.LockedUntil = row.LockedUntil
 		}
 		if row.OrganizationID != nil {
 			user.OrganizationID = *row.OrganizationID

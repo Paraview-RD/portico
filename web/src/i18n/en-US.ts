@@ -103,6 +103,8 @@ export const enUS = {
   "users.colStatus": "Status",
   "users.colCreatedAt": "Created",
   "users.resetPassword": "Reset password",
+  "users.unlock": "Unlock",
+  "users.lockedUntil": "Locked until {0}",
   "users.noOrganization": "—",
   "users.createTitle": "New user",
   "users.editTitle": "Edit user",
@@ -271,6 +273,15 @@ export const enUS = {
   "settings.registrationHelp":
     "When off, only administrators can create accounts. New accounts always get the User role.",
   "settings.saved": "Settings saved.",
+  "settings.lockoutLegend": "Failed sign-in lockout",
+  "settings.lockoutHelp":
+    "Locks an account after repeated wrong passwords. This is not a rate limit — it stops one account's password being guessed, and does nothing about the load a flood of attempts puts on the server. Keep the reverse proxy throttle as well.",
+  "settings.lockoutThreshold": "Attempts before locking",
+  "settings.lockoutThresholdHelp":
+    "Consecutive failures within the window below. 0 switches lockout off.",
+  "settings.lockoutDuration": "Lock duration (minutes)",
+  "settings.lockoutDurationHelp":
+    "Also the window failures are counted over. Further attempts while locked do not extend it.",
 
   "profile.title": "My profile",
   "profile.subtitle": "Your account details and password.",

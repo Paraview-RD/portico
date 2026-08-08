@@ -153,6 +153,19 @@ type resetPasswordRequest struct {
 	NewPassword string `json:"newPassword"`
 }
 
+// UnlockUser clears a lockout after repeated failed sign-ins, leaving the
+// password alone.
+func (h *Handler) UnlockUser(w http.ResponseWriter, r *http.Request) {
+	principal := auth.MustPrincipal(r.Context())
+
+	user, err := h.users.Unlock(r.Context(), principal, chi.URLParam(r, "id"))
+	if err != nil {
+		httpx.Fail(w, r, err)
+		return
+	}
+	httpx.OK(w, user)
+}
+
 // ResetUserPassword sets another account's password.
 func (h *Handler) ResetUserPassword(w http.ResponseWriter, r *http.Request) {
 	principal := auth.MustPrincipal(r.Context())

@@ -157,7 +157,7 @@ sign-up.
 
 ## Before you expose this
 
-Portico serves plain HTTP and does not rate-limit sign-in attempts. Both are
+Portico serves plain HTTP and does not rate-limit requests. Both are
 deliberate — it delegates them to the reverse proxy rather than
 reimplementing them — but that makes the proxy mandatory, not optional, for
 anything reachable beyond localhost. See [SECURITY.md](../SECURITY.md) for

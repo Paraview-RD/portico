@@ -159,6 +159,10 @@ export const userApi = {
   disable: (id: string) =>
     request<User>(`/users/${id}/disable`, { method: "POST" }),
 
+  /** Clears a lockout, leaving the password alone. */
+  unlock: (id: string) =>
+    request<User>(`/users/${id}/unlock`, { method: "POST" }),
+
   resetPassword: (id: string, newPassword: string) =>
     request<null>(`/users/${id}/password`, {
       method: "POST",

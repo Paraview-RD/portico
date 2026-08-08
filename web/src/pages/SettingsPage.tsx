@@ -113,6 +113,53 @@ export function SettingsPage() {
           </span>
         </label>
 
+        <fieldset className="flex flex-col gap-4 rounded-[var(--radius-sm)] border border-[var(--color-border)] p-4">
+          <legend className="px-1 text-[length:var(--font-size-sm)] font-[weight:var(--font-weight-medium)] text-[var(--color-fg)]">
+            {t("settings.lockoutLegend")}
+          </legend>
+
+          <p className="text-[length:var(--font-size-sm)] text-[var(--color-fg-muted)]">
+            {t("settings.lockoutHelp")}
+          </p>
+
+          <Field
+            label={t("settings.lockoutThreshold")}
+            hint={t("settings.lockoutThresholdHelp")}
+          >
+            <Input
+              type="number"
+              min={0}
+              max={100}
+              value={settings.lockoutThreshold}
+              onChange={(e) =>
+                setSettings({
+                  ...settings,
+                  lockoutThreshold: Number(e.target.value),
+                })
+              }
+            />
+          </Field>
+
+          <Field
+            label={t("settings.lockoutDuration")}
+            hint={t("settings.lockoutDurationHelp")}
+          >
+            <Input
+              type="number"
+              min={1}
+              max={1440}
+              value={settings.lockoutDurationMinutes}
+              disabled={settings.lockoutThreshold === 0}
+              onChange={(e) =>
+                setSettings({
+                  ...settings,
+                  lockoutDurationMinutes: Number(e.target.value),
+                })
+              }
+            />
+          </Field>
+        </fieldset>
+
         {error && <Alert tone="danger">{error}</Alert>}
         {saved && <Alert tone="success">{t("settings.saved")}</Alert>}
 

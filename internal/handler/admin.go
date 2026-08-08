@@ -65,6 +65,11 @@ type updateSettingsRequest struct {
 	TokenTTLMinutes     int    `json:"tokenTtlMinutes"`
 	RegistrationEnabled bool   `json:"registrationEnabled"`
 	SystemName          string `json:"systemName"`
+
+	// Zero threshold switches lockout off, which a deployment that trusts
+	// its reverse proxy's throttling may well want.
+	LockoutThreshold       int `json:"lockoutThreshold"`
+	LockoutDurationMinutes int `json:"lockoutDurationMinutes"`
 }
 
 // UpdateSettings writes the runtime settings.
@@ -78,9 +83,11 @@ func (h *Handler) UpdateSettings(w http.ResponseWriter, r *http.Request) {
 	}
 
 	settings, err := h.settings.Update(r.Context(), principal.TenantID, service.Settings{
-		TokenTTLMinutes:     req.TokenTTLMinutes,
-		RegistrationEnabled: req.RegistrationEnabled,
-		SystemName:          req.SystemName,
+		TokenTTLMinutes:        req.TokenTTLMinutes,
+		RegistrationEnabled:    req.RegistrationEnabled,
+		SystemName:             req.SystemName,
+		LockoutThreshold:       req.LockoutThreshold,
+		LockoutDurationMinutes: req.LockoutDurationMinutes,
 	})
 	if err != nil {
 		// Update returns a typed error for validation failures; anything

@@ -80,6 +80,7 @@ const (
 	ActionUserEnable  = "USER_ENABLE"
 	ActionUserDisable = "USER_DISABLE"
 	ActionUserImport  = "USER_IMPORT"
+	ActionUserUnlock  = "USER_UNLOCK"
 	ActionUserSelfReg = "USER_SELF_REGISTER"
 
 	ActionOrgCreate  = "ORG_CREATE"

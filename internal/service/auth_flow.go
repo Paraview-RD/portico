@@ -3,6 +3,7 @@ package service
 import (
 	"context"
 	"fmt"
+	"log/slog"
 	"strings"
 	"time"
 
@@ -37,9 +38,11 @@ type Session struct {
 //
 // Every failure returns the same ErrInvalidCredentials regardless of whether
 // the account exists, so the response cannot be used to enumerate accounts.
-// A disabled account is the one exception: telling the user their account is
-// disabled is more useful than pretending the password is wrong, and the
-// account is known to exist anyway once the password matches.
+// Two answers are more specific — disabled, and locked — and both are
+// reached only after the password has matched, so they are available to
+// somebody who could already establish the account exists. Being vague at
+// that point costs a person who typed the right password the one piece of
+// information that would tell them what to do.
 func (s *UserService) Login(ctx context.Context, tenant model.Tenant, identifier, password, ip string) (Session, error) {
 	identifier = strings.TrimSpace(identifier)
 	if identifier == "" || password == "" {
@@ -61,12 +64,31 @@ func (s *UserService) Login(ctx context.Context, tenant model.Tenant, identifier
 		return Session{}, fmt.Errorf("look up user: %w", err)
 	}
 
+	settings, err := s.settings.Get(ctx, tenant.ID)
+	if err != nil {
+		return Session{}, err
+	}
+
 	if !auth.CheckPassword(row.PasswordHash, password) {
 		// The audit entry records the account, not the identifier that named
 		// it — the trail is about who, and an email and a username reaching
 		// the same account are the same event.
-		s.logLoginFailure(ctx, tenant.ID, row.ID, row.Username, ip, "wrong password")
+		s.countFailure(ctx, tenant, row.ID, row.Username, ip, settings)
 		return Session{}, ErrInvalidCredentials
+	}
+
+	// Checked after the password, on the same reasoning as the disabled
+	// account below: reaching here means the caller knows the password, so
+	// saying the account is locked tells them nothing they could not already
+	// establish, and telling them is far more useful than "wrong password"
+	// for somebody who just typed the right one.
+	//
+	// Placing it after also means a wrong guess never learns that an account
+	// is locked, so an attacker cannot use the lock as an oracle for which
+	// accounts they have been getting close to.
+	if row.LockedUntil != nil && row.LockedUntil.After(store.Now()) {
+		s.logLoginFailure(ctx, tenant.ID, row.ID, row.Username, ip, "account locked")
+		return Session{}, ErrAccountLocked
 	}
 
 	if model.Status(row.Status) != model.StatusActive {
@@ -74,12 +96,15 @@ func (s *UserService) Login(ctx context.Context, tenant model.Tenant, identifier
 		return Session{}, ErrAccountDisabled
 	}
 
-	user, err := s.Get(ctx, tenant.ID, row.ID)
-	if err != nil {
-		return Session{}, err
+	// The password was right and nothing stood in the way, so whatever
+	// failures preceded it were somebody mistyping.
+	if row.FailedLoginAttempts > 0 || row.LockedUntil != nil {
+		if err := q.ClearLoginFailures(ctx, row.ID, store.Now()); err != nil {
+			return Session{}, fmt.Errorf("clear login failures: %w", err)
+		}
 	}
 
-	settings, err := s.settings.Get(ctx, tenant.ID)
+	user, err := s.Get(ctx, tenant.ID, row.ID)
 	if err != nil {
 		return Session{}, err
 	}
@@ -97,6 +122,72 @@ func (s *UserService) Login(ctx context.Context, tenant model.Tenant, identifier
 	})
 
 	return Session{Token: token, ExpiresAt: expiresAt, User: user}, nil
+}
+
+// countFailure records a wrong password and locks the account if that takes
+// it to the tenant's threshold.
+//
+// This is per-account, and it is not the same control as the per-IP
+// throttling a reverse proxy does. A proxy rate limit stops one source
+// hammering the endpoint and does nothing about a slow spray from many
+// addresses against one account; this stops the second and does nothing
+// about the first. Both are wanted, which is why the deployment guide still
+// asks for the proxy.
+//
+// A lock is temporary and never extended by further failures. Otherwise
+// anyone who knows a username could keep that person locked out
+// indefinitely simply by guessing at them, which trades one denial of
+// service for another.
+func (s *UserService) countFailure(ctx context.Context, tenant model.Tenant, userID, username, ip string, settings Settings) {
+	if !settings.LockoutEnabled() {
+		s.logLoginFailure(ctx, tenant.ID, userID, username, ip, "wrong password")
+		return
+	}
+
+	now := store.Now()
+	result, err := s.store.ForTenant(tenant.ID).RecordFailedLogin(ctx,
+		sqlcgen.RecordFailedLoginParams{
+			ID:          userID,
+			Now:         now,
+			WindowStart: now.Add(-settings.LockoutDuration()),
+			Threshold:   lockoutThreshold(settings),
+			LockUntil:   now.Add(settings.LockoutDuration()),
+		})
+	if err != nil {
+		// The sign-in has already failed; failing to count it must not turn
+		// that into a 500, which would tell a caller their guess was
+		// interesting.
+		slog.ErrorContext(ctx, "could not record failed sign-in",
+			"error", err, "user_id", userID)
+		s.logLoginFailure(ctx, tenant.ID, userID, username, ip, "wrong password")
+		return
+	}
+
+	reason := fmt.Sprintf("wrong password (%d of %d)",
+		result.FailedLoginAttempts, settings.LockoutThreshold)
+	if result.LockedUntil != nil && result.LockedUntil.After(now) {
+		reason = fmt.Sprintf("wrong password (%d of %d); account locked until %s",
+			result.FailedLoginAttempts, settings.LockoutThreshold,
+			result.LockedUntil.UTC().Format(time.RFC3339))
+	}
+	s.logLoginFailure(ctx, tenant.ID, userID, username, ip, reason)
+}
+
+// lockoutThreshold narrows the configured threshold to the width the query
+// takes.
+//
+// Update already refuses anything above MaxLockoutThreshold, so this cannot
+// truncate in practice — but a bare conversion says that only in the
+// validation two files away, and a scanner cannot read it there. Clamping
+// here makes the bound local and true regardless of how the value arrived.
+func lockoutThreshold(settings Settings) int32 {
+	if settings.LockoutThreshold > MaxLockoutThreshold {
+		return MaxLockoutThreshold
+	}
+	if settings.LockoutThreshold < 0 {
+		return 0
+	}
+	return int32(settings.LockoutThreshold)
 }
 
 func (s *UserService) logLoginFailure(ctx context.Context, tenantID, userID, username, ip, reason string) {
@@ -240,6 +331,16 @@ func (s *UserService) setPassword(ctx context.Context, q *store.Scoped, userID, 
 	// refreshed indefinitely by whoever knew the old password.
 	if err := q.RevokeAllRefreshTokensForUser(ctx, userID, store.Now()); err != nil {
 		return fmt.Errorf("revoke federated sessions: %w", err)
+	}
+
+	// A new password means whoever set it is in control of the account, so
+	// the failures that preceded it are no longer interesting and any lock
+	// they caused should not outlive them. This is the one place all three
+	// password paths meet — recovery, self-service change, administrator
+	// reset — so putting it here covers them without three chances to
+	// forget one.
+	if err := q.ClearLoginFailures(ctx, userID, store.Now()); err != nil {
+		return fmt.Errorf("clear login failures: %w", err)
 	}
 	return nil
 }

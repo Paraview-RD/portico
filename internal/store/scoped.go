@@ -140,6 +140,19 @@ func (s *Scoped) BumpUserTokenVersion(ctx context.Context, arg sqlcgen.BumpUserT
 	return s.q.BumpUserTokenVersion(ctx, arg)
 }
 
+// RecordFailedLogin counts a failed sign-in and locks the account if that
+// takes it to the threshold. It returns the new count and the lock, if any.
+func (s *Scoped) RecordFailedLogin(ctx context.Context, arg sqlcgen.RecordFailedLoginParams) (sqlcgen.RecordFailedLoginRow, error) {
+	arg.TenantID = s.tenantID
+	return s.q.RecordFailedLogin(ctx, arg)
+}
+
+// ClearLoginFailures forgets an account's failures and unlocks it.
+func (s *Scoped) ClearLoginFailures(ctx context.Context, userID string, now time.Time) error {
+	return s.q.ClearLoginFailures(ctx,
+		sqlcgen.ClearLoginFailuresParams{TenantID: s.tenantID, ID: userID, Now: now})
+}
+
 // CountUsers counts this tenant's accounts.
 func (s *Scoped) CountUsers(ctx context.Context) (int64, error) {
 	return s.q.CountUsers(ctx, s.tenantID)

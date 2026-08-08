@@ -76,6 +76,16 @@ CREATE TABLE users (
     token_version BIGINT  NOT NULL DEFAULT 1,
     source        TEXT    NOT NULL DEFAULT 'ADMIN' CHECK (source IN ('ADMIN', 'IMPORT', 'REGISTRATION')),
 
+    -- Online guessing, counted per account.
+    --
+    -- This is a different control from the per-IP throttling a reverse proxy
+    -- does, and neither substitutes for the other: a proxy rate limit stops
+    -- one source hammering the endpoint, and does nothing about a slow spray
+    -- from a botnet against one account. This stops the second.
+    failed_login_attempts INT NOT NULL DEFAULT 0,
+    last_failed_login_at  TIMESTAMPTZ,
+    locked_until          TIMESTAMPTZ,
+
     created_at TIMESTAMPTZ NOT NULL,
     updated_at TIMESTAMPTZ NOT NULL,
 
@@ -98,6 +108,10 @@ CREATE TABLE users (
 COMMENT ON COLUMN users.token_version IS
     'Bumped on logout, password change, and disable. A token carrying a stale value is rejected, which is how a stateless JWT is revoked immediately.';
 COMMENT ON COLUMN users.source IS 'How the account came to exist, for the registration log.';
+COMMENT ON COLUMN users.failed_login_attempts IS
+    'Consecutive failures within the counting window. Reset by a successful sign-in, by a completed password recovery, and by an administrator unlocking the account.';
+COMMENT ON COLUMN users.locked_until IS
+    'Set when the threshold is reached; expires on its own. Further failures while locked do not extend it, or locking somebody out would be a denial of service anyone could perform.';
 COMMENT ON COLUMN users.email IS
     'Doubles as a sign-in identifier and as the destination for password recovery. Unique within the tenant when set; empty means not bound.';
 COMMENT ON COLUMN users.phone IS

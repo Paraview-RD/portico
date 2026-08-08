@@ -19,6 +19,9 @@ export interface User {
   organizationName: string;
   createdAt: string;
   updatedAt: string;
+
+  /** Set while the account is locked out after repeated failed sign-ins. */
+  lockedUntil?: string;
 }
 
 export interface Organization {
@@ -55,6 +58,15 @@ export interface Settings {
   tokenTtlMinutes: number;
   registrationEnabled: boolean;
   systemName: string;
+
+  /**
+   * Consecutive failed sign-ins that lock an account. Zero switches lockout
+   * off — a deployment that trusts its reverse proxy's throttling may want
+   * that, though the two controls cover different attacks.
+   */
+  lockoutThreshold: number;
+  /** How long a lock lasts, and the window failures are counted over. */
+  lockoutDurationMinutes: number;
 }
 
 export interface Session {

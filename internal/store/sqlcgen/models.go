@@ -213,7 +213,12 @@ type User struct {
 	// Bumped on logout, password change, and disable. A token carrying a stale value is rejected, which is how a stateless JWT is revoked immediately.
 	TokenVersion int64
 	// How the account came to exist, for the registration log.
-	Source    string
-	CreatedAt time.Time
-	UpdatedAt time.Time
+	Source string
+	// Consecutive failures within the counting window. Reset by a successful sign-in, by a completed password recovery, and by an administrator unlocking the account.
+	FailedLoginAttempts int32
+	LastFailedLoginAt   *time.Time
+	// Set when the threshold is reached; expires on its own. Further failures while locked do not extend it, or locking somebody out would be a denial of service anyone could perform.
+	LockedUntil *time.Time
+	CreatedAt   time.Time
+	UpdatedAt   time.Time
 }

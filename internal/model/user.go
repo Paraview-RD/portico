@@ -74,6 +74,12 @@ type User struct {
 	// show a bare id.
 	OrganizationName string `json:"organizationName"`
 
+	// LockedUntil is set while the account is locked out after repeated
+	// failed sign-ins, and nil otherwise. It is reported so an administrator
+	// looking at a user who "cannot log in" can see why without reading the
+	// audit trail.
+	LockedUntil *time.Time `json:"lockedUntil,omitempty"`
+
 	CreatedAt time.Time `json:"createdAt"`
 	UpdatedAt time.Time `json:"updatedAt"`
 }

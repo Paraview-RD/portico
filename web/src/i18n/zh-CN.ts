@@ -99,6 +99,8 @@ export const zhCN: Record<keyof typeof enUS, string> = {
   "users.colStatus": "状态",
   "users.colCreatedAt": "创建时间",
   "users.resetPassword": "重置密码",
+  "users.unlock": "解锁",
+  "users.lockedUntil": "锁定至 {0}",
   "users.noOrganization": "—",
   "users.createTitle": "新建用户",
   "users.editTitle": "编辑用户",
@@ -261,6 +263,15 @@ export const zhCN: Record<keyof typeof enUS, string> = {
   "settings.registrationHelp":
     "关闭后只能由管理员创建账号。自主注册的账号一律为普通用户。",
   "settings.saved": "设置已保存。",
+  "settings.lockoutLegend": "登录失败锁定",
+  "settings.lockoutHelp":
+    "连续输错密码后锁定账号。这不是限流——它防的是某一个账号的密码被猜中，对大量尝试给服务器带来的负载无能为力，反向代理的限流仍要保留。",
+  "settings.lockoutThreshold": "锁定前允许的失败次数",
+  "settings.lockoutThresholdHelp":
+    "在下方时间窗内的连续失败次数。填 0 表示关闭锁定。",
+  "settings.lockoutDuration": "锁定时长（分钟）",
+  "settings.lockoutDurationHelp":
+    "同时也是统计失败次数的时间窗。锁定期间继续尝试不会延长它。",
 
   "profile.title": "个人中心",
   "profile.subtitle": "账号信息与密码。",

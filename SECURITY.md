@@ -41,17 +41,21 @@ These are deliberate MVP scope decisions, not oversights. They are listed
 here rather than only in the requirements document because they change how
 you must deploy Portico.
 
-### There is no rate limiting, and that has an availability consequence
+### There is no request rate limiting, and that has an availability consequence
 
-Portico does not throttle sign-in attempts. This is stated in the README as a
-scope decision, but the practical effect is larger than "passwords can be
-guessed slowly":
+Portico locks an account after repeated failed sign-ins — five within
+fifteen minutes by default, configurable per tenant in **Settings**, and
+switchable off. That is a control against *guessing one account's password*.
+It is not a rate limit, and it does not address the availability problem
+below.
 
 Every sign-in attempt costs a bcrypt evaluation, including attempts against
-usernames that do not exist (that is intentional — it stops the endpoint
-from being used to discover which accounts are real). Combined with a
+usernames that do not exist and attempts against accounts that are already
+locked — both intentional, because skipping the work would let the response
+time say which accounts are real and which are locked. Combined with a
 single-writer database, enough concurrent sign-in requests from one source
-can exhaust CPU and stall writes.
+can exhaust CPU and stall writes. Account lockout does nothing about this:
+the attempts still arrive and are still evaluated.
 
 **You must place Portico behind a reverse proxy that rate-limits
 `/api/v1/auth/*`.** See [docs/access-guide.md](docs/access-guide.md) for a
@@ -147,8 +151,9 @@ would leak through response time — seconds, not microseconds — whatever the
 body said. Everything past the account lookup is detached, and a test
 measures the gap.
 
-Three things this deliberately does not do. It does not rate-limit — that is
-the reverse proxy's job, along with the rest of `/api/v1/auth/*`. It does not
+Three things this deliberately does not do. It does not rate-limit requests
+— that is the reverse proxy's job, along with the rest of `/api/v1/auth/*`;
+account lockout is a different control and covers a different attack. It does not
 verify a changed email address, so a user may point their own recovery at an
 inbox they do not read; that locks them out rather than letting anyone in,
 and the per-tenant unique index stops them taking an address another account
