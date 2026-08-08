@@ -19,6 +19,11 @@
   "delivered" does and does not mean.
 - **[integrations.md](integrations.md)** — external services Portico depends
   on at runtime (there are none, deliberately) and what that implies.
+- **[api/openapi.yaml](api/openapi.yaml)** — the management and self-service
+  API, machine-readable. Every operation under `/api/v1`, checked against the
+  running router by a test, so a client generated from it calls endpoints
+  that exist. Protocol endpoints are not restated here; they have their own
+  specifications.
 
 ## Contributing
 

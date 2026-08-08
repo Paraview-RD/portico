@@ -1,0 +1,2838 @@
+openapi: 3.1.0
+
+info:
+  title: Portico
+  version: 0.1.0
+  summary: The management and self-service API.
+  description: |
+    Portico's own HTTP API, under `/api/v1`.
+
+    **What is deliberately not here.** SCIM 2.0 is defined by RFC 7643 and
+    RFC 7644, and OpenID Connect, OAuth 2.1, SAML 2.0, and CAS are defined by
+    their own specifications. Restating them in house style would produce a
+    second description that can disagree with the first, and clients for
+    those protocols read the specification rather than this file. `/api/v1`
+    is the surface that has no external definition, so it is the surface this
+    document covers. See `docs/scim.md` and `docs/federation.md` for the
+    rest, and `docs/webhooks.md` for the outbound side, which is a request
+    Portico makes rather than one it serves.
+
+    **Every response is wrapped**, including failures — see the `Envelope`
+    schema. A client reads `code` to decide what happened; the HTTP status
+    agrees with it but is coarser. `data` is always present and is `null`
+    when there is no result.
+
+    **Every request acts inside exactly one tenant.** For an authenticated
+    call the tenant comes from the token and the `X-Tenant` header is
+    ignored; sending one that disagrees changes nothing. Only sign-in,
+    registration, and the other endpoints reachable without a token take the
+    tenant from the header or the body, because there is no token yet.
+
+    This file is checked against the running router by
+    `TestOpenAPIDescribesEveryRoute`: an endpoint added without being
+    described here, or described here without existing, fails the build.
+    That test is the reason the document can be trusted; without it this
+    would be a snapshot of what was true once.
+
+  license:
+    name: Apache-2.0
+    url: https://www.apache.org/licenses/LICENSE-2.0
+  contact:
+    name: Portico
+    url: https://github.com/paraview/portico
+
+servers:
+  - url: /
+    description: The deployment serving this document.
+
+tags:
+  - name: Health
+    description: Liveness and readiness, for orchestrators rather than people.
+  - name: Authentication
+    description: Signing in, signing out, registration, and password recovery.
+  - name: Self-service
+    description: What a signed-in person may do to their own account.
+  - name: Federation
+    description: |
+      The seam between Portico's sign-in screen and the protocol endpoints.
+      These are Portico's own, and follow Portico's conventions; the protocol
+      endpoints themselves do not, and are not described here.
+  - name: Users
+    description: Account administration.
+  - name: Organizations
+    description: The organization chart. One per person, arranged as a tree.
+  - name: Groups
+    description: |
+      Sets of people. Any number per person, flat, and usually maintained by
+      a directory. Membership grants nothing.
+  - name: Applications
+    description: The systems that sign in through Portico.
+  - name: Provisioning
+    description: The credentials a directory authenticates to SCIM with.
+  - name: Webhooks
+    description: Outbound event subscriptions and their delivery history.
+  - name: Audit
+    description: What happened, and who did it.
+  - name: Settings
+    description: Per-tenant configuration.
+
+security:
+  - bearerAuth: []
+
+paths:
+  /api/v1/health:
+    get:
+      tags: [Health]
+      operationId: health
+      summary: Whether this process is alive.
+      description: |
+        Deliberately does not touch the database. A database outage is not
+        fixed by restarting every instance, and reporting one here would turn
+        a failing dependency into a restart loop across the fleet at the
+        moment it is least able to cope. Use `/ready` for that question.
+      security: []
+      responses:
+        "200":
+          description: The process is running.
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/HealthEnvelope" }
+
+  /api/v1/ready:
+    get:
+      tags: [Health]
+      operationId: ready
+      summary: Whether this instance can serve requests.
+      description: Reaches the database, with a two-second bound.
+      security: []
+      responses:
+        "200":
+          description: The database is reachable.
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/ReadinessEnvelope" }
+        "503":
+          description: |
+            The database is not reachable. The reason is logged rather than
+            returned: this endpoint is unauthenticated, and a driver error
+            can carry a host, a port, and sometimes a user.
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Envelope" }
+
+  /api/v1/auth/login:
+    post:
+      tags: [Authentication]
+      operationId: login
+      summary: Sign in.
+      description: |
+        The identifier is a username, an email address, or a phone number;
+        all three reach the same account and produce the same credential.
+
+        A password that has expired is refused here rather than answered with
+        a token and a flag — see `/api/v1/auth/password/expired`.
+      security: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [identifier, password]
+              properties:
+                identifier:
+                  type: string
+                  description: Username, email address, or phone number.
+                password: { type: string, format: password }
+                tenant:
+                  type: string
+                  description: |
+                    Tenant code. Omit for the default tenant. There is no
+                    token yet, so this is the only place the tenant can come
+                    from.
+      responses:
+        "200":
+          description: Signed in.
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/SessionEnvelope" }
+        "401":
+          description: |
+            The credential was refused. The `code` says which of the reasons
+            it was: `INVALID_CREDENTIALS`, `ACCOUNT_LOCKED` after repeated
+            failed sign-ins, `ACCOUNT_DISABLED`, or `PASSWORD_EXPIRED` when
+            the password is right but too old to use.
+
+            All of them are 401 rather than a status per reason, because the
+            distinction is in the body: a client branches on `code`, and the
+            transport status only has to say "not signed in".
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Envelope" }
+
+  /api/v1/auth/register:
+    post:
+      tags: [Authentication]
+      operationId: register
+      summary: Register an account.
+      description: |
+        Available only where the tenant has registration switched on, which
+        is off by default. The role cannot be requested: a self-registered
+        account is always an ordinary user.
+      security: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [username, displayName, password]
+              properties:
+                username: { type: string }
+                displayName: { type: string }
+                password: { type: string, format: password }
+                phone: { type: string }
+                email: { type: string, format: email }
+                tenant: { type: string }
+      responses:
+        "200":
+          description: Registered.
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/UserEnvelope" }
+        "403":
+          description: Registration is not open for this tenant.
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Envelope" }
+        "409":
+          $ref: "#/components/responses/Conflict"
+        "422":
+          $ref: "#/components/responses/ValidationFailed"
+
+  /api/v1/auth/registration-status:
+    get:
+      tags: [Authentication]
+      operationId: registrationStatus
+      summary: Whether registration is open, and what this tenant is called.
+      description: Lets the sign-in screen decide whether to offer registration.
+      security: []
+      parameters:
+        - $ref: "#/components/parameters/TenantHeader"
+      responses:
+        "200":
+          description: The tenant's registration setting.
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/RegistrationStatusEnvelope" }
+
+  /api/v1/auth/recovery-channels:
+    get:
+      tags: [Authentication]
+      operationId: recoveryChannels
+      summary: How a reset link can be delivered.
+      description: |
+        Empty when the deployment has neither a mail relay nor an SMS
+        provider, which is how the screen knows not to offer recovery it
+        cannot perform.
+      security: []
+      responses:
+        "200":
+          description: The available channels.
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/RecoveryChannelsEnvelope" }
+
+  /api/v1/auth/password-recovery:
+    post:
+      tags: [Authentication]
+      operationId: requestPasswordRecovery
+      summary: Ask for a password reset link.
+      description: |
+        The answer is the same whether or not an account matched. An endpoint
+        that said would be an account-existence oracle available to anybody.
+      security: []
+      parameters:
+        - $ref: "#/components/parameters/TenantHeader"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [channel, destination]
+              properties:
+                channel: { $ref: "#/components/schemas/RecoveryChannel" }
+                destination:
+                  type: string
+                  description: The email address or phone number to send to.
+      responses:
+        "200":
+          description: Accepted, whether or not an account matched.
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/MessageEnvelope" }
+
+  /api/v1/auth/password-recovery/confirm:
+    post:
+      tags: [Authentication]
+      operationId: confirmPasswordRecovery
+      summary: Redeem a password reset link.
+      description: |
+        The tenant travels in the link rather than here. Redeeming ends every
+        session the account had.
+      security: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [token, newPassword]
+              properties:
+                token: { type: string }
+                newPassword: { type: string, format: password }
+      responses:
+        "200":
+          description: The password was replaced.
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/ReauthenticationEnvelope" }
+        "400":
+          description: The link is expired, already used, or not valid.
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Envelope" }
+        "422":
+          $ref: "#/components/responses/ValidationFailed"
+
+  /api/v1/auth/password/expired:
+    post:
+      tags: [Authentication]
+      operationId: changeExpiredPassword
+      summary: Replace an expired password, and sign in.
+      description: |
+        Public by necessity: the caller cannot sign in, because sign-in
+        refuses an expired password rather than issuing a token and trusting
+        the client to act on a flag. Refuses if the password has not in fact
+        expired.
+      security: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [identifier, currentPassword, newPassword]
+              properties:
+                identifier: { type: string }
+                currentPassword: { type: string, format: password }
+                newPassword: { type: string, format: password }
+                tenant: { type: string }
+      responses:
+        "200":
+          description: Replaced, and signed in.
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/SessionEnvelope" }
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "422":
+          $ref: "#/components/responses/ValidationFailed"
+
+  /api/v1/auth/logout:
+    post:
+      tags: [Authentication]
+      operationId: logout
+      summary: End this session.
+      description: |
+        This one only. Signing out on a laptop no longer signs you out on a
+        phone; `/auth/logout-everywhere` is for that.
+
+        It does, however, end every federated session this account holds —
+        refresh tokens issued to relying parties are revoked. What no
+        identity provider can withdraw is an access token already in
+        somebody's hands, or a session an application created for itself
+        after accepting an assertion. See `docs/federation.md`.
+      responses:
+        "200":
+          description: Signed out.
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Envelope" }
+
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+  /api/v1/auth/logout-everywhere:
+    post:
+      tags: [Authentication]
+      operationId: logoutEverywhere
+      summary: End every session this account has.
+      responses:
+        "200":
+          description: All sessions ended.
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Envelope" }
+
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+  /api/v1/auth/permission-check:
+    get:
+      tags: [Authentication]
+      operationId: checkPermission
+      summary: Who the caller is, and whether they are an administrator.
+      description: |
+        For a downstream system that has been handed a token and needs to
+        know what it represents. It takes no parameters: there is nothing to
+        ask about, because this version has two fixed roles and no permission
+        assignment — `isAdmin` is the whole answer.
+
+        Readable by any authenticated caller on purpose. A downstream service
+        acts with the user's own token, on that user's behalf.
+
+        The name is broader than what it does. It is kept because clients
+        call it, and renaming an endpoint to describe the version that has
+        real permissions is a change to make when that version exists.
+      responses:
+        "200":
+          description: The caller.
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/PrincipalEnvelope" }
+
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+  /api/v1/users/me:
+    get:
+      tags: [Self-service]
+      operationId: me
+      summary: The caller's own account.
+      responses:
+        "200":
+          description: The account.
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/UserEnvelope" }
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+    put:
+      tags: [Self-service]
+      operationId: updateOwnProfile
+      summary: Update the caller's own details.
+      description: |
+        Role, status, organization, and username are absent by design, and
+        the server rejects them rather than ignoring them. Changing any of
+        those is a decision about somebody's access, which is an
+        administrator's to make.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [displayName]
+              properties:
+                displayName: { type: string }
+                phone: { type: string }
+                email: { type: string, format: email }
+      responses:
+        "200":
+          description: Updated.
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/UserEnvelope" }
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "422":
+          $ref: "#/components/responses/ValidationFailed"
+
+  /api/v1/users/me/password:
+    post:
+      tags: [Self-service]
+      operationId: changeOwnPassword
+      summary: Change the caller's own password.
+      description: |
+        Ends every session, including this one — `reauthenticationRequired`
+        says so. A password change that left other sessions alive would not
+        be a remedy for the case people use it for.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [currentPassword, newPassword]
+              properties:
+                currentPassword: { type: string, format: password }
+                newPassword: { type: string, format: password }
+      responses:
+        "200":
+          description: Changed.
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/ReauthenticationEnvelope" }
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "422":
+          $ref: "#/components/responses/ValidationFailed"
+
+  /api/v1/users/me/sessions:
+    get:
+      tags: [Self-service]
+      operationId: listOwnSessions
+      summary: The caller's own live sessions.
+      description: |
+        No token is present and never will be: the server stores a digest,
+        so there is nothing here to leak even by accident.
+      responses:
+        "200":
+          description: Sessions, most recently used first.
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/UserSessionListEnvelope" }
+
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+  /api/v1/users/me/sessions/{sessionID}:
+    delete:
+      tags: [Self-service]
+      operationId: revokeOwnSession
+      summary: End one of the caller's own sessions.
+      parameters:
+        - $ref: "#/components/parameters/SessionID"
+      responses:
+        "200":
+          description: Ended.
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Envelope" }
+        "404":
+          $ref: "#/components/responses/NotFound"
+
+  /api/v1/oauth/authorize:
+    post:
+      tags: [Federation]
+      operationId: authorizeOAuth
+      summary: Complete an OAuth authorization request for the signed-in user.
+      description: |
+        Portico's own endpoint, not OAuth's. The sign-in screen calls it once
+        somebody has authenticated and is told where to send the browser
+        next — the provider's callback, where the code is issued.
+
+        The subject is never accepted as input; it comes from the token. An
+        endpoint that took one would issue codes for other people.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [authRequestId]
+              properties:
+                authRequestId: { type: string }
+      responses:
+        "200":
+          description: Where to send the browser.
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/AuthorizationEnvelope" }
+        "400":
+          description: The request is expired, already used, or unknown.
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Envelope" }
+
+  /api/v1/saml/authenticate:
+    post:
+      tags: [Federation]
+      operationId: authorizeSAML
+      summary: Complete a SAML authentication request for the signed-in user.
+      description: |
+        Separate from the OAuth endpoint because the two protocols park their
+        in-flight requests separately; an id from one means nothing to the
+        other.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [samlRequestId]
+              properties:
+                samlRequestId: { type: string }
+      responses:
+        "200":
+          description: Where to send the browser.
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/AuthorizationEnvelope" }
+        "400":
+          description: The request is expired, already used, or unknown.
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Envelope" }
+
+  /api/v1/cas/authorize:
+    post:
+      tags: [Federation]
+      operationId: authorizeCAS
+      summary: Issue a CAS ticket for the signed-in user.
+      description: |
+        The request is the service URL itself. It is checked against the
+        tenant's registrations rather than trusted.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [service]
+              properties:
+                service: { type: string, format: uri }
+      responses:
+        "200":
+          description: Where to send the browser.
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/AuthorizationEnvelope" }
+        "400":
+          description: The service is not registered in this tenant.
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Envelope" }
+
+  /api/v1/organizations:
+    get:
+      tags: [Organizations]
+      operationId: listOrganizations
+      summary: Every organization in the tenant.
+      description: |
+        Flat, with each row naming its parent, rather than nested: a nested
+        payload cannot be sorted or filtered without being taken apart again.
+
+        Readable by any signed-in caller because the profile screen needs it;
+        writing is administrator-only.
+      parameters:
+        - name: activeOnly
+          in: query
+          schema: { type: boolean }
+          description: Omit disabled organizations.
+      responses:
+        "200":
+          description: The organizations.
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/OrganizationListEnvelope" }
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+    post:
+      tags: [Organizations]
+      operationId: createOrganization
+      summary: Create an organization.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/OrganizationCreate" }
+      responses:
+        "200":
+          description: Created.
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/OrganizationEnvelope" }
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "409":
+          $ref: "#/components/responses/Conflict"
+        "422":
+          $ref: "#/components/responses/ValidationFailed"
+
+  /api/v1/organizations/{id}:
+    get:
+      tags: [Organizations]
+      operationId: getOrganization
+      summary: One organization.
+      parameters:
+        - $ref: "#/components/parameters/ID"
+      responses:
+        "200":
+          description: The organization.
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/OrganizationEnvelope" }
+        "404":
+          $ref: "#/components/responses/NotFound"
+    put:
+      tags: [Organizations]
+      operationId: updateOrganization
+      summary: Update an organization.
+      description: |
+        The code is absent: downstream systems store it, so it is fixed at
+        creation. Changing `parentId` moves the subtree; the server refuses
+        a move that would put an organization under itself, and refuses one
+        that would nest deeper than the tree allows.
+      parameters:
+        - $ref: "#/components/parameters/ID"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [name]
+              properties:
+                name: { type: string }
+                remark: { type: string }
+                parentId:
+                  type: string
+                  description: Empty makes it a root.
+                sortOrder: { type: integer }
+      responses:
+        "200":
+          description: Updated.
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/OrganizationEnvelope" }
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "422":
+          $ref: "#/components/responses/ValidationFailed"
+
+  /api/v1/organizations/{id}/enable:
+    post:
+      tags: [Organizations]
+      operationId: enableOrganization
+      summary: Enable an organization.
+      parameters:
+        - $ref: "#/components/parameters/ID"
+      responses:
+        "200":
+          description: Enabled.
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/OrganizationEnvelope" }
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+
+  /api/v1/organizations/{id}/disable:
+    post:
+      tags: [Organizations]
+      operationId: disableOrganization
+      summary: Disable an organization.
+      description: |
+        Existing members keep their membership; no new ones can be assigned.
+        There is no delete — the audit trail keeps pointing at something that
+        still exists.
+      parameters:
+        - $ref: "#/components/parameters/ID"
+      responses:
+        "200":
+          description: Disabled.
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/OrganizationEnvelope" }
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+
+  /api/v1/users:
+    get:
+      tags: [Users]
+      operationId: listUsers
+      summary: Accounts in the tenant.
+      parameters:
+        - $ref: "#/components/parameters/Page"
+        - $ref: "#/components/parameters/PageSize"
+        - name: keyword
+          in: query
+          schema: { type: string }
+          description: Matches username or display name.
+        - name: status
+          in: query
+          schema: { $ref: "#/components/schemas/Status" }
+        - name: role
+          in: query
+          schema: { $ref: "#/components/schemas/Role" }
+        - name: organizationId
+          in: query
+          schema: { type: string }
+      responses:
+        "200":
+          description: A page of accounts.
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/UserPageEnvelope" }
+        "403":
+          $ref: "#/components/responses/Forbidden"
+    post:
+      tags: [Users]
+      operationId: createUser
+      summary: Create an account.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [username, displayName, password, role]
+              properties:
+                username: { type: string }
+                displayName: { type: string }
+                password: { type: string, format: password }
+                phone: { type: string }
+                email: { type: string, format: email }
+                role: { $ref: "#/components/schemas/Role" }
+                organizationId: { type: string }
+      responses:
+        "200":
+          description: Created.
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/UserEnvelope" }
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "409":
+          $ref: "#/components/responses/Conflict"
+        "422":
+          $ref: "#/components/responses/ValidationFailed"
+
+  /api/v1/users/{id}:
+    get:
+      tags: [Users]
+      operationId: getUser
+      summary: One account.
+      parameters:
+        - $ref: "#/components/parameters/ID"
+      responses:
+        "200":
+          description: The account.
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/UserEnvelope" }
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+    put:
+      tags: [Users]
+      operationId: updateUser
+      summary: Update an account.
+      description: |
+        The username is absent: it is what the audit trail and every
+        downstream system refer to. A directory-provisioned account can be
+        renamed, but only over SCIM, where the directory is the system of
+        record.
+      parameters:
+        - $ref: "#/components/parameters/ID"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [displayName, role]
+              properties:
+                displayName: { type: string }
+                phone: { type: string }
+                email: { type: string, format: email }
+                role: { $ref: "#/components/schemas/Role" }
+                organizationId: { type: string }
+      responses:
+        "200":
+          description: Updated.
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/UserEnvelope" }
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "422":
+          $ref: "#/components/responses/ValidationFailed"
+
+  /api/v1/users/{id}/enable:
+    post:
+      tags: [Users]
+      operationId: enableUser
+      summary: Enable an account.
+      parameters:
+        - $ref: "#/components/parameters/ID"
+      responses:
+        "200":
+          description: Enabled.
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/UserEnvelope" }
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+
+  /api/v1/users/{id}/disable:
+    post:
+      tags: [Users]
+      operationId: disableUser
+      summary: Disable an account.
+      description: |
+        Immediate: every session ends and the account cannot sign in again.
+        Accounts are disabled, never deleted, so the audit trail stays whole.
+      parameters:
+        - $ref: "#/components/parameters/ID"
+      responses:
+        "200":
+          description: Disabled.
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/UserEnvelope" }
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+
+  /api/v1/users/{id}/password:
+    post:
+      tags: [Users]
+      operationId: resetUserPassword
+      summary: Set somebody else's password.
+      description: Ends every session that account had.
+      parameters:
+        - $ref: "#/components/parameters/ID"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [newPassword]
+              properties:
+                newPassword: { type: string, format: password }
+      responses:
+        "200":
+          description: Reset.
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Envelope" }
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "422":
+          $ref: "#/components/responses/ValidationFailed"
+
+  /api/v1/users/{id}/unlock:
+    post:
+      tags: [Users]
+      operationId: unlockUser
+      summary: Clear a lockout.
+      description: |
+        Leaves the password alone. The person mistyped it; they did not lose
+        it, and forcing a reset would treat a typo as a compromise.
+      parameters:
+        - $ref: "#/components/parameters/ID"
+      responses:
+        "200":
+          description: Unlocked.
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/UserEnvelope" }
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+
+  /api/v1/users/{id}/groups:
+    get:
+      tags: [Users]
+      operationId: listUserGroups
+      summary: The groups an account belongs to.
+      parameters:
+        - $ref: "#/components/parameters/ID"
+      responses:
+        "200":
+          description: The groups.
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/GroupRefListEnvelope" }
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+
+  /api/v1/users/{id}/sessions:
+    get:
+      tags: [Users]
+      operationId: listUserSessions
+      summary: What is signed in as somebody.
+      parameters:
+        - $ref: "#/components/parameters/ID"
+      responses:
+        "200":
+          description: Their sessions.
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/UserSessionListEnvelope" }
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+
+  /api/v1/users/{id}/sessions/{sessionID}:
+    delete:
+      tags: [Users]
+      operationId: revokeUserSession
+      summary: End one of somebody's sessions.
+      parameters:
+        - $ref: "#/components/parameters/ID"
+        - $ref: "#/components/parameters/SessionID"
+      responses:
+        "200":
+          description: Ended.
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Envelope" }
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+
+  /api/v1/users/import:
+    post:
+      tags: [Users]
+      operationId: importUsers
+      summary: Create accounts from a spreadsheet.
+      description: |
+        Every row is processed independently and the response reports each
+        failure with its row number. A batch that stopped at the first bad
+        row would make a hundred good rows depend on the worst one.
+      requestBody:
+        required: true
+        content:
+          multipart/form-data:
+            schema:
+              type: object
+              required: [file]
+              properties:
+                file:
+                  type: string
+                  format: binary
+                  description: An `.xlsx` file matching the template.
+      responses:
+        "200":
+          description: |
+            The outcome per row. A 200 here means the file was read, not that
+            every row succeeded.
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/ImportResultEnvelope" }
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "422":
+          $ref: "#/components/responses/ValidationFailed"
+
+  /api/v1/users/import/template:
+    get:
+      tags: [Users]
+      operationId: importTemplate
+      summary: Download the import template.
+      description: |
+        Generated from the same column list the parser reads, so the two
+        cannot drift.
+      responses:
+        "200":
+          description: The workbook.
+          content:
+            application/vnd.openxmlformats-officedocument.spreadsheetml.sheet:
+              schema: { type: string, format: binary }
+        "403":
+          $ref: "#/components/responses/Forbidden"
+
+  /api/v1/groups:
+    get:
+      tags: [Groups]
+      operationId: listGroups
+      summary: Every group in the tenant.
+      responses:
+        "200":
+          description: The groups.
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/GroupListEnvelope" }
+        "403":
+          $ref: "#/components/responses/Forbidden"
+    post:
+      tags: [Groups]
+      operationId: createGroup
+      summary: Create a group.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [displayName]
+              properties:
+                displayName: { type: string }
+                description: { type: string }
+      responses:
+        "200":
+          description: Created.
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/GroupEnvelope" }
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "409":
+          $ref: "#/components/responses/Conflict"
+        "422":
+          $ref: "#/components/responses/ValidationFailed"
+
+  /api/v1/groups/{id}:
+    get:
+      tags: [Groups]
+      operationId: getGroup
+      summary: One group.
+      parameters:
+        - $ref: "#/components/parameters/ID"
+      responses:
+        "200":
+          description: The group.
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/GroupEnvelope" }
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+    put:
+      tags: [Groups]
+      operationId: updateGroup
+      summary: Update a group.
+      description: |
+        A group whose `source` is `SCIM` may be edited here, and the next
+        synchronization may overwrite what you wrote. The directory is the
+        system of record for those.
+      parameters:
+        - $ref: "#/components/parameters/ID"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [displayName]
+              properties:
+                displayName: { type: string }
+                description: { type: string }
+      responses:
+        "200":
+          description: Updated.
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/GroupEnvelope" }
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "409":
+          $ref: "#/components/responses/Conflict"
+    delete:
+      tags: [Groups]
+      operationId: deleteGroup
+      summary: Delete a group.
+      description: |
+        Deleted, not disabled — unlike an account. A group is a set rather
+        than a party the audit trail refers to, and directories delete and
+        recreate them, which would otherwise accumulate.
+      parameters:
+        - $ref: "#/components/parameters/ID"
+      responses:
+        "200":
+          description: Deleted.
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Envelope" }
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+
+  /api/v1/groups/{id}/members:
+    get:
+      tags: [Groups]
+      operationId: listGroupMembers
+      summary: Who is in a group.
+      parameters:
+        - $ref: "#/components/parameters/ID"
+      responses:
+        "200":
+          description: The members.
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/GroupMemberListEnvelope" }
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+    post:
+      tags: [Groups]
+      operationId: addGroupMembers
+      summary: Add members to a group.
+      description: |
+        An account that does not exist in this tenant is refused, not
+        skipped. Skipping would leave a group that looks synchronized and is
+        not, which is the one failure the other side cannot see.
+      parameters:
+        - $ref: "#/components/parameters/ID"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [userIds]
+              properties:
+                userIds:
+                  type: array
+                  items: { type: string }
+      responses:
+        "200":
+          description: Added.
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Envelope" }
+        "400":
+          description: One of the accounts does not exist in this tenant.
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Envelope" }
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+
+  /api/v1/groups/{id}/members/{userID}:
+    delete:
+      tags: [Groups]
+      operationId: removeGroupMember
+      summary: Remove one member from a group.
+      description: |
+        Removes the membership. The account is untouched — membership grants
+        nothing, so removing it takes nothing away but the membership.
+      parameters:
+        - $ref: "#/components/parameters/ID"
+        - name: userID
+          in: path
+          required: true
+          schema: { type: string }
+      responses:
+        "200":
+          description: Removed.
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Envelope" }
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+
+  /api/v1/audit-logs:
+    get:
+      tags: [Audit]
+      operationId: listAuditLogs
+      summary: What happened.
+      parameters:
+        - $ref: "#/components/parameters/Page"
+        - $ref: "#/components/parameters/PageSize"
+        - name: kind
+          in: query
+          schema: { $ref: "#/components/schemas/LogKind" }
+        - name: action
+          in: query
+          schema: { type: string }
+        - name: keyword
+          in: query
+          schema: { type: string }
+          description: Matches the actor or the target.
+        - name: from
+          in: query
+          schema: { type: string, format: date-time }
+        - name: to
+          in: query
+          schema: { type: string, format: date-time }
+      responses:
+        "200":
+          description: A page of entries, most recent first.
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/AuditLogPageEnvelope" }
+        "403":
+          $ref: "#/components/responses/Forbidden"
+
+  /api/v1/settings:
+    get:
+      tags: [Settings]
+      operationId: getSettings
+      summary: This tenant's settings.
+      responses:
+        "200":
+          description: The settings.
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/SettingsEnvelope" }
+        "403":
+          $ref: "#/components/responses/Forbidden"
+    put:
+      tags: [Settings]
+      operationId: updateSettings
+      summary: Replace this tenant's settings.
+      description: |
+        A full replace, so send the whole object. `passwordMinLength` has a
+        floor no policy can lower.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/Settings" }
+      responses:
+        "200":
+          description: Updated.
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/SettingsEnvelope" }
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "422":
+          $ref: "#/components/responses/ValidationFailed"
+
+  /api/v1/applications/integration-endpoints:
+    get:
+      tags: [Applications]
+      operationId: integrationEndpoints
+      summary: What to configure at the other end of an integration.
+      description: |
+        Every value is derived by the server from its own public URL and the
+        tenant's code, so what a screen shows cannot drift from what is
+        actually served.
+      responses:
+        "200":
+          description: The addresses.
+          content:
+            application/json:
+              schema:
+                { $ref: "#/components/schemas/IntegrationEndpointsEnvelope" }
+        "403":
+          $ref: "#/components/responses/Forbidden"
+
+  /api/v1/applications/oauth-clients:
+    get:
+      tags: [Applications]
+      operationId: listOAuthClients
+      summary: Registered OAuth 2.1 / OpenID Connect clients.
+      responses:
+        "200":
+          description: The clients.
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/OAuthClientListEnvelope" }
+        "403":
+          $ref: "#/components/responses/Forbidden"
+    post:
+      tags: [Applications]
+      operationId: createOAuthClient
+      summary: Register a client.
+      description: |
+        A confidential client's secret is in this response and nowhere else,
+        ever: only a hash is stored. Losing it means rotating, not
+        recovering.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [clientId, name, redirectUris]
+              properties:
+                clientId:
+                  type: string
+                  description: Letters, digits, and `. _ -` only.
+                name: { type: string }
+                public:
+                  type: boolean
+                  description: |
+                    True for a browser or mobile application, which cannot
+                    keep a secret and authenticates with PKCE alone.
+                applicationType:
+                  type: string
+                  enum: [WEB, NATIVE, USER_AGENT]
+                redirectUris:
+                  type: array
+                  items: { type: string, format: uri }
+                  description: |
+                    Plain http is refused except on loopback: the
+                    authorization code is delivered here.
+                postLogoutRedirectUris:
+                  type: array
+                  items: { type: string, format: uri }
+                scopes:
+                  type: array
+                  items: { type: string }
+      responses:
+        "200":
+          description: Registered, with the secret if it is confidential.
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/RegisteredClientEnvelope" }
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "409":
+          $ref: "#/components/responses/Conflict"
+        "422":
+          $ref: "#/components/responses/ValidationFailed"
+
+  /api/v1/applications/oauth-clients/{clientID}:
+    get:
+      tags: [Applications]
+      operationId: getOAuthClient
+      summary: One client.
+      parameters:
+        - $ref: "#/components/parameters/ClientID"
+      responses:
+        "200":
+          description: The client.
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/OAuthClientEnvelope" }
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+    put:
+      tags: [Applications]
+      operationId: updateOAuthClient
+      summary: Update a client.
+      description: "The client id is fixed: it is what the client presents."
+      parameters:
+        - $ref: "#/components/parameters/ClientID"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [name, redirectUris]
+              properties:
+                name: { type: string }
+                applicationType:
+                  type: string
+                  enum: [WEB, NATIVE, USER_AGENT]
+                redirectUris:
+                  type: array
+                  items: { type: string, format: uri }
+                postLogoutRedirectUris:
+                  type: array
+                  items: { type: string, format: uri }
+                scopes:
+                  type: array
+                  items: { type: string }
+      responses:
+        "200":
+          description: Updated.
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/OAuthClientEnvelope" }
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "422":
+          $ref: "#/components/responses/ValidationFailed"
+
+  /api/v1/applications/oauth-clients/{clientID}/enable:
+    post:
+      tags: [Applications]
+      operationId: enableOAuthClient
+      summary: Enable a client.
+      parameters:
+        - $ref: "#/components/parameters/ClientID"
+      responses:
+        "200":
+          description: Enabled.
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/OAuthClientEnvelope" }
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+
+  /api/v1/applications/oauth-clients/{clientID}/disable:
+    post:
+      tags: [Applications]
+      operationId: disableOAuthClient
+      summary: Disable a client.
+      description: |
+        Immediate: it can no longer sign anyone in, and its credentials stop
+        authenticating at the introspection and revocation endpoints too.
+      parameters:
+        - $ref: "#/components/parameters/ClientID"
+      responses:
+        "200":
+          description: Disabled.
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/OAuthClientEnvelope" }
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+
+  /api/v1/applications/oauth-clients/{clientID}/rotate-secret:
+    post:
+      tags: [Applications]
+      operationId: rotateOAuthClientSecret
+      summary: Issue a new secret.
+      description: |
+        The old one stops working immediately. There is no overlap window, so
+        configure the new secret at the other end before rotating.
+      parameters:
+        - $ref: "#/components/parameters/ClientID"
+      responses:
+        "200":
+          description: Rotated. The new secret is here and nowhere else.
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/RegisteredClientEnvelope" }
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+
+  /api/v1/applications/saml-service-providers:
+    get:
+      tags: [Applications]
+      operationId: listServiceProviders
+      summary: Registered SAML 2.0 service providers.
+      responses:
+        "200":
+          description: The service providers.
+          content:
+            application/json:
+              schema:
+                { $ref: "#/components/schemas/ServiceProviderListEnvelope" }
+        "403":
+          $ref: "#/components/responses/Forbidden"
+    post:
+      tags: [Applications]
+      operationId: createServiceProvider
+      summary: Register a service provider.
+      description: |
+        The registration is the other end's own metadata document. Its entity
+        id and assertion consumer services are read out of it rather than
+        typed in beside it, so the two cannot disagree.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [name, metadataXml]
+              properties:
+                name: { type: string }
+                metadataXml: { type: string }
+      responses:
+        "200":
+          description: Registered.
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/ServiceProviderEnvelope" }
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "409":
+          $ref: "#/components/responses/Conflict"
+        "422":
+          $ref: "#/components/responses/ValidationFailed"
+
+  /api/v1/applications/saml-service-providers/{id}:
+    get:
+      tags: [Applications]
+      operationId: getServiceProvider
+      summary: One service provider.
+      description: |
+        Addressed by the registration's own id, not by its entity id. An
+        entity id is a URI: percent-encoding one into a path segment works
+        until a reverse proxy normalizes the path, decodes the `%2F`, and
+        splits the identifier — at which point every request 404s in
+        production and nowhere else.
+      parameters:
+        - $ref: "#/components/parameters/ID"
+      responses:
+        "200":
+          description: The service provider.
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/ServiceProviderEnvelope" }
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+    put:
+      tags: [Applications]
+      operationId: updateServiceProvider
+      summary: Update a service provider.
+      description: Replacing the metadata is how a certificate is rotated.
+      parameters:
+        - $ref: "#/components/parameters/ID"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [name, metadataXml]
+              properties:
+                name: { type: string }
+                metadataXml: { type: string }
+      responses:
+        "200":
+          description: Updated.
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/ServiceProviderEnvelope" }
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "422":
+          $ref: "#/components/responses/ValidationFailed"
+
+  /api/v1/applications/saml-service-providers/{id}/enable:
+    post:
+      tags: [Applications]
+      operationId: enableServiceProvider
+      summary: Enable a service provider.
+      parameters:
+        - $ref: "#/components/parameters/ID"
+      responses:
+        "200":
+          description: Enabled.
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/ServiceProviderEnvelope" }
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+
+  /api/v1/applications/saml-service-providers/{id}/disable:
+    post:
+      tags: [Applications]
+      operationId: disableServiceProvider
+      summary: Disable a service provider.
+      parameters:
+        - $ref: "#/components/parameters/ID"
+      responses:
+        "200":
+          description: Disabled.
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/ServiceProviderEnvelope" }
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+
+  /api/v1/applications/cas-services:
+    get:
+      tags: [Applications]
+      operationId: listCASServices
+      summary: Registered CAS services.
+      responses:
+        "200":
+          description: The services.
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/CASServiceListEnvelope" }
+        "403":
+          $ref: "#/components/responses/Forbidden"
+    post:
+      tags: [Applications]
+      operationId: createCASService
+      summary: Register a service.
+      description: |
+        `urlPrefix` is a prefix, not a pattern. There are no wildcards: any
+        address beginning with it matches, and nothing else does.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [name, urlPrefix]
+              properties:
+                name: { type: string }
+                urlPrefix: { type: string, format: uri }
+      responses:
+        "200":
+          description: Registered.
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/CASServiceEnvelope" }
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "409":
+          $ref: "#/components/responses/Conflict"
+        "422":
+          $ref: "#/components/responses/ValidationFailed"
+
+  /api/v1/applications/cas-services/{id}:
+    get:
+      tags: [Applications]
+      operationId: getCASService
+      summary: One service.
+      parameters:
+        - $ref: "#/components/parameters/ID"
+      responses:
+        "200":
+          description: The service.
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/CASServiceEnvelope" }
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+    put:
+      tags: [Applications]
+      operationId: updateCASService
+      summary: Update a service.
+      parameters:
+        - $ref: "#/components/parameters/ID"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [name, urlPrefix]
+              properties:
+                name: { type: string }
+                urlPrefix: { type: string, format: uri }
+      responses:
+        "200":
+          description: Updated.
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/CASServiceEnvelope" }
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "422":
+          $ref: "#/components/responses/ValidationFailed"
+
+  /api/v1/applications/cas-services/{id}/enable:
+    post:
+      tags: [Applications]
+      operationId: enableCASService
+      summary: Enable a service.
+      parameters:
+        - $ref: "#/components/parameters/ID"
+      responses:
+        "200":
+          description: Enabled.
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/CASServiceEnvelope" }
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+
+  /api/v1/applications/cas-services/{id}/disable:
+    post:
+      tags: [Applications]
+      operationId: disableCASService
+      summary: Disable a service.
+      parameters:
+        - $ref: "#/components/parameters/ID"
+      responses:
+        "200":
+          description: Disabled.
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/CASServiceEnvelope" }
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+
+  /api/v1/scim-credentials:
+    get:
+      tags: [Provisioning]
+      operationId: listSCIMCredentials
+      summary: The credentials a directory provisions with.
+      description: |
+        No token field, and that is not an omission: only a digest is stored,
+        so there is nothing to return. `tokenPrefix` is enough to tell two
+        apart.
+      responses:
+        "200":
+          description: The credentials.
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/SCIMCredentialListEnvelope" }
+        "403":
+          $ref: "#/components/responses/Forbidden"
+    post:
+      tags: [Provisioning]
+      operationId: createSCIMCredential
+      summary: Issue a credential.
+      description: |
+        The token is in this response and nowhere else. It is tenant-wide and
+        can create, update, and disable every account and change every
+        group's membership, so issuing one is a privileged act.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [name]
+              properties:
+                name:
+                  type: string
+                  description: How an operator will recognize it later.
+      responses:
+        "200":
+          description: Issued, with the token.
+          content:
+            application/json:
+              schema:
+                { $ref: "#/components/schemas/IssuedSCIMCredentialEnvelope" }
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "409":
+          $ref: "#/components/responses/Conflict"
+        "422":
+          $ref: "#/components/responses/ValidationFailed"
+
+  /api/v1/scim-credentials/{id}:
+    delete:
+      tags: [Provisioning]
+      operationId: deleteSCIMCredential
+      summary: Discard a credential.
+      description: |
+        Irreversible. Disable instead when the question is whether a sync is
+        misbehaving: that can be undone, and keeps the record of it.
+      parameters:
+        - $ref: "#/components/parameters/ID"
+      responses:
+        "200":
+          description: Discarded.
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Envelope" }
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+
+  /api/v1/scim-credentials/{id}/enable:
+    post:
+      tags: [Provisioning]
+      operationId: enableSCIMCredential
+      summary: Let a paused integration resume.
+      parameters:
+        - $ref: "#/components/parameters/ID"
+      responses:
+        "200":
+          description: Enabled.
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Envelope" }
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+
+  /api/v1/scim-credentials/{id}/disable:
+    post:
+      tags: [Provisioning]
+      operationId: disableSCIMCredential
+      summary: Stop a directory syncing, reversibly.
+      parameters:
+        - $ref: "#/components/parameters/ID"
+      responses:
+        "200":
+          description: Disabled.
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Envelope" }
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+
+  /api/v1/webhooks:
+    get:
+      tags: [Webhooks]
+      operationId: listWebhooks
+      summary: Event subscriptions.
+      responses:
+        "200":
+          description: The subscriptions.
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/WebhookListEnvelope" }
+        "403":
+          $ref: "#/components/responses/Forbidden"
+    post:
+      tags: [Webhooks]
+      operationId: createWebhook
+      summary: Subscribe an endpoint to events.
+      description: |
+        The signing secret is in this response and nowhere else.
+
+        The destination must be public HTTPS. Loopback, private ranges,
+        link-local — which is cloud metadata — and carrier-grade NAT are all
+        refused, and the address is checked again at connection time, so a
+        name that resolves publicly now and privately later does not work
+        either. This is not a hardening option: it is what stops a tenant
+        administrator using Portico as a proxy into the network it runs in.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [name, url, events]
+              properties:
+                name: { type: string }
+                url: { type: string, format: uri }
+                events:
+                  type: array
+                  items: { type: string }
+                  description: |
+                    Event types, or `*` for everything including types added
+                    in later versions.
+      responses:
+        "200":
+          description: Subscribed, with the signing secret.
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/CreatedWebhookEnvelope" }
+        "400":
+          description: |
+            The destination is not allowed — not HTTPS, or an address inside
+            a network this server can reach privately.
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Envelope" }
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "422":
+          $ref: "#/components/responses/ValidationFailed"
+
+  /api/v1/webhooks/events:
+    get:
+      tags: [Webhooks]
+      operationId: webhookEvents
+      summary: The event types this version can send.
+      responses:
+        "200":
+          description: The event types.
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/StringListEnvelope" }
+        "403":
+          $ref: "#/components/responses/Forbidden"
+
+  /api/v1/webhooks/{id}:
+    delete:
+      tags: [Webhooks]
+      operationId: deleteWebhook
+      summary: Remove a subscription.
+      parameters:
+        - $ref: "#/components/parameters/ID"
+      responses:
+        "200":
+          description: Removed.
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Envelope" }
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+
+  /api/v1/webhooks/{id}/deliveries:
+    get:
+      tags: [Webhooks]
+      operationId: listWebhookDeliveries
+      summary: What was attempted, and what came back.
+      description: |
+        The difference between "we never sent it" and "your endpoint answered
+        500 five times", without having to ask the receiver to check their
+        own logs. Kept for thirty days.
+      parameters:
+        - $ref: "#/components/parameters/ID"
+      responses:
+        "200":
+          description: The deliveries, most recent first.
+          content:
+            application/json:
+              schema:
+                { $ref: "#/components/schemas/WebhookDeliveryListEnvelope" }
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+
+  /api/v1/webhooks/{id}/enable:
+    post:
+      tags: [Webhooks]
+      operationId: enableWebhook
+      summary: Resume a subscription.
+      description: |
+        Does not deliver what happened while it was paused. That is what
+        pausing means.
+      parameters:
+        - $ref: "#/components/parameters/ID"
+      responses:
+        "200":
+          description: Enabled.
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Envelope" }
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+
+  /api/v1/webhooks/{id}/disable:
+    post:
+      tags: [Webhooks]
+      operationId: disableWebhook
+      summary: Pause a subscription.
+      description: Stops events being queued for it.
+      parameters:
+        - $ref: "#/components/parameters/ID"
+      responses:
+        "200":
+          description: Disabled.
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Envelope" }
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+
+components:
+  securitySchemes:
+    bearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+      description: |
+        The token from `/api/v1/auth/login`. It carries the tenant, which is
+        why authenticated requests do not take one.
+
+        SCIM credentials are also bearer tokens but are not interchangeable
+        with these: one authenticates a directory, the other a person, and
+        each is refused where the other belongs.
+
+  parameters:
+    ID:
+      name: id
+      in: path
+      required: true
+      schema: { type: string }
+    SessionID:
+      name: sessionID
+      in: path
+      required: true
+      schema: { type: string }
+    ClientID:
+      name: clientID
+      in: path
+      required: true
+      schema: { type: string }
+      description: The OAuth client id, which is safe in a path segment.
+    Page:
+      name: page
+      in: query
+      schema: { type: integer, minimum: 1, default: 1 }
+    PageSize:
+      name: pageSize
+      in: query
+      schema: { type: integer, minimum: 1, default: 20 }
+    TenantHeader:
+      name: X-Portico-Tenant
+      in: header
+      schema: { type: string }
+      description: |
+        Only read where there is no token yet. On an authenticated request
+        the tenant comes from the token and this header is ignored — not
+        rejected, ignored, because honouring it would let one tenant's
+        administrator reach every other tenant by adding a header.
+
+        Where it is read, it comes after the `tenant` field in the body and
+        before the `tenant` query parameter; if none is given, the default
+        tenant answers.
+
+  responses:
+    Unauthorized:
+      description: |
+        No credential, or one that is not valid. Sign-in failures are
+        deliberately uniform: whether the account exists is not revealed.
+      content:
+        application/json:
+          schema: { $ref: "#/components/schemas/Envelope" }
+    Forbidden:
+      description: Authenticated, but not an administrator of this tenant.
+      content:
+        application/json:
+          schema: { $ref: "#/components/schemas/Envelope" }
+    NotFound:
+      description: |
+        No such record in this tenant. A record that exists in another tenant
+        is reported the same way, because saying otherwise would confirm it
+        exists.
+      content:
+        application/json:
+          schema: { $ref: "#/components/schemas/Envelope" }
+    Conflict:
+      description: A unique value is already taken.
+      content:
+        application/json:
+          schema: { $ref: "#/components/schemas/Envelope" }
+    ValidationFailed:
+      description: The body was understood and is not acceptable.
+      content:
+        application/json:
+          schema: { $ref: "#/components/schemas/Envelope" }
+
+  schemas:
+    Envelope:
+      type: object
+      required: [code, message, data]
+      description: |
+        Every response, successful or not, has this shape. `code` is
+        `SUCCESS` or a stable SCREAMING_SNAKE_CASE identifier; clients branch
+        on it rather than on the message, which is prose meant for a person
+        and is translated.
+      properties:
+        code:
+          type: string
+          examples: [SUCCESS, USER_NOT_FOUND]
+        message:
+          type: string
+          description: Human-readable, and safe to show to an end user.
+        data:
+          description: Null when there is no result — never `{}` or `[]`.
+
+    Role:
+      type: string
+      enum: [SUPER_ADMIN, USER]
+      description: |
+        The two fixed roles. This version has no custom roles and no
+        permission assignment.
+    Status:
+      type: string
+      enum: [ACTIVE, DISABLED]
+    UserSource:
+      type: string
+      enum: [ADMIN, IMPORT, REGISTRATION, SCIM]
+      description: |
+        How an account came to exist. Three are past tense; `SCIM` is present
+        tense — a directory still owns the record, and the next
+        synchronization overwrites what is changed here.
+    RecoveryChannel:
+      type: string
+      enum: [EMAIL, SMS]
+    LogKind:
+      type: string
+      enum: [LOGIN, OPERATION, AUTH, REGISTRATION, ORGANIZATION]
+
+    User:
+      type: object
+      properties:
+        id: { type: string }
+        tenantId:
+          type: string
+          description: Reported so a downstream system can keep tenants apart. Never accepted as input.
+        username: { type: string }
+        displayName: { type: string }
+        phone: { type: string }
+        email: { type: string }
+        role: { $ref: "#/components/schemas/Role" }
+        status: { $ref: "#/components/schemas/Status" }
+        source: { $ref: "#/components/schemas/UserSource" }
+        organizationId: { type: string }
+        organizationName:
+          type: string
+          description: Resolved for display, so no client has to show a bare id.
+        lockedUntil:
+          type: [string, "null"]
+          format: date-time
+          description: Present only while a lockout is actually in force.
+        createdAt: { type: string, format: date-time }
+        updatedAt: { type: string, format: date-time }
+
+    Organization:
+      type: object
+      properties:
+        id: { type: string }
+        name: { type: string }
+        code:
+          type: string
+          description: |
+            Used by bulk import and by downstream systems, and therefore
+            fixed at creation.
+        remark: { type: string }
+        parentId: { type: string, description: Empty for a root. }
+        status: { $ref: "#/components/schemas/Status" }
+        sortOrder: { type: integer }
+        userCount: { type: integer }
+        createdAt: { type: string, format: date-time }
+        updatedAt: { type: string, format: date-time }
+
+    OrganizationCreate:
+      type: object
+      required: [name, code]
+      properties:
+        name: { type: string }
+        code: { type: string }
+        remark: { type: string }
+        parentId: { type: string }
+        sortOrder: { type: integer }
+
+    Group:
+      type: object
+      description: |
+        A set of people. Not the organization chart: an organization is where
+        somebody sits — one of them, in a tree, with a code downstream
+        systems store — and a group is a set they belong to, any number of
+        them, flat. Membership grants nothing.
+      properties:
+        id: { type: string }
+        displayName: { type: string }
+        description: { type: string }
+        externalId:
+          type: string
+          description: What a directory knows it by. Empty otherwise.
+        source: { type: string, enum: [ADMIN, SCIM] }
+        memberCount: { type: integer }
+        createdAt: { type: string, format: date-time }
+        updatedAt: { type: string, format: date-time }
+
+    GroupMember:
+      type: object
+      properties:
+        userId: { type: string }
+        username: { type: string }
+        displayName: { type: string }
+
+    GroupRef:
+      type: object
+      description: "A group as it appears on a user: enough to name it, no more."
+      properties:
+        id: { type: string }
+        displayName: { type: string }
+
+    AuditLog:
+      type: object
+      properties:
+        id: { type: string }
+        kind: { $ref: "#/components/schemas/LogKind" }
+        action: { type: string }
+        result: { type: string, enum: [SUCCESS, FAILURE] }
+        actorId: { type: string }
+        actorName: { type: string }
+        targetType: { type: string }
+        targetId: { type: string }
+        targetName: { type: string }
+        detail: { type: string }
+        ip: { type: string }
+        createdAt: { type: string, format: date-time }
+
+    Settings:
+      type: object
+      properties:
+        systemName: { type: string }
+        registrationEnabled: { type: boolean }
+        tokenTtlMinutes: { type: integer }
+        lockoutThreshold:
+          type: integer
+          description: |
+            Consecutive failed sign-ins that lock an account. Zero switches
+            lockout off.
+        lockoutDurationMinutes: { type: integer }
+        passwordMinLength:
+          type: integer
+          description: Has a floor no policy can go below.
+        passwordRequireUppercase: { type: boolean }
+        passwordRequireLowercase: { type: boolean }
+        passwordRequireDigit: { type: boolean }
+        passwordRequireSymbol: { type: boolean }
+        passwordHistoryDepth:
+          type: integer
+          description: Previous passwords that may not be reused. 0 does not check.
+        passwordMaxAgeDays:
+          type: integer
+          description: 0 never expires.
+        auditRetentionDays:
+          type: integer
+          description: |
+            0 — the default — keeps entries forever, which is the only safe
+            default: the trail is the record of what happened, not an
+            operational buffer.
+
+    Session:
+      type: object
+      properties:
+        token: { type: string }
+        expiresAt: { type: string, format: date-time }
+        user: { $ref: "#/components/schemas/User" }
+
+    UserSession:
+      type: object
+      description: |
+        One sign-in, as shown to the person it belongs to. There is no token
+        and never will be: the server stores a digest, so there is nothing
+        here to leak.
+      properties:
+        id: { type: string }
+        ip: { type: string }
+        userAgent: { type: string }
+        current:
+          type: boolean
+          description: The session making this request.
+        createdAt: { type: string, format: date-time }
+        lastSeenAt: { type: string, format: date-time }
+        expiresAt: { type: string, format: date-time }
+
+    ImportResult:
+      type: object
+      properties:
+        total: { type: integer }
+        imported: { type: integer }
+        failed: { type: integer }
+        errors:
+          type: array
+          items:
+            type: object
+            properties:
+              row: { type: integer }
+              username: { type: string }
+              code: { type: string }
+              message: { type: string }
+
+    RegistrationStatus:
+      type: object
+      properties:
+        registrationEnabled: { type: boolean }
+        systemName: { type: string }
+        tenant: { type: string }
+        tenantName: { type: string }
+
+    Authorization:
+      type: object
+      description: |
+        Where a browser goes once somebody has signed in. The destination is
+        the provider's own callback, not the application's: the code is
+        issued there and redirected onward.
+      properties:
+        redirectTo: { type: string, format: uri }
+        clientName: { type: string, description: On the OAuth path. }
+        serviceProviderName: { type: string, description: On the SAML path. }
+        serviceName: { type: string, description: On the CAS path. }
+
+    OAuthClient:
+      type: object
+      properties:
+        id: { type: string }
+        tenantId: { type: string }
+        clientId: { type: string }
+        name: { type: string }
+        confidential:
+          type: boolean
+          description: |
+            False for a browser or mobile application, which cannot keep a
+            secret and authenticates with PKCE alone.
+        applicationType: { type: string, enum: [WEB, NATIVE, USER_AGENT] }
+        authMethod: { type: string }
+        redirectUris: { type: array, items: { type: string } }
+        postLogoutRedirectUris: { type: array, items: { type: string } }
+        grantTypes: { type: array, items: { type: string } }
+        scopes: { type: array, items: { type: string } }
+        status: { $ref: "#/components/schemas/Status" }
+        createdAt: { type: string, format: date-time }
+        updatedAt: { type: string, format: date-time }
+
+    RegisteredClient:
+      type: object
+      description: |
+        A client together with a freshly generated secret. The secret appears
+        on exactly two responses — registration and rotation — and is never
+        readable afterwards, because only a hash is stored.
+      properties:
+        client: { $ref: "#/components/schemas/OAuthClient" }
+        secret:
+          type: string
+          description: Absent for a public client, which has none.
+
+    SAMLServiceProvider:
+      type: object
+      properties:
+        id: { type: string }
+        tenantId: { type: string }
+        entityId: { type: string }
+        name: { type: string }
+        metadataXml: { type: string }
+        acsUrls:
+          type: array
+          items: { type: string }
+          description: Read out of the metadata document rather than typed in.
+        status: { $ref: "#/components/schemas/Status" }
+        createdAt: { type: string, format: date-time }
+        updatedAt: { type: string, format: date-time }
+
+    CASService:
+      type: object
+      properties:
+        id: { type: string }
+        tenantId: { type: string }
+        name: { type: string }
+        urlPrefix: { type: string }
+        status: { $ref: "#/components/schemas/Status" }
+        createdAt: { type: string, format: date-time }
+        updatedAt: { type: string, format: date-time }
+
+    IntegrationEndpoints:
+      type: object
+      properties:
+        tenantCode: { type: string }
+        issuer: { type: string, format: uri }
+        oidc:
+          type: object
+          properties:
+            discovery: { type: string, format: uri }
+            authorize: { type: string, format: uri }
+            token: { type: string, format: uri }
+            userinfo: { type: string, format: uri }
+            jwks: { type: string, format: uri }
+            endSession: { type: string, format: uri }
+            introspect: { type: string, format: uri }
+            revoke: { type: string, format: uri }
+        saml:
+          type: object
+          properties:
+            entityId: { type: string }
+            metadata: { type: string, format: uri }
+            sso: { type: string, format: uri }
+            certificatePem: { type: string }
+        cas:
+          type: object
+          properties:
+            baseUrl: { type: string, format: uri }
+            login: { type: string, format: uri }
+            logout: { type: string, format: uri }
+            serviceValidate: { type: string, format: uri }
+
+    SCIMCredential:
+      type: object
+      properties:
+        id: { type: string }
+        name: { type: string }
+        tokenPrefix:
+          type: string
+          description: The first characters, enough to tell two apart.
+        status: { $ref: "#/components/schemas/Status" }
+        lastUsedAt:
+          type: [string, "null"]
+          format: date-time
+          description: |
+            Null until a directory has used it. The question asked when a
+            sync has quietly stopped.
+        createdAt: { type: string, format: date-time }
+
+    IssuedSCIMCredential:
+      allOf:
+        - $ref: "#/components/schemas/SCIMCredential"
+        - type: object
+          required: [token]
+          properties:
+            token:
+              type: string
+              description: Present on creation and never again.
+
+    WebhookSubscription:
+      type: object
+      properties:
+        id: { type: string }
+        name: { type: string }
+        url: { type: string, format: uri }
+        events: { type: array, items: { type: string } }
+        status: { $ref: "#/components/schemas/Status" }
+        createdAt: { type: string, format: date-time }
+
+    CreatedWebhookSubscription:
+      allOf:
+        - $ref: "#/components/schemas/WebhookSubscription"
+        - type: object
+          required: [secret]
+          properties:
+            secret:
+              type: string
+              description: |
+                Present on creation and never again. Stored in the clear
+                because it signs rather than authenticates — there is nothing
+                to compare a digest against — which is exactly why no
+                endpoint serves it a second time.
+
+    WebhookDelivery:
+      type: object
+      properties:
+        id: { type: string }
+        eventType: { type: string }
+        status: { type: string, enum: [PENDING, DELIVERED, FAILED] }
+        attempts: { type: integer }
+        lastStatus:
+          type: [integer, "null"]
+          description: Null when the request never reached a server at all.
+        lastError: { type: string }
+        createdAt: { type: string, format: date-time }
+        deliveredAt: { type: [string, "null"], format: date-time }
+
+    # --- Envelopes -----------------------------------------------------
+    # One per payload shape. Verbose, and the alternative is a document that
+    # says every response is an object with a `data` field of unknown type,
+    # which is not a contract a generator can do anything with.
+
+    HealthEnvelope:
+      allOf:
+        - $ref: "#/components/schemas/Envelope"
+        - type: object
+          properties:
+            data:
+              type: object
+              properties:
+                status: { type: string }
+                version: { type: string }
+
+    ReadinessEnvelope:
+      allOf:
+        - $ref: "#/components/schemas/Envelope"
+        - type: object
+          properties:
+            data:
+              type: object
+              properties:
+                status: { type: string }
+                version: { type: string }
+                database: { type: string }
+
+    MessageEnvelope:
+      allOf:
+        - $ref: "#/components/schemas/Envelope"
+        - type: object
+          properties:
+            data:
+              type: object
+              properties:
+                message: { type: string }
+
+    ReauthenticationEnvelope:
+      allOf:
+        - $ref: "#/components/schemas/Envelope"
+        - type: object
+          properties:
+            data:
+              type: object
+              properties:
+                reauthenticationRequired:
+                  type: boolean
+                  description: |
+                    True when the change ended the calling session, which a
+                    password change always does.
+
+    PrincipalEnvelope:
+      allOf:
+        - $ref: "#/components/schemas/Envelope"
+        - type: object
+          properties:
+            data:
+              type: object
+              properties:
+                userId: { type: string }
+                tenantId: { type: string }
+                username: { type: string }
+                role: { $ref: "#/components/schemas/Role" }
+                isAdmin: { type: boolean }
+
+    RecoveryChannelsEnvelope:
+      allOf:
+        - $ref: "#/components/schemas/Envelope"
+        - type: object
+          properties:
+            data:
+              type: object
+              properties:
+                channels:
+                  type: array
+                  items: { $ref: "#/components/schemas/RecoveryChannel" }
+                  description: |
+                    Empty when the deployment has neither a mail relay nor an
+                    SMS provider.
+                tokenTtlMinutes:
+                  type: integer
+                  description: How long a reset link stays valid.
+
+    StringListEnvelope:
+      allOf:
+        - $ref: "#/components/schemas/Envelope"
+        - type: object
+          properties:
+            data: { type: array, items: { type: string } }
+
+    SessionEnvelope:
+      allOf:
+        - $ref: "#/components/schemas/Envelope"
+        - type: object
+          properties:
+            data: { $ref: "#/components/schemas/Session" }
+
+    UserEnvelope:
+      allOf:
+        - $ref: "#/components/schemas/Envelope"
+        - type: object
+          properties:
+            data: { $ref: "#/components/schemas/User" }
+
+    UserPageEnvelope:
+      allOf:
+        - $ref: "#/components/schemas/Envelope"
+        - type: object
+          properties:
+            data:
+              type: object
+              properties:
+                items:
+                  type: array
+                  items: { $ref: "#/components/schemas/User" }
+                total: { type: integer }
+                page: { type: integer }
+                pageSize: { type: integer }
+
+    UserSessionListEnvelope:
+      allOf:
+        - $ref: "#/components/schemas/Envelope"
+        - type: object
+          properties:
+            data:
+              type: array
+              items: { $ref: "#/components/schemas/UserSession" }
+
+    OrganizationEnvelope:
+      allOf:
+        - $ref: "#/components/schemas/Envelope"
+        - type: object
+          properties:
+            data: { $ref: "#/components/schemas/Organization" }
+
+    OrganizationListEnvelope:
+      allOf:
+        - $ref: "#/components/schemas/Envelope"
+        - type: object
+          properties:
+            data:
+              type: array
+              items: { $ref: "#/components/schemas/Organization" }
+
+    GroupEnvelope:
+      allOf:
+        - $ref: "#/components/schemas/Envelope"
+        - type: object
+          properties:
+            data: { $ref: "#/components/schemas/Group" }
+
+    GroupListEnvelope:
+      allOf:
+        - $ref: "#/components/schemas/Envelope"
+        - type: object
+          properties:
+            data:
+              type: array
+              items: { $ref: "#/components/schemas/Group" }
+
+    GroupMemberListEnvelope:
+      allOf:
+        - $ref: "#/components/schemas/Envelope"
+        - type: object
+          properties:
+            data:
+              type: array
+              items: { $ref: "#/components/schemas/GroupMember" }
+
+    GroupRefListEnvelope:
+      allOf:
+        - $ref: "#/components/schemas/Envelope"
+        - type: object
+          properties:
+            data:
+              type: array
+              items: { $ref: "#/components/schemas/GroupRef" }
+
+    AuditLogPageEnvelope:
+      allOf:
+        - $ref: "#/components/schemas/Envelope"
+        - type: object
+          properties:
+            data:
+              type: object
+              properties:
+                items:
+                  type: array
+                  items: { $ref: "#/components/schemas/AuditLog" }
+                total: { type: integer }
+                page: { type: integer }
+                pageSize: { type: integer }
+
+    SettingsEnvelope:
+      allOf:
+        - $ref: "#/components/schemas/Envelope"
+        - type: object
+          properties:
+            data: { $ref: "#/components/schemas/Settings" }
+
+    ImportResultEnvelope:
+      allOf:
+        - $ref: "#/components/schemas/Envelope"
+        - type: object
+          properties:
+            data: { $ref: "#/components/schemas/ImportResult" }
+
+    RegistrationStatusEnvelope:
+      allOf:
+        - $ref: "#/components/schemas/Envelope"
+        - type: object
+          properties:
+            data: { $ref: "#/components/schemas/RegistrationStatus" }
+
+    AuthorizationEnvelope:
+      allOf:
+        - $ref: "#/components/schemas/Envelope"
+        - type: object
+          properties:
+            data: { $ref: "#/components/schemas/Authorization" }
+
+    IntegrationEndpointsEnvelope:
+      allOf:
+        - $ref: "#/components/schemas/Envelope"
+        - type: object
+          properties:
+            data: { $ref: "#/components/schemas/IntegrationEndpoints" }
+
+    OAuthClientEnvelope:
+      allOf:
+        - $ref: "#/components/schemas/Envelope"
+        - type: object
+          properties:
+            data: { $ref: "#/components/schemas/OAuthClient" }
+
+    OAuthClientListEnvelope:
+      allOf:
+        - $ref: "#/components/schemas/Envelope"
+        - type: object
+          properties:
+            data:
+              type: array
+              items: { $ref: "#/components/schemas/OAuthClient" }
+
+    RegisteredClientEnvelope:
+      allOf:
+        - $ref: "#/components/schemas/Envelope"
+        - type: object
+          properties:
+            data: { $ref: "#/components/schemas/RegisteredClient" }
+
+    ServiceProviderEnvelope:
+      allOf:
+        - $ref: "#/components/schemas/Envelope"
+        - type: object
+          properties:
+            data: { $ref: "#/components/schemas/SAMLServiceProvider" }
+
+    ServiceProviderListEnvelope:
+      allOf:
+        - $ref: "#/components/schemas/Envelope"
+        - type: object
+          properties:
+            data:
+              type: array
+              items: { $ref: "#/components/schemas/SAMLServiceProvider" }
+
+    CASServiceEnvelope:
+      allOf:
+        - $ref: "#/components/schemas/Envelope"
+        - type: object
+          properties:
+            data: { $ref: "#/components/schemas/CASService" }
+
+    CASServiceListEnvelope:
+      allOf:
+        - $ref: "#/components/schemas/Envelope"
+        - type: object
+          properties:
+            data:
+              type: array
+              items: { $ref: "#/components/schemas/CASService" }
+
+    SCIMCredentialListEnvelope:
+      allOf:
+        - $ref: "#/components/schemas/Envelope"
+        - type: object
+          properties:
+            data:
+              type: array
+              items: { $ref: "#/components/schemas/SCIMCredential" }
+
+    IssuedSCIMCredentialEnvelope:
+      allOf:
+        - $ref: "#/components/schemas/Envelope"
+        - type: object
+          properties:
+            data: { $ref: "#/components/schemas/IssuedSCIMCredential" }
+
+    WebhookListEnvelope:
+      allOf:
+        - $ref: "#/components/schemas/Envelope"
+        - type: object
+          properties:
+            data:
+              type: array
+              items: { $ref: "#/components/schemas/WebhookSubscription" }
+
+    CreatedWebhookEnvelope:
+      allOf:
+        - $ref: "#/components/schemas/Envelope"
+        - type: object
+          properties:
+            data: { $ref: "#/components/schemas/CreatedWebhookSubscription" }
+
+    WebhookDeliveryListEnvelope:
+      allOf:
+        - $ref: "#/components/schemas/Envelope"
+        - type: object
+          properties:
+            data:
+              type: array
+              items: { $ref: "#/components/schemas/WebhookDelivery" }

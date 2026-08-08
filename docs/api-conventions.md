@@ -5,6 +5,10 @@ general REST API design practice — consistency, predictable error
 semantics, and being easy for an external client to integrate against —
 not derived from or tied to any particular company's internal standard.
 
+The endpoints themselves are in **[api/openapi.yaml](api/openapi.yaml)**,
+which a test checks against the running router. This page is the reasoning;
+that file is the list.
+
 ## URL design
 
 - Resource-oriented, plural nouns: `/api/v1/users`, `/api/v1/organizations`.
@@ -38,12 +42,12 @@ Full REST verb semantics — this project has no gateway constraint that
 would justify limiting to GET/POST, and external integrators expect
 standard verb behavior:
 
-| Verb | Use |
-|---|---|
-| GET | Read, list, filter/sort/paginate via query params |
-| POST | Create, or an action with side effects that isn't idempotent |
-| PUT | Full replace of a resource |
-| PATCH | Partial update |
+| Verb  | Use                                                          |
+| ----- | ------------------------------------------------------------ |
+| GET   | Read, list, filter/sort/paginate via query params            |
+| POST  | Create, or an action with side effects that isn't idempotent |
+| PUT   | Full replace of a resource                                   |
+| PATCH | Partial update                                               |
 
 `DELETE` is intentionally absent. Nothing in this system is destroyed —
 users and organizations are disabled instead, so the audit trail stays
@@ -123,7 +127,7 @@ identifier.
 {
   "code": "SUCCESS",
   "message": "",
-  "data": { }
+  "data": {}
 }
 ```
 

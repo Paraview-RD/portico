@@ -92,6 +92,26 @@ jobs:
       # lockfile until someone happens to run audit locally.
       - run: npm audit --audit-level=high
 
+  # The OpenAPI document is checked twice, for two different failures.
+  #
+  # A Go test walks the router and asserts the document and the routes agree,
+  # which catches an endpoint added without being described and a path
+  # described without existing. It cannot catch a document that is not valid
+  # OpenAPI — it only reads paths and operation ids, so a dangling $ref or a
+  # malformed schema passes it happily and then breaks every generator.
+  # That is this job.
+  openapi:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+      # Pinned rather than @latest: a linter that changes under the build
+      # turns somebody else's release into a failure on an unrelated pull
+      # request.
+      - run: npx --yes @redocly/cli@2.4.0 lint docs/api/openapi.yaml
+
   # The end-to-end check: the frontend must actually compile into the binary,
   # which is the shape users deploy.
   single-binary:
