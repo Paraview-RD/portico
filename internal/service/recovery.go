@@ -256,7 +256,7 @@ func (s *RecoveryService) Confirm(ctx context.Context, tenantID, token, newPassw
 	// signs the account out everywhere. That is the desired behaviour and
 	// not a side effect: if the reason for recovering was that someone else
 	// had the password, their sessions have to end too.
-	if err := s.users.setPassword(ctx, q, reset.UserID, newPassword); err != nil {
+	if err := s.users.setPassword(ctx, q, tenantID, reset.UserID, newPassword); err != nil {
 		return err
 	}
 	if err := q.SpendPasswordReset(ctx, reset.ID, store.Now()); err != nil {

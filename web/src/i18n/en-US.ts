@@ -54,6 +54,10 @@ export const enUS = {
   "login.tenantHint": "Leave blank unless you were given a tenant code.",
   "login.username": "Username",
   "login.password": "Password",
+  "login.currentPassword": "Current password",
+  "login.newPassword": "New password",
+  "login.passwordExpired":
+    "This password has expired. Enter it once more and choose a new one to continue.",
   "login.submit": "Sign in",
   "login.signingIn": "Signing in…",
   "login.noAccount": "Don't have an account?",
@@ -273,6 +277,22 @@ export const enUS = {
   "settings.registrationHelp":
     "When off, only administrators can create accounts. New accounts always get the User role.",
   "settings.saved": "Settings saved.",
+  "settings.passwordLegend": "Password policy",
+  "settings.passwordHelp":
+    "Length is the rule that helps. Composition rules and expiry make passwords more guessable rather than less — NIST 800-63B recommends against both — and are provided for deployments audited against regimes that require them. If you have the choice, leave them off and raise the minimum length.",
+  "settings.passwordMinLength": "Minimum length",
+  "settings.passwordMinLengthHelp":
+    "The built-in floor of 8 applies whatever this is set to.",
+  "settings.requireUppercase": "Require an uppercase letter",
+  "settings.requireLowercase": "Require a lowercase letter",
+  "settings.requireDigit": "Require a digit",
+  "settings.requireSymbol": "Require a symbol",
+  "settings.passwordHistory": "Passwords remembered",
+  "settings.passwordHistoryHelp":
+    "How many previous passwords may not be reused. 0 does not check. Each one costs a hash comparison on every password change.",
+  "settings.passwordMaxAge": "Maximum age (days)",
+  "settings.passwordMaxAgeHelp":
+    "0 never expires. An expired password cannot sign in until it is replaced.",
   "settings.lockoutLegend": "Failed sign-in lockout",
   "settings.lockoutHelp":
     "Locks an account after repeated wrong passwords. This is not a rate limit — it stops one account's password being guessed, and does nothing about the load a flood of attempts puts on the server. Keep the reverse proxy throttle as well.",

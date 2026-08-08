@@ -86,6 +86,13 @@ CREATE TABLE users (
     last_failed_login_at  TIMESTAMPTZ,
     locked_until          TIMESTAMPTZ,
 
+    -- When the current password was set, for expiry. Nullable rather than
+    -- defaulted to the row's creation time: an account whose password has
+    -- never been changed since import has no meaningful age, and treating
+    -- "unknown" as "just now" would silently exempt exactly the accounts an
+    -- expiry policy is introduced to catch.
+    password_changed_at TIMESTAMPTZ,
+
     created_at TIMESTAMPTZ NOT NULL,
     updated_at TIMESTAMPTZ NOT NULL,
 
@@ -110,6 +117,8 @@ COMMENT ON COLUMN users.token_version IS
 COMMENT ON COLUMN users.source IS 'How the account came to exist, for the registration log.';
 COMMENT ON COLUMN users.failed_login_attempts IS
     'Consecutive failures within the counting window. Reset by a successful sign-in, by a completed password recovery, and by an administrator unlocking the account.';
+COMMENT ON COLUMN users.password_changed_at IS
+    'When the current password was set. NULL means never changed since the account was created, which an expiry policy treats as due.';
 COMMENT ON COLUMN users.locked_until IS
     'Set when the threshold is reached; expires on its own. Further failures while locked do not extend it, or locking somebody out would be a denial of service anyone could perform.';
 COMMENT ON COLUMN users.email IS
@@ -198,6 +207,30 @@ CREATE INDEX idx_password_resets_user ON password_resets (tenant_id, user_id);
 
 -- Runtime-tunable settings, per tenant. Values are stored as text and parsed
 -- by the settings service, which owns the defaults.
+-- Passwords an account has used before, so a policy can refuse reuse.
+--
+-- Hashes only, and bcrypt hashes at that: checking whether a new password
+-- matches a previous one means comparing against each stored hash in turn,
+-- which is deliberately slow. That bounds how deep a history is worth
+-- keeping far more than storage does — see MaxPasswordHistoryDepth.
+--
+-- Rows are trimmed to the configured depth when a password is set, so
+-- lowering the depth takes effect on the next change rather than leaving
+-- older entries to be consulted forever.
+CREATE TABLE password_history (
+    id        TEXT NOT NULL PRIMARY KEY,
+    tenant_id TEXT NOT NULL REFERENCES tenants (id),
+    user_id   TEXT NOT NULL,
+    FOREIGN KEY (tenant_id, user_id) REFERENCES users (tenant_id, id),
+
+    password_hash TEXT        NOT NULL,
+    created_at    TIMESTAMPTZ NOT NULL
+);
+
+-- Newest first: the check reads the top N and nothing else.
+CREATE INDEX idx_password_history_user
+    ON password_history (tenant_id, user_id, created_at DESC);
+
 CREATE TABLE system_settings (
     tenant_id  TEXT        NOT NULL REFERENCES tenants (id),
     key        TEXT        NOT NULL,

@@ -10,9 +10,17 @@ import (
 	"golang.org/x/crypto/bcrypt"
 )
 
-// MinPasswordLength is the only password rule the MVP enforces. Requirements
-// §2.3 explicitly excludes a strong-password policy; this floor exists so a
-// one-character password cannot be set at all.
+// MinPasswordLength is the floor, and it is not configurable.
+//
+// A tenant's policy can require more — see service.PasswordPolicy, which
+// adds composition rules, reuse checks, and expiry on top of this. It cannot
+// require less: a policy that could lower the floor would make the floor
+// advisory, and the first deployment to set it to 4 would discover why it
+// was there.
+//
+// It lives here rather than with the policy because auth is a leaf that the
+// service layer depends on, and because HashPassword applies it — so there
+// is no path to a stored hash that skipped it.
 const MinPasswordLength = 8
 
 // maxPasswordLength is bcrypt's hard limit: it silently truncates beyond 72

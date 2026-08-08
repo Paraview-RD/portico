@@ -96,6 +96,67 @@ func (q *Queries) GetLivePasswordReset(ctx context.Context, arg GetLivePasswordR
 	return i, err
 }
 
+const recentPasswordHashes = `-- name: RecentPasswordHashes :many
+SELECT password_hash FROM password_history
+WHERE tenant_id = $1 AND user_id = $2
+ORDER BY created_at DESC
+LIMIT $3
+`
+
+type RecentPasswordHashesParams struct {
+	TenantID string
+	UserID   string
+	Limit    int32
+}
+
+// The newest N hashes for an account, for a reuse check.
+func (q *Queries) RecentPasswordHashes(ctx context.Context, arg RecentPasswordHashesParams) ([]string, error) {
+	rows, err := q.db.QueryContext(ctx, recentPasswordHashes, arg.TenantID, arg.UserID, arg.Limit)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	items := []string{}
+	for rows.Next() {
+		var password_hash string
+		if err := rows.Scan(&password_hash); err != nil {
+			return nil, err
+		}
+		items = append(items, password_hash)
+	}
+	if err := rows.Close(); err != nil {
+		return nil, err
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
+const recordPasswordInHistory = `-- name: RecordPasswordInHistory :exec
+INSERT INTO password_history (id, tenant_id, user_id, password_hash, created_at)
+VALUES ($1, $2, $3, $4, $5)
+`
+
+type RecordPasswordInHistoryParams struct {
+	ID           string
+	TenantID     string
+	UserID       string
+	PasswordHash string
+	CreatedAt    time.Time
+}
+
+func (q *Queries) RecordPasswordInHistory(ctx context.Context, arg RecordPasswordInHistoryParams) error {
+	_, err := q.db.ExecContext(ctx, recordPasswordInHistory,
+		arg.ID,
+		arg.TenantID,
+		arg.UserID,
+		arg.PasswordHash,
+		arg.CreatedAt,
+	)
+	return err
+}
+
 const spendPasswordReset = `-- name: SpendPasswordReset :exec
 UPDATE password_resets SET used_at = $1 WHERE tenant_id = $2 AND id = $3
 `
@@ -128,5 +189,28 @@ type SupersedePasswordResetsParams struct {
 // until it expires, and someone who has read one old message can use it.
 func (q *Queries) SupersedePasswordResets(ctx context.Context, arg SupersedePasswordResetsParams) error {
 	_, err := q.db.ExecContext(ctx, supersedePasswordResets, arg.UsedAt, arg.TenantID, arg.UserID)
+	return err
+}
+
+const trimPasswordHistory = `-- name: TrimPasswordHistory :exec
+DELETE FROM password_history h
+WHERE h.tenant_id = $1 AND h.user_id = $2 AND h.id NOT IN (
+    SELECT keep.id FROM password_history keep
+    WHERE keep.tenant_id = $1 AND keep.user_id = $2
+    ORDER BY keep.created_at DESC
+    LIMIT $3
+)
+`
+
+type TrimPasswordHistoryParams struct {
+	TenantID string
+	UserID   string
+	Limit    int32
+}
+
+// Drops everything past the depth now configured, so lowering the setting
+// takes effect rather than leaving older entries consultable forever.
+func (q *Queries) TrimPasswordHistory(ctx context.Context, arg TrimPasswordHistoryParams) error {
+	_, err := q.db.ExecContext(ctx, trimPasswordHistory, arg.TenantID, arg.UserID, arg.Limit)
 	return err
 }

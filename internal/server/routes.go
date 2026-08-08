@@ -49,6 +49,12 @@ func (s *Server) routes() http.Handler {
 		r.Post("/auth/password-recovery", h.RequestPasswordRecovery)
 		r.Post("/auth/password-recovery/confirm", h.ConfirmPasswordRecovery)
 
+		// Also public by necessity: the caller cannot sign in, because
+		// Login refuses an expired password rather than issuing a token
+		// and trusting the client to act on a flag. It takes the current
+		// password and refuses if that password has not expired.
+		r.Post("/auth/password/expired", h.ChangeExpiredPassword)
+
 		// --- Any signed-in user ---------------------------------------
 		r.Group(func(r chi.Router) {
 			r.Use(mw.RequireAuth)

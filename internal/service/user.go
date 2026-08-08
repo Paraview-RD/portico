@@ -43,6 +43,12 @@ var (
 	ErrAccountLocked = httpx.Unauthorized("ACCOUNT_LOCKED",
 		"Too many failed sign-in attempts. Try again later, or ask an administrator to unlock the account.")
 
+	// ErrPasswordExpired is returned when the password is right but too old
+	// to use. Like the locked and disabled answers, it is only reached after
+	// the password has matched.
+	ErrPasswordExpired = httpx.Unauthorized("PASSWORD_EXPIRED",
+		"This password has expired and must be changed before signing in.")
+
 	ErrAccountDisabled = httpx.Unauthorized("ACCOUNT_DISABLED",
 		"This account has been disabled.")
 	ErrRegistrationDisabled = httpx.UnprocessableEntity("REGISTRATION_DISABLED",
@@ -181,7 +187,7 @@ func (s *UserService) List(ctx context.Context, tenantID string, q UserQuery, pa
 		`SELECT id, tenant_id, username, display_name, password_hash, phone, email, role, status,
 		        organization_id, token_version, source,
 		        failed_login_attempts, last_failed_login_at, locked_until,
-		        created_at, updated_at
+		        password_changed_at, created_at, updated_at
 		 FROM users WHERE tenant_id = $1`+clause+`
 		 ORDER BY created_at DESC, id DESC`+pageClause, args...)
 	if err != nil {
@@ -196,7 +202,7 @@ func (s *UserService) List(ctx context.Context, tenantID string, q UserQuery, pa
 			&u.ID, &u.TenantID, &u.Username, &u.DisplayName, &u.PasswordHash, &u.Phone, &u.Email,
 			&u.Role, &u.Status, &u.OrganizationID, &u.TokenVersion, &u.Source,
 			&u.FailedLoginAttempts, &u.LastFailedLoginAt, &u.LockedUntil,
-			&u.CreatedAt, &u.UpdatedAt,
+			&u.PasswordChangedAt, &u.CreatedAt, &u.UpdatedAt,
 		); err != nil {
 			return nil, 0, fmt.Errorf("scan user: %w", err)
 		}
@@ -237,8 +243,16 @@ func (s *UserService) Create(ctx context.Context, tenantID string, in CreateUser
 	if in.DisplayName == "" {
 		return model.User{}, httpx.BadRequest("DISPLAY_NAME_REQUIRED", "A display name is required.")
 	}
-	if err := auth.ValidatePassword(in.Password); err != nil {
-		return model.User{}, httpx.BadRequest("WEAK_PASSWORD", err.Error())
+	// Creating an account is the fourth way a password enters the system —
+	// alongside self-service change, administrator reset, and recovery — and
+	// the policy has to apply here too, or every account starts life with a
+	// password the policy would have refused.
+	policy, err := s.PasswordPolicyFor(ctx, tenantID)
+	if err != nil {
+		return model.User{}, err
+	}
+	if err := policy.Check(in.Password); err != nil {
+		return model.User{}, err
 	}
 	if !in.Role.Valid() {
 		return model.User{}, httpx.BadRequest("INVALID_ROLE", "Role must be SUPER_ADMIN or USER.")
@@ -277,9 +291,22 @@ func (s *UserService) Create(ctx context.Context, tenantID string, in CreateUser
 		OrganizationID: orgID,
 		TokenVersion:   1,
 		Source:         string(in.Source),
-		CreatedAt:      now,
-		UpdatedAt:      now,
+		// A password set at creation counts as set now, so a fresh account
+		// does not arrive already expired.
+		PasswordChangedAt: &now,
+		CreatedAt:         now,
+		UpdatedAt:         now,
 	})
+	if err == nil {
+		// The password an account is created with goes into its history too.
+		// Without this the very first password is the one value that can
+		// always be set again — and it is the likeliest one to be tried,
+		// because it is usually the temporary password an administrator
+		// handed over, which the person then "changes" straight back to.
+		if err := s.rememberPassword(ctx, q, id, hash, policy); err != nil {
+			return model.User{}, err
+		}
+	}
 	if err != nil {
 		// The unique indexes are the only thing that actually guarantees
 		// uniqueness — a check-then-insert would still lose a race — so the

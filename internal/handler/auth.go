@@ -43,6 +43,42 @@ func (h *Handler) Login(w http.ResponseWriter, r *http.Request) {
 	httpx.OK(w, session)
 }
 
+type changeExpiredPasswordRequest struct {
+	Tenant          string `json:"tenant"`
+	Identifier      string `json:"identifier"`
+	CurrentPassword string `json:"currentPassword"`
+	NewPassword     string `json:"newPassword"`
+}
+
+// ChangeExpiredPassword lets somebody whose password has aged out replace it
+// and sign in, in one step.
+//
+// Public by necessity, like password recovery: the caller cannot sign in,
+// which is the whole problem. It is not a way around authentication — it
+// takes the current password, applies the same lockout accounting a sign-in
+// would, and refuses outright if the password has not actually expired.
+func (h *Handler) ChangeExpiredPassword(w http.ResponseWriter, r *http.Request) {
+	var req changeExpiredPasswordRequest
+	if err := httpx.DecodeJSON(w, r, &req); err != nil {
+		httpx.Fail(w, r, err)
+		return
+	}
+
+	tenant, err := h.resolvePublicTenant(r, req.Tenant)
+	if err != nil {
+		httpx.Fail(w, r, err)
+		return
+	}
+
+	session, err := h.users.ChangeExpiredPassword(r.Context(), tenant,
+		req.Identifier, req.CurrentPassword, req.NewPassword, httpx.ClientIP(r))
+	if err != nil {
+		httpx.Fail(w, r, err)
+		return
+	}
+	httpx.OK(w, session)
+}
+
 // Logout revokes every token held by the caller.
 func (h *Handler) Logout(w http.ResponseWriter, r *http.Request) {
 	principal := auth.MustPrincipal(r.Context())

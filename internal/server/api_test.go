@@ -3,12 +3,15 @@ package server_test
 import (
 	"bytes"
 	"context"
+	"database/sql"
 	"encoding/json"
 	"io"
 	"log/slog"
 	"net/http"
 	"net/http/httptest"
 	"testing"
+
+	_ "github.com/jackc/pgx/v5/stdlib"
 
 	"github.com/paraview/portico/internal/config"
 	"github.com/paraview/portico/internal/notify"
@@ -80,6 +83,26 @@ func newAPITestWithConfig(t *testing.T, cfg *config.Config) *apiTest {
 	}
 
 	return &apiTest{t: t, srv: srv, dsn: cfg.DatabaseDSN}
+}
+
+// execSQL runs a statement against the test database.
+//
+// For the handful of states a test cannot reach through the API — a password
+// old enough to expire, a token issued a year ago. Producing them by waiting
+// is not an option and by mocking the clock would mean a clock abstraction
+// that exists only for tests.
+func (a *apiTest) execSQL(t *testing.T, statement string, args ...any) {
+	t.Helper()
+
+	db, err := sql.Open("pgx", a.dsn)
+	if err != nil {
+		t.Fatalf("open test database: %v", err)
+	}
+	defer func() { _ = db.Close() }()
+
+	if _, err := db.Exec(statement, args...); err != nil {
+		t.Fatalf("exec %q: %v", statement, err)
+	}
 }
 
 // closeDatabase takes the database away from a running server, which is what

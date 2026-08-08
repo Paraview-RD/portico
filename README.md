@@ -27,7 +27,10 @@ credential.
 
 **Self-service** — registration (optional, off by default), password change,
 password recovery by email, and profile maintenance, with no administrator in
-the loop. Recovery needs an SMTP relay; point `PORTICO_SMTP_HOST` at whatever
+the loop. Password rules are per tenant: a minimum length that no policy can
+lower, plus optional composition rules, reuse checks, and expiry — the last
+three off by default, and documented as the compliance features they are
+rather than the security ones they are not. Recovery needs an SMTP relay; point `PORTICO_SMTP_HOST` at whatever
 you already run. SMS recovery is defined as a provider interface and ships
 without one.
 

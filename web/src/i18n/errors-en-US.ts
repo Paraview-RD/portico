@@ -34,6 +34,12 @@ export const errorsEnUS = {
   ADMIN_REQUIRED: "This needs an administrator.",
   CURRENT_PASSWORD_MISMATCH: "The current password is wrong.",
   WEAK_PASSWORD: "That password does not meet the requirements.",
+  PASSWORD_EXPIRED:
+    "This password has expired and must be changed before signing in.",
+  PASSWORD_NOT_EXPIRED:
+    "This password has not expired. Sign in and change it from your profile.",
+  PASSWORD_REUSED:
+    "That password has been used recently. Choose one you have not used before.",
 
   // --- Password recovery ---
   INVALID_RESET_TOKEN: "That reset link is invalid or has already been used.",

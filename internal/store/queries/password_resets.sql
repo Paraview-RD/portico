@@ -36,3 +36,25 @@ WHERE tenant_id = $2 AND user_id = $3 AND used_at IS NULL;
 -- without limit.
 DELETE FROM password_resets
 WHERE tenant_id = $1 AND expires_at < $2;
+
+-- name: RecordPasswordInHistory :exec
+INSERT INTO password_history (id, tenant_id, user_id, password_hash, created_at)
+VALUES ($1, $2, $3, $4, $5);
+
+-- name: RecentPasswordHashes :many
+-- The newest N hashes for an account, for a reuse check.
+SELECT password_hash FROM password_history
+WHERE tenant_id = $1 AND user_id = $2
+ORDER BY created_at DESC
+LIMIT $3;
+
+-- name: TrimPasswordHistory :exec
+-- Drops everything past the depth now configured, so lowering the setting
+-- takes effect rather than leaving older entries consultable forever.
+DELETE FROM password_history h
+WHERE h.tenant_id = $1 AND h.user_id = $2 AND h.id NOT IN (
+    SELECT keep.id FROM password_history keep
+    WHERE keep.tenant_id = $1 AND keep.user_id = $2
+    ORDER BY keep.created_at DESC
+    LIMIT $3
+);

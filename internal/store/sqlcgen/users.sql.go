@@ -147,25 +147,26 @@ const createUser = `-- name: CreateUser :exec
 INSERT INTO users (
     id, tenant_id, username, display_name, password_hash, phone, email,
     role, status, organization_id, token_version, source,
-    created_at, updated_at
-) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14)
+    password_changed_at, created_at, updated_at
+) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15)
 `
 
 type CreateUserParams struct {
-	ID             string
-	TenantID       string
-	Username       string
-	DisplayName    string
-	PasswordHash   string
-	Phone          string
-	Email          string
-	Role           string
-	Status         string
-	OrganizationID *string
-	TokenVersion   int64
-	Source         string
-	CreatedAt      time.Time
-	UpdatedAt      time.Time
+	ID                string
+	TenantID          string
+	Username          string
+	DisplayName       string
+	PasswordHash      string
+	Phone             string
+	Email             string
+	Role              string
+	Status            string
+	OrganizationID    *string
+	TokenVersion      int64
+	Source            string
+	PasswordChangedAt *time.Time
+	CreatedAt         time.Time
+	UpdatedAt         time.Time
 }
 
 func (q *Queries) CreateUser(ctx context.Context, arg CreateUserParams) error {
@@ -182,6 +183,7 @@ func (q *Queries) CreateUser(ctx context.Context, arg CreateUserParams) error {
 		arg.OrganizationID,
 		arg.TokenVersion,
 		arg.Source,
+		arg.PasswordChangedAt,
 		arg.CreatedAt,
 		arg.UpdatedAt,
 	)
@@ -189,7 +191,7 @@ func (q *Queries) CreateUser(ctx context.Context, arg CreateUserParams) error {
 }
 
 const getUserByEmail = `-- name: GetUserByEmail :one
-SELECT id, tenant_id, username, display_name, password_hash, phone, email, role, status, organization_id, token_version, source, failed_login_attempts, last_failed_login_at, locked_until, created_at, updated_at FROM users WHERE tenant_id = $1 AND email <> '' AND email = $2 LIMIT 1
+SELECT id, tenant_id, username, display_name, password_hash, phone, email, role, status, organization_id, token_version, source, failed_login_attempts, last_failed_login_at, locked_until, password_changed_at, created_at, updated_at FROM users WHERE tenant_id = $1 AND email <> '' AND email = $2 LIMIT 1
 `
 
 type GetUserByEmailParams struct {
@@ -219,6 +221,7 @@ func (q *Queries) GetUserByEmail(ctx context.Context, arg GetUserByEmailParams) 
 		&i.FailedLoginAttempts,
 		&i.LastFailedLoginAt,
 		&i.LockedUntil,
+		&i.PasswordChangedAt,
 		&i.CreatedAt,
 		&i.UpdatedAt,
 	)
@@ -226,7 +229,7 @@ func (q *Queries) GetUserByEmail(ctx context.Context, arg GetUserByEmailParams) 
 }
 
 const getUserByID = `-- name: GetUserByID :one
-SELECT id, tenant_id, username, display_name, password_hash, phone, email, role, status, organization_id, token_version, source, failed_login_attempts, last_failed_login_at, locked_until, created_at, updated_at FROM users WHERE tenant_id = $1 AND id = $2 LIMIT 1
+SELECT id, tenant_id, username, display_name, password_hash, phone, email, role, status, organization_id, token_version, source, failed_login_attempts, last_failed_login_at, locked_until, password_changed_at, created_at, updated_at FROM users WHERE tenant_id = $1 AND id = $2 LIMIT 1
 `
 
 type GetUserByIDParams struct {
@@ -253,6 +256,7 @@ func (q *Queries) GetUserByID(ctx context.Context, arg GetUserByIDParams) (User,
 		&i.FailedLoginAttempts,
 		&i.LastFailedLoginAt,
 		&i.LockedUntil,
+		&i.PasswordChangedAt,
 		&i.CreatedAt,
 		&i.UpdatedAt,
 	)
@@ -260,7 +264,7 @@ func (q *Queries) GetUserByID(ctx context.Context, arg GetUserByIDParams) (User,
 }
 
 const getUserByIdentifier = `-- name: GetUserByIdentifier :one
-SELECT id, tenant_id, username, display_name, password_hash, phone, email, role, status, organization_id, token_version, source, failed_login_attempts, last_failed_login_at, locked_until, created_at, updated_at FROM users
+SELECT id, tenant_id, username, display_name, password_hash, phone, email, role, status, organization_id, token_version, source, failed_login_attempts, last_failed_login_at, locked_until, password_changed_at, created_at, updated_at FROM users
 WHERE tenant_id = $1
   AND (username = $2
        OR (email <> '' AND email = $2)
@@ -311,6 +315,7 @@ func (q *Queries) GetUserByIdentifier(ctx context.Context, arg GetUserByIdentifi
 		&i.FailedLoginAttempts,
 		&i.LastFailedLoginAt,
 		&i.LockedUntil,
+		&i.PasswordChangedAt,
 		&i.CreatedAt,
 		&i.UpdatedAt,
 	)
@@ -318,7 +323,7 @@ func (q *Queries) GetUserByIdentifier(ctx context.Context, arg GetUserByIdentifi
 }
 
 const getUserByPhone = `-- name: GetUserByPhone :one
-SELECT id, tenant_id, username, display_name, password_hash, phone, email, role, status, organization_id, token_version, source, failed_login_attempts, last_failed_login_at, locked_until, created_at, updated_at FROM users WHERE tenant_id = $1 AND phone <> '' AND phone = $2 LIMIT 1
+SELECT id, tenant_id, username, display_name, password_hash, phone, email, role, status, organization_id, token_version, source, failed_login_attempts, last_failed_login_at, locked_until, password_changed_at, created_at, updated_at FROM users WHERE tenant_id = $1 AND phone <> '' AND phone = $2 LIMIT 1
 `
 
 type GetUserByPhoneParams struct {
@@ -346,6 +351,7 @@ func (q *Queries) GetUserByPhone(ctx context.Context, arg GetUserByPhoneParams) 
 		&i.FailedLoginAttempts,
 		&i.LastFailedLoginAt,
 		&i.LockedUntil,
+		&i.PasswordChangedAt,
 		&i.CreatedAt,
 		&i.UpdatedAt,
 	)
@@ -353,7 +359,7 @@ func (q *Queries) GetUserByPhone(ctx context.Context, arg GetUserByPhoneParams) 
 }
 
 const getUserByUsername = `-- name: GetUserByUsername :one
-SELECT id, tenant_id, username, display_name, password_hash, phone, email, role, status, organization_id, token_version, source, failed_login_attempts, last_failed_login_at, locked_until, created_at, updated_at FROM users WHERE tenant_id = $1 AND username = $2 LIMIT 1
+SELECT id, tenant_id, username, display_name, password_hash, phone, email, role, status, organization_id, token_version, source, failed_login_attempts, last_failed_login_at, locked_until, password_changed_at, created_at, updated_at FROM users WHERE tenant_id = $1 AND username = $2 LIMIT 1
 `
 
 type GetUserByUsernameParams struct {
@@ -380,6 +386,7 @@ func (q *Queries) GetUserByUsername(ctx context.Context, arg GetUserByUsernamePa
 		&i.FailedLoginAttempts,
 		&i.LastFailedLoginAt,
 		&i.LockedUntil,
+		&i.PasswordChangedAt,
 		&i.CreatedAt,
 		&i.UpdatedAt,
 	)
@@ -387,7 +394,7 @@ func (q *Queries) GetUserByUsername(ctx context.Context, arg GetUserByUsernamePa
 }
 
 const listUsersByIDs = `-- name: ListUsersByIDs :many
-SELECT id, tenant_id, username, display_name, password_hash, phone, email, role, status, organization_id, token_version, source, failed_login_attempts, last_failed_login_at, locked_until, created_at, updated_at FROM users WHERE tenant_id = $1 AND id = ANY($2::text[])
+SELECT id, tenant_id, username, display_name, password_hash, phone, email, role, status, organization_id, token_version, source, failed_login_attempts, last_failed_login_at, locked_until, password_changed_at, created_at, updated_at FROM users WHERE tenant_id = $1 AND id = ANY($2::text[])
 `
 
 type ListUsersByIDsParams struct {
@@ -420,6 +427,7 @@ func (q *Queries) ListUsersByIDs(ctx context.Context, arg ListUsersByIDsParams) 
 			&i.FailedLoginAttempts,
 			&i.LastFailedLoginAt,
 			&i.LockedUntil,
+			&i.PasswordChangedAt,
 			&i.CreatedAt,
 			&i.UpdatedAt,
 		); err != nil {
@@ -504,22 +512,24 @@ const updateUserPassword = `-- name: UpdateUserPassword :exec
 UPDATE users
 SET password_hash = $1,
     token_version = token_version + 1,
-    updated_at = $2
+    password_changed_at = $2::timestamptz,
+    updated_at = $2::timestamptz
 WHERE tenant_id = $3 AND id = $4
 `
 
 type UpdateUserPasswordParams struct {
 	PasswordHash string
-	UpdatedAt    time.Time
+	Now          time.Time
 	TenantID     string
 	ID           string
 }
 
-// Changing a password invalidates every token issued before it.
+// Changing a password invalidates every token issued before it, and starts
+// the clock again for expiry.
 func (q *Queries) UpdateUserPassword(ctx context.Context, arg UpdateUserPasswordParams) error {
 	_, err := q.db.ExecContext(ctx, updateUserPassword,
 		arg.PasswordHash,
-		arg.UpdatedAt,
+		arg.Now,
 		arg.TenantID,
 		arg.ID,
 	)

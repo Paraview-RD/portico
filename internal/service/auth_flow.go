@@ -96,6 +96,16 @@ func (s *UserService) Login(ctx context.Context, tenant model.Tenant, identifier
 		return Session{}, ErrAccountDisabled
 	}
 
+	// An expired password does not produce a session. Issuing one and
+	// flagging it would mean handing out a working token and asking the
+	// client to be well behaved, which an API client simply would not be.
+	// The way forward is ChangeExpiredPassword, which takes the old password
+	// and a new one and issues the session itself.
+	if settings.PasswordPolicy().Expired(row.PasswordChangedAt, store.Now()) {
+		s.logLoginFailure(ctx, tenant.ID, row.ID, row.Username, ip, "password expired")
+		return Session{}, ErrPasswordExpired
+	}
+
 	// The password was right and nothing stood in the way, so whatever
 	// failures preceded it were somebody mistyping.
 	if row.FailedLoginAttempts > 0 || row.LockedUntil != nil {
@@ -122,6 +132,73 @@ func (s *UserService) Login(ctx context.Context, tenant model.Tenant, identifier
 	})
 
 	return Session{Token: token, ExpiresAt: expiresAt, User: user}, nil
+}
+
+// ChangeExpiredPassword is the way back in for somebody whose password has
+// aged out.
+//
+// It takes credentials rather than a session because there is no session to
+// take: Login refuses an expired password outright rather than issuing a
+// token and trusting the client to act on a flag. So this re-checks the old
+// password itself, applies the same lockout accounting a sign-in would, and
+// issues the session once the new password is set.
+//
+// It refuses when the password is *not* expired, so it cannot be used as an
+// alternative change-password endpoint that skips being signed in.
+func (s *UserService) ChangeExpiredPassword(ctx context.Context, tenant model.Tenant, identifier, currentPassword, newPassword, ip string) (Session, error) {
+	identifier = strings.TrimSpace(identifier)
+	if identifier == "" || currentPassword == "" {
+		return Session{}, httpx.BadRequest("MISSING_CREDENTIALS",
+			"An identifier and the current password are required.")
+	}
+
+	q := s.store.ForTenant(tenant.ID)
+
+	row, err := q.GetUserByIdentifier(ctx, identifier)
+	if err != nil {
+		if store.IsNoRows(err) {
+			auth.BurnPasswordComparison()
+			s.logLoginFailure(ctx, tenant.ID, "", identifier, ip, "no such user")
+			return Session{}, ErrInvalidCredentials
+		}
+		return Session{}, fmt.Errorf("look up user: %w", err)
+	}
+
+	settings, err := s.settings.Get(ctx, tenant.ID)
+	if err != nil {
+		return Session{}, err
+	}
+
+	if !auth.CheckPassword(row.PasswordHash, currentPassword) {
+		s.countFailure(ctx, tenant, row.ID, row.Username, ip, settings)
+		return Session{}, ErrInvalidCredentials
+	}
+	if row.LockedUntil != nil && row.LockedUntil.After(store.Now()) {
+		return Session{}, ErrAccountLocked
+	}
+	if model.Status(row.Status) != model.StatusActive {
+		return Session{}, ErrAccountDisabled
+	}
+	if !settings.PasswordPolicy().Expired(row.PasswordChangedAt, store.Now()) {
+		return Session{}, httpx.BadRequest("PASSWORD_NOT_EXPIRED",
+			"This password has not expired. Sign in and change it from your profile.")
+	}
+
+	if err := s.setPassword(ctx, q, tenant.ID, row.ID, newPassword); err != nil {
+		return Session{}, err
+	}
+
+	s.audit.Log(ctx, tenant.ID, AuditEntry{
+		Kind: model.LogOperation, Action: model.ActionPasswordExpiredChange,
+		ActorID: row.ID, ActorName: row.Username,
+		TargetType: "USER", TargetID: row.ID, TargetName: row.Username,
+		IP: ip,
+	})
+
+	// Signing them in afterwards rather than sending them back to the form:
+	// they have just proved the old password and chosen a new one, and
+	// making them type the new one again immediately teaches nothing.
+	return s.Login(ctx, tenant, identifier, newPassword, ip)
 }
 
 // countFailure records a wrong password and locks the account if that takes
@@ -261,7 +338,7 @@ func (s *UserService) ChangeOwnPassword(ctx context.Context, actor auth.Principa
 			"The current password is incorrect.")
 	}
 
-	if err := s.setPassword(ctx, q, actor.UserID, newPassword); err != nil {
+	if err := s.setPassword(ctx, q, actor.TenantID, actor.UserID, newPassword); err != nil {
 		return err
 	}
 
@@ -287,7 +364,7 @@ func (s *UserService) ResetPassword(ctx context.Context, actor auth.Principal, u
 		return fmt.Errorf("get user: %w", err)
 	}
 
-	if err := s.setPassword(ctx, q, userID, newPassword); err != nil {
+	if err := s.setPassword(ctx, q, actor.TenantID, userID, newPassword); err != nil {
 		return err
 	}
 
@@ -306,9 +383,20 @@ func (s *UserService) ResetPassword(ctx context.Context, actor auth.Principal, u
 // It is the single place all three password paths pass through — self
 // change, administrator reset, and recovery — which is what makes it the
 // right place to also cut the federated sessions.
-func (s *UserService) setPassword(ctx context.Context, q *store.Scoped, userID, plaintext string) error {
-	if err := auth.ValidatePassword(plaintext); err != nil {
-		return httpx.BadRequest("WEAK_PASSWORD", err.Error())
+func (s *UserService) setPassword(ctx context.Context, q *store.Scoped, tenantID, userID, plaintext string) error {
+	// Every password in the system arrives through here — self-service
+	// change, administrator reset, completed recovery, and the expired-
+	// password path — so the policy is applied once rather than at four
+	// call sites with four chances to leave one out.
+	policy, err := s.PasswordPolicyFor(ctx, tenantID)
+	if err != nil {
+		return err
+	}
+	if err := policy.Check(plaintext); err != nil {
+		return err
+	}
+	if err := s.checkReuse(ctx, q, userID, plaintext, policy); err != nil {
+		return err
 	}
 
 	hash, err := auth.HashPassword(plaintext)
@@ -319,7 +407,7 @@ func (s *UserService) setPassword(ctx context.Context, q *store.Scoped, userID, 
 	err = q.UpdateUserPassword(ctx, sqlcgen.UpdateUserPasswordParams{
 		ID:           userID,
 		PasswordHash: hash,
-		UpdatedAt:    store.Now(),
+		Now:          store.Now(),
 	})
 	if err != nil {
 		return fmt.Errorf("update password: %w", err)
@@ -342,7 +430,10 @@ func (s *UserService) setPassword(ctx context.Context, q *store.Scoped, userID, 
 	if err := q.ClearLoginFailures(ctx, userID, store.Now()); err != nil {
 		return fmt.Errorf("clear login failures: %w", err)
 	}
-	return nil
+
+	// Recorded last, so a password refused for any reason above never lands
+	// in the history and blocks itself from being set later.
+	return s.rememberPassword(ctx, q, userID, hash, policy)
 }
 
 // RegisterInput is a self-service sign-up.

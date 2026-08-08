@@ -61,15 +61,71 @@ func (h *Handler) GetSettings(w http.ResponseWriter, r *http.Request) {
 	httpx.OK(w, settings)
 }
 
+// updateSettingsRequest is every setting, all optional.
+//
+// Pointers rather than values, and this is a security property rather than
+// a convenience. Settings grow: lockout arrived after this endpoint
+// existed, the password policy after that. With plain values, a client
+// written against the older shape omits the new fields, Go decodes them as
+// zero, and the update silently switches lockout off — a downgrade nobody
+// asked for, from a request that looks like it only changed the system
+// name. Absent has to mean "leave it alone", and only a pointer can say
+// that.
 type updateSettingsRequest struct {
-	TokenTTLMinutes     int    `json:"tokenTtlMinutes"`
-	RegistrationEnabled bool   `json:"registrationEnabled"`
-	SystemName          string `json:"systemName"`
+	TokenTTLMinutes     *int    `json:"tokenTtlMinutes"`
+	RegistrationEnabled *bool   `json:"registrationEnabled"`
+	SystemName          *string `json:"systemName"`
 
 	// Zero threshold switches lockout off, which a deployment that trusts
-	// its reverse proxy's throttling may well want.
-	LockoutThreshold       int `json:"lockoutThreshold"`
-	LockoutDurationMinutes int `json:"lockoutDurationMinutes"`
+	// its reverse proxy's throttling may well want — but it has to be sent
+	// deliberately, not arrived at by omission.
+	LockoutThreshold       *int `json:"lockoutThreshold"`
+	LockoutDurationMinutes *int `json:"lockoutDurationMinutes"`
+
+	// Composition rules and expiry are off by default and stay that way
+	// unless somebody asks for them; see service/password_policy.go.
+	PasswordMinLength        *int  `json:"passwordMinLength"`
+	PasswordRequireUppercase *bool `json:"passwordRequireUppercase"`
+	PasswordRequireLowercase *bool `json:"passwordRequireLowercase"`
+	PasswordRequireDigit     *bool `json:"passwordRequireDigit"`
+	PasswordRequireSymbol    *bool `json:"passwordRequireSymbol"`
+	PasswordHistoryDepth     *int  `json:"passwordHistoryDepth"`
+	PasswordMaxAgeDays       *int  `json:"passwordMaxAgeDays"`
+}
+
+// applyTo overlays whatever the request actually carried onto the settings
+// as they stand.
+func (req updateSettingsRequest) applyTo(current service.Settings) service.Settings {
+	overlayInt(&current.TokenTTLMinutes, req.TokenTTLMinutes)
+	overlayBool(&current.RegistrationEnabled, req.RegistrationEnabled)
+	if req.SystemName != nil {
+		current.SystemName = *req.SystemName
+	}
+
+	overlayInt(&current.LockoutThreshold, req.LockoutThreshold)
+	overlayInt(&current.LockoutDurationMinutes, req.LockoutDurationMinutes)
+
+	overlayInt(&current.PasswordMinLength, req.PasswordMinLength)
+	overlayBool(&current.PasswordRequireUppercase, req.PasswordRequireUppercase)
+	overlayBool(&current.PasswordRequireLowercase, req.PasswordRequireLowercase)
+	overlayBool(&current.PasswordRequireDigit, req.PasswordRequireDigit)
+	overlayBool(&current.PasswordRequireSymbol, req.PasswordRequireSymbol)
+	overlayInt(&current.PasswordHistoryDepth, req.PasswordHistoryDepth)
+	overlayInt(&current.PasswordMaxAgeDays, req.PasswordMaxAgeDays)
+
+	return current
+}
+
+func overlayInt(target *int, supplied *int) {
+	if supplied != nil {
+		*target = *supplied
+	}
+}
+
+func overlayBool(target *bool, supplied *bool) {
+	if supplied != nil {
+		*target = *supplied
+	}
 }
 
 // UpdateSettings writes the runtime settings.
@@ -82,13 +138,14 @@ func (h *Handler) UpdateSettings(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	settings, err := h.settings.Update(r.Context(), principal.TenantID, service.Settings{
-		TokenTTLMinutes:        req.TokenTTLMinutes,
-		RegistrationEnabled:    req.RegistrationEnabled,
-		SystemName:             req.SystemName,
-		LockoutThreshold:       req.LockoutThreshold,
-		LockoutDurationMinutes: req.LockoutDurationMinutes,
-	})
+	current, err := h.settings.Get(r.Context(), principal.TenantID)
+	if err != nil {
+		httpx.Fail(w, r, err)
+		return
+	}
+
+	settings, err := h.settings.Update(r.Context(), principal.TenantID,
+		req.applyTo(current))
 	if err != nil {
 		// Update returns a typed error for validation failures; anything
 		// else is a storage problem and must surface as a 500 rather than

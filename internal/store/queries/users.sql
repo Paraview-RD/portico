@@ -45,8 +45,8 @@ SELECT * FROM users WHERE tenant_id = $1 AND phone <> '' AND phone = $2 LIMIT 1;
 INSERT INTO users (
     id, tenant_id, username, display_name, password_hash, phone, email,
     role, status, organization_id, token_version, source,
-    created_at, updated_at
-) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14);
+    password_changed_at, created_at, updated_at
+) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15);
 
 -- name: UpdateUserProfile :exec
 UPDATE users
@@ -69,12 +69,14 @@ SET status = sqlc.arg(status),
 WHERE tenant_id = sqlc.arg(tenant_id) AND id = sqlc.arg(id);
 
 -- name: UpdateUserPassword :exec
--- Changing a password invalidates every token issued before it.
+-- Changing a password invalidates every token issued before it, and starts
+-- the clock again for expiry.
 UPDATE users
-SET password_hash = $1,
+SET password_hash = sqlc.arg(password_hash),
     token_version = token_version + 1,
-    updated_at = $2
-WHERE tenant_id = $3 AND id = $4;
+    password_changed_at = sqlc.arg(now)::timestamptz,
+    updated_at = sqlc.arg(now)::timestamptz
+WHERE tenant_id = sqlc.arg(tenant_id) AND id = sqlc.arg(id);
 
 -- name: BumpUserTokenVersion :exec
 UPDATE users

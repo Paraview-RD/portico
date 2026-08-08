@@ -67,6 +67,21 @@ export interface Settings {
   lockoutThreshold: number;
   /** How long a lock lasts, and the window failures are counted over. */
   lockoutDurationMinutes: number;
+
+  /**
+   * Password policy. Composition rules and expiry are off by default —
+   * they make passwords more guessable rather than less, and exist for
+   * deployments audited against regimes that require them.
+   */
+  passwordMinLength: number;
+  passwordRequireUppercase: boolean;
+  passwordRequireLowercase: boolean;
+  passwordRequireDigit: boolean;
+  passwordRequireSymbol: boolean;
+  /** Previous passwords that may not be reused. 0 does not check. */
+  passwordHistoryDepth: number;
+  /** How long a password stays usable. 0 never expires. */
+  passwordMaxAgeDays: number;
 }
 
 export interface Session {

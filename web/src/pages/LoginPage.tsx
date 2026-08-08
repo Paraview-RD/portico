@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
 
-import { tenantStore } from "../api/client";
+import { ApiError, tenantStore } from "../api/client";
 import { authApi } from "../api/endpoints";
 import { AuthLink, AuthShell } from "../components/AuthShell";
 import { Alert, Button, Field, Input } from "../components/ui";
@@ -11,7 +11,7 @@ import { useSession } from "../session";
 export function LoginPage() {
   const t = useT();
   const describeError = useErrorMessage();
-  const { signIn, expired } = useSession();
+  const { signIn, signInWithReplacedPassword, expired } = useSession();
   const { navigate } = useRouter();
 
   // Remembered from the last sign-in, or taken from a ?tenant= link, so an
@@ -51,6 +51,12 @@ export function LoginPage() {
   const [error, setError] = useState("");
   const [submitting, setSubmitting] = useState(false);
   const [registrationOpen, setRegistrationOpen] = useState(false);
+  // Set when the server says the password is right but too old to use. The
+  // form then asks for a replacement rather than leaving somebody staring
+  // at an error with no way forward — which is what an expiry policy
+  // produces if the screen does not know about it.
+  const [mustReplacePassword, setMustReplacePassword] = useState(false);
+  const [newPassword, setNewPassword] = useState("");
   const [systemName, setSystemName] = useState("Portico");
 
   // The sign-in screen only offers registration when the server says it is
@@ -87,11 +93,30 @@ export function LoginPage() {
       // Submitting without leaving the field never fires onBlur, so settle
       // the lookup here too.
       setLookedUpTenant(tenant.trim());
-      await signIn(tenant.trim(), identifier, password);
+
+      if (mustReplacePassword) {
+        await signInWithReplacedPassword(
+          tenant.trim(),
+          identifier,
+          password,
+          newPassword,
+        );
+      } else {
+        await signIn(tenant.trim(), identifier, password);
+      }
+
       if (!completingAuthorization) {
         navigate("/users");
       }
     } catch (err) {
+      // Not an error to report and stop at: it is a different form. The
+      // password field keeps what was typed, because it is still needed as
+      // the current password.
+      if (err instanceof ApiError && err.code === "PASSWORD_EXPIRED") {
+        setMustReplacePassword(true);
+        setError("");
+        return;
+      }
       setError(describeError(err));
     } finally {
       setSubmitting(false);
@@ -120,6 +145,12 @@ export function LoginPage() {
         </div>
       )}
 
+      {mustReplacePassword && (
+        <div className="mb-4">
+          <Alert tone="danger">{t("login.passwordExpired")}</Alert>
+        </div>
+      )}
+
       <form onSubmit={handleSubmit} className="flex flex-col gap-4">
         <Field label={t("login.tenant")} hint={t("login.tenantHint")}>
           <Input
@@ -145,7 +176,14 @@ export function LoginPage() {
           />
         </Field>
 
-        <Field label={t("login.password")} required>
+        <Field
+          label={
+            mustReplacePassword
+              ? t("login.currentPassword")
+              : t("login.password")
+          }
+          required
+        >
           <Input
             type="password"
             value={password}
@@ -154,6 +192,18 @@ export function LoginPage() {
             required
           />
         </Field>
+
+        {mustReplacePassword && (
+          <Field label={t("login.newPassword")} required>
+            <Input
+              type="password"
+              value={newPassword}
+              onChange={(e) => setNewPassword(e.target.value)}
+              autoComplete="new-password"
+              required
+            />
+          </Field>
+        )}
 
         {error && <Alert tone="danger">{error}</Alert>}
 

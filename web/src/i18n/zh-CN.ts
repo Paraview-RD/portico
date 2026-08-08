@@ -55,6 +55,10 @@ export const zhCN: Record<keyof typeof enUS, string> = {
   "login.tenantHint": "如果没有拿到租户编码，留空即可。",
   "login.username": "登录账号",
   "login.password": "密码",
+  "login.currentPassword": "当前密码",
+  "login.newPassword": "新密码",
+  "login.passwordExpired":
+    "该密码已过期。请再输入一次当前密码，并设置新密码后继续。",
   "login.submit": "登录",
   "login.signingIn": "登录中…",
   "login.noAccount": "还没有账号？",
@@ -263,6 +267,21 @@ export const zhCN: Record<keyof typeof enUS, string> = {
   "settings.registrationHelp":
     "关闭后只能由管理员创建账号。自主注册的账号一律为普通用户。",
   "settings.saved": "设置已保存。",
+  "settings.passwordLegend": "密码策略",
+  "settings.passwordHelp":
+    "真正起作用的是长度。复杂度要求和有效期反而会让密码更容易被猜中——NIST 800-63B 明确不推荐这两项——之所以提供，是因为不少部署要通过强制要求它们的审计。如果你有选择权，请关掉它们，把最小长度调高。",
+  "settings.passwordMinLength": "最小长度",
+  "settings.passwordMinLengthHelp": "内置下限 8 位始终生效，无论这里填多少。",
+  "settings.requireUppercase": "必须包含大写字母",
+  "settings.requireLowercase": "必须包含小写字母",
+  "settings.requireDigit": "必须包含数字",
+  "settings.requireSymbol": "必须包含符号",
+  "settings.passwordHistory": "记住的历史密码数",
+  "settings.passwordHistoryHelp":
+    "最近多少个密码不可重复使用。填 0 表示不检查。每多记一个，每次改密就多一次哈希比对。",
+  "settings.passwordMaxAge": "最长有效期（天）",
+  "settings.passwordMaxAgeHelp":
+    "填 0 表示永不过期。密码过期后必须先更换才能登录。",
   "settings.lockoutLegend": "登录失败锁定",
   "settings.lockoutHelp":
     "连续输错密码后锁定账号。这不是限流——它防的是某一个账号的密码被猜中，对大量尝试给服务器带来的负载无能为力，反向代理的限流仍要保留。",

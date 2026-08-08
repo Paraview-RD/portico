@@ -140,6 +140,26 @@ func (s *Scoped) BumpUserTokenVersion(ctx context.Context, arg sqlcgen.BumpUserT
 	return s.q.BumpUserTokenVersion(ctx, arg)
 }
 
+// RecordPasswordInHistory remembers a hash so a policy can refuse reuse.
+func (s *Scoped) RecordPasswordInHistory(ctx context.Context, id, userID, hash string, now time.Time) error {
+	return s.q.RecordPasswordInHistory(ctx, sqlcgen.RecordPasswordInHistoryParams{
+		ID: id, TenantID: s.tenantID, UserID: userID,
+		PasswordHash: hash, CreatedAt: now,
+	})
+}
+
+// RecentPasswordHashes returns the newest depth hashes for an account.
+func (s *Scoped) RecentPasswordHashes(ctx context.Context, userID string, depth int32) ([]string, error) {
+	return s.q.RecentPasswordHashes(ctx,
+		sqlcgen.RecentPasswordHashesParams{TenantID: s.tenantID, UserID: userID, Limit: depth})
+}
+
+// TrimPasswordHistory drops entries past the configured depth.
+func (s *Scoped) TrimPasswordHistory(ctx context.Context, userID string, depth int32) error {
+	return s.q.TrimPasswordHistory(ctx,
+		sqlcgen.TrimPasswordHistoryParams{TenantID: s.tenantID, UserID: userID, Limit: depth})
+}
+
 // RecordFailedLogin counts a failed sign-in and locks the account if that
 // takes it to the threshold. It returns the new count and the lock, if any.
 func (s *Scoped) RecordFailedLogin(ctx context.Context, arg sqlcgen.RecordFailedLoginParams) (sqlcgen.RecordFailedLoginRow, error) {

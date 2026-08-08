@@ -231,6 +231,15 @@ actions.
   point, since the reason for recovering is often that somebody else had it.
 - **Asking for a second link invalidates the first.** Only the newest one
   works.
+- **Password rules are per tenant, in Settings**, and mostly off. The
+  minimum length of 8 is a floor no policy can lower. Composition rules
+  (uppercase, digit, symbol), reuse checks, and expiry are available and
+  default to off — they make passwords more guessable rather than less,
+  and are there for deployments audited against regimes that require them.
+  If you have the choice, raise the minimum length instead.
+- **An expired password cannot sign in at all.** It does not produce a
+  session with a "must change" flag, because a flag is something an API
+  client can ignore. The sign-in screen asks for a replacement in place.
 - **Nothing crosses a tenant.** Users, organizations, audit entries, and
   settings all belong to one, and an administrator of one tenant cannot see
   or change another's — including by id, and including by sending a tenant

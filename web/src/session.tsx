@@ -37,6 +37,19 @@ interface SessionValue {
     identifier: string,
     password: string,
   ) => Promise<void>;
+  /**
+   * Replaces a password the server refused as expired, and signs in.
+   *
+   * Separate from signIn because it goes to a different endpoint: the
+   * server will not issue a token for an expired password, so there is no
+   * session to change it from.
+   */
+  signInWithReplacedPassword: (
+    tenant: string,
+    identifier: string,
+    currentPassword: string,
+    newPassword: string,
+  ) => Promise<void>;
   signOut: () => Promise<void>;
   /** Ends the session locally, for flows the server already invalidated. */
   endSession: () => void;
@@ -100,6 +113,27 @@ export function SessionProvider({ children }: { children: ReactNode }) {
     [],
   );
 
+  const signInWithReplacedPassword = useCallback(
+    async (
+      tenant: string,
+      identifier: string,
+      currentPassword: string,
+      newPassword: string,
+    ) => {
+      const session = await authApi.changeExpiredPassword({
+        tenant,
+        identifier,
+        currentPassword,
+        newPassword,
+      });
+      tokenStore.set(session.token);
+      tenantStore.set(tenant);
+      setExpired(false);
+      setUser(session.user);
+    },
+    [],
+  );
+
   const signOut = useCallback(async () => {
     try {
       await authApi.logout();
@@ -112,8 +146,26 @@ export function SessionProvider({ children }: { children: ReactNode }) {
   }, [endSession]);
 
   const value = useMemo(
-    () => ({ user, loading, expired, signIn, signOut, endSession, refresh }),
-    [user, loading, expired, signIn, signOut, endSession, refresh],
+    () => ({
+      user,
+      loading,
+      expired,
+      signIn,
+      signInWithReplacedPassword,
+      signOut,
+      endSession,
+      refresh,
+    }),
+    [
+      user,
+      loading,
+      expired,
+      signIn,
+      signInWithReplacedPassword,
+      signOut,
+      endSession,
+      refresh,
+    ],
   );
 
   return (

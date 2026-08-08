@@ -21,6 +21,9 @@ export const errorsZhCN: Record<keyof typeof errorsEnUS, string> = {
   ADMIN_REQUIRED: "该操作需要管理员权限。",
   CURRENT_PASSWORD_MISMATCH: "当前密码不正确。",
   WEAK_PASSWORD: "该密码不符合要求。",
+  PASSWORD_EXPIRED: "该密码已过期，登录前必须先更换。",
+  PASSWORD_NOT_EXPIRED: "该密码尚未过期。请登录后在个人中心修改。",
+  PASSWORD_REUSED: "该密码最近使用过，请换一个没用过的。",
 
   // --- 密码找回 ---
   INVALID_RESET_TOKEN: "该重置链接无效或已被使用。",

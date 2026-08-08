@@ -47,6 +47,9 @@ const (
 	ActionLogout        = "LOGOUT"
 	ActionPasswordReset = "PASSWORD_RESET"
 	ActionPasswordSelf  = "PASSWORD_CHANGE_SELF"
+	// A change forced by expiry, done without a session because Login
+	// refuses to issue one for an expired password.
+	ActionPasswordExpiredChange = "PASSWORD_CHANGE_EXPIRED"
 
 	// The password-recovery pair. They are separate verbs because the
 	// interesting question after the fact is whether a request was ever

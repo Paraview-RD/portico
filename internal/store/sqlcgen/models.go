@@ -131,6 +131,14 @@ type Organization struct {
 	UpdatedAt time.Time
 }
 
+type PasswordHistory struct {
+	ID           string
+	TenantID     string
+	UserID       string
+	PasswordHash string
+	CreatedAt    time.Time
+}
+
 // Outstanding password-recovery requests. Rows are kept after use as part of the trail; expiry and used_at are what make a token unusable, not deletion.
 type PasswordReset struct {
 	ID        string
@@ -219,6 +227,8 @@ type User struct {
 	LastFailedLoginAt   *time.Time
 	// Set when the threshold is reached; expires on its own. Further failures while locked do not extend it, or locking somebody out would be a denial of service anyone could perform.
 	LockedUntil *time.Time
-	CreatedAt   time.Time
-	UpdatedAt   time.Time
+	// When the current password was set. NULL means never changed since the account was created, which an expiry policy treats as due.
+	PasswordChangedAt *time.Time
+	CreatedAt         time.Time
+	UpdatedAt         time.Time
 }

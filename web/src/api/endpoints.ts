@@ -95,6 +95,25 @@ export const authApi = {
       anonymous: true,
     }),
 
+  /**
+   * Replaces a password that has aged out, and signs in.
+   *
+   * Public because the caller cannot sign in: the server refuses to issue a
+   * token for an expired password rather than handing one out with a flag
+   * and trusting the client to act on it.
+   */
+  changeExpiredPassword: (input: {
+    tenant: string;
+    identifier: string;
+    currentPassword: string;
+    newPassword: string;
+  }) =>
+    request<Session>("/auth/password/expired", {
+      method: "POST",
+      body: input,
+      anonymous: true,
+    }),
+
   /** Redeems a reset link. The tenant travels in the link, not here. */
   confirmPasswordRecovery: (token: string, newPassword: string) =>
     request<{ reauthenticationRequired: boolean }>(
