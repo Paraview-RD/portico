@@ -109,6 +109,20 @@ at the reverse proxy; never expose Portico directly.
 - **`PORTICO_JWT_SECRET` must be at least 32 bytes**; the server refuses to
   start otherwise. Generate it with `openssl rand -hex 32`. Changing it
   signs everyone out.
+- **A database dump contains the signing keys.** The OIDC signing keys and
+  the SAML certificates are stored as PEM in tables, on the same footing as
+  the password hashes beside them. Anyone holding a dump can mint tokens
+  your relying parties will accept and assertions your service providers
+  will trust, until every key is rotated and every service provider has been
+  told. Encrypt backups at rest, restrict who can read them, and treat a
+  leaked one as a key compromise rather than a data breach — the response is
+  different and larger. See
+  [docs/backup-and-restore.md](docs/backup-and-restore.md).
+- **A metrics port, if you configure one, is unauthenticated.** So is every
+  Prometheus endpoint; that is why `PORTICO_METRICS_ADDR` opens a second
+  listener rather than adding a route. Bind it where only your monitoring
+  can reach it, and never publish it through the proxy that serves the
+  application.
 - **Forwarding headers are not trusted by default.** If Portico runs behind a
   proxy and you want real client IPs in the audit log, set
   `PORTICO_TRUST_PROXY_HEADERS=true` — but only when a proxy you control is

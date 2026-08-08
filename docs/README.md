@@ -8,6 +8,9 @@
 - **[federation.md](federation.md)** — signing an application in through
   Portico: issuers, registering a client, what the tokens carry, and exactly
   what revocation can and cannot reach. Read this before integrating.
+- **[backup-and-restore.md](backup-and-restore.md)** — what to copy, why a
+  database dump on its own is not a backup of this system, and the three
+  things a point-in-time restore does that nobody expects.
 - **[integrations.md](integrations.md)** — external services Portico depends
   on at runtime (there are none, deliberately) and what that implies.
 
