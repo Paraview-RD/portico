@@ -14,6 +14,7 @@ what each role can actually do.
 | OpenID discovery | `http://<host>:8410/.well-known/openid-configuration` | The default tenant. Others at `/t/<code>/…` |
 | SAML metadata | `http://<host>:8410/saml/metadata` | Hand this to a service provider. Others at `/t/<code>/saml/metadata` |
 | CAS | `http://<host>:8410/cas` | The client's "CAS server URL". Others at `/t/<code>/cas` |
+| SCIM 2.0 | `http://<host>:8410/scim/v2` | The "base URL" a directory asks for. Authenticated by a bearer token issued in **Settings → Provisioning**, not by an administrator session — see [scim.md](scim.md) |
 | Metrics | `http://<host>:9410/metrics` | **A separate port, off by default, and not authenticated.** See below |
 
 The port is `PORTICO_ADDR` (default `:8410`). In development the frontend
@@ -145,8 +146,9 @@ The MVP has exactly two roles and no way to define more (requirements §3.3).
 
 Can do everything: create/edit users, enable and disable accounts, reset
 other people's passwords, bulk-import from a spreadsheet, manage
-organizations, register the applications that sign in through Portico, read
-the audit log, and change system settings.
+organizations and groups, register the applications that sign in through
+Portico, issue the credentials a directory provisions with, subscribe other
+systems to events, read the audit log, and change system settings.
 
 Everything an administrator does is scoped to their own tenant. There is no
 cross-tenant role.
@@ -180,6 +182,25 @@ Disabling an application stops it immediately — it can no longer sign anyone
 in, and its credentials stop authenticating at the introspection and
 revocation endpoints too. Nothing is deleted, and there is no delete: the
 audit trail keeps pointing at something that still exists.
+
+Typical journey — let a directory keep the accounts up to date:
+
+1. **Settings** → **Directory provisioning (SCIM)** → issue a credential.
+   Like a client secret it is shown once, and it is a tenant-wide token that
+   can create, update, and disable every account — treat issuing one as the
+   privileged act it is.
+2. In the directory, set the base URL to `/scim/v2` from the entry table
+   above and the token as the bearer credential.
+3. Push a small test group first. Failures come back in SCIM's own error
+   shape, so the directory shows them rather than reporting a generic
+   failure.
+4. **Groups** → a directory-owned group is marked *Directory*, because an
+   edit made here may be overwritten by the next sync. Accounts carry the
+   same origin in their `externalId` but the user list does not yet show it.
+
+[scim.md](scim.md) is the one to hand an integrator; it leads with what is
+*not* provisioned, which is what they need before they start rather than
+after.
 
 ### User (`USER`)
 

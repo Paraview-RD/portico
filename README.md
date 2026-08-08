@@ -18,9 +18,29 @@ in the query layer rather than left to reviewer discipline. Each tenant has
 its own administrators; tenants are provisioned from the command line, so no
 role exists that can see across all of them.
 
-**Accounts and organizations** — create, edit, enable/disable, bulk-import
-from a spreadsheet. Accounts are disabled, never deleted, so the audit trail
-stays intact. Users belong to one organization; organizations form a tree.
+**Accounts, organizations, and groups** — create, edit, enable/disable,
+bulk-import from a spreadsheet. Accounts are disabled, never deleted, so the
+audit trail stays intact. An organization is where somebody sits: one of
+them, arranged as a tree. A group is a set they belong to: any number of
+them, flat, and usually maintained by whatever directory pushes it. They are
+separate concepts because they have incompatible shapes, and group
+membership grants nothing.
+
+**Provisioning from a directory** — SCIM 2.0 for users and groups, with the
+PATCH shapes Okta and Entra actually send rather than only the ones the
+specification lists first. Accounts are reconciled on `externalId`, so a
+rename in the directory is a rename here and not a second account.
+[docs/scim.md](docs/scim.md) says plainly what is *not* provisioned, which is
+the part an integrator needs first.
+
+**Webhooks** — a signed POST when an account, organization, or group
+changes, with retries and a delivery history you can read when a subscriber
+says they received nothing. Destinations are restricted to public HTTPS and
+re-checked at connection time, so a tenant administrator cannot use Portico
+as a proxy into the network it runs in.
+
+**Metrics** — Prometheus, on a separate listener that only exists if you
+configure one, with no tenant or request-path labels.
 
 **Sign in three ways** — username, phone, or email, all producing the same
 credential.
@@ -52,8 +72,8 @@ and time range.
 **Bilingual UI** — English and 简体中文, switchable at runtime.
 
 Deliberately **not** in this version: custom roles and permissions (there are
-two fixed roles), third-party and social login, SCIM, webhooks, MFA, and
-request rate limiting. The roadmap for those is in
+two fixed roles), third-party and social login, MFA, and request rate
+limiting. The roadmap for those is in
 [docs/requirements/v0.1-requirements.md](docs/requirements/v0.1-requirements.md).
 
 > **Before exposing this to a network:** Portico serves plain HTTP and does
