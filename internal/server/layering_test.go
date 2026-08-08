@@ -49,6 +49,11 @@ func TestLayeringRules(t *testing.T) {
 		// And the CAS server, which is implemented directly rather than
 		// through a library but sits in exactly the same place.
 		"casp": {"handler", "httpx", "server", "config"},
+		// Measurement must not depend on what it measures. The service layer
+		// records into this package, so anything it reached back for would be
+		// an import cycle at best — and at worst a metric that cannot be
+		// recorded from a test without standing up half the application.
+		"metrics": {"handler", "service", "store", "auth", "httpx", "server", "config", "model"},
 		// Provisioning is a second composition root, for the operations that
 		// have no HTTP surface. It builds services directly and must not
 		// reach for the web stack: anything it needed from there would mean

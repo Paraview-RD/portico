@@ -79,6 +79,10 @@ func AccessLog(next http.Handler) http.Handler {
 		switch {
 		case rec.status >= http.StatusInternalServerError:
 			level = slog.LevelError
+		// Not a rejection: the client navigated away mid-request. Logging it
+		// as a warning would put routine browsing in the same bucket as
+		// requests this server refused.
+		case rec.status == StatusClientClosedRequest:
 		case rec.status >= http.StatusBadRequest:
 			level = slog.LevelWarn
 		}

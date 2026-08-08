@@ -15,6 +15,7 @@ import (
 	"github.com/paraview/portico/internal/config"
 	"github.com/paraview/portico/internal/handler"
 	"github.com/paraview/portico/internal/httpx"
+	"github.com/paraview/portico/internal/metrics"
 	"github.com/paraview/portico/internal/notify"
 	"github.com/paraview/portico/internal/oidcp"
 	"github.com/paraview/portico/internal/samlp"
@@ -28,6 +29,7 @@ type Server struct {
 	store      *store.Store
 	handler    *handler.Handler
 	middleware *auth.Middleware
+	metrics    *metrics.Registry
 	users      *service.UserService
 	tenants    *service.TenantService
 	settings   *service.SettingsService
@@ -71,11 +73,19 @@ func New(cfg *config.Config, opts ...Option) (*Server, error) {
 
 	httpx.TrustProxyHeaders(cfg.TrustProxyHeaders)
 
+	// Always built, even when no endpoint publishes it. The recording calls
+	// are a counter increment each, and making them conditional would put an
+	// `if metrics != nil` at every call site — which is where a metric
+	// quietly stops being recorded and nobody notices, because the only
+	// symptom is a flat line.
+	registry := metrics.New()
+	registry.MustRegister(newDatabaseCollector(st))
+
 	tokens := auth.NewTokenService(cfg.JWTSecret)
 	audit := service.NewAuditService(st)
 	sessions := service.NewSessionService(st, audit)
 	settings := service.NewSettingsService(st, cfg.TokenTTL)
-	users := service.NewUserService(st, audit, settings, tokens)
+	users := service.NewUserService(st, audit, settings, tokens, registry)
 	orgs := service.NewOrganizationService(st, audit)
 	tenants := service.NewTenantService(st)
 
@@ -113,6 +123,7 @@ func New(cfg *config.Config, opts ...Option) (*Server, error) {
 			clients, serviceProviders, samlKeys, casServices,
 			providers, samlProviders, casServer),
 		middleware: auth.NewMiddleware(tokens, users, sessions),
+		metrics:    registry,
 		users:      users,
 		tenants:    tenants,
 		settings:   settings,

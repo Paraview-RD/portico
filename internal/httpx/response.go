@@ -4,11 +4,22 @@
 package httpx
 
 import (
+	"context"
 	"encoding/json"
 	"errors"
 	"log/slog"
 	"net/http"
 )
+
+// StatusClientClosedRequest is nginx's 499. It is not in any RFC, and it is
+// used here for the one thing it says that no standard code does: nobody is
+// listening any more, and nothing went wrong.
+//
+// The response never reaches anyone — the connection is gone. It exists so
+// that the access log and the metrics can tell a client that navigated away
+// from a server that failed, which otherwise look identical and inflate the
+// error rate with traffic that was working correctly.
+const StatusClientClosedRequest = 499
 
 // CodeSuccess is the envelope code for every successful response.
 const CodeSuccess = "SUCCESS"
@@ -119,7 +130,18 @@ func Fail(w http.ResponseWriter, r *http.Request, err error) {
 	// context would otherwise be reported as a generic 500, losing both the
 	// intended status and the client-facing code.
 	var apiErr *Error
-	if !errors.As(err, &apiErr) {
+	switch {
+	case errors.As(err, &apiErr):
+		// Deliberate first: a handler that returns a real *Error while the
+		// client happens to have disconnected still means what it says.
+	case clientWentAway(r, err):
+		apiErr = &Error{
+			Status:  StatusClientClosedRequest,
+			Code:    "CLIENT_CLOSED_REQUEST",
+			Message: "The client closed the request.",
+			cause:   err,
+		}
+	default:
 		apiErr = Internal(err)
 	}
 
@@ -138,6 +160,22 @@ func Fail(w http.ResponseWriter, r *http.Request, err error) {
 		Message: apiErr.Message,
 		Data:    nil,
 	})
+}
+
+// clientWentAway reports whether err is the wreckage of a request the client
+// abandoned, rather than a failure of this server.
+//
+// Both conditions are required. A cancelled error alone is not enough: an
+// internal timeout, or one operation cancelling another, produces the same
+// error while the caller is still waiting for an answer — and answering
+// "you left" to somebody who is still there would hide a real fault. The
+// request context being done is what distinguishes the two.
+//
+// DeadlineExceeded is deliberately not included. A deadline this server set
+// and then missed is a server problem, and it should be counted as one.
+func clientWentAway(r *http.Request, err error) bool {
+	return errors.Is(err, context.Canceled) &&
+		errors.Is(r.Context().Err(), context.Canceled)
 }
 
 func write(w http.ResponseWriter, status int, body Envelope) {

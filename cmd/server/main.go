@@ -175,6 +175,33 @@ func run() error {
 		}
 	}()
 
+	// The metrics endpoint, when one is configured, on a listener of its
+	// own. See config.MetricsAddr: it is unauthenticated by design, so it
+	// must not share a port with anything a proxy publishes.
+	var metricsServer *http.Server
+	if cfg.MetricsAddr != "" {
+		metricsServer = &http.Server{
+			Addr:              cfg.MetricsAddr,
+			Handler:           srv.MetricsHandler(),
+			ReadHeaderTimeout: 10 * time.Second,
+			ReadTimeout:       30 * time.Second,
+			WriteTimeout:      30 * time.Second,
+			IdleTimeout:       60 * time.Second,
+		}
+		go func() {
+			slog.Info("serving metrics", "addr", cfg.MetricsAddr)
+			err := metricsServer.ListenAndServe()
+			if err != nil && !errors.Is(err, http.ErrServerClosed) {
+				// Fatal, like the main listener. An operator who configured
+				// this address expects to be able to scrape it, and a
+				// process that runs happily while its monitoring is silently
+				// unreachable is how an outage gets noticed by a customer
+				// instead of by a graph.
+				errCh <- fmt.Errorf("metrics listener: %w", err)
+			}
+		}()
+	}
+
 	select {
 	case err := <-errCh:
 		return err
@@ -187,6 +214,16 @@ func run() error {
 
 	if err := httpServer.Shutdown(shutdownCtx); err != nil {
 		return err
+	}
+	// After the application listener, so a scrape during shutdown still sees
+	// the final state. Its failure is not returned: the application has
+	// already stopped cleanly by this point, and reporting a shutdown error
+	// from the monitoring port as the process's exit status would turn a
+	// clean stop into a failed one.
+	if metricsServer != nil {
+		if err := metricsServer.Shutdown(shutdownCtx); err != nil {
+			slog.Warn("metrics listener did not shut down cleanly", "error", err)
+		}
 	}
 	slog.Info("shutdown complete")
 	return nil

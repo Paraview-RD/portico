@@ -28,6 +28,21 @@ type Config struct {
 	// Addr is the TCP address the HTTP server listens on.
 	Addr string
 
+	// MetricsAddr is the address a Prometheus endpoint listens on, or "" to
+	// publish no metrics at all.
+	//
+	// A second listener rather than a route on the first, and off unless
+	// asked for, because /metrics is not an authenticated endpoint anywhere
+	// in this ecosystem — Prometheus does not authenticate, and every
+	// exporter assumes the address is reachable only from inside. Serving it
+	// on the public port would make it exactly as reachable as the login
+	// page, and the mistake would be invisible: a scrape config that works.
+	//
+	// Bind it to a private interface (127.0.0.1:9410, or the pod's own
+	// address), and never publish this port through the same proxy that
+	// serves the application.
+	MetricsAddr string
+
 	// DatabaseDriver selects the storage backend ("postgres").
 	DatabaseDriver string
 
@@ -85,6 +100,7 @@ type Config struct {
 func Load() (*Config, error) {
 	cfg := &Config{
 		Addr:            envString("PORTICO_ADDR", ":8410"),
+		MetricsAddr:     os.Getenv("PORTICO_METRICS_ADDR"),
 		DatabaseDriver:  envString("PORTICO_DB_DRIVER", "postgres"),
 		DatabaseDSN:     os.Getenv("PORTICO_DB_DSN"),
 		LogLevel:        envString("PORTICO_LOG_LEVEL", "info"),

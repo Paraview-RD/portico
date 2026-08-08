@@ -10,6 +10,7 @@ import (
 
 	"github.com/paraview/portico/internal/auth"
 	"github.com/paraview/portico/internal/httpx"
+	"github.com/paraview/portico/internal/metrics"
 	"github.com/paraview/portico/internal/model"
 	"github.com/paraview/portico/internal/store"
 	"github.com/paraview/portico/internal/store/sqlcgen"
@@ -67,11 +68,17 @@ type UserService struct {
 	audit    *AuditService
 	settings *SettingsService
 	tokens   *auth.TokenService
+	// metrics may be nil, and every recording method tolerates that. A test
+	// that only cares about behaviour should not have to build a registry to
+	// get one.
+	metrics *metrics.Registry
 }
 
 // NewUserService wires a UserService.
-func NewUserService(st *store.Store, audit *AuditService, settings *SettingsService, tokens *auth.TokenService) *UserService {
-	return &UserService{store: st, audit: audit, settings: settings, tokens: tokens}
+func NewUserService(st *store.Store, audit *AuditService, settings *SettingsService, tokens *auth.TokenService, m *metrics.Registry) *UserService {
+	return &UserService{
+		store: st, audit: audit, settings: settings, tokens: tokens, metrics: m,
+	}
 }
 
 // LookupForAuth implements auth.UserLookup. It runs on every authenticated

@@ -50,7 +50,10 @@ func Open(cfg *config.Config) (*Provisioner, error) {
 	// exercised here: provisioning issues no sessions.
 	tokens := auth.NewTokenService(cfg.JWTSecret)
 
-	users := service.NewUserService(st, audit, settings, tokens)
+	// No metrics registry: this is a CLI process that exits, and a counter
+	// nothing will ever scrape is not worth the allocation. The service
+	// tolerates nil for exactly this case.
+	users := service.NewUserService(st, audit, settings, tokens, nil)
 
 	return &Provisioner{
 		store:   st,

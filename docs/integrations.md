@@ -54,10 +54,23 @@ only.
 *Status: the interface and a no-op implementation exist; concrete providers
 are not yet written.*
 
+### Prometheus — optional, and it does the reaching
+
+Setting `PORTICO_METRICS_ADDR` opens a second listener publishing metrics in
+the text exposition format. There is no account, no token, and no
+configuration beyond the address: Prometheus scrapes Portico, so nothing is
+sent anywhere and no credential is held.
+
+The direction is the point. This is not telemetry — nothing leaves unless
+something inside your network comes and reads it, and if you never set the
+address, the listener does not exist. See
+[access-guide.md](access-guide.md#metrics) for why it is a separate port.
+
 ## Nothing else
 
-No message broker, no cache, no object store, no external identity provider,
-no telemetry endpoint. Nothing phones home.
+No message broker, no cache, no object store, no external identity provider.
+Nothing phones home — the metrics endpoint above is read by your monitoring,
+never pushed by Portico.
 
 ## Adding one
 
@@ -78,4 +91,5 @@ deployment.
 | `github.com/pressly/goose/v3` | Used as a library, not a CLI, so migrations run at startup and there is no separate tool to ship or run. |
 | `github.com/xuri/excelize/v2` | Reads and writes the bulk-import workbooks. |
 | `github.com/golang-jwt/jwt/v5` | Signs and verifies access tokens. |
+| `github.com/prometheus/client_golang` | The metrics registry and exposition handler. Adds no runtime dependency: with `PORTICO_METRICS_ADDR` unset it registers collectors nothing reads and opens no listener. |
 | `sqlc` | Development-time code generation from SQL. Contributors only need it when changing a query; the generated code is committed. |

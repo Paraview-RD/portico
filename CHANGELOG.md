@@ -72,6 +72,14 @@ Working toward 0.1.0 — the first release. Nothing has been published yet.
   the only thing that catches a stolen refresh token.
 - **Audit entries are pruned only where a tenant configured a retention
   period.** The default is to keep everything.
+- **A client that disconnects mid-request is reported as `499`, not `500`.**
+  Every operation still in flight fails with `context.Canceled` when someone
+  navigates away, and calling that a server error filled the log with
+  entries nobody could act on and inflated the 5xx rate an operator alerts
+  on. Both conditions are required — the error is cancelled *and* the
+  request context is done — because an internal cancellation while the
+  caller is still waiting is a real fault. A missed deadline stays a 500
+  even if the client has also gone.
 - `ActionDownstreamSync` is gone. It named an event the server cannot
   observe: a downstream system reads a profile once with the user's token,
   and whether it then creates an account, updates one, or discards the
@@ -244,6 +252,26 @@ Working toward 0.1.0 — the first release. Nothing has been published yet.
   can return has an English and a 简体中文 rendering; the Chinese table is
   typed against the English one, so a missing translation fails the build
   rather than showing a code to a user.
+- **Prometheus metrics**, on a listener of their own and off unless
+  `PORTICO_METRICS_ADDR` is set. HTTP counts and latencies, sign-in outcomes,
+  lockouts, tokens issued, and the database pool — which is the one that
+  names the failure looking like nothing else, where everything is slow, no
+  request errors, and no single slow query to find. Separate listener
+  because the endpoint is unauthenticated, as every Prometheus endpoint is;
+  a route on the application port would be exactly as reachable as the login
+  page, and the scrape config would still look right.
+- No metric is labelled with a tenant or a request path. Both are values
+  created from outside, and a label whose cardinality other people control
+  is how a metrics endpoint becomes the largest thing a process produces.
+  Routes are labelled with the chi pattern, so `/users/{id}` is one series.
+- Sign-in counters are initialised to zero at startup, so a quiet instance
+  reports zero rather than nothing and an alert can tell the two apart.
+- **A browser test suite** in `web/e2e/`, running a real browser against the
+  built binary in CI. Every test in it fails if the browser reported a
+  Content-Security-Policy violation or an uncaught error, whether or not
+  that test was looking — a blocked script does not fail an assertion, it
+  leaves a page that renders and does nothing. That is the shape of the bug
+  which broke every SAML sign-in while eleven Go tests passed.
 - **A test runner for the frontend**, with the first tests written against
   the two defects a browser had already found — a `role="tab"` with no
   panel, and a status toggle addressing the wrong identifier, which the type

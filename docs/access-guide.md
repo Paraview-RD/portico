@@ -14,10 +14,45 @@ what each role can actually do.
 | OpenID discovery | `http://<host>:8410/.well-known/openid-configuration` | The default tenant. Others at `/t/<code>/…` |
 | SAML metadata | `http://<host>:8410/saml/metadata` | Hand this to a service provider. Others at `/t/<code>/saml/metadata` |
 | CAS | `http://<host>:8410/cas` | The client's "CAS server URL". Others at `/t/<code>/cas` |
+| Metrics | `http://<host>:9410/metrics` | **A separate port, off by default, and not authenticated.** See below |
 
 The port is `PORTICO_ADDR` (default `:8410`). In development the frontend
 also runs a Vite server on `:5410` that proxies `/api` to `:8410`; in
-production there is only the one port.
+production there is only the one port — unless you turn on metrics, which
+get one of their own.
+
+## Metrics
+
+Set `PORTICO_METRICS_ADDR` (for example `127.0.0.1:9410`) to publish
+Prometheus metrics. Leave it unset and nothing is published and no second
+listener is opened.
+
+**It is a separate listener because it is unauthenticated.** No Prometheus
+deployment authenticates its scrapes, so every exporter in this ecosystem
+assumes its address is reachable only from inside. Serving it as a route on
+the application port would make it exactly as reachable as the login page,
+and the mistake would be invisible — a scrape config that works. Bind it to
+an interface only your monitoring can reach, and never publish it through
+the proxy that serves the application.
+
+What is worth an alert:
+
+| Metric | Why |
+|---|---|
+| `portico_sign_in_attempts_total{outcome="bad_credentials"}` | A rate climbing across many accounts is credential stuffing. Portico does not rate-limit; this is how you find out you need to. |
+| `portico_account_lockouts_total` | Counted where a lock is *applied*. A spike is either an attack or a policy set too tight for real people. |
+| `portico_sign_in_attempts_total{outcome="password_expired"}` | Only interesting just after enabling expiry, when it tells you how many people are about to contact you at once. |
+| `portico_db_connections_wait_total` | Pool exhaustion, which presents as everything being slow with no errors and no slow query to find. This is the metric that names it. |
+| `portico_http_requests_total{status="5xx"}` | Client disconnects are reported as `499` and are excluded from this, so a rise here is real. |
+
+Every series is initialised to zero at startup, so `rate(...)` returns zero
+rather than nothing on a quiet instance — an alert can tell "no failed
+sign-ins" from "not reporting".
+
+Nothing is labelled with a tenant or a request path, both deliberately:
+those are values created from outside, and a label whose cardinality other
+people control is how a metrics endpoint becomes the largest thing a process
+produces.
 
 ## Tenants
 

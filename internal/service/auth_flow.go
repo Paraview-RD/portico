@@ -2,6 +2,7 @@ package service
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"log/slog"
 	"strings"
@@ -11,6 +12,7 @@ import (
 
 	"github.com/paraview/portico/internal/auth"
 	"github.com/paraview/portico/internal/httpx"
+	"github.com/paraview/portico/internal/metrics"
 	"github.com/paraview/portico/internal/model"
 	"github.com/paraview/portico/internal/store"
 	"github.com/paraview/portico/internal/store/sqlcgen"
@@ -21,6 +23,32 @@ type Session struct {
 	Token     string     `json:"token"`
 	ExpiresAt time.Time  `json:"expiresAt"`
 	User      model.User `json:"user"`
+}
+
+// signInOutcome classifies a sign-in result for the metric.
+//
+// errors.Is rather than equality: a caller may wrap these, and a wrapped
+// ErrAccountLocked counted as a generic error would hide exactly the number
+// an operator turns lockout on in order to watch.
+//
+// MISSING_CREDENTIALS falls through to error deliberately. An empty form is
+// not a failed attempt, and counting it as one would make the
+// bad-credentials rate track how often somebody pressed Enter too early.
+func signInOutcome(err error) string {
+	switch {
+	case err == nil:
+		return metrics.OutcomeSuccess
+	case errors.Is(err, ErrInvalidCredentials):
+		return metrics.OutcomeBadCredentials
+	case errors.Is(err, ErrAccountLocked):
+		return metrics.OutcomeLocked
+	case errors.Is(err, ErrAccountDisabled):
+		return metrics.OutcomeDisabled
+	case errors.Is(err, ErrPasswordExpired):
+		return metrics.OutcomeExpired
+	default:
+		return metrics.OutcomeError
+	}
 }
 
 // Login verifies credentials within a tenant and issues a token.
@@ -43,7 +71,14 @@ type Session struct {
 // somebody who could already establish the account exists. Being vague at
 // that point costs a person who typed the right password the one piece of
 // information that would tell them what to do.
-func (s *UserService) Login(ctx context.Context, tenant model.Tenant, identifier, password, ip, userAgent string) (Session, error) {
+func (s *UserService) Login(ctx context.Context, tenant model.Tenant, identifier, password, ip, userAgent string) (session Session, err error) {
+	// Recorded once, from the error, rather than at each of the seven places
+	// this can end. The reason is not brevity: a sign-in outcome that has to
+	// be remembered at every return is one that will be missing from
+	// whichever branch gets added next, and a metric that silently stops
+	// counting a case looks exactly like that case not happening.
+	defer func() { s.metrics.RecordSignIn(signInOutcome(err)) }()
+
 	identifier = strings.TrimSpace(identifier)
 	if identifier == "" || password == "" {
 		return Session{}, httpx.BadRequest("MISSING_CREDENTIALS",
@@ -144,6 +179,7 @@ func (s *UserService) Login(ctx context.Context, tenant model.Tenant, identifier
 	if err != nil {
 		return Session{}, err
 	}
+	s.metrics.RecordTokenIssued(metrics.TokenSession)
 
 	s.audit.Log(ctx, tenant.ID, AuditEntry{
 		Kind: model.LogLogin, Action: model.ActionLoginSuccess,
@@ -267,6 +303,11 @@ func (s *UserService) countFailure(ctx context.Context, tenant model.Tenant, use
 		reason = fmt.Sprintf("wrong password (%d of %d); account locked until %s",
 			result.FailedLoginAttempts, settings.LockoutThreshold,
 			result.LockedUntil.UTC().Format(time.RFC3339))
+		// Counted here, where the lock is applied, rather than where a locked
+		// account is turned away. A lock is applied once and refused many
+		// times, and the two are different questions: how many accounts got
+		// locked, versus how hard somebody is pushing at one that already is.
+		s.metrics.RecordLockout()
 	}
 	s.logLoginFailure(ctx, tenant.ID, userID, username, ip, reason)
 }

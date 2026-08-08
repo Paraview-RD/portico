@@ -1,8 +1,10 @@
 package httpx_test
 
 import (
+	"context"
 	"encoding/json"
 	"errors"
+	"fmt"
 	"net/http"
 	"net/http/httptest"
 	"testing"
@@ -138,4 +140,80 @@ func contains(haystack, needle string) bool {
 		}
 	}
 	return false
+}
+
+// A client that navigates away mid-request cancels it, and every operation
+// still in flight fails with context.Canceled. Reporting that as a 500 makes
+// ordinary browsing indistinguishable from a broken server: it fills the
+// error log with entries nobody can act on, and it inflates the 5xx rate
+// that an operator alerts on. These tests hold the distinction.
+
+func TestFailReportsAClientThatWentAwaySeparately(t *testing.T) {
+	rec := httptest.NewRecorder()
+	ctx, cancel := context.WithCancel(context.Background())
+	req := httptest.NewRequest(http.MethodGet, "/api/v1/organizations", nil).WithContext(ctx)
+	cancel()
+
+	httpx.Fail(rec, req, fmt.Errorf("list organizations: %w", context.Canceled))
+
+	if rec.Code != httpx.StatusClientClosedRequest {
+		t.Errorf("status = %d, want %d (nobody is listening, and nothing failed)",
+			rec.Code, httpx.StatusClientClosedRequest)
+	}
+	if env := decode(t, rec); env.Code != "CLIENT_CLOSED_REQUEST" {
+		t.Errorf("code = %q, want CLIENT_CLOSED_REQUEST", env.Code)
+	}
+}
+
+func TestFailStillReportsCancellationOfALiveRequestAsAFailure(t *testing.T) {
+	rec := httptest.NewRecorder()
+	// The request context is untouched: the caller is still waiting. A
+	// cancelled error here came from somewhere inside — an internal timeout,
+	// or one operation cancelling another — and it is a fault of this server.
+	req := httptest.NewRequest(http.MethodGet, "/api/v1/organizations", nil)
+
+	httpx.Fail(rec, req, fmt.Errorf("query: %w", context.Canceled))
+
+	if rec.Code != http.StatusInternalServerError {
+		t.Errorf("status = %d, want 500: the client was still waiting, so this "+
+			"is a server fault and must not be excused as a disconnect", rec.Code)
+	}
+}
+
+func TestFailKeepsARealErrorEvenWhenTheClientHasGone(t *testing.T) {
+	rec := httptest.NewRecorder()
+	ctx, cancel := context.WithCancel(context.Background())
+	req := httptest.NewRequest(http.MethodGet, "/api/v1/users/x", nil).WithContext(ctx)
+	cancel()
+
+	// A handler that decided the answer before the client left still means
+	// what it said, and the audit trail and the metrics should say so.
+	httpx.Fail(rec, req, httpx.NotFound("USER_NOT_FOUND", "No such user."))
+
+	if rec.Code != http.StatusNotFound {
+		t.Errorf("status = %d, want 404", rec.Code)
+	}
+}
+
+func TestFailTreatsADeadlineAsAServerFaultEvenIfTheClientAlsoLeft(t *testing.T) {
+	rec := httptest.NewRecorder()
+	// Both at once, which is the case that decides the rule rather than
+	// merely illustrating it: the client gave up *and* an operation this
+	// server had put a deadline on missed it. Testing the deadline alone
+	// passes for the wrong reason — the request context is not cancelled
+	// either, so the second condition rejects it whatever the first does.
+	ctx, cancel := context.WithCancel(context.Background())
+	req := httptest.NewRequest(http.MethodGet, "/api/v1/organizations", nil).WithContext(ctx)
+	cancel()
+
+	// A deadline this server set and then missed is this server's problem,
+	// and it is the more actionable of the two facts. Excusing it as a
+	// disconnect would hide every timeout behind the one status code nobody
+	// alerts on.
+	httpx.Fail(rec, req, fmt.Errorf("query: %w", context.DeadlineExceeded))
+
+	if rec.Code != http.StatusInternalServerError {
+		t.Errorf("status = %d, want 500: a missed deadline is a server fault "+
+			"even when the client had already gone", rec.Code)
+	}
 }

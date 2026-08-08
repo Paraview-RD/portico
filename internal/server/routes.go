@@ -28,6 +28,9 @@ func (s *Server) routes() http.Handler {
 	r.Use(httpx.SecurityHeaders)
 	r.Use(httpx.Recover)
 	r.Use(httpx.AccessLog)
+	// After Recover, so a panicked request is counted as the 500 it becomes
+	// rather than escaping the count entirely.
+	r.Use(s.metrics.Middleware)
 
 	h := s.handler
 	mw := s.middleware
