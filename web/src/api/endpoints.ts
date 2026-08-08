@@ -257,11 +257,15 @@ export const oauthApi = {
 /**
  * Application management.
  *
- * A SAML entity id and a CAS URL prefix are both identifiers containing
- * slashes, so they are percent-encoded into the path. encodeURIComponent
- * rather than encodeURI: the latter leaves "/" alone, which would split the
- * identifier across path segments and route the request somewhere else
- * entirely.
+ * SAML service providers and CAS services are addressed by the
+ * registration's own id, not by its entity id or URL prefix. Those are a URI
+ * and a URL: percent-encoding one into a path segment works until a reverse
+ * proxy normalizes the path, decodes the %2F, and splits the identifier —
+ * at which point every request 404s in production and nowhere else. An
+ * opaque id has no slashes.
+ *
+ * OAuth client ids are addressed directly, which is safe because the server
+ * restricts them to letters, digits, and . _ -
  */
 const segment = encodeURIComponent;
 
@@ -333,21 +337,21 @@ export const applicationApi = {
       }),
 
     /** Replacing the metadata is how a certificate is rotated. */
-    update: (entityId: string, input: { name: string; metadataXml: string }) =>
+    update: (id: string, input: { name: string; metadataXml: string }) =>
       request<SAMLServiceProvider>(
-        `/applications/saml-service-providers/${segment(entityId)}`,
+        `/applications/saml-service-providers/${segment(id)}`,
         { method: "PUT", body: input },
       ),
 
-    enable: (entityId: string) =>
+    enable: (id: string) =>
       request<SAMLServiceProvider>(
-        `/applications/saml-service-providers/${segment(entityId)}/enable`,
+        `/applications/saml-service-providers/${segment(id)}/enable`,
         { method: "POST" },
       ),
 
-    disable: (entityId: string) =>
+    disable: (id: string) =>
       request<SAMLServiceProvider>(
-        `/applications/saml-service-providers/${segment(entityId)}/disable`,
+        `/applications/saml-service-providers/${segment(id)}/disable`,
         { method: "POST" },
       ),
   },
@@ -361,22 +365,20 @@ export const applicationApi = {
         body: input,
       }),
 
-    update: (prefix: string, input: { name: string; urlPrefix: string }) =>
-      request<CASService>(`/applications/cas-services/${segment(prefix)}`, {
+    update: (id: string, input: { name: string; urlPrefix: string }) =>
+      request<CASService>(`/applications/cas-services/${segment(id)}`, {
         method: "PUT",
         body: input,
       }),
 
-    enable: (prefix: string) =>
-      request<CASService>(
-        `/applications/cas-services/${segment(prefix)}/enable`,
-        { method: "POST" },
-      ),
+    enable: (id: string) =>
+      request<CASService>(`/applications/cas-services/${segment(id)}/enable`, {
+        method: "POST",
+      }),
 
-    disable: (prefix: string) =>
-      request<CASService>(
-        `/applications/cas-services/${segment(prefix)}/disable`,
-        { method: "POST" },
-      ),
+    disable: (id: string) =>
+      request<CASService>(`/applications/cas-services/${segment(id)}/disable`, {
+        method: "POST",
+      }),
   },
 };

@@ -180,6 +180,25 @@ func (s *SAMLServiceProviderService) Get(ctx context.Context, tenantID, entityID
 	return toServiceProvider(row), nil
 }
 
+// GetByID returns one service provider by the registration's own id.
+//
+// The console addresses registrations this way rather than by entity id. An
+// entity id is a URI, so putting one in a URL path means percent-encoding
+// its slashes — and a reverse proxy that normalizes paths decodes them
+// again, splitting the identifier across segments. That failure depends on
+// somebody else's proxy configuration and would never show up in a test
+// here, so the identifier is one that has no slashes to begin with.
+func (s *SAMLServiceProviderService) GetByID(ctx context.Context, tenantID, id string) (model.SAMLServiceProvider, error) {
+	row, err := s.store.ForTenant(tenantID).GetSAMLServiceProviderByID(ctx, id)
+	if err != nil {
+		if store.IsNoRows(err) {
+			return model.SAMLServiceProvider{}, ErrServiceProviderNotFound
+		}
+		return model.SAMLServiceProvider{}, fmt.Errorf("get service provider: %w", err)
+	}
+	return toServiceProvider(row), nil
+}
+
 // Descriptor returns the parsed metadata the protocol library works from.
 func (s *SAMLServiceProviderService) Descriptor(ctx context.Context, tenantID, entityID string) (*saml.EntityDescriptor, error) {
 	provider, err := s.Get(ctx, tenantID, entityID)

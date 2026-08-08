@@ -504,6 +504,12 @@ func (s *Scoped) GetSAMLServiceProvider(ctx context.Context, entityID string) (s
 		sqlcgen.GetSAMLServiceProviderParams{TenantID: s.tenantID, EntityID: entityID})
 }
 
+// GetSAMLServiceProviderByID returns a service provider by its own id.
+func (s *Scoped) GetSAMLServiceProviderByID(ctx context.Context, id string) (sqlcgen.SamlServiceProvider, error) {
+	return s.q.GetSAMLServiceProviderByID(ctx,
+		sqlcgen.GetSAMLServiceProviderByIDParams{TenantID: s.tenantID, ID: id})
+}
+
 // ListSAMLServiceProviders returns every service provider in this tenant.
 func (s *Scoped) ListSAMLServiceProviders(ctx context.Context) ([]sqlcgen.SamlServiceProvider, error) {
 	return s.q.ListSAMLServiceProviders(ctx, s.tenantID)
@@ -571,6 +577,12 @@ func (s *Scoped) ListCASServices(ctx context.Context) ([]sqlcgen.CasService, err
 func (s *Scoped) GetCASService(ctx context.Context, prefix string) (sqlcgen.CasService, error) {
 	return s.q.GetCASService(ctx,
 		sqlcgen.GetCASServiceParams{TenantID: s.tenantID, UrlPrefix: prefix})
+}
+
+// GetCASServiceByID returns one registration by its own id.
+func (s *Scoped) GetCASServiceByID(ctx context.Context, id string) (sqlcgen.CasService, error) {
+	return s.q.GetCASServiceByID(ctx,
+		sqlcgen.GetCASServiceByIDParams{TenantID: s.tenantID, ID: id})
 }
 
 // UpdateCASServiceStatus enables or disables a CAS service.

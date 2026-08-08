@@ -13,6 +13,14 @@ SELECT * FROM cas_services
 WHERE tenant_id = $1 AND url_prefix = $2
 LIMIT 1;
 
+-- Looked up by id for the same reason as a SAML service provider: a URL
+-- prefix in a path has to be percent-encoded, and a normalizing proxy
+-- decodes it.
+-- name: GetCASServiceByID :one
+SELECT * FROM cas_services
+WHERE tenant_id = $1 AND id = $2
+LIMIT 1;
+
 -- name: UpdateCASServiceStatus :exec
 UPDATE cas_services
 SET status = $1, updated_at = $2

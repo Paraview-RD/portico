@@ -216,6 +216,7 @@ func TestRegisterSAMLServiceProviderThroughTheAPI(t *testing.T) {
 	}
 
 	var provider struct {
+		ID       string   `json:"id"`
 		EntityID string   `json:"entityId"`
 		Name     string   `json:"name"`
 		ACSURLs  []string `json:"acsUrls"`
@@ -228,14 +229,12 @@ func TestRegisterSAMLServiceProviderThroughTheAPI(t *testing.T) {
 		t.Errorf("acsUrls = %v, want the one in the metadata", provider.ACSURLs)
 	}
 
-	// The entity id is a URI, so every subsequent address has it
-	// percent-encoded in the path. If that did not round-trip, every
-	// registration would look missing the moment it was created.
-	escaped := url.PathEscape(spEntityID)
+	// Addressed by the registration's own id, not the entity id — see
+	// TestApplicationPathsCarryNoEncodedSlashes for why that matters.
 	read := api.do(http.MethodGet,
-		"/api/v1/applications/saml-service-providers/"+escaped, token, nil)
+		"/api/v1/applications/saml-service-providers/"+provider.ID, token, nil)
 	if read.Status != http.StatusOK {
-		t.Fatalf("get service provider by escaped entity id: %d %s", read.Status, read.Code)
+		t.Fatalf("get service provider by id: %d %s", read.Status, read.Code)
 	}
 }
 
@@ -248,11 +247,14 @@ func TestReplacingSAMLMetadataRejectsADifferentEntity(t *testing.T) {
 	if create.Status != http.StatusOK {
 		t.Fatalf("register service provider: %d %s", create.Status, create.Code)
 	}
-	escaped := url.PathEscape(spEntityID)
+	var created struct {
+		ID string `json:"id"`
+	}
+	create.into(t, &created)
 
 	// Replacing metadata is how a certificate is rotated, so it has to work.
 	rotated := api.do(http.MethodPut,
-		"/api/v1/applications/saml-service-providers/"+escaped, token, map[string]any{
+		"/api/v1/applications/saml-service-providers/"+created.ID, token, map[string]any{
 			"metadataXml": spMetadata(spEntityID, "https://sp.example.test/acs2"),
 		})
 	if rotated.Status != http.StatusOK {
@@ -264,7 +266,7 @@ func TestReplacingSAMLMetadataRejectsADifferentEntity(t *testing.T) {
 	// registration, so assertions meant for one system would start being
 	// issued to another under the old name.
 	hijack := api.do(http.MethodPut,
-		"/api/v1/applications/saml-service-providers/"+escaped, token, map[string]any{
+		"/api/v1/applications/saml-service-providers/"+created.ID, token, map[string]any{
 			"metadataXml": spMetadata("https://attacker.example.test/saml", "https://attacker.example.test/acs"),
 		})
 	if hijack.Status != http.StatusBadRequest || hijack.Code != "METADATA_ENTITY_ID_MISMATCH" {
@@ -317,9 +319,12 @@ func TestCASServiceCanBeMovedToANewAddress(t *testing.T) {
 	if create.Status != http.StatusOK {
 		t.Fatalf("register CAS service: %d %s", create.Status, create.Code)
 	}
+	var created struct {
+		ID string `json:"id"`
+	}
+	create.into(t, &created)
 
-	escaped := url.PathEscape("https://old.example.test/")
-	res := api.do(http.MethodPut, "/api/v1/applications/cas-services/"+escaped, token, map[string]any{
+	res := api.do(http.MethodPut, "/api/v1/applications/cas-services/"+created.ID, token, map[string]any{
 		"name":      "Moved",
 		"urlPrefix": "https://new.example.test/",
 	})
@@ -669,4 +674,107 @@ func contains(values []string, want string) bool {
 		}
 	}
 	return false
+}
+
+// No identifier this API puts in a URL path may contain a slash.
+//
+// A SAML entity id is a URI and a CAS registration is a URL prefix. Putting
+// either in a path segment means percent-encoding its slashes, which works
+// here and in a browser and fails behind a reverse proxy that normalizes
+// paths — nginx with a URI part on its proxy_pass decodes the %2F, splits
+// the identifier across segments, and every request 404s. That failure lives
+// in somebody else's configuration file, appears only in production, and no
+// test of this server would ever see it.
+//
+// So the addressing avoids it: registrations are addressed by an opaque id.
+// This test is what stops that quietly regressing to the natural key.
+func TestApplicationPathsCarryNoEncodedSlashes(t *testing.T) {
+	api := newAPITest(t)
+	token := api.adminToken()
+
+	sp := api.do(http.MethodPost, "/api/v1/applications/saml-service-providers", token,
+		map[string]any{"metadataXml": spMetadata(spEntityID, "https://sp.example.test/acs")})
+	if sp.Status != http.StatusOK {
+		t.Fatalf("register service provider: %d %s", sp.Status, sp.Code)
+	}
+	cas := api.do(http.MethodPost, "/api/v1/applications/cas-services", token,
+		map[string]any{"urlPrefix": "https://wiki.example.test/"})
+	if cas.Status != http.StatusOK {
+		t.Fatalf("register CAS service: %d %s", cas.Status, cas.Code)
+	}
+
+	var spRow, casRow struct {
+		ID string `json:"id"`
+	}
+	sp.into(t, &spRow)
+	cas.into(t, &casRow)
+
+	for _, id := range []struct{ kind, value string }{
+		{"SAML service provider", spRow.ID},
+		{"CAS service", casRow.ID},
+	} {
+		if id.value == "" {
+			t.Errorf("%s has no id to address it by", id.kind)
+			continue
+		}
+		if strings.ContainsAny(id.value, "/?#%") {
+			t.Errorf("%s id %q would need percent-encoding in a path; "+
+				"a normalizing proxy would then split it", id.kind, id.value)
+		}
+		// The round trip has to work with the raw value, unescaped. If it
+		// only worked escaped, the identifier still contains something a
+		// proxy could mangle.
+		if escaped := url.PathEscape(id.value); escaped != id.value {
+			t.Errorf("%s id %q changes under path escaping (to %q)",
+				id.kind, id.value, escaped)
+		}
+	}
+
+	// And the addresses actually resolve.
+	if res := api.do(http.MethodPost,
+		"/api/v1/applications/saml-service-providers/"+spRow.ID+"/disable", token, nil); res.Status != http.StatusOK {
+		t.Errorf("disable service provider by id: %d %s", res.Status, res.Code)
+	}
+	if res := api.do(http.MethodPost,
+		"/api/v1/applications/saml-service-providers/"+spRow.ID+"/enable", token, nil); res.Status != http.StatusOK {
+		t.Errorf("enable service provider by id: %d %s", res.Status, res.Code)
+	}
+	if res := api.do(http.MethodPost,
+		"/api/v1/applications/cas-services/"+casRow.ID+"/disable", token, nil); res.Status != http.StatusOK {
+		t.Errorf("disable CAS service by id: %d %s", res.Status, res.Code)
+	}
+	if res := api.do(http.MethodPost,
+		"/api/v1/applications/cas-services/"+casRow.ID+"/enable", token, nil); res.Status != http.StatusOK {
+		t.Errorf("enable CAS service by id: %d %s", res.Status, res.Code)
+	}
+}
+
+// A partial update must not silently discard the redirect URIs.
+//
+// PUT replaces, so a body that omits them is refused rather than treated as
+// "no redirect URIs" — an application whose redirect URIs were quietly
+// emptied by a rename would stop working with nothing to point at.
+func TestUpdatingAClientWithoutRedirectURIsIsRefused(t *testing.T) {
+	api := newAPITest(t)
+	token := api.adminToken()
+
+	create := api.do(http.MethodPost, "/api/v1/applications/oauth-clients", token, map[string]any{
+		"clientId":     "keep-uris",
+		"redirectUris": []string{"https://app.example.test/callback"},
+	})
+	if create.Status != http.StatusOK {
+		t.Fatalf("create client: %d %s", create.Status, create.Code)
+	}
+
+	res := api.do(http.MethodPut, "/api/v1/applications/oauth-clients/keep-uris", token,
+		map[string]any{"name": "Renamed"})
+	if res.Status != http.StatusBadRequest || res.Code != "REDIRECT_URI_REQUIRED" {
+		t.Errorf("rename without redirect URIs = %d %s, want 400 REDIRECT_URI_REQUIRED",
+			res.Status, res.Code)
+	}
+
+	read := api.do(http.MethodGet, "/api/v1/applications/oauth-clients/keep-uris", token, nil)
+	if !strings.Contains(string(read.Data), "https://app.example.test/callback") {
+		t.Fatalf("the refused update discarded the redirect URIs anyway: %s", read.Data)
+	}
 }

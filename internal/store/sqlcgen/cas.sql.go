@@ -143,6 +143,35 @@ func (q *Queries) GetCASService(ctx context.Context, arg GetCASServiceParams) (C
 	return i, err
 }
 
+const getCASServiceByID = `-- name: GetCASServiceByID :one
+SELECT id, tenant_id, name, url_prefix, status, created_at, updated_at FROM cas_services
+WHERE tenant_id = $1 AND id = $2
+LIMIT 1
+`
+
+type GetCASServiceByIDParams struct {
+	TenantID string
+	ID       string
+}
+
+// Looked up by id for the same reason as a SAML service provider: a URL
+// prefix in a path has to be percent-encoded, and a normalizing proxy
+// decodes it.
+func (q *Queries) GetCASServiceByID(ctx context.Context, arg GetCASServiceByIDParams) (CasService, error) {
+	row := q.db.QueryRowContext(ctx, getCASServiceByID, arg.TenantID, arg.ID)
+	var i CasService
+	err := row.Scan(
+		&i.ID,
+		&i.TenantID,
+		&i.Name,
+		&i.UrlPrefix,
+		&i.Status,
+		&i.CreatedAt,
+		&i.UpdatedAt,
+	)
+	return i, err
+}
+
 const listCASServices = `-- name: ListCASServices :many
 SELECT id, tenant_id, name, url_prefix, status, created_at, updated_at FROM cas_services
 WHERE tenant_id = $1

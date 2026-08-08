@@ -40,8 +40,9 @@ itself after accepting an assertion. [docs/federation.md](docs/federation.md)
 has a table of exactly what revocation reaches, per protocol, and it is
 worth reading before deploying.
 
-**Audit log** — sign-ins, operations, authorization, registrations, and
-organization changes, filterable by type and time range.
+**Audit log** — sign-ins, operations, authorization, registrations,
+organization changes, and every application registration, filterable by type
+and time range.
 
 **Bilingual UI** — English and 简体中文, switchable at runtime.
 
@@ -114,6 +115,12 @@ the **Tenant** field or carried by a link: `/login?tenant=acme`.
 Three protocols, one set of accounts. Which to use is decided by what the
 application already speaks; all three answer with the same facts under the
 same names.
+
+Register them in the console under **Applications** — one tab per protocol,
+with an integration panel that hands back the issuer, discovery document,
+SAML metadata and certificate, and CAS server URL to paste into the other
+side. Or from the command line, which is the same service underneath and so
+the same rules and the same audit trail:
 
 ```bash
 # OpenID Connect / OAuth 2.1 — point the library at the issuer and register

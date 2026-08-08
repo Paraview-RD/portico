@@ -2,8 +2,6 @@ package handler
 
 import (
 	"net/http"
-	"net/url"
-	"strings"
 
 	"github.com/go-chi/chi/v5"
 
@@ -195,13 +193,7 @@ func (h *Handler) ListServiceProviders(w http.ResponseWriter, r *http.Request) {
 func (h *Handler) GetServiceProvider(w http.ResponseWriter, r *http.Request) {
 	principal := auth.MustPrincipal(r.Context())
 
-	entityID, err := pathEntityID(r)
-	if err != nil {
-		httpx.Fail(w, r, err)
-		return
-	}
-
-	provider, err := h.serviceProviders.Get(r.Context(), principal.TenantID, entityID)
+	provider, err := h.serviceProviders.GetByID(r.Context(), principal.TenantID, chi.URLParam(r, "id"))
 	if err != nil {
 		httpx.Fail(w, r, err)
 		return
@@ -245,7 +237,7 @@ func (h *Handler) CreateServiceProvider(w http.ResponseWriter, r *http.Request) 
 func (h *Handler) UpdateServiceProvider(w http.ResponseWriter, r *http.Request) {
 	principal := auth.MustPrincipal(r.Context())
 
-	entityID, err := pathEntityID(r)
+	entityID, err := h.resolveEntityID(r, principal.TenantID)
 	if err != nil {
 		httpx.Fail(w, r, err)
 		return
@@ -281,7 +273,7 @@ func (h *Handler) DisableServiceProvider(w http.ResponseWriter, r *http.Request)
 func (h *Handler) setServiceProviderStatus(w http.ResponseWriter, r *http.Request, status model.Status) {
 	principal := auth.MustPrincipal(r.Context())
 
-	entityID, err := pathEntityID(r)
+	entityID, err := h.resolveEntityID(r, principal.TenantID)
 	if err != nil {
 		httpx.Fail(w, r, err)
 		return
@@ -341,7 +333,7 @@ func (h *Handler) CreateCASService(w http.ResponseWriter, r *http.Request) {
 func (h *Handler) UpdateCASService(w http.ResponseWriter, r *http.Request) {
 	principal := auth.MustPrincipal(r.Context())
 
-	prefix, err := pathURLPrefix(r)
+	prefix, err := h.resolveCASPrefix(r, principal.TenantID)
 	if err != nil {
 		httpx.Fail(w, r, err)
 		return
@@ -377,7 +369,7 @@ func (h *Handler) DisableCASService(w http.ResponseWriter, r *http.Request) {
 func (h *Handler) setCASServiceStatus(w http.ResponseWriter, r *http.Request, status model.Status) {
 	principal := auth.MustPrincipal(r.Context())
 
-	prefix, err := pathURLPrefix(r)
+	prefix, err := h.resolveCASPrefix(r, principal.TenantID)
 	if err != nil {
 		httpx.Fail(w, r, err)
 		return
@@ -492,35 +484,30 @@ func (h *Handler) IntegrationEndpoints(w http.ResponseWriter, r *http.Request) {
 
 // --- path parameters --------------------------------------------------------
 
-// pathEntityID reads a SAML entity id from the path.
+// resolveEntityID turns the {id} in the path into the entity id the service
+// layer works with.
 //
-// An entity id is a URI, so it arrives percent-encoded and has to be decoded
-// before it can be matched against what was registered. chi hands over the
-// raw segment; decoding it here rather than in each handler means a caller
-// cannot reach the service layer with an id that is still escaped, which
-// would simply report the registration as missing.
-func pathEntityID(r *http.Request) (string, error) {
-	return decodePathParam(r, "entityID", "ENTITY_ID_REQUIRED",
-		"A service provider entity id is required.")
-}
-
-// pathURLPrefix reads a CAS service URL prefix from the path, on the same
-// terms as pathEntityID.
-func pathURLPrefix(r *http.Request) (string, error) {
-	return decodePathParam(r, "prefix", "CAS_SERVICE_REQUIRED",
-		"A service URL prefix is required.")
-}
-
-func decodePathParam(r *http.Request, name, missingCode, missingMessage string) (string, error) {
-	raw := chi.URLParam(r, name)
-	if strings.TrimSpace(raw) == "" {
-		return "", httpx.BadRequest(missingCode, missingMessage)
-	}
-
-	decoded, err := url.PathUnescape(raw)
+// The path carries the registration's own id rather than its entity id,
+// which is a URI. A URI in a path segment has to be percent-encoded, and a
+// reverse proxy configured to normalize paths — nginx with a URI part on its
+// proxy_pass, for instance — decodes the %2F back into a slash and splits
+// the identifier across segments. Every request then 404s, in production
+// only, for reasons that are somebody else's configuration file. An opaque
+// id has no slashes and so has no such edge.
+func (h *Handler) resolveEntityID(r *http.Request, tenantID string) (string, error) {
+	provider, err := h.serviceProviders.GetByID(r.Context(), tenantID, chi.URLParam(r, "id"))
 	if err != nil {
-		return "", httpx.BadRequest("INVALID_PATH_PARAMETER",
-			"That path parameter is not valid percent-encoding.")
+		return "", err
 	}
-	return decoded, nil
+	return provider.EntityID, nil
+}
+
+// resolveCASPrefix does the same for a CAS registration, whose natural key
+// is a URL prefix and so has the same problem.
+func (h *Handler) resolveCASPrefix(r *http.Request, tenantID string) (string, error) {
+	svc, err := h.casServices.GetByID(r.Context(), tenantID, chi.URLParam(r, "id"))
+	if err != nil {
+		return "", err
+	}
+	return svc.URLPrefix, nil
 }

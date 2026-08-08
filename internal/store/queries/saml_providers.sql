@@ -8,6 +8,15 @@ SELECT * FROM saml_service_providers
 WHERE tenant_id = $1 AND entity_id = $2
 LIMIT 1;
 
+-- Looked up by the row's own id, not the entity id, because the entity id is
+-- a URI: putting one in a URL path means percent-encoding its slashes, and a
+-- reverse proxy configured to normalize paths will decode them and split the
+-- identifier across segments. An opaque id has no such edge.
+-- name: GetSAMLServiceProviderByID :one
+SELECT * FROM saml_service_providers
+WHERE tenant_id = $1 AND id = $2
+LIMIT 1;
+
 -- name: ListSAMLServiceProviders :many
 SELECT * FROM saml_service_providers
 WHERE tenant_id = $1

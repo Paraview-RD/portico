@@ -177,6 +177,37 @@ func (q *Queries) GetSAMLServiceProvider(ctx context.Context, arg GetSAMLService
 	return i, err
 }
 
+const getSAMLServiceProviderByID = `-- name: GetSAMLServiceProviderByID :one
+SELECT id, tenant_id, entity_id, name, metadata_xml, status, created_at, updated_at FROM saml_service_providers
+WHERE tenant_id = $1 AND id = $2
+LIMIT 1
+`
+
+type GetSAMLServiceProviderByIDParams struct {
+	TenantID string
+	ID       string
+}
+
+// Looked up by the row's own id, not the entity id, because the entity id is
+// a URI: putting one in a URL path means percent-encoding its slashes, and a
+// reverse proxy configured to normalize paths will decode them and split the
+// identifier across segments. An opaque id has no such edge.
+func (q *Queries) GetSAMLServiceProviderByID(ctx context.Context, arg GetSAMLServiceProviderByIDParams) (SamlServiceProvider, error) {
+	row := q.db.QueryRowContext(ctx, getSAMLServiceProviderByID, arg.TenantID, arg.ID)
+	var i SamlServiceProvider
+	err := row.Scan(
+		&i.ID,
+		&i.TenantID,
+		&i.EntityID,
+		&i.Name,
+		&i.MetadataXml,
+		&i.Status,
+		&i.CreatedAt,
+		&i.UpdatedAt,
+	)
+	return i, err
+}
+
 const listSAMLServiceProviders = `-- name: ListSAMLServiceProviders :many
 SELECT id, tenant_id, entity_id, name, metadata_xml, status, created_at, updated_at FROM saml_service_providers
 WHERE tenant_id = $1

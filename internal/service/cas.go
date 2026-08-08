@@ -175,6 +175,20 @@ func (s *CASService) Get(ctx context.Context, tenantID, prefix string) (model.CA
 	return toCASService(row), nil
 }
 
+// GetByID returns one registration by its own id. See
+// SAMLServiceProviderService.GetByID for why the console addresses
+// registrations this way rather than by URL prefix.
+func (s *CASService) GetByID(ctx context.Context, tenantID, id string) (model.CASService, error) {
+	row, err := s.store.ForTenant(tenantID).GetCASServiceByID(ctx, id)
+	if err != nil {
+		if store.IsNoRows(err) {
+			return model.CASService{}, ErrCASServiceNotFound
+		}
+		return model.CASService{}, fmt.Errorf("get CAS service: %w", err)
+	}
+	return toCASService(row), nil
+}
+
 // List returns every CAS service in a tenant.
 func (s *CASService) List(ctx context.Context, tenantID string) ([]model.CASService, error) {
 	rows, err := s.store.ForTenant(tenantID).ListCASServices(ctx)

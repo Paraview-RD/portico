@@ -117,26 +117,28 @@ func (s *Server) routes() http.Handler {
 				r.Post("/{clientID}/rotate-secret", h.RotateClientSecret)
 			})
 
-			// A SAML entity id is a URI and a CAS registration is a URL
-			// prefix, so both identifiers contain slashes. They arrive
-			// percent-encoded and the handlers decode them; chi matches the
-			// raw segment, which is why these are single {…} parameters
-			// rather than wildcards.
+			// These two are addressed by the registration's own id, not by
+			// its entity id or URL prefix. Those are a URI and a URL, so
+			// putting one in a path segment means percent-encoding its
+			// slashes — and a proxy that normalizes paths decodes them
+			// again, splitting the identifier and 404ing every request. The
+			// failure would depend on somebody else's proxy configuration
+			// and appear only in production.
 			r.Route("/applications/saml-service-providers", func(r chi.Router) {
 				r.Get("/", h.ListServiceProviders)
 				r.Post("/", h.CreateServiceProvider)
-				r.Get("/{entityID}", h.GetServiceProvider)
-				r.Put("/{entityID}", h.UpdateServiceProvider)
-				r.Post("/{entityID}/enable", h.EnableServiceProvider)
-				r.Post("/{entityID}/disable", h.DisableServiceProvider)
+				r.Get("/{id}", h.GetServiceProvider)
+				r.Put("/{id}", h.UpdateServiceProvider)
+				r.Post("/{id}/enable", h.EnableServiceProvider)
+				r.Post("/{id}/disable", h.DisableServiceProvider)
 			})
 
 			r.Route("/applications/cas-services", func(r chi.Router) {
 				r.Get("/", h.ListCASServices)
 				r.Post("/", h.CreateCASService)
-				r.Put("/{prefix}", h.UpdateCASService)
-				r.Post("/{prefix}/enable", h.EnableCASService)
-				r.Post("/{prefix}/disable", h.DisableCASService)
+				r.Put("/{id}", h.UpdateCASService)
+				r.Post("/{id}/enable", h.EnableCASService)
+				r.Post("/{id}/disable", h.DisableCASService)
 			})
 		})
 	})

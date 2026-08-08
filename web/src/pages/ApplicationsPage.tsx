@@ -362,12 +362,8 @@ export function ApplicationsPage() {
                               enable,
                               run: () =>
                                 enable
-                                  ? applicationApi.saml.enable(
-                                      provider.entityId,
-                                    )
-                                  : applicationApi.saml.disable(
-                                      provider.entityId,
-                                    ),
+                                  ? applicationApi.saml.enable(provider.id)
+                                  : applicationApi.saml.disable(provider.id),
                             })
                           }
                         />
@@ -428,8 +424,8 @@ export function ApplicationsPage() {
                               enable,
                               run: () =>
                                 enable
-                                  ? applicationApi.cas.enable(svc.urlPrefix)
-                                  : applicationApi.cas.disable(svc.urlPrefix),
+                                  ? applicationApi.cas.enable(svc.id)
+                                  : applicationApi.cas.disable(svc.id),
                             })
                           }
                         />
@@ -813,7 +809,7 @@ function ServiceProviderFormDialog({
     setSubmitting(true);
     try {
       if (isEdit && provider) {
-        await applicationApi.saml.update(provider.entityId, form);
+        await applicationApi.saml.update(provider.id, form);
       } else {
         await applicationApi.saml.create(form);
       }
@@ -931,7 +927,7 @@ function CASFormDialog({
     setSubmitting(true);
     try {
       if (isEdit && service) {
-        await applicationApi.cas.update(service.urlPrefix, form);
+        await applicationApi.cas.update(service.id, form);
       } else {
         await applicationApi.cas.create(form);
       }
