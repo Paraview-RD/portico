@@ -1,0 +1,210 @@
+import { expect, test } from "./fixtures";
+
+/**
+ * Every administrative screen is built the same way.
+ *
+ * Not a screenshot baseline. A baseline fails on any change and says only
+ * "different", which is why nobody keeps one for long. These are the two
+ * properties that were actually violated, stated so they can be checked:
+ *
+ *  1. One content column, the same width on every screen. Each page used to
+ *     size itself against the whole viewport, so a table ran to the far edge
+ *     of a wide display while a form stopped at 448px.
+ *  2. The primary content sits in the same chrome. Tables have carried a
+ *     border and a background since they were written; the settings form did
+ *     not, so identical fields sat on the page background on one screen and
+ *     in a card on another — the two most similar screens looking least
+ *     alike.
+ *
+ * Both are about the frame rather than the pixels, which is the part that
+ * has to agree for a console to feel like one product.
+ */
+
+const screens = [
+  { label: "Users", heading: "Users" },
+  { label: "Organizations", heading: "Organizations" },
+  { label: "Groups", heading: "Groups" },
+  { label: "Applications", heading: "Applications" },
+  { label: "Provisioning", heading: /provisioning/i },
+  { label: "Webhooks", heading: /event subscriptions/i },
+  { label: "Audit logs", heading: "Audit logs" },
+  { label: "Settings", heading: "Settings" },
+  { label: "My profile", heading: /profile/i },
+];
+
+/** The box of the column every screen's content is laid out in. */
+async function contentColumn(page: import("@playwright/test").Page) {
+  const box = await page
+    .getByRole("main")
+    .locator("> div")
+    .first()
+    .boundingBox();
+  expect(box, "no content column inside main").not.toBeNull();
+  return box!;
+}
+
+test("every screen is laid out in the same column", async ({
+  page,
+  signIn,
+}) => {
+  await signIn();
+  // Wide enough that an unbounded page would visibly differ from a bounded
+  // one. At the default viewport both fit, and the check would pass on a
+  // layout that has no column at all.
+  await page.setViewportSize({ width: 1900, height: 900 });
+
+  const boxes: Record<string, { x: number; width: number }> = {};
+  for (const screen of screens) {
+    await page
+      .getByRole("navigation")
+      .getByRole("button", { name: screen.label, exact: true })
+      .click();
+    await expect(
+      page.getByRole("heading", { name: screen.heading, level: 1 }).first(),
+    ).toBeVisible();
+
+    const box = await contentColumn(page);
+    boxes[screen.label] = {
+      x: Math.round(box.x),
+      width: Math.round(box.width),
+    };
+  }
+
+  const widths = new Set(Object.values(boxes).map((b) => b.width));
+  const lefts = new Set(Object.values(boxes).map((b) => b.x));
+  expect(
+    [...widths],
+    `screens disagree about how wide the content column is: ${JSON.stringify(boxes)}`,
+  ).toHaveLength(1);
+  expect(
+    [...lefts],
+    `screens disagree about where the content column starts: ${JSON.stringify(boxes)}`,
+  ).toHaveLength(1);
+
+  // And it is bounded at the width the token declares. "Less than the
+  // viewport" is not enough: every screen stretching equally to the edge of
+  // a very wide display also satisfies that, and satisfied it here until a
+  // mutation removing the cap survived.
+  const declared = await page.evaluate(() =>
+    parseFloat(
+      getComputedStyle(document.documentElement).getPropertyValue(
+        "--content-width",
+      ),
+    ),
+  );
+  expect(declared, "--content-width is not declared").toBeGreaterThan(0);
+  expect(
+    [...widths][0],
+    `the content column is ${[...widths][0]}px on a ${1900}px display but ` +
+      `--content-width says ${declared}px, so nothing is capping it`,
+  ).toBe(declared);
+});
+
+test("the blocks on a screen are all the same width", async ({
+  page,
+  signIn,
+}) => {
+  await signIn();
+  await page.setViewportSize({ width: 1900, height: 900 });
+
+  const ragged: string[] = [];
+  for (const screen of screens) {
+    await page
+      .getByRole("navigation")
+      .getByRole("button", { name: screen.label, exact: true })
+      .click();
+    await expect(
+      page.getByRole("main").locator("table, form").first(),
+    ).toBeVisible();
+
+    // Every bordered surface directly in the column — the tables and the
+    // cards. This is what the complaint was actually about: the profile
+    // screen was three cards at one width followed by a fourth at another,
+    // which reads as an accident rather than as a decision.
+    const widths = await page.evaluate(() => {
+      // The surfaces content sits on: a card is a section, a table is
+      // wrapped in the element carrying its border. Deliberately not "any
+      // bordered element" — a search box has a border too, and counting one
+      // reported the organizations screen as ragged because its filter
+      // input is 288px wide.
+      const surfaces = [
+        ...document.querySelectorAll<HTMLElement>("main section"),
+        ...[...document.querySelectorAll("main table")].map(
+          (table) => table.parentElement as HTMLElement,
+        ),
+      ].filter((element) => element && element.offsetHeight > 0);
+
+      // Only the outermost ones. A card may contain a table, and measuring
+      // both would compare a surface with something inside it.
+      return surfaces
+        .filter(
+          (element) =>
+            !surfaces.some(
+              (other) => other.contains(element) && other !== element,
+            ),
+        )
+        .map((element) => Math.round(element.getBoundingClientRect().width));
+    });
+
+    if (new Set(widths).size > 1) {
+      ragged.push(`${screen.label}: ${[...new Set(widths)].join(", ")}px`);
+    }
+  }
+
+  expect(
+    ragged,
+    "these screens stack blocks of different widths, which reads as a " +
+      "mistake rather than as two kinds of content",
+  ).toEqual([]);
+});
+
+test("every screen puts its content in the same chrome", async ({
+  page,
+  signIn,
+}) => {
+  await signIn();
+
+  const bare: string[] = [];
+  for (const screen of screens) {
+    await page
+      .getByRole("navigation")
+      .getByRole("button", { name: screen.label, exact: true })
+      .click();
+    await expect(
+      page.getByRole("heading", { name: screen.heading, level: 1 }).first(),
+    ).toBeVisible();
+
+    // Wait for the content itself rather than for the heading: a screen
+    // still fetching shows its header over a loading row, and asking about
+    // the chrome then measures the wrong thing.
+    await expect(
+      page.getByRole("main").locator("table, form").first(),
+    ).toBeVisible();
+
+    const framed = await page.evaluate(() => {
+      // The primary content is the first table on a list screen and the
+      // first form on a settings-like one. Either way it must sit inside a
+      // bordered surface — that is the whole property: the reader sees the
+      // same frame around the same kind of thing on every screen.
+      const content = document.querySelector("main table, main form");
+      if (!content) return false;
+
+      for (
+        let node: Element | null = content;
+        node && node.tagName !== "MAIN";
+        node = node.parentElement
+      ) {
+        if (parseFloat(getComputedStyle(node).borderTopWidth) > 0) return true;
+      }
+      return false;
+    });
+
+    if (!framed) bare.push(screen.label);
+  }
+
+  expect(
+    bare,
+    "these screens put their content straight onto the page background " +
+      "while the others put it in a bordered surface",
+  ).toEqual([]);
+});

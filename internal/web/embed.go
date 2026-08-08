@@ -78,12 +78,12 @@ func Handler() http.Handler {
 
 // setCaching tells the browser which of these files it may keep.
 //
-// Without this the answer is "whatever it likes". Files embedded with
-// go:embed have a zero modification time, so net/http sends no Last-Modified
-// and no ETag either — there is nothing for a browser to revalidate against
-// and nothing telling it not to guess. What it guesses can be a cached
-// index.html pointing at an asset hash the new binary no longer serves,
-// which is a deploy that reaches nobody until they clear their cache.
+// Without this the answer is "whatever it likes". An embedded file has a zero
+// modification time, so net/http sends no Last-Modified and no ETag either —
+// there is nothing for a browser to revalidate against and nothing telling it
+// not to guess. What it guesses can be a cached index.html pointing at an
+// asset hash the new binary no longer serves, which is a deploy that reaches
+// nobody until they clear their cache.
 //
 // The two answers are opposite because the two kinds of file are opposite:
 //

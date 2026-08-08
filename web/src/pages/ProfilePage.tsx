@@ -59,7 +59,7 @@ export function ProfilePage() {
       {/* Read-only above, editable below. The split is the server's: username,
           role, and organization are not things a user may change about
           themselves, and showing them in a form would imply otherwise. */}
-      <Card className="mb-4 max-w-md">
+      <Card className="mb-4 max-w-[var(--form-width)]">
         <dl className="flex flex-col gap-3">
           <Detail label={t("profile.username")} value={user.username} />
           <div className="flex justify-between gap-4">
@@ -81,7 +81,10 @@ export function ProfilePage() {
 
       <ProfileDetailsForm onSaved={refresh} />
 
-      <Card title={t("profile.changePassword")} className="max-w-md">
+      <Card
+        title={t("profile.changePassword")}
+        className="max-w-[var(--form-width)]"
+      >
         {changed ? (
           <div className="flex flex-col items-start gap-4">
             <Alert tone="success">{t("profile.passwordChanged")}</Alert>
@@ -173,7 +176,10 @@ function ProfileDetailsForm({ onSaved }: { onSaved: () => Promise<void> }) {
 
   return (
     <>
-      <Card title={t("profile.details")} className="mb-4 max-w-md">
+      <Card
+        title={t("profile.details")}
+        className="mb-4 max-w-[var(--form-width)]"
+      >
         <form onSubmit={handleSubmit} className="flex flex-col gap-4">
           <Field label={t("profile.displayName")} required>
             <Input
@@ -214,7 +220,11 @@ function ProfileDetailsForm({ onSaved }: { onSaved: () => Promise<void> }) {
         </form>
       </Card>
 
-      <div className="mt-6">
+      {/* The same width as the cards above it. It was the only one without a
+          constraint, so a column of three narrow cards ended in one that ran
+          to the far edge — which reads as a mistake rather than as a
+          different kind of content. Session rows wrap instead. */}
+      <div className="mt-6 max-w-[var(--form-width)]">
         <SessionsCard />
       </div>
     </>

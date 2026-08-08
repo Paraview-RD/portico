@@ -172,7 +172,16 @@ export function Layout({ children }: { children: ReactNode }) {
 
       <div className="flex min-w-0 flex-1 flex-col">
         <TopBar locationKey={current?.labelKey} />
-        <main className="min-w-0 flex-1 overflow-x-hidden p-6">{children}</main>
+        <main className="min-w-0 flex-1 overflow-x-hidden p-6">
+          {/* One column, the same on every screen. Without it each page
+              decided its own width against the whole viewport, so a table
+              ran to the far edge of a wide display while a form stopped
+              short — and the difference read as a mistake rather than as
+              two kinds of content. */}
+          <div className="mx-auto w-full max-w-[var(--content-width)]">
+            {children}
+          </div>
+        </main>
       </div>
     </div>
   );

@@ -96,6 +96,21 @@
      top bar cannot drift apart. */
   --sidebar-width: 232px;
   --topbar-height: 56px;
+
+  /* The content column. Wide enough that the audit log's eight columns are
+     not cramped, and bounded so that on a very wide display a table does
+     not stretch to a metre of screen with two words per cell. */
+  --content-width: 1440px;
+
+  /* What a form is set at. Inputs do not become more usable by being wider
+     than the longest value anyone types into them, and a row of controls
+     spread across a whole display is harder to read as a group than one.
+
+     A token rather than a utility class repeated on each page: it was
+     `max-w-md` written out in two places, which is how the profile screen
+     and the settings screen came to be the same width by coincidence
+     rather than by decision. */
+  --form-width: 30rem;
 }
 
 [data-theme="dark"] {

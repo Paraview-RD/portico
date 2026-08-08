@@ -356,6 +356,14 @@ Working toward 0.1.0 — the first release. Nothing has been published yet.
   and a path described without existing; the second catches the document
   being invalid, which the first cannot see. It found a dangling `$ref` on
   its first run.
+- **Every screen is laid out in the same column**, bounded rather than
+  stretching to the edge of whatever display it is on, and every screen puts
+  its content on the same kind of surface. The settings form sat directly on
+  the page background while the profile screen's identical fields sat in a
+  card, and the profile screen itself was three narrow cards followed by one
+  that ran to the far edge. Two widths — the column and the form — are now
+  named in the theme instead of being `max-w-md` written out wherever
+  somebody needed it.
 - **The user list can be filtered by organization**, and an account now says
   which groups it is in. Both existed everywhere except the screen: the list
   endpoint had taken an `organizationId` since it was written, and
