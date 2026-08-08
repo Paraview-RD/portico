@@ -474,14 +474,45 @@ export function Td({
 
 /** Row shown in place of a table body when there is nothing to list. */
 export function EmptyRow({ colSpan }: { colSpan: number }) {
+  return <MessageRow colSpan={colSpan} messageKey="common.empty" />;
+}
+
+/**
+ * Row shown while the list is still being fetched.
+ *
+ * A separate component from EmptyRow rather than a flag on it, because the
+ * two say opposite things and a boolean that flips what a component means is
+ * how a caller ends up passing the wrong one.
+ *
+ * It exists because three screens had no loading state at all: their rows
+ * came from a `null` initial value, so `rows?.length === 0` was false and
+ * `rows?.map` was undefined, and the body rendered as nothing — identical to
+ * "there is nothing here". A reader cannot tell a slow query from an empty
+ * tenant, and the two call for opposite reactions.
+ */
+export function LoadingRow({ colSpan }: { colSpan: number }) {
+  return <MessageRow colSpan={colSpan} messageKey="common.loading" />;
+}
+
+function MessageRow({
+  colSpan,
+  messageKey,
+}: {
+  colSpan: number;
+  messageKey: "common.empty" | "common.loading";
+}) {
   const t = useT();
   return (
     <tr>
+      {/* colSpan matters: without it the cell occupies one column and the
+          message sits under the first heading rather than under the table.
+          Three screens were writing this row by hand and none of them
+          passed it. */}
       <td
         colSpan={colSpan}
         className="px-4 py-10 text-center text-[var(--color-fg-muted)]"
       >
-        {t("common.empty")}
+        {t(messageKey)}
       </td>
     </tr>
   );

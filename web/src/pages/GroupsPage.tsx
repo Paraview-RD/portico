@@ -11,6 +11,7 @@ import {
   EmptyRow,
   Field,
   Input,
+  LoadingRow,
   Modal,
   PageHeader,
   Select,
@@ -167,6 +168,7 @@ export function GroupsPage() {
           </tr>
         </thead>
         <tbody>
+          {groups === null && <LoadingRow colSpan={5} />}
           {groups?.length === 0 && <EmptyRow colSpan={5} />}
           {groups?.map((group) => (
             <tr key={group.id}>

@@ -16,6 +16,7 @@ import {
   EmptyRow,
   Field,
   Input,
+  LoadingRow,
   Modal,
   PageHeader,
   Table,
@@ -163,6 +164,7 @@ export function WebhooksPage() {
           </tr>
         </thead>
         <tbody>
+          {subscriptions === null && <LoadingRow colSpan={5} />}
           {subscriptions?.length === 0 && <EmptyRow colSpan={5} />}
           {subscriptions?.map((subscription) => (
             <tr key={subscription.id}>

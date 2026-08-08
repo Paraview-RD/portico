@@ -8,6 +8,7 @@ import {
   Button,
   ConfirmDialog,
   EmptyRow,
+  LoadingRow,
   Field,
   Input,
   Modal,
@@ -124,9 +125,7 @@ export function OrganizationsPage() {
         </thead>
         <tbody>
           {loading ? (
-            <tr>
-              <Td className="py-10 text-center">{t("common.loading")}</Td>
-            </tr>
+            <LoadingRow colSpan={6} />
           ) : rows.length === 0 ? (
             <EmptyRow colSpan={6} />
           ) : (

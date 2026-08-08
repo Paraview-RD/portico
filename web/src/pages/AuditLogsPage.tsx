@@ -6,6 +6,7 @@ import {
   Alert,
   Badge,
   EmptyRow,
+  LoadingRow,
   Input,
   PageHeader,
   Pagination,
@@ -173,9 +174,7 @@ export function AuditLogsPage() {
         </thead>
         <tbody>
           {loading ? (
-            <tr>
-              <Td className="py-10 text-center">{t("common.loading")}</Td>
-            </tr>
+            <LoadingRow colSpan={8} />
           ) : logs.length === 0 ? (
             <EmptyRow colSpan={8} />
           ) : (

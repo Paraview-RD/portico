@@ -11,6 +11,7 @@ import {
   EmptyRow,
   Field,
   Input,
+  LoadingRow,
   Modal,
   PageHeader,
   Table,
@@ -129,6 +130,7 @@ export function ProvisioningPage() {
           </tr>
         </thead>
         <tbody>
+          {credentials === null && <LoadingRow colSpan={5} />}
           {credentials?.length === 0 && <EmptyRow colSpan={5} />}
           {credentials?.map((credential) => (
             <tr key={credential.id}>
