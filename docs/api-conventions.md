@@ -49,11 +49,25 @@ standard verb behavior:
 | PUT   | Full replace of a resource                                   |
 | PATCH | Partial update                                               |
 
-`DELETE` is intentionally absent. Nothing in this system is destroyed —
-users and organizations are disabled instead, so the audit trail stays
-complete. Disabling is a state change with its own endpoint
-(`POST /{id}/disable`), not a deletion, and naming it accurately keeps
-clients from assuming the row is gone.
+**`DELETE` is absent for anything the audit trail names.** Users,
+organizations, and application registrations are disabled instead, so an
+entry recorded a year ago still points at something that exists. Disabling
+is a state change with its own endpoint (`POST /{id}/disable`), not a
+deletion, and naming it accurately keeps clients from assuming the row is
+gone.
+
+`DELETE` does exist, for the things that are not parties to anything
+recorded:
+
+| | |
+|---|---|
+| `DELETE /users/{id}/sessions/{sessionID}` | Ending a session is a revocation, and a revoked session is not a record — the sign-in that created it is, and that stays |
+| `DELETE /groups/{id}` and `.../members/{userID}` | A group is a set, not somebody the log refers to. Directories delete and recreate them, so disabling instead would accumulate them forever |
+| `DELETE /webhooks/{id}` and `DELETE /scim-credentials/{id}` | Configuration pointing outward. Both also have `disable`, which is the reversible half; delete is for when the integration is gone |
+
+The rule is not "never destroy anything". It is that **nothing the audit
+trail refers to may stop existing**, because the alternative is a log full
+of identifiers that resolve to nothing.
 
 Query params are for filtering/sorting/pagination on GET only. Everything
 else — including all POST/PUT/PATCH bodies — is JSON in the request body,
@@ -171,12 +185,18 @@ without needing a lookup table: `USER_NOT_FOUND`, `INVALID_CREDENTIALS`,
 this project's size, a flat, descriptive namespace is easier for
 contributors to extend correctly than a registry of numeric codes.
 
-## Disable, never delete
+## Disable rather than delete, where the trail points
 
 Per the MVP requirements ([docs/requirements/v0.1-requirements.md](requirements/v0.1-requirements.md)),
-records are never physically removed. `POST /{resource}/{id}/disable` flips
-a status flag; the row, and every audit entry referencing it, stays.
+accounts, organizations, and application registrations are never physically
+removed. `POST /{resource}/{id}/disable` flips a status flag; the row, and
+every audit entry referencing it, stays.
 
 Disabling a user also revokes their live sessions. Disabling an
 organization blocks new members but keeps existing ones — the two are not
 symmetric, so each is documented on its own endpoint rather than assumed.
+
+Which records this covers is listed under [HTTP methods](#http-methods),
+along with the ones it does not: a group, a session, a webhook
+subscription, and a provisioning credential can all be deleted, because
+nothing in the log is a reference to one.

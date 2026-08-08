@@ -137,3 +137,160 @@ test("an account a directory provisioned is marked as theirs, in the list and in
     "maintained by a directory",
   );
 });
+
+/**
+ * The two capabilities that existed everywhere except the screen.
+ *
+ * Both were found the same way: a translation key with no reader. Filtering
+ * users by organization had a label, and the list endpoint had taken an
+ * organizationId all along; showing which groups an account is in had two
+ * labels, a client method, and a whole `GET /users/{id}/groups` endpoint —
+ * and no caller. A key nothing renders is usually surplus. Sometimes it is
+ * the last trace of something that was never finished, and the difference
+ * only shows when you go and look.
+ */
+
+/** A signed-in administrator's own token, for the setup these tests need. */
+async function adminToken(page: {
+  evaluate: (fn: () => string | null) => Promise<string | null>;
+}): Promise<string> {
+  const token = await page.evaluate(() =>
+    localStorage.getItem("portico.token"),
+  );
+  expect(token, "no session token after signing in").toBeTruthy();
+  return token as string;
+}
+
+test("users can be filtered to one organization", async ({ page, signIn }) => {
+  await signIn();
+  const auth = { Authorization: `Bearer ${await adminToken(page)}` };
+
+  // Two organizations, because a filter that returns everyone passes against
+  // one just as happily as a filter that works.
+  const departments = ["E2E Filter Alpha", "E2E Filter Beta"];
+  const members: Record<string, string> = {};
+  for (const [index, name] of departments.entries()) {
+    const code = `e2e-filter-${index}`;
+    const existing = await data<{ id: string; code: string }[]>(
+      await page.request.get("/api/v1/organizations", { headers: auth }),
+    );
+    const organization =
+      existing.find((o) => o.code === code) ??
+      (await data<{ id: string }>(
+        await page.request.post("/api/v1/organizations", {
+          headers: auth,
+          data: { name, code },
+        }),
+      ));
+
+    const username = `e2e-filter-member-${index}`;
+    members[name] = username;
+    const created = await page.request.post("/api/v1/users", {
+      headers: auth,
+      data: {
+        username,
+        displayName: `Filter Member ${index}`,
+        password: "e2e-Filter-Member-1",
+        role: "USER",
+        organizationId: organization.id,
+      },
+    });
+    expect(
+      created.ok() || created.status() === 409,
+      `creating ${username} failed: ${await created.text()}`,
+    ).toBe(true);
+  }
+
+  await page.goto("/users");
+  await expect(
+    page.getByRole("row", { name: members[departments[0]] }),
+  ).toBeVisible();
+
+  await page
+    .getByRole("combobox")
+    .filter({ hasText: "Organization" })
+    .selectOption({ label: departments[0] });
+
+  await expect(
+    page.getByRole("row", { name: members[departments[0]] }),
+    "the filtered organization's member is missing",
+  ).toBeVisible();
+  await expect(
+    page.getByRole("row", { name: members[departments[1]] }),
+    "a member of another organization survived the filter",
+  ).toHaveCount(0);
+  // And the administrator, who belongs to no organization at all.
+  await expect(page.getByRole("row", { name: "admin" })).toHaveCount(0);
+});
+
+test("an account says which groups it is in", async ({ page, signIn }) => {
+  await signIn();
+  const auth = { Authorization: `Bearer ${await adminToken(page)}` };
+
+  const username = "e2e-grouped-member";
+  const created = await page.request.post("/api/v1/users", {
+    headers: auth,
+    data: {
+      username,
+      displayName: "Grouped Member",
+      password: "e2e-Grouped-Member-1",
+      role: "USER",
+    },
+  });
+  expect(
+    created.ok() || created.status() === 409,
+    `creating ${username} failed: ${await created.text()}`,
+  ).toBe(true);
+
+  const everyone = await data<{ id: string; username: string }[]>(
+    await page.request.get("/api/v1/users?pageSize=200", { headers: auth }),
+  ).then(
+    (page_) =>
+      (page_ as unknown as { items: { id: string; username: string }[] }).items,
+  );
+  const member = everyone.find((u) => u.username === username);
+  expect(member, "the account just created is not in the list").toBeTruthy();
+
+  const groupName = "E2E Membership Group";
+  const groups = await data<{ id: string; displayName: string }[]>(
+    await page.request.get("/api/v1/groups", { headers: auth }),
+  );
+  const group =
+    groups.find((g) => g.displayName === groupName) ??
+    (await data<{ id: string }>(
+      await page.request.post("/api/v1/groups", {
+        headers: auth,
+        data: { displayName: groupName, description: "" },
+      }),
+    ));
+
+  const added = await page.request.post(`/api/v1/groups/${group.id}/members`, {
+    headers: auth,
+    data: { userIds: [member!.id] },
+  });
+  expect(added.ok(), `adding the member failed: ${await added.text()}`).toBe(
+    true,
+  );
+
+  await page.goto("/users");
+  await page
+    .getByRole("row", { name: username })
+    .getByRole("button", { name: "Edit" })
+    .click();
+
+  const dialog = page.getByRole("dialog");
+  await expect(dialog).toContainText("Groups");
+  await expect(
+    dialog.getByText(groupName),
+    "the account's group membership is not shown",
+  ).toBeVisible();
+
+  // The other half: an account in no group says so rather than showing an
+  // empty space that reads as "still loading".
+  await page.getByRole("button", { name: "Cancel" }).click();
+  await page
+    .getByRole("row", { name: "admin" })
+    .getByRole("button", { name: "Edit" })
+    .click();
+  await expect(page.getByRole("dialog").getByText("None")).toBeVisible();
+});

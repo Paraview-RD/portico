@@ -356,6 +356,13 @@ Working toward 0.1.0 — the first release. Nothing has been published yet.
   and a path described without existing; the second catches the document
   being invalid, which the first cannot see. It found a dangling `$ref` on
   its first run.
+- **The user list can be filtered by organization**, and an account now says
+  which groups it is in. Both existed everywhere except the screen: the list
+  endpoint had taken an `organizationId` since it was written, and
+  `GET /users/{id}/groups` had a client method and two translations and no
+  caller at all. They were found by looking for translation keys nothing
+  renders — usually a sign of surplus, sometimes the last trace of something
+  never finished.
 - **Provisioning and webhooks are screens of their own**, at `/provisioning`
   and `/webhooks`, instead of sections near the bottom of the settings page.
   Issuing a credential that lets a directory create and disable every

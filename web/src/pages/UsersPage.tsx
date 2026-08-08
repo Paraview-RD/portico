@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useState } from "react";
 
-import { organizationApi, userApi } from "../api/endpoints";
-import type { Organization, Role, Status, User } from "../api/types";
+import { groupsApi, organizationApi, userApi } from "../api/endpoints";
+import type { GroupRef, Organization, Role, Status, User } from "../api/types";
 import {
   Alert,
   Badge,
@@ -38,6 +38,7 @@ export function UsersPage() {
   const [keyword, setKeyword] = useState("");
   const [roleFilter, setRoleFilter] = useState<Role | "">("");
   const [statusFilter, setStatusFilter] = useState<Status | "">("");
+  const [organizationFilter, setOrganizationFilter] = useState("");
 
   const [editing, setEditing] = useState<User | null>(null);
   const [creating, setCreating] = useState(false);
@@ -58,6 +59,7 @@ export function UsersPage() {
         keyword,
         role: roleFilter,
         status: statusFilter,
+        organizationId: organizationFilter,
       });
       setUsers(result.items);
       setTotal(result.total);
@@ -66,7 +68,14 @@ export function UsersPage() {
     } finally {
       setLoading(false);
     }
-  }, [page, keyword, roleFilter, statusFilter, describeError]);
+  }, [
+    page,
+    keyword,
+    roleFilter,
+    statusFilter,
+    organizationFilter,
+    describeError,
+  ]);
 
   useEffect(() => {
     void load();
@@ -160,6 +169,29 @@ export function UsersPage() {
             </option>
             <option value="ACTIVE">{t("status.ACTIVE")}</option>
             <option value="DISABLED">{t("status.DISABLED")}</option>
+          </Select>
+        </div>
+        <div className="w-56">
+          {/* The list endpoint has taken an organizationId since it was
+              written, and the label for this control has been in the
+              translations just as long. Only the control was missing, so
+              the one filter an administrator most often wants — everyone in
+              this department — was the one they could not apply. */}
+          <Select
+            value={organizationFilter}
+            onChange={(e) => {
+              setOrganizationFilter(e.target.value);
+              setPage(1);
+            }}
+          >
+            <option value="">
+              {t("users.filterOrganization")}: {t("common.all")}
+            </option>
+            {organizations.map((organization) => (
+              <option key={organization.id} value={organization.id}>
+                {organization.name}
+              </option>
+            ))}
           </Select>
         </div>
       </div>
@@ -370,6 +402,7 @@ function UserFormDialog({
   });
   const [error, setError] = useState("");
   const [submitting, setSubmitting] = useState(false);
+  const [groups, setGroups] = useState<GroupRef[] | null>(null);
 
   // Reset the form whenever the dialog opens, so a previous edit does not
   // leak into the next one.
@@ -385,6 +418,34 @@ function UserFormDialog({
       role: user?.role ?? "USER",
       organizationId: user?.organizationId ?? "",
     });
+  }, [open, user]);
+
+  // Read-only, and fetched rather than carried on the user: membership is
+  // edited from the groups screen, because that is where somebody deciding
+  // who is in a group is looking. Shown here because the opposite question —
+  // what is this person in — is asked while looking at the person, and until
+  // now the only way to answer it was to open every group in turn.
+  useEffect(() => {
+    if (!open || !user) {
+      setGroups(null);
+      return;
+    }
+    let current = true;
+    groupsApi
+      .forUser(user.id)
+      .then((found) => {
+        if (current) setGroups(found);
+      })
+      // Deliberately silent. This is context beside the fields being
+      // edited, and failing to load it must not stop somebody changing a
+      // display name — the empty state reads the same as "no groups", which
+      // is the one cost, and it is smaller than a blocked edit.
+      .catch(() => {
+        if (current) setGroups([]);
+      });
+    return () => {
+      current = false;
+    };
   }, [open, user]);
 
   function set(field: keyof typeof form, value: string) {
@@ -524,6 +585,31 @@ function UserFormDialog({
             onChange={(e) => set("email", e.target.value)}
           />
         </Field>
+
+        {/* Not a Field: there is no control here and nothing to submit.
+            Wrapping it in one would give it a label pointing at an input
+            that does not exist, which is worse for a screen reader than
+            the plain heading it actually is. */}
+        {isEdit && groups !== null && (
+          <div className="flex flex-col gap-1.5">
+            <div className="text-[length:var(--font-size-sm)] text-[var(--color-fg-muted)]">
+              {t("groups.ofUser")}
+            </div>
+            {groups.length === 0 ? (
+              <div className="text-[length:var(--font-size-sm)]">
+                {t("groups.none")}
+              </div>
+            ) : (
+              <div className="flex flex-wrap gap-1">
+                {groups.map((group) => (
+                  <Badge key={group.id} tone="neutral">
+                    {group.displayName}
+                  </Badge>
+                ))}
+              </div>
+            )}
+          </div>
+        )}
 
         {error && <Alert tone="danger">{error}</Alert>}
       </form>

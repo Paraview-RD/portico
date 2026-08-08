@@ -10,8 +10,6 @@ export const enUS = {
   "common.close": "Close",
   "common.create": "Create",
   "common.edit": "Edit",
-  "common.search": "Search",
-  "common.reset": "Reset",
   "common.enable": "Enable",
   "common.disable": "Disable",
   "common.actions": "Actions",
@@ -23,10 +21,7 @@ export const enUS = {
   "common.next": "Next",
   "common.pageOf": "Page {0} of {1}",
   "common.totalItems": "{0} items",
-  "common.required": "This field is required",
   "common.unexpectedError": "Something went wrong. Please try again.",
-  "common.yes": "Yes",
-  "common.no": "No",
 
   "common.copy": "Copy",
   "common.copied": "Copied",
@@ -35,9 +30,6 @@ export const enUS = {
   "status.DISABLED": "Disabled",
   "role.SUPER_ADMIN": "Administrator",
   "role.USER": "User",
-  "source.ADMIN": "Created by admin",
-  "source.IMPORT": "Imported",
-  "source.REGISTRATION": "Self-registered",
   // The same word groups use for the same situation, and for the same
   // reason: what matters is not that a directory created it but that a
   // directory still maintains it.
@@ -102,7 +94,6 @@ export const enUS = {
   "register.signIn": "Sign in",
   "register.passwordMismatch": "The two passwords do not match.",
   "register.success": "Account created. You can sign in now.",
-  "register.closed": "Registration is currently closed.",
 
   "users.title": "Users",
   "users.subtitle": "Accounts, roles, and organization membership.",
@@ -117,7 +108,6 @@ export const enUS = {
   "users.colRole": "Role",
   "users.colOrganization": "Organization",
   "users.colStatus": "Status",
-  "users.colCreatedAt": "Created",
   "users.resetPassword": "Reset password",
   "users.unlock": "Unlock",
   "users.lockedUntil": "Locked until {0}",
