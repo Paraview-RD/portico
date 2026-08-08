@@ -146,7 +146,28 @@ export const errorsEnUS = {
   CAS_SERVICE_NOT_REGISTERED:
     "That service is not registered with this server.",
 
+  // --- Groups ---
+  GROUP_NOT_FOUND: "No such group.",
+  GROUP_NAME_TAKEN: "A group with that name already exists.",
+  GROUP_EXTERNAL_ID_TAKEN: "That externalId is already bound to another group.",
+  MEMBER_NOT_FOUND: "One of those accounts does not exist in this tenant.",
+
+  // --- Provisioning ---
+  SCIM_CREDENTIAL_NOT_FOUND: "No such provisioning credential.",
+  SCIM_CREDENTIAL_NAME_TAKEN:
+    "A provisioning credential with that name already exists.",
+  SCIM_UNAUTHORIZED: "That token is not valid for provisioning.",
+  EXTERNAL_ID_TAKEN: "That externalId is already bound to another account.",
+
+  // --- Webhooks ---
+  WEBHOOK_NOT_FOUND: "No such subscription.",
+  WEBHOOK_NAME_TAKEN: "A subscription with that name already exists.",
+  INVALID_WEBHOOK_URL: "That destination cannot be used.",
+  NO_EVENTS_SELECTED: "Choose at least one event, or * for all of them.",
+  UNKNOWN_EVENT: "That is not an event this version sends.",
+
   // --- Settings and filters ---
+  INVALID_NAME: "A name is required.",
   INVALID_SETTINGS: "Those settings are not valid.",
   INVALID_LOG_KIND: "That is not a valid log type.",
   INVALID_TIMESTAMP: "That is not a valid date and time.",

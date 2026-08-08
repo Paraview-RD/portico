@@ -59,6 +59,30 @@ test.describe("signed in", () => {
   }
 });
 
+test("the signed-out screens are in the reader's language", async ({
+  page,
+}) => {
+  // The signed-out shell had its own copy of the brand lockup with the
+  // descriptor written in as an English string, so it said "IDENTITY
+  // PLATFORM" while the sidebar three clicks later said 身份平台. Nothing
+  // caught it, because every other check either runs in English or looks
+  // only at the part of the page a test typed into.
+  await page.goto("/login");
+  await page.evaluate(() => localStorage.setItem("portico.language", "zh-CN"));
+  await page.reload();
+
+  await expect(page.getByRole("heading", { name: "登录" })).toBeVisible();
+  await expect(
+    page.getByText("Identity Platform"),
+    "the signed-out shell is still saying it in English",
+  ).toHaveCount(0);
+  await expect(page.getByText("身份平台")).toBeVisible();
+
+  // Put it back, so the language this leaves behind is not a surprise for
+  // whatever runs next in the same browser context.
+  await page.evaluate(() => localStorage.setItem("portico.language", "en-US"));
+});
+
 test("the embedded frontend is the one being served", async ({ page }) => {
   // Guards against the whole suite silently running against `npm run dev`,
   // which would not send the Content-Security-Policy the fixture is here to

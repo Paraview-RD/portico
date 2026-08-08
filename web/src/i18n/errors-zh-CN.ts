@@ -121,7 +121,27 @@ export const errorsZhCN: Record<keyof typeof errorsEnUS, string> = {
     "不接受通配符。直接注册 URL 前缀即可，凡以它开头的地址都会匹配。",
   CAS_SERVICE_NOT_REGISTERED: "该服务未在本服务器注册。",
 
+  // --- 用户组 ---
+  GROUP_NOT_FOUND: "用户组不存在。",
+  GROUP_NAME_TAKEN: "已有同名用户组。",
+  GROUP_EXTERNAL_ID_TAKEN: "该 externalId 已绑定到另一个用户组。",
+  MEMBER_NOT_FOUND: "其中有账号不在本租户内。",
+
+  // --- 目录同步 ---
+  SCIM_CREDENTIAL_NOT_FOUND: "目录同步凭据不存在。",
+  SCIM_CREDENTIAL_NAME_TAKEN: "已有同名的目录同步凭据。",
+  SCIM_UNAUTHORIZED: "该令牌不能用于目录同步。",
+  EXTERNAL_ID_TAKEN: "该 externalId 已绑定到另一个账号。",
+
+  // --- 事件订阅 ---
+  WEBHOOK_NOT_FOUND: "订阅不存在。",
+  WEBHOOK_NAME_TAKEN: "已有同名订阅。",
+  INVALID_WEBHOOK_URL: "该接收地址不可用。",
+  NO_EVENTS_SELECTED: "至少选择一个事件，或用 * 表示全部。",
+  UNKNOWN_EVENT: "本版本不会发送该事件类型。",
+
   // --- 设置与筛选 ---
+  INVALID_NAME: "名称不能为空。",
   INVALID_SETTINGS: "设置取值不合法。",
   INVALID_LOG_KIND: "日志类型不合法。",
   INVALID_TIMESTAMP: "日期时间格式不正确。",
