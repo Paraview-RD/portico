@@ -30,6 +30,9 @@ type Handler struct {
 	serviceProviders *service.SAMLServiceProviderService
 	samlKeys         *service.SAMLKeyService
 	casServices      *service.CASService
+	// The credentials a directory authenticates with. The SCIM API itself
+	// lives in internal/scim; this layer only issues and revokes.
+	scimCredentials *service.SCIMCredentialService
 	// oidc is here for one endpoint: the seam where Portico's own sign-in
 	// hands a person back to the OpenID Provider. The provider's own
 	// endpoints do not go through this layer at all.
@@ -53,6 +56,7 @@ func New(
 	serviceProviders *service.SAMLServiceProviderService,
 	samlKeys *service.SAMLKeyService,
 	casServices *service.CASService,
+	scimCredentials *service.SCIMCredentialService,
 	oidc *oidcp.Providers,
 	samlProviders *samlp.Providers,
 	casServer *casp.Server,
@@ -63,6 +67,7 @@ func New(
 		sessions: sessions,
 		clients:  clients, serviceProviders: serviceProviders,
 		samlKeys: samlKeys, casServices: casServices,
-		oidc: oidc, saml: samlProviders, cas: casServer,
+		scimCredentials: scimCredentials,
+		oidc:            oidc, saml: samlProviders, cas: casServer,
 	}
 }

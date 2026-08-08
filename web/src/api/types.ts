@@ -264,3 +264,27 @@ export interface UserSession {
   lastSeenAt: string;
   expiresAt: string;
 }
+
+/**
+ * A credential a directory authenticates with, as the console sees it.
+ *
+ * There is no token field, and that is not an omission: the server stores a
+ * digest, so it has nothing to return. The token exists once, in the
+ * response to creating it.
+ */
+export interface SCIMCredential {
+  id: string;
+  name: string;
+  /** The first characters, enough to tell two credentials apart. */
+  tokenPrefix: string;
+  status: "ACTIVE" | "DISABLED";
+  /** Null until a directory has used it. The question asked when a sync
+   * has quietly stopped. */
+  lastUsedAt: string | null;
+  createdAt: string;
+}
+
+/** What creating one returns. The token is here and nowhere else, ever. */
+export interface IssuedSCIMCredential extends SCIMCredential {
+  token: string;
+}

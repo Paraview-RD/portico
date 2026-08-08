@@ -32,9 +32,11 @@ import (
 //     or change the other's.
 //
 // Store.Queries remains available for the tables that are not tenant-scoped
-// (tenants themselves) and for authentication, which runs before the tenant
-// is known. Those are the only legitimate uses, and the guard test enforces
-// that the second has exactly one member.
+// (tenants themselves) and for the two queries that run before the tenant is
+// known, because they are what establishes it: authentication by user id,
+// and SCIM credential lookup by token hash. Those are the only legitimate
+// uses, and the guard test enforces that the second group has exactly two
+// members.
 type Scoped struct {
 	q        *sqlcgen.Queries
 	db       *sql.DB
@@ -720,6 +722,62 @@ func (s *Scoped) ConsumeCASTicket(ctx context.Context, ticketHash string, now ti
 func (s *Scoped) DeleteExpiredCASTickets(ctx context.Context, before time.Time) error {
 	return s.q.DeleteExpiredCASTickets(ctx,
 		sqlcgen.DeleteExpiredCASTicketsParams{TenantID: s.tenantID, ExpiresAt: before})
+}
+
+// --- SCIM ------------------------------------------------------------
+//
+// Resolving a credential to its tenant is not here: it is the query that
+// decides the tenant, so it cannot be reached through an object that already
+// has one. It lives on Store.Queries, with GetUserForAuthentication.
+
+// CreateSCIMCredential stores a new provisioning credential.
+func (s *Scoped) CreateSCIMCredential(ctx context.Context, arg sqlcgen.CreateSCIMCredentialParams) error {
+	arg.TenantID = s.tenantID
+	return s.q.CreateSCIMCredential(ctx, arg)
+}
+
+// ListSCIMCredentials returns the tenant's provisioning credentials.
+func (s *Scoped) ListSCIMCredentials(ctx context.Context) ([]sqlcgen.ScimCredential, error) {
+	return s.q.ListSCIMCredentials(ctx, s.tenantID)
+}
+
+// SetSCIMCredentialStatus enables or disables one.
+func (s *Scoped) SetSCIMCredentialStatus(ctx context.Context, arg sqlcgen.SetSCIMCredentialStatusParams) error {
+	arg.TenantID = s.tenantID
+	return s.q.SetSCIMCredentialStatus(ctx, arg)
+}
+
+// DeleteSCIMCredential revokes one permanently.
+func (s *Scoped) DeleteSCIMCredential(ctx context.Context, id string) error {
+	return s.q.DeleteSCIMCredential(ctx,
+		sqlcgen.DeleteSCIMCredentialParams{TenantID: s.tenantID, ID: id})
+}
+
+// TouchSCIMCredential records that a credential was used.
+func (s *Scoped) TouchSCIMCredential(ctx context.Context, arg sqlcgen.TouchSCIMCredentialParams) error {
+	arg.TenantID = s.tenantID
+	return s.q.TouchSCIMCredential(ctx, arg)
+}
+
+// GetUserByExternalID finds the account a provisioning system knows by that
+// identifier. Scoped, unlike the credential lookup: by the time this runs the
+// tenant is settled.
+func (s *Scoped) GetUserByExternalID(ctx context.Context, externalID string) (sqlcgen.User, error) {
+	return s.q.GetUserByExternalID(ctx, sqlcgen.GetUserByExternalIDParams{
+		TenantID: s.tenantID, ExternalID: &externalID,
+	})
+}
+
+// UpdateProvisionedUser writes the directory's view of an account.
+func (s *Scoped) UpdateProvisionedUser(ctx context.Context, arg sqlcgen.UpdateProvisionedUserParams) error {
+	arg.TenantID = s.tenantID
+	return s.q.UpdateProvisionedUser(ctx, arg)
+}
+
+// SetUserExternalID binds an account to a provisioning identifier.
+func (s *Scoped) SetUserExternalID(ctx context.Context, arg sqlcgen.SetUserExternalIDParams) error {
+	arg.TenantID = s.tenantID
+	return s.q.SetUserExternalID(ctx, arg)
 }
 
 func (s *Scoped) withTx(fn func(*sqlcgen.Queries) error) error {

@@ -300,6 +300,28 @@ export const zhCN: Record<keyof typeof enUS, string> = {
   "settings.lockoutDurationHelp":
     "同时也是统计失败次数的时间窗。锁定期间继续尝试不会延长它。",
 
+  "common.done": "完成",
+  "common.delete": "删除",
+
+  "scim.title": "目录同步（SCIM）",
+  "scim.subtitle":
+    "目录系统用于在此创建、更新、停用账号的凭据。仅同步用户，不同步组。",
+  "scim.new": "新建凭据",
+  "scim.name": "名称",
+  "scim.nameHint": "便于事后辨认，例如“Okta 生产”。",
+  "scim.colName": "名称",
+  "scim.colToken": "令牌",
+  "scim.colLastUsed": "最后使用",
+  "scim.colStatus": "状态",
+  "scim.neverUsed": "从未使用",
+  "scim.issued": "凭据已创建",
+  "scim.issuedWarning":
+    "请立即复制此令牌。它只显示一次，服务端仅保存摘要，因此无法再次查看——丢失后只能重新签发并删除旧的。",
+  "scim.token": "令牌",
+  "scim.confirmDeleteTitle": "删除此凭据？",
+  "scim.confirmDelete":
+    "使用“{0}”的目录将立即停止同步，且令牌无法恢复。若只是暂停，请改用“禁用”。",
+
   "profile.title": "个人中心",
   "profile.subtitle": "账号信息与密码。",
   "profile.username": "登录账号",

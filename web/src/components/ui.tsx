@@ -539,7 +539,10 @@ export function Alert({
   tone,
   children,
 }: {
-  tone: "danger" | "success";
+  // warning is for "this worked, and there is something you must do now" —
+  // a one-time token being the case that needed it. Saying that in the
+  // danger colour would read as a failure, which is the opposite.
+  tone: "danger" | "success" | "warning";
   children: ReactNode;
 }) {
   const tones = {
@@ -547,6 +550,8 @@ export function Alert({
       "bg-[var(--color-danger-bg)] border-[var(--color-danger-border)] text-[var(--color-danger-text)]",
     success:
       "bg-[var(--color-success-bg)] border-[var(--color-success-border)] text-[var(--color-success-text)]",
+    warning:
+      "bg-[var(--color-warning-bg)] border-[var(--color-warning-border)] text-[var(--color-warning-text)]",
   };
   return (
     <div

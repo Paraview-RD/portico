@@ -19,6 +19,7 @@ import (
 	"github.com/paraview/portico/internal/notify"
 	"github.com/paraview/portico/internal/oidcp"
 	"github.com/paraview/portico/internal/samlp"
+	"github.com/paraview/portico/internal/scim"
 	"github.com/paraview/portico/internal/service"
 	"github.com/paraview/portico/internal/store"
 )
@@ -36,6 +37,7 @@ type Server struct {
 	oidc       *oidcp.Providers
 	saml       *samlp.Providers
 	cas        *casp.Server
+	scim       *scim.Handler
 	router     http.Handler
 }
 
@@ -116,14 +118,18 @@ func New(cfg *config.Config, opts ...Option) (*Server, error) {
 	casServices := service.NewCASService(st, users, audit)
 	casServer := casp.New(cfg.PublicURL, tenants, casServices, audit)
 
+	scimCredentials := service.NewSCIMCredentialService(st, audit)
+	scimHandler := scim.NewHandler(users, scimCredentials, cfg.PublicURL)
+
 	s := &Server{
 		cfg:   cfg,
 		store: st,
 		handler: handler.New(users, orgs, audit, settings, tenants, recovery, sessions,
-			clients, serviceProviders, samlKeys, casServices,
+			clients, serviceProviders, samlKeys, casServices, scimCredentials,
 			providers, samlProviders, casServer),
 		middleware: auth.NewMiddleware(tokens, users, sessions),
 		metrics:    registry,
+		scim:       scimHandler,
 		users:      users,
 		tenants:    tenants,
 		settings:   settings,

@@ -27,17 +27,25 @@ import (
 // unscopedQueries are the queries allowed to touch a tenant-scoped table
 // without filtering by tenant.
 //
-// There is exactly one, and the test below asserts that count. The point is
-// not that one is a magic number — it is that adding a second has to be a
+// There are two, and the test below asserts that count. The point is not
+// that two is a magic number — it is that adding another has to be a
 // deliberate act that edits this list, rather than an omission that nothing
 // notices.
+//
+// Both are the same shape, and it is the only shape that qualifies: a query
+// that *determines* the tenant cannot filter by it, because filtering would
+// mean already knowing the answer. Everything downstream of them is scoped
+// to whatever they returned. Any other candidate is a query that could take
+// a tenant and did not.
 var unscopedQueries = map[string]string{
 	"GetUserForAuthentication": "runs before the tenant is known; it is what establishes it",
+	"GetSCIMCredentialByTokenHash": "a SCIM client presents a bearer token and " +
+		"nothing else; the credential row is what says which tenant it acts in",
 }
 
-func TestExactlyOneUnscopedQueryIsAllowed(t *testing.T) {
-	if len(unscopedQueries) != 1 {
-		t.Fatalf("the unscoped-query allowlist has %d entries, want 1.\n"+
+func TestOnlyTheTenantResolvingQueriesAreUnscoped(t *testing.T) {
+	if len(unscopedQueries) != 2 {
+		t.Fatalf("the unscoped-query allowlist has %d entries, want 2.\n"+
 			"Adding one is a decision about the isolation boundary, not a "+
 			"detail: say here why the new query cannot be scoped, and make "+
 			"sure something else checks the tenant it ends up acting on.",

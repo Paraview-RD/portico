@@ -311,6 +311,29 @@ export const enUS = {
   "settings.lockoutDurationHelp":
     "Also the window failures are counted over. Further attempts while locked do not extend it.",
 
+  "common.done": "Done",
+  "common.delete": "Delete",
+
+  "scim.title": "Directory provisioning (SCIM)",
+  "scim.subtitle":
+    "Credentials a directory uses to create, update, and deactivate accounts here. Users only — groups are not provisioned.",
+  "scim.new": "New credential",
+  "scim.name": "Name",
+  "scim.nameHint":
+    "How you will recognize it later, such as “Okta production”.",
+  "scim.colName": "Name",
+  "scim.colToken": "Token",
+  "scim.colLastUsed": "Last used",
+  "scim.colStatus": "Status",
+  "scim.neverUsed": "Never used",
+  "scim.issued": "Credential created",
+  "scim.issuedWarning":
+    "Copy this token now. It is shown once and stored only as a digest, so it cannot be shown again — if it is lost, issue another and delete this one.",
+  "scim.token": "Token",
+  "scim.confirmDeleteTitle": "Delete this credential?",
+  "scim.confirmDelete":
+    "The directory using “{0}” will stop syncing immediately, and the token cannot be restored. To pause it instead, disable it.",
+
   "profile.title": "My profile",
   "profile.subtitle": "Your account details and password.",
   "profile.username": "Username",

@@ -49,6 +49,11 @@ const (
 	SourceImport UserSource = "IMPORT"
 	// SourceRegistration is a self-registered account.
 	SourceRegistration UserSource = "REGISTRATION"
+	// SourceSCIM is an account a directory created through provisioning. It
+	// is worth distinguishing from the rest: an administrator editing one is
+	// editing something the next sync may overwrite, and the source is what
+	// says so.
+	SourceSCIM UserSource = "SCIM"
 )
 
 // User is an account. It never carries the password hash outside the
@@ -79,6 +84,13 @@ type User struct {
 	// looking at a user who "cannot log in" can see why without reading the
 	// audit trail.
 	LockedUntil *time.Time `json:"lockedUntil,omitempty"`
+
+	// ExternalID is the identifier a provisioning system knows this account
+	// by — SCIM's externalId — and is empty for accounts created any other
+	// way. It is reported so an administrator can see that an account is
+	// managed by a directory before wondering why their edit was overwritten
+	// by the next sync.
+	ExternalID string `json:"externalId,omitempty"`
 
 	CreatedAt time.Time `json:"createdAt"`
 	UpdatedAt time.Time `json:"updatedAt"`

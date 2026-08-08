@@ -252,6 +252,37 @@ Working toward 0.1.0 — the first release. Nothing has been published yet.
   can return has an English and a 简体中文 rendering; the Chinese table is
   typed against the English one, so a missing translation fails the build
   rather than showing a code to a user.
+- **SCIM 2.0 provisioning** at `/scim/v2`, so a directory creates, updates,
+  and deactivates accounts without anyone typing them twice. Users only:
+  an account belongs to at most one organization while SCIM group membership
+  is many-to-many, so mapping Groups onto it would silently reassign
+  somebody or fail partway through a push. `/ServiceProviderConfig` and
+  `/ResourceTypes` advertise exactly that, which is what makes an identity
+  provider's own configuration screen offer users-only provisioning rather
+  than letting an administrator discover the gap when a sync half-works.
+  [docs/scim.md](docs/scim.md) is the integrator's guide.
+- Provisioning authenticates with its own kind of credential, issued from
+  the console and scoped to `/scim/v2`. Not an account: a directory has no
+  session, no password to recover, and no way into the console, and
+  modelling one as a user would leave a row every listing and every role
+  check had to remember to exclude. The token is shown once and stored as a
+  digest.
+- `externalId` is stored and reconciled on. Re-posting a user whose
+  `userName` has since changed updates that account rather than creating a
+  second one, which is the most common way a SCIM integration passes
+  testing and duplicates a directory in production.
+- `DELETE /Users/{id}` deactivates rather than deletes — accounts are
+  disabled and never deleted here — and shares its code path with `PATCH
+  active=false`, so deprovisioning cannot work one way and not the other.
+  Either one ends every session and every federated refresh token at once.
+- A `PATCH` for an unsupported attribute answers 400 with
+  `scimType: invalidPath`, naming the attribute, rather than 501: the
+  difference is whether an operator's sync log says which attribute cannot
+  be set or that the server is broken. A patch is applied whole or not at
+  all.
+- A directory may not set roles or organizations. SCIM has no notion of
+  Portico's roles, so a mapping would have to be invented — and an invented
+  one is a way to become an administrator by writing a directory attribute.
 - **Prometheus metrics**, on a listener of their own and off unless
   `PORTICO_METRICS_ADDR` is set. HTTP counts and latencies, sign-in outcomes,
   lockouts, tokens issued, and the database pool — which is the one that

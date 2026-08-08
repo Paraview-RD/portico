@@ -87,7 +87,11 @@ at the reverse proxy; never expose Portico directly.
 - **Custom roles and permissions.** There are two fixed roles per tenant:
   administrator and user. There is no RBAC to configure, and therefore no
   way to grant a subset of administrative capability.
-- **No third-party or social sign-in**, and no SCIM.
+- **No third-party or social sign-in.** SCIM provisioning does exist, for
+  users; see [docs/scim.md](docs/scim.md). A provisioning credential can
+  create, rename, and deactivate every account in its tenant, so treat
+  issuing one as the privileged act it is — it cannot, deliberately, set a
+  role or an organization.
 - **Registration reveals whether a username is taken.** The sign-in endpoint
   is deliberately uniform about this; the registration endpoint is not,
   because reporting the collision is how a user knows to pick another name.

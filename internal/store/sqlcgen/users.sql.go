@@ -191,7 +191,7 @@ func (q *Queries) CreateUser(ctx context.Context, arg CreateUserParams) error {
 }
 
 const getUserByEmail = `-- name: GetUserByEmail :one
-SELECT id, tenant_id, username, display_name, password_hash, phone, email, role, status, organization_id, token_version, source, failed_login_attempts, last_failed_login_at, locked_until, password_changed_at, created_at, updated_at FROM users WHERE tenant_id = $1 AND email <> '' AND email = $2 LIMIT 1
+SELECT id, tenant_id, username, display_name, password_hash, phone, email, role, status, organization_id, token_version, source, external_id, failed_login_attempts, last_failed_login_at, locked_until, password_changed_at, created_at, updated_at FROM users WHERE tenant_id = $1 AND email <> '' AND email = $2 LIMIT 1
 `
 
 type GetUserByEmailParams struct {
@@ -218,6 +218,7 @@ func (q *Queries) GetUserByEmail(ctx context.Context, arg GetUserByEmailParams) 
 		&i.OrganizationID,
 		&i.TokenVersion,
 		&i.Source,
+		&i.ExternalID,
 		&i.FailedLoginAttempts,
 		&i.LastFailedLoginAt,
 		&i.LockedUntil,
@@ -229,7 +230,7 @@ func (q *Queries) GetUserByEmail(ctx context.Context, arg GetUserByEmailParams) 
 }
 
 const getUserByID = `-- name: GetUserByID :one
-SELECT id, tenant_id, username, display_name, password_hash, phone, email, role, status, organization_id, token_version, source, failed_login_attempts, last_failed_login_at, locked_until, password_changed_at, created_at, updated_at FROM users WHERE tenant_id = $1 AND id = $2 LIMIT 1
+SELECT id, tenant_id, username, display_name, password_hash, phone, email, role, status, organization_id, token_version, source, external_id, failed_login_attempts, last_failed_login_at, locked_until, password_changed_at, created_at, updated_at FROM users WHERE tenant_id = $1 AND id = $2 LIMIT 1
 `
 
 type GetUserByIDParams struct {
@@ -253,6 +254,7 @@ func (q *Queries) GetUserByID(ctx context.Context, arg GetUserByIDParams) (User,
 		&i.OrganizationID,
 		&i.TokenVersion,
 		&i.Source,
+		&i.ExternalID,
 		&i.FailedLoginAttempts,
 		&i.LastFailedLoginAt,
 		&i.LockedUntil,
@@ -264,7 +266,7 @@ func (q *Queries) GetUserByID(ctx context.Context, arg GetUserByIDParams) (User,
 }
 
 const getUserByIdentifier = `-- name: GetUserByIdentifier :one
-SELECT id, tenant_id, username, display_name, password_hash, phone, email, role, status, organization_id, token_version, source, failed_login_attempts, last_failed_login_at, locked_until, password_changed_at, created_at, updated_at FROM users
+SELECT id, tenant_id, username, display_name, password_hash, phone, email, role, status, organization_id, token_version, source, external_id, failed_login_attempts, last_failed_login_at, locked_until, password_changed_at, created_at, updated_at FROM users
 WHERE tenant_id = $1
   AND (username = $2
        OR (email <> '' AND email = $2)
@@ -312,6 +314,7 @@ func (q *Queries) GetUserByIdentifier(ctx context.Context, arg GetUserByIdentifi
 		&i.OrganizationID,
 		&i.TokenVersion,
 		&i.Source,
+		&i.ExternalID,
 		&i.FailedLoginAttempts,
 		&i.LastFailedLoginAt,
 		&i.LockedUntil,
@@ -323,7 +326,7 @@ func (q *Queries) GetUserByIdentifier(ctx context.Context, arg GetUserByIdentifi
 }
 
 const getUserByPhone = `-- name: GetUserByPhone :one
-SELECT id, tenant_id, username, display_name, password_hash, phone, email, role, status, organization_id, token_version, source, failed_login_attempts, last_failed_login_at, locked_until, password_changed_at, created_at, updated_at FROM users WHERE tenant_id = $1 AND phone <> '' AND phone = $2 LIMIT 1
+SELECT id, tenant_id, username, display_name, password_hash, phone, email, role, status, organization_id, token_version, source, external_id, failed_login_attempts, last_failed_login_at, locked_until, password_changed_at, created_at, updated_at FROM users WHERE tenant_id = $1 AND phone <> '' AND phone = $2 LIMIT 1
 `
 
 type GetUserByPhoneParams struct {
@@ -348,6 +351,7 @@ func (q *Queries) GetUserByPhone(ctx context.Context, arg GetUserByPhoneParams) 
 		&i.OrganizationID,
 		&i.TokenVersion,
 		&i.Source,
+		&i.ExternalID,
 		&i.FailedLoginAttempts,
 		&i.LastFailedLoginAt,
 		&i.LockedUntil,
@@ -359,7 +363,7 @@ func (q *Queries) GetUserByPhone(ctx context.Context, arg GetUserByPhoneParams) 
 }
 
 const getUserByUsername = `-- name: GetUserByUsername :one
-SELECT id, tenant_id, username, display_name, password_hash, phone, email, role, status, organization_id, token_version, source, failed_login_attempts, last_failed_login_at, locked_until, password_changed_at, created_at, updated_at FROM users WHERE tenant_id = $1 AND username = $2 LIMIT 1
+SELECT id, tenant_id, username, display_name, password_hash, phone, email, role, status, organization_id, token_version, source, external_id, failed_login_attempts, last_failed_login_at, locked_until, password_changed_at, created_at, updated_at FROM users WHERE tenant_id = $1 AND username = $2 LIMIT 1
 `
 
 type GetUserByUsernameParams struct {
@@ -383,6 +387,7 @@ func (q *Queries) GetUserByUsername(ctx context.Context, arg GetUserByUsernamePa
 		&i.OrganizationID,
 		&i.TokenVersion,
 		&i.Source,
+		&i.ExternalID,
 		&i.FailedLoginAttempts,
 		&i.LastFailedLoginAt,
 		&i.LockedUntil,
@@ -394,7 +399,7 @@ func (q *Queries) GetUserByUsername(ctx context.Context, arg GetUserByUsernamePa
 }
 
 const listUsersByIDs = `-- name: ListUsersByIDs :many
-SELECT id, tenant_id, username, display_name, password_hash, phone, email, role, status, organization_id, token_version, source, failed_login_attempts, last_failed_login_at, locked_until, password_changed_at, created_at, updated_at FROM users WHERE tenant_id = $1 AND id = ANY($2::text[])
+SELECT id, tenant_id, username, display_name, password_hash, phone, email, role, status, organization_id, token_version, source, external_id, failed_login_attempts, last_failed_login_at, locked_until, password_changed_at, created_at, updated_at FROM users WHERE tenant_id = $1 AND id = ANY($2::text[])
 `
 
 type ListUsersByIDsParams struct {
@@ -424,6 +429,7 @@ func (q *Queries) ListUsersByIDs(ctx context.Context, arg ListUsersByIDsParams) 
 			&i.OrganizationID,
 			&i.TokenVersion,
 			&i.Source,
+			&i.ExternalID,
 			&i.FailedLoginAttempts,
 			&i.LastFailedLoginAt,
 			&i.LockedUntil,

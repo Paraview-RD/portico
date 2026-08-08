@@ -7,6 +7,7 @@ import type {
   CASService,
   ImportResult,
   IntegrationEndpoints,
+  IssuedSCIMCredential,
   LogKind,
   OAuthClient,
   Organization,
@@ -16,6 +17,7 @@ import type {
   RegistrationStatus,
   Role,
   SAMLServiceProvider,
+  SCIMCredential,
   Session,
   Settings,
   Status,
@@ -428,4 +430,35 @@ export const applicationApi = {
         method: "POST",
       }),
   },
+};
+
+/**
+ * The credentials a directory provisions with.
+ *
+ * Its own export rather than part of applicationApi: a provisioning
+ * credential is not an application registration. It authenticates a
+ * directory, not a relying party, and the two have nothing in common beyond
+ * both being things an administrator issues.
+ */
+export const scimCredentialsApi = {
+  list: () => request<SCIMCredential[]>("/scim-credentials"),
+
+  create: (name: string) =>
+    request<IssuedSCIMCredential>("/scim-credentials", {
+      method: "POST",
+      body: { name },
+    }),
+
+  enable: (id: string) =>
+    request<void>(`/scim-credentials/${segment(id)}/enable`, {
+      method: "POST",
+    }),
+
+  disable: (id: string) =>
+    request<void>(`/scim-credentials/${segment(id)}/disable`, {
+      method: "POST",
+    }),
+
+  remove: (id: string) =>
+    request<void>(`/scim-credentials/${segment(id)}`, { method: "DELETE" }),
 };

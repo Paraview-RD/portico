@@ -88,7 +88,21 @@ CREATE TABLE users (
     FOREIGN KEY (tenant_id, organization_id) REFERENCES organizations (tenant_id, id),
 
     token_version BIGINT  NOT NULL DEFAULT 1,
-    source        TEXT    NOT NULL DEFAULT 'ADMIN' CHECK (source IN ('ADMIN', 'IMPORT', 'REGISTRATION')),
+    source        TEXT    NOT NULL DEFAULT 'ADMIN' CHECK (source IN ('ADMIN', 'IMPORT', 'REGISTRATION', 'SCIM')),
+
+    -- The identifier the provisioning system knows this account by.
+    --
+    -- SCIM's externalId, and the only stable correlation key an identity
+    -- provider has: usernames and email addresses are exactly the attributes
+    -- a sync is likely to be changing. Without somewhere to keep it, a
+    -- provisioning run that cannot match an existing account creates a
+    -- second one, which is the most common way a SCIM integration passes
+    -- testing and duplicates a directory in production.
+    --
+    -- Nullable, because accounts created any other way do not have one, and
+    -- unique per tenant through a partial index so that any number of them
+    -- may leave it unset.
+    external_id TEXT,
 
     -- Online guessing, counted per account.
     --
@@ -150,6 +164,12 @@ COMMENT ON COLUMN users.phone IS
 -- users deny another's.
 CREATE UNIQUE INDEX uq_users_tenant_email ON users (tenant_id, email) WHERE email <> '';
 CREATE UNIQUE INDEX uq_users_tenant_phone ON users (tenant_id, phone) WHERE phone <> '';
+
+-- NULL rather than '' for "not provisioned", so the partial index reads as
+-- what it is. The other two use '' because a blank email is a value a form
+-- submits; an externalId is only ever set by a provisioning system.
+CREATE UNIQUE INDEX uq_users_tenant_external_id
+    ON users (tenant_id, external_id) WHERE external_id IS NOT NULL;
 
 CREATE INDEX idx_users_organization ON users (tenant_id, organization_id);
 CREATE INDEX idx_users_created ON users (tenant_id, created_at);
@@ -604,7 +624,61 @@ CREATE TABLE cas_tickets (
 
 CREATE INDEX idx_cas_tickets_expiry ON cas_tickets (expires_at);
 
+-- The credential a provisioning system authenticates with.
+--
+-- Its own table and its own kind of principal, rather than a service account
+-- in users. A SCIM client is not a person: it has no session, no password to
+-- recover, no organization, and must never be able to sign in to the
+-- console. Modelling it as a user would mean a row that every account query,
+-- every role check, and every listing has to remember to exclude — and the
+-- one that forgets is a directory sync that can administer the tenant.
+--
+-- Scope is not a column. This credential authenticates for /scim/v2 and
+-- nothing else, enforced by the route it is accepted on, so there is no
+-- setting that could be widened by mistake.
+CREATE TABLE scim_credentials (
+    id        TEXT PRIMARY KEY,
+    tenant_id TEXT NOT NULL REFERENCES tenants (id),
+
+    -- What an operator recognises it by: "Okta production", "Entra test".
+    name TEXT NOT NULL,
+
+    -- SHA-256 of the token, never the token. Not bcrypt, deliberately, and
+    -- this is the one place that reasoning differs from passwords: the token
+    -- is 32 bytes from crypto/rand, so there is no dictionary to attack and
+    -- nothing for a work factor to buy — while a SCIM client presents it on
+    -- every request of a sync that may run to thousands, and a deliberately
+    -- slow comparison there is a denial of service against the operator's
+    -- own directory push.
+    token_hash TEXT NOT NULL,
+
+    -- The first characters of the token, shown in the console so an operator
+    -- can tell two credentials apart without being able to reconstruct one.
+    token_prefix TEXT NOT NULL,
+
+    status TEXT NOT NULL DEFAULT 'ACTIVE' CHECK (status IN ('ACTIVE', 'DISABLED')),
+
+    -- Answers "is this integration still running", which is the question
+    -- asked when a directory has quietly stopped syncing. Written on use,
+    -- and deliberately the only thing a request updates.
+    last_used_at TIMESTAMPTZ,
+
+    created_at TIMESTAMPTZ NOT NULL,
+    updated_at TIMESTAMPTZ NOT NULL,
+
+    CONSTRAINT uq_scim_credentials_tenant_name UNIQUE (tenant_id, name)
+);
+
+-- The lookup every SCIM request makes: by hash, across tenants, because the
+-- credential is what establishes which tenant the request is for. This is
+-- the same shape as GetUserForAuthentication and for the same reason — the
+-- tenant cannot be a filter on the query that determines the tenant.
+CREATE UNIQUE INDEX uq_scim_credentials_token ON scim_credentials (token_hash);
+
+CREATE INDEX idx_scim_credentials_tenant ON scim_credentials (tenant_id, status);
+
 -- +goose Down
+DROP TABLE scim_credentials;
 DROP TABLE cas_tickets;
 DROP TABLE cas_services;
 DROP TABLE saml_auth_requests;

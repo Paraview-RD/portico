@@ -124,6 +124,31 @@ const (
 	ActionCASServiceEnable  = "CAS_SERVICE_ENABLE"
 	ActionCASServiceDisable = "CAS_SERVICE_DISABLE"
 
+	// Provisioning credentials, on the same footing as the application
+	// registrations above and for the same reason: one of these can create,
+	// change, and deactivate accounts across the whole tenant without a
+	// person being present. A credential nobody remembers issuing is the
+	// shape a compromise takes here.
+	//
+	// Audit verbs, not credentials — gosec matches on the word "CREDENTIAL"
+	// in the identifier, the same false positive as
+	// ActionClientSecretRotate above. Renaming them to satisfy the scanner
+	// would make the trail say something other than what happened.
+	ActionSCIMCredentialCreate  = "SCIM_CREDENTIAL_CREATE"  //nolint:gosec // an audit action verb
+	ActionSCIMCredentialEnable  = "SCIM_CREDENTIAL_ENABLE"  //nolint:gosec // an audit action verb
+	ActionSCIMCredentialDisable = "SCIM_CREDENTIAL_DISABLE" //nolint:gosec // an audit action verb
+	ActionSCIMCredentialDelete  = "SCIM_CREDENTIAL_DELETE"  //nolint:gosec // an audit action verb
+
+	// What a provisioning system did, as distinct from what an administrator
+	// did. USER_CREATE by a person and a directory sync creating the same
+	// account are different events to whoever is reading the trail later,
+	// and collapsing them would make an automated deprovisioning
+	// indistinguishable from somebody deciding to disable a colleague.
+	ActionSCIMUserCreate  = "SCIM_USER_CREATE"
+	ActionSCIMUserUpdate  = "SCIM_USER_UPDATE"
+	ActionSCIMUserDisable = "SCIM_USER_DISABLE"
+	ActionSCIMUserEnable  = "SCIM_USER_ENABLE"
+
 	ActionSettingsUpdate = "SETTINGS_UPDATE"
 )
 

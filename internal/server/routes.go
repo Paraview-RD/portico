@@ -13,6 +13,7 @@ import (
 	"github.com/paraview/portico/internal/httpx"
 	"github.com/paraview/portico/internal/oidcp"
 	"github.com/paraview/portico/internal/samlp"
+	"github.com/paraview/portico/internal/scim"
 	"github.com/paraview/portico/internal/web"
 )
 
@@ -168,8 +169,24 @@ func (s *Server) routes() http.Handler {
 				r.Post("/{id}/enable", h.EnableCASService)
 				r.Post("/{id}/disable", h.DisableCASService)
 			})
+
+			// Issuing and revoking the credentials a directory syncs with.
+			// The SCIM API itself is elsewhere and authenticates differently;
+			// this is only the administrative side of it.
+			r.Route("/scim-credentials", func(r chi.Router) {
+				r.Get("/", h.ListSCIMCredentials)
+				r.Post("/", h.CreateSCIMCredential)
+				r.Post("/{id}/enable", h.EnableSCIMCredential)
+				r.Post("/{id}/disable", h.DisableSCIMCredential)
+				r.Delete("/{id}", h.DeleteSCIMCredential)
+			})
 		})
 	})
+
+	// SCIM, outside /api/v1 because it is not this project's API: it has its
+	// own media type, its own error shape, and its own authentication. A
+	// client here holds a provisioning credential, not a session.
+	r.Mount(scim.Mount, s.scim.Routes())
 
 	s.mountFederation(r)
 

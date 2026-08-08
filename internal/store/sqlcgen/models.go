@@ -188,6 +188,18 @@ type SamlSigningKey struct {
 	RetiredAt   *time.Time
 }
 
+type ScimCredential struct {
+	ID          string
+	TenantID    string
+	Name        string
+	TokenHash   string
+	TokenPrefix string
+	Status      string
+	LastUsedAt  *time.Time
+	CreatedAt   time.Time
+	UpdatedAt   time.Time
+}
+
 type Session struct {
 	ID        string
 	TenantID  string
@@ -236,7 +248,8 @@ type User struct {
 	// Bumped on logout, password change, and disable. A token carrying a stale value is rejected, which is how a stateless JWT is revoked immediately.
 	TokenVersion int64
 	// How the account came to exist, for the registration log.
-	Source string
+	Source     string
+	ExternalID *string
 	// Consecutive failures within the counting window. Reset by a successful sign-in, by a completed password recovery, and by an administrator unlocking the account.
 	FailedLoginAttempts int32
 	LastFailedLoginAt   *time.Time
