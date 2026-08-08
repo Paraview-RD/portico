@@ -253,6 +253,24 @@ export function SettingsPage() {
           </Field>
         </fieldset>
 
+        <Field
+          label={t("settings.auditRetention")}
+          hint={t("settings.auditRetentionHelp")}
+        >
+          <Input
+            type="number"
+            min={0}
+            max={3650}
+            value={settings.auditRetentionDays}
+            onChange={(e) =>
+              setSettings({
+                ...settings,
+                auditRetentionDays: Number(e.target.value),
+              })
+            }
+          />
+        </Field>
+
         {error && <Alert tone="danger">{error}</Alert>}
         {saved && <Alert tone="success">{t("settings.saved")}</Alert>}
 

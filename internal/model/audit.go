@@ -125,9 +125,24 @@ const (
 	ActionCASServiceDisable = "CAS_SERVICE_DISABLE"
 
 	ActionSettingsUpdate = "SETTINGS_UPDATE"
-
-	ActionDownstreamSync = "DOWNSTREAM_SYNC"
 )
+
+// There is deliberately no verb for a downstream synchronisation.
+//
+// A DOWNSTREAM_SYNC constant existed here and was never written, and the
+// reason is worth recording rather than fixing: the event it named is not
+// observable from this side. A downstream system pulls a profile with the
+// user's own token — a read — and whether it went on to create an account,
+// update one, or discard the response is something only that system knows.
+// Recording "somebody read a profile" under a name that claims a
+// synchronisation happened would put a confident sentence in the trail
+// about something this server did not witness.
+//
+// The questions a reader actually asks are already answered: LOGIN_SUCCESS
+// says who signed in, and OAUTH_AUTHORIZE, SAML_AUTHENTICATE, and
+// CAS_AUTHENTICATE say which applications that let them into. A downstream
+// that needs its own trail has to keep it, because it is the only party
+// that can.
 
 // AuditLog is one recorded event.
 type AuditLog struct {

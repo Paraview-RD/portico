@@ -778,3 +778,55 @@ func TestUpdatingAClientWithoutRedirectURIsIsRefused(t *testing.T) {
 		t.Fatalf("the refused update discarded the redirect URIs anyway: %s", read.Data)
 	}
 }
+
+// All three protocols expose the same shape. An API where one of three
+// otherwise-identical resources cannot be fetched on its own is a surface
+// somebody has to remember an exception to, and the exception is always the
+// one that gets found the hard way.
+func TestEachProtocolSupportsTheSameOperations(t *testing.T) {
+	api := newAPITest(t)
+	token := api.adminToken()
+
+	client := api.do(http.MethodPost, "/api/v1/applications/oauth-clients", token,
+		map[string]any{
+			"clientId":     "symmetry",
+			"redirectUris": []string{"https://app.example.test/callback"},
+		})
+	sp := api.do(http.MethodPost, "/api/v1/applications/saml-service-providers", token,
+		map[string]any{"metadataXml": spMetadata(spEntityID, "https://sp.example.test/acs")})
+	cas := api.do(http.MethodPost, "/api/v1/applications/cas-services", token,
+		map[string]any{"urlPrefix": "https://wiki.example.test/"})
+
+	var spRow, casRow struct {
+		ID string `json:"id"`
+	}
+	sp.into(t, &spRow)
+	cas.into(t, &casRow)
+	if client.Status != http.StatusOK {
+		t.Fatalf("create client: %d %s", client.Status, client.Code)
+	}
+
+	// Every one has a list, a single fetch, an update, and enable/disable.
+	paths := map[string]string{
+		"oauth-clients":          "symmetry",
+		"saml-service-providers": spRow.ID,
+		"cas-services":           casRow.ID,
+	}
+
+	for group, id := range paths {
+		base := "/api/v1/applications/" + group
+
+		if res := api.do(http.MethodGet, base, token, nil); res.Status != http.StatusOK {
+			t.Errorf("GET %s = %d %s", base, res.Status, res.Code)
+		}
+		if res := api.do(http.MethodGet, base+"/"+id, token, nil); res.Status != http.StatusOK {
+			t.Errorf("GET %s/{id} = %d %s — the other protocols support it", base, res.Status, res.Code)
+		}
+		for _, action := range []string{"disable", "enable"} {
+			res := api.do(http.MethodPost, base+"/"+id+"/"+action, token, nil)
+			if res.Status != http.StatusOK {
+				t.Errorf("POST %s/{id}/%s = %d %s", base, action, res.Status, res.Code)
+			}
+		}
+	}
+}

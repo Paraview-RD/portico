@@ -301,6 +301,22 @@ func (h *Handler) ListCASServices(w http.ResponseWriter, r *http.Request) {
 	httpx.OK(w, services)
 }
 
+// GetCASService returns one CAS registration.
+//
+// Present for symmetry with the other two protocols. An API surface where
+// one of three otherwise-identical resources cannot be fetched individually
+// is a surface somebody has to remember an exception to.
+func (h *Handler) GetCASService(w http.ResponseWriter, r *http.Request) {
+	principal := auth.MustPrincipal(r.Context())
+
+	svc, err := h.casServices.GetByID(r.Context(), principal.TenantID, chi.URLParam(r, "id"))
+	if err != nil {
+		httpx.Fail(w, r, err)
+		return
+	}
+	httpx.OK(w, svc)
+}
+
 type casServiceRequest struct {
 	Name string `json:"name"`
 	// URLPrefix is a prefix, not a pattern. There are no wildcards; see

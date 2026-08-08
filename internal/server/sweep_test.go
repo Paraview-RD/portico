@@ -2,6 +2,7 @@ package server_test
 
 import (
 	"context"
+	"net/http"
 	"testing"
 	"time"
 )
@@ -190,5 +191,94 @@ func TestSweepClearsOldPasswordResets(t *testing.T) {
 	if !exists(recent) {
 		t.Error("a reset request that expired an hour ago was deleted; the " +
 			"retention window is what keeps recent history answerable")
+	}
+}
+
+// Audit retention is the one setting that deletes a compliance record, so
+// the property that matters most is that it does nothing unless asked.
+
+func (a *apiTest) auditEntryCount(t *testing.T, token string) int {
+	t.Helper()
+
+	res := a.do(http.MethodGet, "/api/v1/audit-logs?pageSize=100", token, nil)
+	if res.Status != http.StatusOK {
+		t.Fatalf("list audit logs: %d %s", res.Status, res.Code)
+	}
+	var page struct {
+		Total int `json:"total"`
+	}
+	res.into(t, &page)
+	return page.Total
+}
+
+func TestAuditLogIsKeptForeverByDefault(t *testing.T) {
+	api := newAPITest(t)
+	token := api.adminToken()
+
+	// Age everything well past any plausible retention.
+	api.execSQL(t, "UPDATE audit_logs SET created_at = now() - interval '5 years'")
+	before := api.auditEntryCount(t, token)
+	if before == 0 {
+		t.Fatal("no audit entries to test with")
+	}
+
+	if err := api.srv.SweepExpired(context.Background()); err != nil {
+		t.Fatalf("sweep: %v", err)
+	}
+
+	if after := api.auditEntryCount(t, token); after != before {
+		t.Errorf("the sweep deleted %d audit entries with no retention configured. "+
+			"A product that quietly starts shortening its own audit trail is doing "+
+			"the worst thing an audit log can do.", before-after)
+	}
+}
+
+func TestAuditLogIsPrunedOnlyWhenConfigured(t *testing.T) {
+	api := newAPITest(t)
+	token := api.adminToken()
+
+	current := api.do(http.MethodGet, "/api/v1/settings", token, nil)
+	var settings map[string]any
+	current.into(t, &settings)
+	settings["auditRetentionDays"] = 30
+
+	if res := api.do(http.MethodPut, "/api/v1/settings", token, settings); res.Status != http.StatusOK {
+		t.Fatalf("set retention: %d %s %s", res.Status, res.Code, res.Message)
+	}
+
+	// One entry old enough to go, and whatever the sign-in wrote, which is
+	// not.
+	api.execSQL(t, `INSERT INTO audit_logs (id, tenant_id, kind, action, result, created_at)
+		SELECT 'ancient-entry', id, 'OPERATION', 'ANCIENT', 'SUCCESS', now() - interval '400 days'
+		FROM tenants WHERE code = 'default'`)
+
+	before := api.auditEntryCount(t, token)
+	if err := api.srv.SweepExpired(context.Background()); err != nil {
+		t.Fatalf("sweep: %v", err)
+	}
+	after := api.auditEntryCount(t, token)
+
+	if after != before-1 {
+		t.Errorf("after pruning there are %d entries, want %d — exactly the one "+
+			"past the window should have gone", after, before-1)
+	}
+}
+
+// A retention short enough to be a typo is refused. The difference between
+// "we keep nothing" and "we keep a week" is the difference between an
+// incident nobody can reconstruct and one somebody can.
+func TestVeryShortAuditRetentionIsRefused(t *testing.T) {
+	api := newAPITest(t)
+	token := api.adminToken()
+
+	current := api.do(http.MethodGet, "/api/v1/settings", token, nil)
+	var settings map[string]any
+	current.into(t, &settings)
+	settings["auditRetentionDays"] = 1
+
+	res := api.do(http.MethodPut, "/api/v1/settings", token, settings)
+	if res.Status != http.StatusBadRequest || res.Code != "INVALID_SETTINGS" {
+		t.Errorf("a one-day retention = %d %s, want 400 INVALID_SETTINGS",
+			res.Status, res.Code)
 	}
 }

@@ -30,6 +30,7 @@ type Server struct {
 	middleware *auth.Middleware
 	users      *service.UserService
 	tenants    *service.TenantService
+	settings   *service.SettingsService
 	oidc       *oidcp.Providers
 	saml       *samlp.Providers
 	cas        *casp.Server
@@ -114,6 +115,7 @@ func New(cfg *config.Config, opts ...Option) (*Server, error) {
 		middleware: auth.NewMiddleware(tokens, users, sessions),
 		users:      users,
 		tenants:    tenants,
+		settings:   settings,
 		oidc:       providers,
 		saml:       samlProviders,
 		cas:        casServer,
@@ -198,10 +200,12 @@ func (s *Server) Handler() http.Handler { return s.router }
 // grows is a job somebody will assume covers the rest. The caller decides
 // how often; see cmd/server.
 //
-// Nothing here removes an audit entry. The trail is the record of what
-// happened, not an operational buffer, and deleting from it on a timer would
-// be a different kind of decision — one for whoever runs the deployment,
-// not for a background ticker.
+// Audit entries are removed only where a tenant has explicitly configured a
+// retention period. The default is to keep everything: the trail is the
+// record of what happened, not an operational buffer, and a product that
+// quietly started deleting it on a timer would be doing the worst thing an
+// audit log can do. So the timer runs either way and does nothing unless
+// somebody asked.
 func (s *Server) SweepExpired(ctx context.Context) error {
 	if err := s.oidc.SweepExpired(ctx); err != nil {
 		return err
@@ -247,6 +251,17 @@ func (s *Server) sweepCredentialRemnants(ctx context.Context) error {
 		}
 		if err := q.DeleteExpiredSessions(ctx, now.Add(-sessionRetention)); err != nil {
 			return fmt.Errorf("sweep sessions for tenant %s: %w", tenant.Code, err)
+		}
+
+		settings, err := s.settings.Get(ctx, tenant.ID)
+		if err != nil {
+			return fmt.Errorf("read settings for tenant %s: %w", tenant.Code, err)
+		}
+		if settings.AuditRetentionDays > 0 {
+			cutoff := now.AddDate(0, 0, -settings.AuditRetentionDays)
+			if err := q.DeleteAuditLogsBefore(ctx, cutoff); err != nil {
+				return fmt.Errorf("prune audit log for tenant %s: %w", tenant.Code, err)
+			}
 		}
 	}
 	return nil

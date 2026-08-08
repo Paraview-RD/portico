@@ -41,6 +41,10 @@ const (
 	SettingPasswordRequireSymbol    = "password_require_symbol"
 	SettingPasswordHistoryDepth     = "password_history_depth"
 	SettingPasswordMaxAgeDays       = "password_max_age_days"
+
+	// SettingAuditRetentionDays is how long audit entries are kept. Zero —
+	// the default — keeps them indefinitely.
+	SettingAuditRetentionDays = "audit_retention_days"
 )
 
 // Settings is the full set of runtime settings for one tenant.
@@ -66,6 +70,13 @@ type Settings struct {
 	// PasswordMaxAgeDays is how long a password stays usable. Zero never
 	// expires.
 	PasswordMaxAgeDays int `json:"passwordMaxAgeDays"`
+
+	// AuditRetentionDays is how long audit entries are kept before the
+	// periodic sweep removes them. Zero keeps them forever, which is the
+	// default and the only safe one to ship: the trail is the record of
+	// what happened, and a product that quietly started deleting it on a
+	// timer would be doing the worst thing an audit log can do.
+	AuditRetentionDays int `json:"auditRetentionDays"`
 }
 
 // PasswordPolicy is the password half of these settings.
@@ -133,6 +144,20 @@ const (
 	MaxPasswordMaxAgeDays   = 3650
 )
 
+// Bounds on audit retention.
+//
+// The minimum is not zero-to-anything: a retention of one day is
+// indistinguishable from an accident, and the difference between "we keep
+// nothing" and "we keep a week" is the difference between an incident nobody
+// can reconstruct and one somebody can. Zero is still available and still
+// means keep everything — what is refused is the range where a typo destroys
+// the trail. The maximum is ten years, past which nobody is deleting on a
+// schedule anyway.
+const (
+	MinAuditRetentionDays = 7
+	MaxAuditRetentionDays = 3650
+)
+
 // SettingsService reads and writes runtime settings, caching them in memory
 // because they are read on every login and change rarely.
 //
@@ -179,6 +204,8 @@ func NewSettingsService(st *store.Store, defaultTokenTTL time.Duration) *Setting
 			PasswordMinLength:    auth.MinPasswordLength,
 			PasswordHistoryDepth: 0,
 			PasswordMaxAgeDays:   0,
+			// Keep everything. Anything else has to be asked for.
+			AuditRetentionDays: 0,
 		},
 	}
 }
@@ -243,6 +270,10 @@ func (s *SettingsService) Get(ctx context.Context, tenantID string) (Settings, e
 			if n, err := strconv.Atoi(row.Value); err == nil {
 				loaded.PasswordMaxAgeDays = n
 			}
+		case SettingAuditRetentionDays:
+			if n, err := strconv.Atoi(row.Value); err == nil {
+				loaded.AuditRetentionDays = n
+			}
 		}
 	}
 
@@ -282,6 +313,12 @@ func (s *SettingsService) Update(ctx context.Context, tenantID string, next Sett
 				"0 does not check reuse. Each remembered password costs a hash "+
 				"comparison on every change.", MaxPasswordHistoryDepth))
 	}
+	if next.AuditRetentionDays != 0 &&
+		(next.AuditRetentionDays < MinAuditRetentionDays || next.AuditRetentionDays > MaxAuditRetentionDays) {
+		return Settings{}, httpx.BadRequest("INVALID_SETTINGS",
+			fmt.Sprintf("Audit retention must be 0, which keeps everything, or "+
+				"between %d and %d days.", MinAuditRetentionDays, MaxAuditRetentionDays))
+	}
 	if next.PasswordMaxAgeDays < 0 || next.PasswordMaxAgeDays > MaxPasswordMaxAgeDays {
 		return Settings{}, httpx.BadRequest("INVALID_SETTINGS",
 			fmt.Sprintf("Password maximum age must be between 0 and %d days; "+
@@ -303,6 +340,8 @@ func (s *SettingsService) Update(ctx context.Context, tenantID string, next Sett
 		SettingPasswordRequireSymbol:    strconv.FormatBool(next.PasswordRequireSymbol),
 		SettingPasswordHistoryDepth:     strconv.Itoa(next.PasswordHistoryDepth),
 		SettingPasswordMaxAgeDays:       strconv.Itoa(next.PasswordMaxAgeDays),
+
+		SettingAuditRetentionDays: strconv.Itoa(next.AuditRetentionDays),
 	}
 
 	if err := s.store.ForTenant(tenantID).UpsertSettings(ctx, values, store.Now()); err != nil {

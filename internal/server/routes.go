@@ -160,6 +160,7 @@ func (s *Server) routes() http.Handler {
 			r.Route("/applications/cas-services", func(r chi.Router) {
 				r.Get("/", h.ListCASServices)
 				r.Post("/", h.CreateCASService)
+				r.Get("/{id}", h.GetCASService)
 				r.Put("/{id}", h.UpdateCASService)
 				r.Post("/{id}/enable", h.EnableCASService)
 				r.Post("/{id}/disable", h.DisableCASService)

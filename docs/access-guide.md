@@ -266,6 +266,12 @@ actions.
   during an outage the right answer is "stop sending me traffic", not
   "restart me".
 
+- **The audit log is kept forever unless you say otherwise.** Settings has a
+  retention in days; 0, the default, keeps everything. Any other value must
+  be at least 7, and entries past it are deleted permanently by the hourly
+  cleanup with no copy kept. Nothing else in the product deletes an audit
+  entry.
+
 ## Integrating a downstream system
 
 A downstream application receives the user's token and calls:

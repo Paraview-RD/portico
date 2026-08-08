@@ -282,6 +282,9 @@ export const enUS = {
   "settings.registrationHelp":
     "When off, only administrators can create accounts. New accounts always get the User role.",
   "settings.saved": "Settings saved.",
+  "settings.auditRetention": "Audit log retention (days)",
+  "settings.auditRetentionHelp":
+    "0 keeps everything, which is the default. Any other value must be at least 7, and entries older than it are deleted by the hourly cleanup — permanently, with no copy kept.",
   "settings.passwordLegend": "Password policy",
   "settings.passwordHelp":
     "Length is the rule that helps. Composition rules and expiry make passwords more guessable rather than less — NIST 800-63B recommends against both — and are provided for deployments audited against regimes that require them. If you have the choice, leave them off and raise the minimum length.",

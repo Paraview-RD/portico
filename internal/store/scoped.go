@@ -140,6 +140,13 @@ func (s *Scoped) BumpUserTokenVersion(ctx context.Context, arg sqlcgen.BumpUserT
 	return s.q.BumpUserTokenVersion(ctx, arg)
 }
 
+// DeleteAuditLogsBefore removes entries older than a cutoff. Only called
+// when a tenant has configured a retention period.
+func (s *Scoped) DeleteAuditLogsBefore(ctx context.Context, before time.Time) error {
+	return s.q.DeleteAuditLogsBefore(ctx,
+		sqlcgen.DeleteAuditLogsBeforeParams{TenantID: s.tenantID, CreatedAt: before})
+}
+
 // --- sessions ------------------------------------------------------------
 
 // CreateSession records a sign-in.

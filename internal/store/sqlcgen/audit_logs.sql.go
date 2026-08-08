@@ -52,3 +52,24 @@ func (q *Queries) CreateAuditLog(ctx context.Context, arg CreateAuditLogParams) 
 	)
 	return err
 }
+
+const deleteAuditLogsBefore = `-- name: DeleteAuditLogsBefore :exec
+DELETE FROM audit_logs WHERE tenant_id = $1 AND created_at < $2
+`
+
+type DeleteAuditLogsBeforeParams struct {
+	TenantID  string
+	CreatedAt time.Time
+}
+
+// Removes entries older than a cutoff.
+//
+// Only ever called when a tenant has configured a retention period. There is
+// no default cutoff and no automatic one: an audit trail that quietly
+// shortens itself is doing the worst thing an audit trail can do, so the
+// decision belongs to whoever runs the deployment and has to be made
+// explicitly.
+func (q *Queries) DeleteAuditLogsBefore(ctx context.Context, arg DeleteAuditLogsBeforeParams) error {
+	_, err := q.db.ExecContext(ctx, deleteAuditLogsBefore, arg.TenantID, arg.CreatedAt)
+	return err
+}

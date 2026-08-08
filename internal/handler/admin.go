@@ -91,6 +91,9 @@ type updateSettingsRequest struct {
 	PasswordRequireSymbol    *bool `json:"passwordRequireSymbol"`
 	PasswordHistoryDepth     *int  `json:"passwordHistoryDepth"`
 	PasswordMaxAgeDays       *int  `json:"passwordMaxAgeDays"`
+
+	// 0 keeps everything, which is the default and the only safe ship.
+	AuditRetentionDays *int `json:"auditRetentionDays"`
 }
 
 // applyTo overlays whatever the request actually carried onto the settings
@@ -112,6 +115,7 @@ func (req updateSettingsRequest) applyTo(current service.Settings) service.Setti
 	overlayBool(&current.PasswordRequireSymbol, req.PasswordRequireSymbol)
 	overlayInt(&current.PasswordHistoryDepth, req.PasswordHistoryDepth)
 	overlayInt(&current.PasswordMaxAgeDays, req.PasswordMaxAgeDays)
+	overlayInt(&current.AuditRetentionDays, req.AuditRetentionDays)
 
 	return current
 }

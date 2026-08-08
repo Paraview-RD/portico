@@ -89,6 +89,13 @@ export interface Settings {
   passwordHistoryDepth: number;
   /** How long a password stays usable. 0 never expires. */
   passwordMaxAgeDays: number;
+
+  /**
+   * How long audit entries are kept. 0 — the default — keeps them forever,
+   * which is the only safe default: the trail is the record of what
+   * happened, not an operational buffer.
+   */
+  auditRetentionDays: number;
 }
 
 export interface Session {
