@@ -68,10 +68,38 @@ func Handler() http.Handler {
 			// A client-side route: hand back the app shell.
 			r = r.Clone(r.Context())
 			r.URL.Path = "/"
+			requested = "index.html"
 		}
 
+		setCaching(w, requested)
 		fileServer.ServeHTTP(w, r)
 	})
+}
+
+// setCaching tells the browser which of these files it may keep.
+//
+// Without this the answer is "whatever it likes". Files embedded with
+// go:embed have a zero modification time, so net/http sends no Last-Modified
+// and no ETag either — there is nothing for a browser to revalidate against
+// and nothing telling it not to guess. What it guesses can be a cached
+// index.html pointing at an asset hash the new binary no longer serves,
+// which is a deploy that reaches nobody until they clear their cache.
+//
+// The two answers are opposite because the two kinds of file are opposite:
+//
+//   - Built assets carry a content hash in the name. The bytes behind one can
+//     never change, so it is cacheable forever, and `immutable` additionally
+//     says not to revalidate it on a reload.
+//   - index.html names those hashes, so it must never be used from cache
+//     without asking. `no-cache` does not mean "do not store" — it means
+//     "store it, but check with me before using it", which is what makes the
+//     next deploy arrive.
+func setCaching(w http.ResponseWriter, requested string) {
+	if strings.HasPrefix(requested, "assets/") {
+		w.Header().Set("Cache-Control", "public, max-age=31536000, immutable")
+		return
+	}
+	w.Header().Set("Cache-Control", "no-cache")
 }
 
 func notBuilt(w http.ResponseWriter, _ *http.Request) {
