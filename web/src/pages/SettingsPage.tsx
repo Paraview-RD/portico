@@ -1,14 +1,14 @@
 import { useEffect, useState } from "react";
 
-import { ApiError } from "../api/client";
 import { settingsApi } from "../api/endpoints";
 import type { Settings } from "../api/types";
 import { Alert, Button, Field, Input, PageHeader } from "../components/ui";
-import { useT } from "../i18n";
+import { useErrorMessage, useT } from "../i18n";
 
 export function SettingsPage() {
   const t = useT();
 
+  const describeError = useErrorMessage();
   const [settings, setSettings] = useState<Settings | null>(null);
   const [error, setError] = useState("");
   const [saved, setSaved] = useState(false);
@@ -18,12 +18,8 @@ export function SettingsPage() {
     settingsApi
       .get()
       .then(setSettings)
-      .catch((err) =>
-        setError(
-          err instanceof ApiError ? err.message : t("common.unexpectedError"),
-        ),
-      );
-  }, [t]);
+      .catch((err) => setError(describeError(err)));
+  }, [describeError]);
 
   async function handleSubmit(event: React.FormEvent) {
     event.preventDefault();
@@ -35,9 +31,7 @@ export function SettingsPage() {
       setSettings(await settingsApi.update(settings));
       setSaved(true);
     } catch (err) {
-      setError(
-        err instanceof ApiError ? err.message : t("common.unexpectedError"),
-      );
+      setError(describeError(err));
     } finally {
       setSubmitting(false);
     }

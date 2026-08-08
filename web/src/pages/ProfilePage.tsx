@@ -1,6 +1,5 @@
 import { useState } from "react";
 
-import { ApiError } from "../api/client";
 import { userApi } from "../api/endpoints";
 import {
   Alert,
@@ -11,11 +10,12 @@ import {
   Input,
   PageHeader,
 } from "../components/ui";
-import { useT } from "../i18n";
+import { useErrorMessage, useT } from "../i18n";
 import { useSession } from "../session";
 
 export function ProfilePage() {
   const t = useT();
+  const describeError = useErrorMessage();
   const { user, endSession, refresh } = useSession();
 
   const [form, setForm] = useState({ current: "", next: "", confirm: "" });
@@ -45,9 +45,7 @@ export function ProfilePage() {
       // rather than yanking them to the sign-in screen mid-sentence.
       setChanged(true);
     } catch (err) {
-      setError(
-        err instanceof ApiError ? err.message : t("common.unexpectedError"),
-      );
+      setError(describeError(err));
     } finally {
       setSubmitting(false);
     }
@@ -141,6 +139,7 @@ export function ProfilePage() {
 // while changing a password ends the session.
 function ProfileDetailsForm({ onSaved }: { onSaved: () => Promise<void> }) {
   const t = useT();
+  const describeError = useErrorMessage();
   const { user } = useSession();
 
   const [form, setForm] = useState({
@@ -165,9 +164,7 @@ function ProfileDetailsForm({ onSaved }: { onSaved: () => Promise<void> }) {
       await onSaved();
       setSaved(true);
     } catch (err) {
-      setError(
-        err instanceof ApiError ? err.message : t("common.unexpectedError"),
-      );
+      setError(describeError(err));
     } finally {
       setSubmitting(false);
     }

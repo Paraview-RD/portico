@@ -39,6 +39,29 @@ func (q *Queries) CreatePasswordReset(ctx context.Context, arg CreatePasswordRes
 	return err
 }
 
+const deleteExpiredPasswordResets = `-- name: DeleteExpiredPasswordResets :exec
+DELETE FROM password_resets
+WHERE tenant_id = $1 AND expires_at < $2
+`
+
+type DeleteExpiredPasswordResetsParams struct {
+	TenantID  string
+	ExpiresAt time.Time
+}
+
+// Clears reset requests long past their usefulness.
+//
+// Spent and expired rows are kept for a retention window rather than deleted
+// the moment they die, so that "was a reset link ever issued for this
+// account, and was it used" stays answerable for a while after the fact. The
+// audit trail records the request and the completion separately; this table
+// is the operational copy, and it is the one that would otherwise grow
+// without limit.
+func (q *Queries) DeleteExpiredPasswordResets(ctx context.Context, arg DeleteExpiredPasswordResetsParams) error {
+	_, err := q.db.ExecContext(ctx, deleteExpiredPasswordResets, arg.TenantID, arg.ExpiresAt)
+	return err
+}
+
 const getLivePasswordReset = `-- name: GetLivePasswordReset :one
 SELECT id, tenant_id, user_id, token_hash, channel, expires_at, used_at, created_at FROM password_resets
 WHERE tenant_id = $1

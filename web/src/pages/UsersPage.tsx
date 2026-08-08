@@ -1,6 +1,5 @@
 import { useCallback, useEffect, useState } from "react";
 
-import { ApiError } from "../api/client";
 import { organizationApi, userApi } from "../api/endpoints";
 import type { Organization, Role, Status, User } from "../api/types";
 import {
@@ -19,7 +18,7 @@ import {
   Td,
   Th,
 } from "../components/ui";
-import { useT } from "../i18n";
+import { useErrorMessage, useT } from "../i18n";
 import { ImportDialog } from "./ImportDialog";
 
 const PAGE_SIZE = 20;
@@ -27,6 +26,7 @@ const PAGE_SIZE = 20;
 export function UsersPage() {
   const t = useT();
 
+  const describeError = useErrorMessage();
   const [users, setUsers] = useState<User[]>([]);
   const [organizations, setOrganizations] = useState<Organization[]>([]);
   const [total, setTotal] = useState(0);
@@ -62,13 +62,11 @@ export function UsersPage() {
       setUsers(result.items);
       setTotal(result.total);
     } catch (err) {
-      setError(
-        err instanceof ApiError ? err.message : t("common.unexpectedError"),
-      );
+      setError(describeError(err));
     } finally {
       setLoading(false);
     }
-  }, [page, keyword, roleFilter, statusFilter, t]);
+  }, [page, keyword, roleFilter, statusFilter, describeError]);
 
   useEffect(() => {
     void load();
@@ -92,9 +90,7 @@ export function UsersPage() {
       }
       await load();
     } catch (err) {
-      setError(
-        err instanceof ApiError ? err.message : t("common.unexpectedError"),
-      );
+      setError(describeError(err));
     }
   }
 
@@ -314,6 +310,7 @@ function UserFormDialog({
   onSaved: () => void;
 }) {
   const t = useT();
+  const describeError = useErrorMessage();
   const isEdit = user !== null;
 
   const [form, setForm] = useState({
@@ -374,9 +371,7 @@ function UserFormDialog({
       }
       onSaved();
     } catch (err) {
-      setError(
-        err instanceof ApiError ? err.message : t("common.unexpectedError"),
-      );
+      setError(describeError(err));
     } finally {
       setSubmitting(false);
     }
@@ -493,6 +488,7 @@ function ResetPasswordDialog({
   onDone: () => void;
 }) {
   const t = useT();
+  const describeError = useErrorMessage();
   const [password, setPassword] = useState("");
   const [error, setError] = useState("");
   const [submitting, setSubmitting] = useState(false);
@@ -511,9 +507,7 @@ function ResetPasswordDialog({
       await userApi.resetPassword(user.id, password);
       onDone();
     } catch (err) {
-      setError(
-        err instanceof ApiError ? err.message : t("common.unexpectedError"),
-      );
+      setError(describeError(err));
     } finally {
       setSubmitting(false);
     }

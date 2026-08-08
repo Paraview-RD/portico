@@ -24,3 +24,15 @@ UPDATE password_resets SET used_at = $1 WHERE tenant_id = $2 AND id = $3;
 UPDATE password_resets
 SET used_at = $1
 WHERE tenant_id = $2 AND user_id = $3 AND used_at IS NULL;
+
+-- name: DeleteExpiredPasswordResets :exec
+-- Clears reset requests long past their usefulness.
+--
+-- Spent and expired rows are kept for a retention window rather than deleted
+-- the moment they die, so that "was a reset link ever issued for this
+-- account, and was it used" stays answerable for a while after the fact. The
+-- audit trail records the request and the completion separately; this table
+-- is the operational copy, and it is the one that would otherwise grow
+-- without limit.
+DELETE FROM password_resets
+WHERE tenant_id = $1 AND expires_at < $2;

@@ -325,6 +325,20 @@ func (s *Scoped) UpdateOAuthClientSecret(ctx context.Context, clientID string, s
 	})
 }
 
+// DeleteExpiredPasswordResets clears reset requests past the retention
+// window.
+func (s *Scoped) DeleteExpiredPasswordResets(ctx context.Context, before time.Time) error {
+	return s.q.DeleteExpiredPasswordResets(ctx,
+		sqlcgen.DeleteExpiredPasswordResetsParams{TenantID: s.tenantID, ExpiresAt: before})
+}
+
+// DeleteDeadRefreshTokenChains clears rotation chains whose last token
+// expired long enough ago that nothing downstream can still be presented.
+func (s *Scoped) DeleteDeadRefreshTokenChains(ctx context.Context, before time.Time) error {
+	return s.q.DeleteDeadRefreshTokenChains(ctx,
+		sqlcgen.DeleteDeadRefreshTokenChainsParams{TenantID: s.tenantID, ExpiresAt: before})
+}
+
 // CreateAuthRequest records an authorization request in flight.
 func (s *Scoped) CreateAuthRequest(ctx context.Context, arg sqlcgen.CreateAuthRequestParams) error {
 	arg.TenantID = s.tenantID

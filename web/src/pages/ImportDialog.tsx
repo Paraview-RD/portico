@@ -1,10 +1,9 @@
 import { useEffect, useRef, useState } from "react";
 
-import { ApiError } from "../api/client";
 import { userApi } from "../api/endpoints";
 import type { ImportResult } from "../api/types";
 import { Alert, Button, Modal, Table, Td, Th } from "../components/ui";
-import { useT } from "../i18n";
+import { useErrorMessage, useT } from "../i18n";
 
 /**
  * Bulk import.
@@ -23,6 +22,7 @@ export function ImportDialog({
   onImported: () => void;
 }) {
   const t = useT();
+  const describeError = useErrorMessage();
   const fileInput = useRef<HTMLInputElement>(null);
 
   const [file, setFile] = useState<File | null>(null);
@@ -49,9 +49,7 @@ export function ImportDialog({
         onImported();
       }
     } catch (err) {
-      setError(
-        err instanceof ApiError ? err.message : t("common.unexpectedError"),
-      );
+      setError(describeError(err));
     } finally {
       setSubmitting(false);
     }

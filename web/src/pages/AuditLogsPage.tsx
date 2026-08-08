@@ -1,6 +1,5 @@
 import { useCallback, useEffect, useState } from "react";
 
-import { ApiError } from "../api/client";
 import { auditApi } from "../api/endpoints";
 import type { AuditLog, LogKind } from "../api/types";
 import {
@@ -15,7 +14,7 @@ import {
   Td,
   Th,
 } from "../components/ui";
-import { useT } from "../i18n";
+import { useErrorMessage, useT } from "../i18n";
 
 const PAGE_SIZE = 20;
 const kinds: LogKind[] = [
@@ -36,6 +35,7 @@ function toRFC3339(localValue: string): string {
 export function AuditLogsPage() {
   const t = useT();
 
+  const describeError = useErrorMessage();
   const [logs, setLogs] = useState<AuditLog[]>([]);
   const [total, setTotal] = useState(0);
   const [page, setPage] = useState(1);
@@ -46,6 +46,19 @@ export function AuditLogsPage() {
   const [keyword, setKeyword] = useState("");
   const [from, setFrom] = useState("");
   const [to, setTo] = useState("");
+
+  // Which rows have their detail open. A set rather than a single id: an
+  // auditor comparing two entries — "did this registration permit the same
+  // redirect URIs as that one" — needs both on screen at once.
+  const [expanded, setExpanded] = useState<ReadonlySet<string>>(new Set());
+
+  const toggleExpanded = useCallback((id: string) => {
+    setExpanded((current) => {
+      const next = new Set(current);
+      if (!next.delete(id)) next.add(id);
+      return next;
+    });
+  }, []);
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -62,13 +75,11 @@ export function AuditLogsPage() {
       setLogs(result.items);
       setTotal(result.total);
     } catch (err) {
-      setError(
-        err instanceof ApiError ? err.message : t("common.unexpectedError"),
-      );
+      setError(describeError(err));
     } finally {
       setLoading(false);
     }
-  }, [page, kind, keyword, from, to, t]);
+  }, [page, kind, keyword, from, to, describeError]);
 
   useEffect(() => {
     void load();
@@ -157,6 +168,7 @@ export function AuditLogsPage() {
             <Th>{t("auditLogs.colTarget")}</Th>
             <Th>{t("auditLogs.colResult")}</Th>
             <Th>{t("auditLogs.colIp")}</Th>
+            <Th>{t("auditLogs.colDetail")}</Th>
           </tr>
         </thead>
         <tbody>
@@ -165,32 +177,15 @@ export function AuditLogsPage() {
               <Td className="py-10 text-center">{t("common.loading")}</Td>
             </tr>
           ) : logs.length === 0 ? (
-            <EmptyRow colSpan={7} />
+            <EmptyRow colSpan={8} />
           ) : (
             logs.map((log) => (
-              <tr key={log.id}>
-                <Td className="whitespace-nowrap">
-                  {new Date(log.createdAt).toLocaleString()}
-                </Td>
-                <Td>{t(`auditLogs.kind.${log.kind}`)}</Td>
-                <Td>
-                  <code className="text-[length:var(--font-size-sm)]">
-                    {log.action}
-                  </code>
-                </Td>
-                <Td>{log.actorName || "—"}</Td>
-                <Td>{log.targetName || "—"}</Td>
-                <Td>
-                  <Badge tone={log.result === "SUCCESS" ? "success" : "danger"}>
-                    {t(`auditLogs.result.${log.result}`)}
-                  </Badge>
-                </Td>
-                <Td>
-                  <span className="text-[length:var(--font-size-sm)] text-[var(--color-fg-muted)]">
-                    {log.ip || "—"}
-                  </span>
-                </Td>
-              </tr>
+              <AuditRow
+                key={log.id}
+                log={log}
+                expanded={expanded.has(log.id)}
+                onToggle={() => toggleExpanded(log.id)}
+              />
             ))
           )}
         </tbody>
@@ -202,6 +197,127 @@ export function AuditLogsPage() {
         total={total}
         onChange={setPage}
       />
+    </>
+  );
+}
+
+/**
+ * One entry, with its detail behind a toggle.
+ *
+ * The detail is where the answer usually is. An entry saying a relying party
+ * was registered is not much use on its own; the redirect URIs it was
+ * permitted are the thing an auditor compares against what was expected, and
+ * the server has always recorded them. It just was not shown.
+ *
+ * It is behind a toggle rather than in a column because it is a sentence,
+ * not a value: in a column it would either wrap the table into unreadability
+ * or be truncated to the point of being decorative.
+ */
+function AuditRow({
+  log,
+  expanded,
+  onToggle,
+}: {
+  log: AuditLog;
+  expanded: boolean;
+  onToggle: () => void;
+}) {
+  const t = useT();
+
+  // Rows carrying nothing beyond what the columns already show get no
+  // toggle. A control that opens an empty panel teaches people the control
+  // does nothing, and they then stop using it where it would have helped.
+  const hasDetail =
+    log.detail !== "" || log.targetType !== "" || log.targetId !== "";
+  const detailID = `audit-detail-${log.id}`;
+
+  return (
+    <>
+      <tr>
+        <Td className="whitespace-nowrap">
+          {new Date(log.createdAt).toLocaleString()}
+        </Td>
+        <Td>{t(`auditLogs.kind.${log.kind}`)}</Td>
+        <Td>
+          <code className="text-[length:var(--font-size-sm)]">
+            {log.action}
+          </code>
+        </Td>
+        <Td>{log.actorName || "—"}</Td>
+        <Td>{log.targetName || "—"}</Td>
+        <Td>
+          <Badge tone={log.result === "SUCCESS" ? "success" : "danger"}>
+            {t(`auditLogs.result.${log.result}`)}
+          </Badge>
+        </Td>
+        <Td>
+          <span className="text-[length:var(--font-size-sm)] text-[var(--color-fg-muted)]">
+            {log.ip || "—"}
+          </span>
+        </Td>
+        <Td>
+          {hasDetail ? (
+            <button
+              type="button"
+              onClick={onToggle}
+              aria-expanded={expanded}
+              aria-controls={detailID}
+              className="text-[length:var(--font-size-sm)] text-[var(--color-primary)] hover:underline"
+            >
+              {expanded ? t("auditLogs.hideDetail") : t("auditLogs.showDetail")}
+            </button>
+          ) : (
+            <span className="text-[var(--color-fg-muted)]">—</span>
+          )}
+        </Td>
+      </tr>
+
+      {hasDetail && expanded && (
+        <tr id={detailID}>
+          <Td colSpan={8} className="bg-[var(--color-bg-soft)]">
+            <dl className="grid grid-cols-[max-content_1fr] gap-x-4 gap-y-1.5 text-[length:var(--font-size-sm)]">
+              {log.detail && (
+                <>
+                  <dt className="text-[var(--color-fg-muted)]">
+                    {t("auditLogs.detail")}
+                  </dt>
+                  <dd className="break-all">{log.detail}</dd>
+                </>
+              )}
+              {log.targetType && (
+                <>
+                  <dt className="text-[var(--color-fg-muted)]">
+                    {t("auditLogs.targetType")}
+                  </dt>
+                  <dd>
+                    <code>{log.targetType}</code>
+                  </dd>
+                </>
+              )}
+              {log.targetId && (
+                <>
+                  <dt className="text-[var(--color-fg-muted)]">
+                    {t("auditLogs.targetId")}
+                  </dt>
+                  <dd className="break-all">
+                    <code>{log.targetId}</code>
+                  </dd>
+                </>
+              )}
+              {log.actorId && (
+                <>
+                  <dt className="text-[var(--color-fg-muted)]">
+                    {t("auditLogs.actorId")}
+                  </dt>
+                  <dd className="break-all">
+                    <code>{log.actorId}</code>
+                  </dd>
+                </>
+              )}
+            </dl>
+          </Td>
+        </tr>
+      )}
     </>
   );
 }

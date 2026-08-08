@@ -8,6 +8,7 @@ import (
 	"log/slog"
 	"net/http"
 	"os"
+	"time"
 
 	"github.com/paraview/portico/internal/auth"
 	"github.com/paraview/portico/internal/casp"
@@ -186,16 +187,64 @@ func federationCryptoKey(secret []byte) [32]byte {
 // Handler returns the root HTTP handler.
 func (s *Server) Handler() http.Handler { return s.router }
 
-// SweepFederation deletes authorization and authentication requests nobody
-// completed. The caller decides how often; see cmd/server.
-func (s *Server) SweepFederation(ctx context.Context) error {
+// SweepExpired deletes the rows that exist only until something happens and
+// are then dead weight: authorization and authentication requests nobody
+// completed, service tickets nobody validated, reset links that have gone
+// cold, and refresh-token chains no longer capable of anything.
+//
+// It is one call rather than several because they share a schedule and a
+// failure mode, and because a periodic job that only cleans some of what
+// grows is a job somebody will assume covers the rest. The caller decides
+// how often; see cmd/server.
+//
+// Nothing here removes an audit entry. The trail is the record of what
+// happened, not an operational buffer, and deleting from it on a timer would
+// be a different kind of decision — one for whoever runs the deployment,
+// not for a background ticker.
+func (s *Server) SweepExpired(ctx context.Context) error {
 	if err := s.oidc.SweepExpired(ctx); err != nil {
 		return err
 	}
 	if err := s.saml.SweepExpired(ctx); err != nil {
 		return err
 	}
-	return s.cas.SweepExpired(ctx)
+	if err := s.cas.SweepExpired(ctx); err != nil {
+		return err
+	}
+	return s.sweepCredentialRemnants(ctx)
+}
+
+// Retention windows for rows that are dead but not yet worth deleting.
+//
+// Both are generous on purpose. These are the rows somebody consults when
+// answering "was a reset link issued for this account" or "when did this
+// application last refresh", and a sweep that ran to the letter of expiry
+// would delete the answer the day the question becomes interesting.
+const (
+	passwordResetRetention = 30 * 24 * time.Hour
+	refreshTokenRetention  = 30 * 24 * time.Hour
+)
+
+// sweepCredentialRemnants clears spent password resets and dead refresh
+// token chains, per tenant.
+func (s *Server) sweepCredentialRemnants(ctx context.Context) error {
+	tenants, err := s.tenants.List(ctx)
+	if err != nil {
+		return fmt.Errorf("list tenants: %w", err)
+	}
+
+	now := store.Now()
+	for _, tenant := range tenants {
+		q := s.store.ForTenant(tenant.ID)
+
+		if err := q.DeleteExpiredPasswordResets(ctx, now.Add(-passwordResetRetention)); err != nil {
+			return fmt.Errorf("sweep password resets for tenant %s: %w", tenant.Code, err)
+		}
+		if err := q.DeleteDeadRefreshTokenChains(ctx, now.Add(-refreshTokenRetention)); err != nil {
+			return fmt.Errorf("sweep refresh tokens for tenant %s: %w", tenant.Code, err)
+		}
+	}
+	return nil
 }
 
 // Close releases resources held by the server.

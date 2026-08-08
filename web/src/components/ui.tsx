@@ -392,12 +392,16 @@ export function Th({ children }: { children: ReactNode }) {
 export function Td({
   children,
   className,
+  colSpan,
 }: {
   children: ReactNode;
   className?: string;
+  /** For a cell that spans the table, such as an expanded detail panel. */
+  colSpan?: number;
 }) {
   return (
     <td
+      colSpan={colSpan}
       className={cx(
         "border-b border-[var(--color-border)] px-4 py-2.5 text-[var(--color-fg)]",
         className,

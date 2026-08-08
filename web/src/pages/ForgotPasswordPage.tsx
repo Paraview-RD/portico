@@ -1,15 +1,16 @@
 import { useEffect, useState } from "react";
 
-import { ApiError, tenantStore } from "../api/client";
+import { tenantStore } from "../api/client";
 import { authApi } from "../api/endpoints";
 import type { RecoveryChannel } from "../api/types";
 import { AuthLink, AuthShell } from "../components/AuthShell";
 import { Alert, Button, Field, Input } from "../components/ui";
-import { useT } from "../i18n";
+import { useErrorMessage, useT } from "../i18n";
 import { useRouter } from "../router";
 
 export function ForgotPasswordPage() {
   const t = useT();
+  const describeError = useErrorMessage();
   const { navigate } = useRouter();
 
   const [tenant] = useState(
@@ -51,9 +52,7 @@ export function ForgotPasswordPage() {
       await authApi.requestPasswordRecovery(channel, destination);
       setSent(true);
     } catch (err) {
-      setError(
-        err instanceof ApiError ? err.message : t("common.unexpectedError"),
-      );
+      setError(describeError(err));
     } finally {
       setSubmitting(false);
     }

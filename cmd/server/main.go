@@ -154,7 +154,7 @@ func run() error {
 	ctx, stop := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
 	defer stop()
 
-	go sweepFederation(ctx, srv)
+	go sweepExpired(ctx, srv)
 
 	errCh := make(chan error, 1)
 	go func() {
@@ -181,24 +181,27 @@ func run() error {
 	return nil
 }
 
-// federationSweepInterval is how often abandoned authorization requests are
-// cleared. Every arrival at /authorize writes a row and most sign-ins that
-// start are never finished, so this is the fastest growing table Portico
-// has; a request lives fifteen minutes, so hourly is frequent enough that
-// the table stays small and infrequent enough to be invisible.
-const federationSweepInterval = time.Hour
+// sweepInterval is how often the expired-row cleanup runs.
+//
+// Paced by the fastest-growing table: every arrival at /authorize writes a
+// row and most sign-ins that start are never finished, and a request lives
+// fifteen minutes. Hourly keeps that table small and is infrequent enough
+// to be invisible. The other things swept — spent reset links, dead refresh
+// chains, unvalidated service tickets — accumulate far more slowly and are
+// happy to ride along.
+const sweepInterval = time.Hour
 
-// sweepFederation runs the periodic cleanup until the process is asked to
+// sweepExpired runs the periodic cleanup until the process is asked to
 // stop. A failure is logged and the next tick tries again: nothing else
 // depends on it, and a server that refused to serve because it could not
 // delete expired rows would be worse than a table that grew.
-func sweepFederation(ctx context.Context, srv *server.Server) {
-	ticker := time.NewTicker(federationSweepInterval)
+func sweepExpired(ctx context.Context, srv *server.Server) {
+	ticker := time.NewTicker(sweepInterval)
 	defer ticker.Stop()
 
 	for {
-		if err := srv.SweepFederation(ctx); err != nil && ctx.Err() == nil {
-			slog.Warn("could not clear expired authorization requests", "error", err)
+		if err := srv.SweepExpired(ctx); err != nil && ctx.Err() == nil {
+			slog.Warn("could not clear expired rows", "error", err)
 		}
 		select {
 		case <-ctx.Done():

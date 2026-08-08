@@ -457,7 +457,7 @@ func TestExpiredCASTicketsAreSwept(t *testing.T) {
 	mount := casp.TenantMount(model.DefaultTenantCode)
 	ticket := f.casSignIn(mount, serviceURL, model.DefaultTenantCode, adminUsername, adminPassword)
 
-	if err := f.api.srv.SweepFederation(context.Background()); err != nil {
+	if err := f.api.srv.SweepExpired(context.Background()); err != nil {
 		t.Fatalf("sweep: %v", err)
 	}
 	if f.casTicketCount() == 0 {
@@ -468,7 +468,7 @@ func TestExpiredCASTicketsAreSwept(t *testing.T) {
 		"UPDATE cas_tickets SET expires_at = now() - interval '1 hour'"); err != nil {
 		t.Fatalf("expire ticket: %v", err)
 	}
-	if err := f.api.srv.SweepFederation(context.Background()); err != nil {
+	if err := f.api.srv.SweepExpired(context.Background()); err != nil {
 		t.Fatalf("sweep: %v", err)
 	}
 	if f.casTicketCount() != 0 {

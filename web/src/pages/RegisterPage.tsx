@@ -1,14 +1,15 @@
 import { useState } from "react";
 
-import { ApiError, tenantStore } from "../api/client";
+import { tenantStore } from "../api/client";
 import { authApi } from "../api/endpoints";
 import { AuthLink, AuthShell } from "../components/AuthShell";
 import { Alert, Button, Field, Input } from "../components/ui";
-import { useT } from "../i18n";
+import { useErrorMessage, useT } from "../i18n";
 import { useRouter } from "../router";
 
 export function RegisterPage() {
   const t = useT();
+  const describeError = useErrorMessage();
   const { navigate } = useRouter();
 
   // Which tenant the account is being created in. Carried over from the
@@ -60,9 +61,7 @@ export function RegisterPage() {
       });
       setDone(true);
     } catch (err) {
-      setError(
-        err instanceof ApiError ? err.message : t("common.unexpectedError"),
-      );
+      setError(describeError(err));
     } finally {
       setSubmitting(false);
     }

@@ -1,6 +1,5 @@
 import { useCallback, useEffect, useState } from "react";
 
-import { ApiError } from "../api/client";
 import { organizationApi } from "../api/endpoints";
 import type { Organization } from "../api/types";
 import {
@@ -17,11 +16,12 @@ import {
   Td,
   Th,
 } from "../components/ui";
-import { useT } from "../i18n";
+import { useErrorMessage, useT } from "../i18n";
 
 export function OrganizationsPage() {
   const t = useT();
 
+  const describeError = useErrorMessage();
   const [organizations, setOrganizations] = useState<Organization[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
@@ -38,13 +38,11 @@ export function OrganizationsPage() {
     try {
       setOrganizations(await organizationApi.list());
     } catch (err) {
-      setError(
-        err instanceof ApiError ? err.message : t("common.unexpectedError"),
-      );
+      setError(describeError(err));
     } finally {
       setLoading(false);
     }
-  }, [t]);
+  }, [describeError]);
 
   useEffect(() => {
     void load();
@@ -61,9 +59,7 @@ export function OrganizationsPage() {
       }
       await load();
     } catch (err) {
-      setError(
-        err instanceof ApiError ? err.message : t("common.unexpectedError"),
-      );
+      setError(describeError(err));
     }
   }
 
@@ -193,6 +189,7 @@ function OrganizationFormDialog({
   onSaved: () => void;
 }) {
   const t = useT();
+  const describeError = useErrorMessage();
   const isEdit = organization !== null;
 
   const [form, setForm] = useState({
@@ -231,9 +228,7 @@ function OrganizationFormDialog({
       }
       onSaved();
     } catch (err) {
-      setError(
-        err instanceof ApiError ? err.message : t("common.unexpectedError"),
-      );
+      setError(describeError(err));
     } finally {
       setSubmitting(false);
     }

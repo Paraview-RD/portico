@@ -14,7 +14,6 @@
 
 import { useCallback, useEffect, useState } from "react";
 
-import { ApiError } from "../api/client";
 import { applicationApi } from "../api/endpoints";
 import type {
   CASService,
@@ -42,11 +41,12 @@ import {
   Textarea,
   Th,
 } from "../components/ui";
-import { useT } from "../i18n";
+import { useErrorMessage, useT } from "../i18n";
 
 export function ApplicationsPage() {
   const t = useT();
 
+  const describeError = useErrorMessage();
   const [protocol, setProtocol] = useState<Protocol>("oauth");
   const [error, setError] = useState("");
   const [endpoints, setEndpoints] = useState<IntegrationEndpoints | null>(null);
@@ -76,12 +76,6 @@ export function ApplicationsPage() {
     run: () => Promise<unknown>;
   } | null>(null);
 
-  const describe = useCallback(
-    (err: unknown) =>
-      err instanceof ApiError ? err.message : t("common.unexpectedError"),
-    [t],
-  );
-
   const load = useCallback(async () => {
     setLoading(true);
     setError("");
@@ -95,11 +89,11 @@ export function ApplicationsPage() {
       setProviders(saml);
       setCASServices(cas);
     } catch (err) {
-      setError(describe(err));
+      setError(describeError(err));
     } finally {
       setLoading(false);
     }
-  }, [describe]);
+  }, [describeError]);
 
   useEffect(() => {
     void load();
@@ -124,7 +118,7 @@ export function ApplicationsPage() {
       await action();
       await load();
     } catch (err) {
-      setError(describe(err));
+      setError(describeError(err));
     }
   }
 
@@ -573,6 +567,7 @@ function ClientFormDialog({
   onSaved: (registered: RegisteredClient | null) => void;
 }) {
   const t = useT();
+  const describeError = useErrorMessage();
   const isEdit = client !== null;
 
   const [form, setForm] = useState({
@@ -625,9 +620,7 @@ function ClientFormDialog({
         onSaved(registered);
       }
     } catch (err) {
-      setError(
-        err instanceof ApiError ? err.message : t("common.unexpectedError"),
-      );
+      setError(describeError(err));
     } finally {
       setSubmitting(false);
     }
@@ -775,6 +768,7 @@ function ServiceProviderFormDialog({
   onSaved: () => void;
 }) {
   const t = useT();
+  const describeError = useErrorMessage();
   const isEdit = provider !== null;
 
   const [form, setForm] = useState({ name: "", metadataXml: "" });
@@ -815,9 +809,7 @@ function ServiceProviderFormDialog({
       }
       onSaved();
     } catch (err) {
-      setError(
-        err instanceof ApiError ? err.message : t("common.unexpectedError"),
-      );
+      setError(describeError(err));
     } finally {
       setSubmitting(false);
     }
@@ -909,6 +901,7 @@ function CASFormDialog({
   onSaved: () => void;
 }) {
   const t = useT();
+  const describeError = useErrorMessage();
   const isEdit = service !== null;
 
   const [form, setForm] = useState({ name: "", urlPrefix: "" });
@@ -933,9 +926,7 @@ function CASFormDialog({
       }
       onSaved();
     } catch (err) {
-      setError(
-        err instanceof ApiError ? err.message : t("common.unexpectedError"),
-      );
+      setError(describeError(err));
     } finally {
       setSubmitting(false);
     }

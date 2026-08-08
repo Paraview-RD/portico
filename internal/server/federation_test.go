@@ -609,7 +609,7 @@ func TestExpiredAuthorizationRequestsAreSwept(t *testing.T) {
 	authRequestID := loginURL.Query().Get("auth_request")
 
 	// Sweeping now must leave it alone: it has not expired.
-	if err := f.api.srv.SweepFederation(context.Background()); err != nil {
+	if err := f.api.srv.SweepExpired(context.Background()); err != nil {
 		t.Fatalf("sweep: %v", err)
 	}
 	if !f.authRequestExists(authRequestID) {
@@ -618,7 +618,7 @@ func TestExpiredAuthorizationRequestsAreSwept(t *testing.T) {
 
 	f.expireAuthRequest(authRequestID)
 
-	if err := f.api.srv.SweepFederation(context.Background()); err != nil {
+	if err := f.api.srv.SweepExpired(context.Background()); err != nil {
 		t.Fatalf("sweep: %v", err)
 	}
 	if f.authRequestExists(authRequestID) {

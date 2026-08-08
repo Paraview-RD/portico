@@ -1,14 +1,15 @@
 import { useEffect, useState } from "react";
 
-import { ApiError, tenantStore } from "../api/client";
+import { tenantStore } from "../api/client";
 import { authApi } from "../api/endpoints";
 import { AuthLink, AuthShell } from "../components/AuthShell";
 import { Alert, Button, Field, Input } from "../components/ui";
-import { useT } from "../i18n";
+import { useErrorMessage, useT } from "../i18n";
 import { useRouter } from "../router";
 
 export function ResetPasswordPage() {
   const t = useT();
+  const describeError = useErrorMessage();
   const { navigate } = useRouter();
 
   // Both come from the link in the message. The tenant travels with the
@@ -43,9 +44,7 @@ export function ResetPasswordPage() {
       await authApi.confirmPasswordRecovery(token, password);
       setDone(true);
     } catch (err) {
-      setError(
-        err instanceof ApiError ? err.message : t("common.unexpectedError"),
-      );
+      setError(describeError(err));
     } finally {
       setSubmitting(false);
     }

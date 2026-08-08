@@ -1,15 +1,16 @@
 import { useEffect, useState } from "react";
 
-import { ApiError, tenantStore } from "../api/client";
+import { tenantStore } from "../api/client";
 import { authApi } from "../api/endpoints";
 import { AuthLink, AuthShell } from "../components/AuthShell";
 import { Alert, Button, Field, Input } from "../components/ui";
-import { useT } from "../i18n";
+import { useErrorMessage, useT } from "../i18n";
 import { useRouter } from "../router";
 import { useSession } from "../session";
 
 export function LoginPage() {
   const t = useT();
+  const describeError = useErrorMessage();
   const { signIn, expired } = useSession();
   const { navigate } = useRouter();
 
@@ -91,9 +92,7 @@ export function LoginPage() {
         navigate("/users");
       }
     } catch (err) {
-      setError(
-        err instanceof ApiError ? err.message : t("common.unexpectedError"),
-      );
+      setError(describeError(err));
     } finally {
       setSubmitting(false);
     }

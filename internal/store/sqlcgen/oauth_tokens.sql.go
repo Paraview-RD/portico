@@ -50,6 +50,51 @@ func (q *Queries) CreateRefreshToken(ctx context.Context, arg CreateRefreshToken
 	return err
 }
 
+const deleteDeadRefreshTokenChains = `-- name: DeleteDeadRefreshTokenChains :exec
+WITH RECURSIVE dead AS (
+    SELECT r.id
+    FROM oauth_refresh_tokens r
+    WHERE r.tenant_id = $1
+      AND r.replaced_by IS NULL
+      AND r.expires_at < $2
+    UNION ALL
+    SELECT ancestor.id
+    FROM oauth_refresh_tokens ancestor
+    JOIN dead d ON ancestor.replaced_by = d.id
+    WHERE ancestor.tenant_id = $1
+)
+DELETE FROM oauth_refresh_tokens o
+WHERE o.tenant_id = $1 AND o.id IN (SELECT id FROM dead)
+`
+
+type DeleteDeadRefreshTokenChainsParams struct {
+	TenantID  string
+	ExpiresAt time.Time
+}
+
+// Clears refresh tokens whose entire rotation chain is long dead.
+//
+// Not simply "expired": TokenRequestByRefreshToken checks used_at BEFORE it
+// checks expiry, deliberately, so that presenting an expired-but-spent token
+// still revokes the chain descended from it. That is the whole of the reuse
+// detection, and deleting expired rows one at a time would silently disable
+// it — the stolen token would come back as "unknown" and its live
+// replacements would survive.
+//
+// So a row goes only when nothing downstream of it can still be used. Each
+// rotation issues a token with a later expiry than the one it replaces, so
+// the chain's terminal token — the one with no replacement — is the one that
+// expires last. When that is past the retention window the whole chain is
+// dead, and the recursion walks back up replaced_by to collect it.
+//
+// Parent and child go in the same statement, which the self-referencing
+// foreign key permits: it is checked at end of statement, by which point
+// neither row is there to be referenced.
+func (q *Queries) DeleteDeadRefreshTokenChains(ctx context.Context, arg DeleteDeadRefreshTokenChainsParams) error {
+	_, err := q.db.ExecContext(ctx, deleteDeadRefreshTokenChains, arg.TenantID, arg.ExpiresAt)
+	return err
+}
+
 const getRefreshToken = `-- name: GetRefreshToken :one
 SELECT id, tenant_id, client_id, subject, token_hash, scopes, audience, amr, auth_time, replaced_by, used_at, revoked_at, created_at, expires_at FROM oauth_refresh_tokens
 WHERE tenant_id = $1 AND token_hash = $2
