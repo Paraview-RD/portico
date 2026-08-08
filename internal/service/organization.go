@@ -20,7 +20,7 @@ import (
 var ErrOrganizationCodeTaken = httpx.Conflict("ORGANIZATION_CODE_TAKEN",
 	"That organization code is already in use.")
 
-// OrganizationService owns the flat organization list and membership.
+// OrganizationService owns the organization tree and membership.
 type OrganizationService struct {
 	store *store.Store
 	audit *AuditService
@@ -34,8 +34,10 @@ func NewOrganizationService(st *store.Store, audit *AuditService) *OrganizationS
 // List returns every organization in the tenant in display order, with
 // member counts.
 //
-// The MVP has no hierarchy and no pagination here: the list is expected to
-// be small enough to render whole (§3.4).
+// Flat on the wire, each row naming its parent; the tree is assembled for
+// display. There is no pagination, and that is not a size assumption: a page
+// boundary drawn through a tree separates children from their parent and
+// leaves something that is neither a tree nor a list.
 func (s *OrganizationService) List(ctx context.Context, tenantID string, activeOnly bool) ([]model.Organization, error) {
 	q := s.store.ForTenant(tenantID)
 

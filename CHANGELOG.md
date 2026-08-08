@@ -54,6 +54,30 @@ Working toward 0.1.0 — the first release. Nothing has been published yet.
 - Timestamps use `TIMESTAMPTZ` and scan directly into `time.Time`. The
   conversion layer SQLite required is gone.
 - `PORTICO_DB_DSN` is required and has no default.
+- **SAML service providers and CAS services are addressed by an opaque id**
+  rather than by entity ID or URL prefix. Those are natural keys containing
+  slashes and colons, and a reverse proxy configured the ordinary way
+  normalizes the path before it arrives — measured against two real nginx
+  containers, not reasoned about: the documented `proxy_pass` form works and
+  a trailing slash turns every one of those routes into a 404.
+- **Updating settings takes each field as optional**, leaving anything
+  omitted unchanged. The endpoint replaces the whole object, so a client
+  written against an older shape would omit the newer fields, Go would
+  decode them as zero, and a request that meant to rename the system would
+  silently switch account lockout off.
+- **The hourly sweep now covers spent password resets, dead refresh-token
+  chains, and ended sessions**, each after thirty days rather than at
+  expiry. A refresh token is deleted only when its entire rotation chain is
+  dead: expiry is checked *after* reuse when one is presented, so deleting
+  expired rows individually would quietly disable reuse detection, which is
+  the only thing that catches a stolen refresh token.
+- **Audit entries are pruned only where a tenant configured a retention
+  period.** The default is to keep everything.
+- `ActionDownstreamSync` is gone. It named an event the server cannot
+  observe: a downstream system reads a profile once with the user's token,
+  and whether it then creates an account, updates one, or discards the
+  response is known only to it. Recording a read under the name of a sync
+  would put an assertion in the audit trail that the server never witnessed.
 
 ### Added
 
@@ -161,8 +185,8 @@ Working toward 0.1.0 — the first release. Nothing has been published yet.
 - Self-service registration, gated by a runtime toggle that defaults to off.
 - Two fixed roles, administrator and user, with server-side enforcement on
   every administrative endpoint.
-- Flat organizations with codes, sort order, and member counts. Disabling
-  one blocks new members without detaching existing ones.
+- Organizations with codes, sort order, and member counts, arranged as a
+  tree. Disabling one blocks new members without detaching existing ones.
 - Sign-in issuing self-signed JWTs, with immediate revocation on logout,
   password change, and account disable.
 - Audit log covering sign-ins, operations, authorization, registrations, and
@@ -175,6 +199,47 @@ Working toward 0.1.0 — the first release. Nothing has been published yet.
   role.
 - Single-binary distribution: the built frontend is embedded, and the
   container image is `scratch` plus one file.
+- **Application management in the console.** Registering an OIDC client, a
+  SAML service provider, or a CAS service, editing it, and enabling or
+  disabling it are all screens now, each with the endpoints an integrator
+  has to be given. `portico client`, `portico sp`, and `portico cas` still
+  work; they are no longer the only way, which is what made every protocol
+  above unusable without shell access to the server.
+- **Account lockout.** An account locks after a configurable number of
+  consecutive failed sign-ins, per tenant, and can be switched off. The lock
+  is checked *after* the password comparison, so a wrong guess never learns
+  that an account is locked, and the lock does not extend on further
+  attempts — otherwise anyone could keep any account locked indefinitely.
+- **Password policy: composition, history, and expiry.** All three are off
+  by default, because NIST SP 800-63B recommends against the first and the
+  third — they are here for deployments audited against regimes that require
+  them. Both the settings screen and
+  `internal/service/password_policy.go` say so.
+- **Sessions are individually visible and individually revocable.** Each
+  sign-in is its own row with its device, address, and last activity, and
+  can be ended on its own from the profile page. Signing out ends that
+  session only; changing a password or disabling an account still ends all
+  of them.
+- **Organizations form a tree**, with a parent that can be changed. Cycles
+  are refused in the service layer — a foreign key cannot catch one, because
+  every row in a cycle points at something that exists. The list can be
+  searched, and flattens while filtering.
+- **A readiness probe** at `/api/v1/ready`, which reaches the database, next
+  to `/api/v1/health`, which deliberately does not: a database outage should
+  not make an orchestrator restart every instance. The image is `scratch`
+  and has no shell or curl, so `portico ready` exists as a subcommand for
+  container health checks.
+- **The audit trail shows what it records.** Each entry expands to the
+  detail the server has been writing all along, along with the target type,
+  the target id, and the actor's id.
+- **Error messages in the reader's language.** Every error code the server
+  can return has an English and a 简体中文 rendering; the Chinese table is
+  typed against the English one, so a missing translation fails the build
+  rather than showing a code to a user.
+- **A test runner for the frontend**, with the first tests written against
+  the two defects a browser had already found — a `role="tab"` with no
+  panel, and a status toggle addressing the wrong identifier, which the type
+  checker could not see because both were strings.
 
 ### Security
 
@@ -209,9 +274,7 @@ behind a reverse proxy that provides them — see
 An access token already issued cannot be withdrawn: a resource server
 verifies it offline and never calls back, which is the whole reason to
 federate. They last fifteen minutes, and the introspection endpoint answers
-for anyone who needs to know sooner. Expired refresh tokens stop working but
-are never deleted, so their rows accumulate; abandoned authorization
-requests are swept, refresh tokens are not. There is no consent screen,
+for anyone who needs to know sooner. There is no consent screen,
 because every client is registered out of band by an administrator and there
 is no third party to consent to.
 

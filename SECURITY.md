@@ -71,11 +71,19 @@ at the reverse proxy; never expose Portico directly.
 
 ### Other deliberate exclusions
 
-- **No MFA**, no CAPTCHA, no login risk analysis, no account lockout.
-- **Password policy is length only** (minimum 8 characters). No complexity
-  rules, no breach-list checking, no rotation, no forced change on first
-  sign-in — including for accounts created by bulk import, whose initial
-  passwords the importing administrator knows.
+- **No MFA**, no CAPTCHA, and no login risk analysis. Account lockout does
+  exist; see the availability section above for what it is and is not.
+- **No breach-list checking.** Length is the floor nothing can go below;
+  complexity rules, password history, and expiry are all available and all
+  **off by default**, because NIST SP 800-63B recommends against the first
+  and the third. Turning them on is a compliance decision, not a security
+  improvement — the reasoning is in `internal/service/password_policy.go`.
+- **No forced change on first sign-in as its own control.** The nearest
+  thing is expiry: with a maximum age configured, a password that has never
+  been changed counts as due, so an account created with a password the
+  importing administrator chose must be changed at the next sign-in. With
+  expiry off — the default — that administrator's knowledge of the initial
+  password persists until the account holder changes it.
 - **Custom roles and permissions.** There are two fixed roles per tenant:
   administrator and user. There is no RBAC to configure, and therefore no
   way to grant a subset of administrative capability.
@@ -84,9 +92,12 @@ at the reverse proxy; never expose Portico directly.
   is deliberately uniform about this; the registration endpoint is not,
   because reporting the collision is how a user knows to pick another name.
   If that matters to you, leave self-registration disabled (the default).
-- **Audit logs have no retention policy.** They grow without bound and
-  contain usernames and IP addresses. Plan for pruning and for whatever your
-  jurisdiction requires of that data.
+- **Audit logs are kept forever unless you say otherwise.** They contain
+  usernames and IP addresses. A retention period is configurable per tenant
+  in **Settings** and the hourly sweep enforces it, but the default is to
+  keep everything: the trail is the record of what happened, and a product
+  that quietly began deleting it on a timer would be doing the worst thing
+  an audit log can do. Set it to whatever your jurisdiction requires.
 
 ### Operational notes with security consequences
 

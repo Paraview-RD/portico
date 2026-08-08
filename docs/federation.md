@@ -239,11 +239,13 @@ single-logout profile, which this version does not have.
 
 ## Known limitations in v0.1
 
-- **Expired refresh tokens are never deleted.** They stop working — expiry
-  and revocation are both checked when one is presented — but the rows
-  accumulate. Abandoned authorization requests *are* swept hourly; refresh
-  tokens are not, and a busy deployment will want to prune them out of band
-  until this is fixed.
+- **Expired refresh tokens outlive their expiry by thirty days.** The hourly
+  sweep removes a rotation chain only once every token in it is both expired
+  and thirty days past it, and only whole chains. Deleting a row the day it
+  expires would break reuse detection: a token that is expired *and* already
+  spent still triggers revocation of the entire chain when it is presented,
+  which is how a stolen refresh token is caught. The row is the evidence, so
+  it outlives the credential.
 - **Access tokens cannot be revoked.** See above; the `/revoke` endpoint
   accepts them and answers successfully, as RFC 7009 requires, but only
   refresh tokens are actually revoked.
