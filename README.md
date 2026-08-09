@@ -56,7 +56,8 @@ configure one, with no tenant or request-path labels.
 **Sign in three ways** — username, phone, or email, all producing the same
 credential.
 
-**Self-service** — registration (optional, off by default), password change,
+**Self-service** — registration (optional, off by default, and able to
+require a confirmed email address before the account works), password change,
 password recovery by email, and profile maintenance, with no administrator in
 the loop. Password rules are per tenant: a minimum length that no policy can
 lower, plus optional composition rules, reuse checks, and expiry — the last
@@ -75,6 +76,12 @@ address — none of the addresses a protocol already stores is one, since a
 redirect URI and an assertion consumer service are places a browser is sent
 mid-flow — and carries whatever icon was registered for it, or a tile bearing
 the first letter of its name if none was.
+
+**Leaving** — anyone can close their own account, confirming with their
+password. It is the one place self-disabling is allowed; everywhere else it
+is refused so an administrator cannot lock themselves out by accident.
+Closing deactivates rather than deletes, so an administrator can reinstate it
+and the audit trail keeps pointing at an account that exists.
 
 **Sessions that revoke** — every sign-in is listed on your own profile with
 the address and browser it came from, and any of them can be ended on its

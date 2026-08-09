@@ -138,6 +138,30 @@ machine.
 Recovery by SMS is defined but has no provider in this version, so the
 sign-in screen offers email only.
 
+## Self-registration
+
+Off by default. **Settings → registration** opens it, and a second box under
+it requires a new account to confirm its email address before it can sign in.
+
+Turn that second one on before opening registration to anything but a trusted
+network. Without it the address on a new account is whatever was typed — and
+that address is both a sign-in identifier and where a password-reset link
+goes, so somebody can open an account under a colleague's address and receive
+their reset links.
+
+It needs the same mail relay password recovery does, and saving is refused
+without one rather than accepting a setting that would strand every
+registration on a message that never arrives.
+
+**Turning it on does not affect anybody who has already registered.** Their
+addresses were accepted under the rules in force at the time, and a policy
+change is not grounds for revoking access; an administrator who wants that
+can disable the accounts deliberately.
+
+Somebody refused for an unconfirmed address is told so at sign-in and can ask
+for another message from that screen — they have to type the address rather
+than the username, because that is where it goes.
+
 ## Roles
 
 The MVP has exactly two roles and no way to define more (requirements §3.3).
