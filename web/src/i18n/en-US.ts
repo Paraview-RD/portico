@@ -393,6 +393,14 @@ export const enUS = {
   "scim.issuedWarning":
     "Copy this token now. It is shown once and stored only as a digest, so it cannot be shown again — if it is lost, issue another and delete this one.",
   "scim.token": "Token",
+  "scim.activityTitle": "Recent synchronization",
+  "scim.activityHint":
+    "What a directory has changed here. The full record is in the audit log.",
+  "scim.activityViewAll": "Audit log",
+  "scim.colTime": "Time",
+  "scim.colAction": "Action",
+  "scim.colTarget": "Target",
+  "scim.colDetail": "Detail",
   "scim.confirmDeleteTitle": "Delete this credential?",
   "scim.confirmDelete":
     "The directory using “{0}” will stop syncing immediately, and the token cannot be restored. To pause it instead, disable it.",

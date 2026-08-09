@@ -144,7 +144,7 @@ func (s *UserService) ProvisionUser(ctx context.Context, tenantID string, in Pro
 
 	s.audit.Log(ctx, tenantID, AuditEntry{
 		Kind: model.LogOperation, Action: model.ActionSCIMUserCreate,
-		ActorName:  provisioningActor,
+		ActorName:  ProvisioningActor,
 		TargetType: targetUser, TargetID: id, TargetName: in.Username,
 		Detail: "externalId=" + in.ExternalID,
 	})
@@ -235,7 +235,7 @@ func (s *UserService) UpdateProvisionedUser(ctx context.Context, tenantID, userI
 	}
 	s.audit.Log(ctx, tenantID, AuditEntry{
 		Kind: model.LogOperation, Action: action,
-		ActorName:  provisioningActor,
+		ActorName:  ProvisioningActor,
 		TargetType: targetUser, TargetID: userID, TargetName: in.Username,
 	})
 
@@ -290,10 +290,13 @@ func (s *UserService) FindByExternalID(ctx context.Context, tenantID, externalID
 	return s.Get(ctx, tenantID, row.ID)
 }
 
-// provisioningActor is the actor name in the audit trail for a change no
+// ProvisioningActor is the actor name in the audit trail for a change no
 // person made. It is not an account, and deliberately not one: an entry
 // attributed to a user id that exists would be a lie about who acted.
-const provisioningActor = "scim"
+//
+// Exported because the console filters the audit log by it to show what a
+// directory has done, and a test asserts the two literals agree.
+const ProvisioningActor = "scim"
 
 const targetUser = "USER"
 

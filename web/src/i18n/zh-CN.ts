@@ -374,6 +374,13 @@ export const zhCN: Record<keyof typeof enUS, string> = {
   "scim.issuedWarning":
     "请立即复制此令牌。它只显示一次，服务端仅保存摘要，因此无法再次查看——丢失后只能重新签发并删除旧的。",
   "scim.token": "令牌",
+  "scim.activityTitle": "最近同步活动",
+  "scim.activityHint": "目录系统在此改动过什么。完整记录在日志审计。",
+  "scim.activityViewAll": "日志审计",
+  "scim.colTime": "时间",
+  "scim.colAction": "动作",
+  "scim.colTarget": "目标",
+  "scim.colDetail": "详情",
   "scim.confirmDeleteTitle": "删除此凭据？",
   "scim.confirmDelete":
     "使用“{0}”的目录将立即停止同步，且令牌无法恢复。若只是暂停，请改用“禁用”。",

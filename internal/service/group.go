@@ -377,7 +377,7 @@ func actorNameOr(actor auth.Principal, source model.GroupSource) string {
 		return actor.Username
 	}
 	if source == model.GroupSourceSCIM {
-		return provisioningActor
+		return ProvisioningActor
 	}
 	return ""
 }

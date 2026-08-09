@@ -111,6 +111,18 @@
      and the settings screen came to be the same width by coincidence
      rather than by decision. */
   --form-width: 30rem;
+
+  /* And what a form is set at when it also has to be read. The first
+     version applied the width above to every form, on the reasoning that
+     a text box gains nothing from being wider — which is true of the box
+     and false of the paragraph beside it. The settings screen explains why
+     each control exists, at some length and on purpose, and 30rem left
+     those explanations at about 28 Chinese characters a line while 960px
+     of the page sat empty.
+
+     The rule is the content, not the element: a form of plain fields uses
+     the width above, a form that argues with the reader uses this one. */
+  --prose-form-width: 40rem;
 }
 
 [data-theme="dark"] {

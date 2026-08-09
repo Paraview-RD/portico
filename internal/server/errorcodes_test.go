@@ -7,6 +7,8 @@ import (
 	"sort"
 	"strings"
 	"testing"
+
+	"github.com/paraview/portico/internal/service"
 )
 
 // Every error code the server can return has something for a reader.
@@ -96,6 +98,36 @@ func TestTheExcusedListDoesNotOutliveItsCodes(t *testing.T) {
 			t.Errorf("%s is excused from translation but the server no longer "+
 				"returns it; remove the exception", code)
 		}
+	}
+}
+
+// TestTheConsoleFiltersOnTheActorTheServerRecords keeps one string in step
+// across two languages.
+//
+// The provisioning screen lists what a directory changed by asking the audit
+// log for one actor. That actor is a literal in Go and a literal in
+// TypeScript, and if they stop agreeing the screen does not break — it shows
+// an empty table, which is indistinguishable from a directory that has done
+// nothing, and is exactly the confusion the screen was added to remove.
+func TestTheConsoleFiltersOnTheActorTheServerRecords(t *testing.T) {
+	const endpointsPath = "../../web/src/api/endpoints.ts"
+
+	source, err := os.ReadFile(filepath.Clean(endpointsPath))
+	if err != nil {
+		t.Fatalf("read %s: %v", endpointsPath, err)
+	}
+
+	match := regexp.MustCompile(`PROVISIONING_ACTOR\s*=\s*"([^"]+)"`).
+		FindSubmatch(source)
+	if match == nil {
+		t.Fatalf("no PROVISIONING_ACTOR in %s; either it was renamed or the "+
+			"console has stopped filtering on an actor at all", endpointsPath)
+	}
+
+	if got := string(match[1]); got != service.ProvisioningActor {
+		t.Errorf("the console filters on %q but the server records %q, so the "+
+			"provisioning screen shows an empty table and looks like a "+
+			"directory that has done nothing", got, service.ProvisioningActor)
 	}
 }
 

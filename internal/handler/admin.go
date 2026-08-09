@@ -38,6 +38,7 @@ func (h *Handler) ListAuditLogs(w http.ResponseWriter, r *http.Request) {
 		Kind:    kind,
 		Action:  query.Get("action"),
 		Keyword: query.Get("keyword"),
+		Actor:   query.Get("actor"),
 		From:    from,
 		To:      to,
 	}, service.Page{Limit: pagination.Limit(), Offset: pagination.Offset()})

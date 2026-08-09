@@ -1,7 +1,16 @@
 import { useCallback, useEffect, useState } from "react";
 
-import { scimCredentialsApi } from "../api/endpoints";
-import type { IssuedSCIMCredential, SCIMCredential } from "../api/types";
+import {
+  auditApi,
+  PROVISIONING_ACTOR,
+  scimCredentialsApi,
+} from "../api/endpoints";
+import type {
+  AuditLog,
+  IssuedSCIMCredential,
+  SCIMCredential,
+} from "../api/types";
+import { useRouter } from "../router";
 import {
   Alert,
   Badge,
@@ -232,6 +241,90 @@ export function ProvisioningPage() {
         onConfirm={() => void remove()}
         onCancel={() => setDeleting(null)}
       />
+
+      <SyncActivity />
     </>
+  );
+}
+
+/**
+ * What the directory has actually done.
+ *
+ * The table above answers "is a credential configured" and "has anything
+ * ever used it". Neither is the question an operator arrives with, which is
+ * whether the sync is working — and the records that answer it existed all
+ * along, written to the audit trail under the `scim` actor, on a screen
+ * nobody visits to ask about provisioning.
+ *
+ * Actions are shown as the verbs the server records rather than translated
+ * prose, the same as in the audit log: they are identifiers, and an operator
+ * comparing them with what their directory reported needs the identifier.
+ */
+function SyncActivity() {
+  const t = useT();
+  const describeError = useErrorMessage();
+  const { navigate } = useRouter();
+
+  const [entries, setEntries] = useState<AuditLog[] | null>(null);
+  const [error, setError] = useState("");
+
+  useEffect(() => {
+    auditApi
+      .list({ actor: PROVISIONING_ACTOR, page: 1, pageSize: 10 })
+      .then((result) => setEntries(result.items))
+      .catch((err) => setError(describeError(err)));
+  }, [describeError]);
+
+  return (
+    <section className="mt-8">
+      <div className="mb-3 flex flex-wrap items-end justify-between gap-3">
+        <div>
+          <h2 className="text-[length:var(--font-size-base)] font-[weight:var(--font-weight-bold)] text-[var(--color-fg)]">
+            {t("scim.activityTitle")}
+          </h2>
+          <p className="text-[length:var(--font-size-sm)] text-[var(--color-fg-muted)]">
+            {t("scim.activityHint")}
+          </p>
+        </div>
+        <Button variant="secondary" onClick={() => navigate("/audit-logs")}>
+          {t("scim.activityViewAll")}
+        </Button>
+      </div>
+
+      {error && (
+        <div className="mb-4">
+          <Alert tone="danger">{error}</Alert>
+        </div>
+      )}
+
+      <Table>
+        <thead>
+          <tr>
+            <Th>{t("scim.colTime")}</Th>
+            <Th>{t("scim.colAction")}</Th>
+            <Th>{t("scim.colTarget")}</Th>
+            <Th>{t("scim.colDetail")}</Th>
+          </tr>
+        </thead>
+        <tbody>
+          {entries === null && <LoadingRow colSpan={4} />}
+          {entries?.length === 0 && <EmptyRow colSpan={4} />}
+          {entries?.map((entry) => (
+            <tr key={entry.id}>
+              <Td>{new Date(entry.createdAt).toLocaleString()}</Td>
+              <Td>
+                <code className="text-[length:var(--font-size-sm)]">
+                  {entry.action}
+                </code>
+              </Td>
+              <Td>{entry.targetName || "—"}</Td>
+              <Td className="text-[var(--color-fg-muted)]">
+                {entry.detail || "—"}
+              </Td>
+            </tr>
+          ))}
+        </tbody>
+      </Table>
+    </section>
   );
 }

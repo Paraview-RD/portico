@@ -109,6 +109,15 @@ type AuditQuery struct {
 	Action string
 	// Keyword matches the actor or target name.
 	Keyword string
+	// Actor restricts results to one actor, matched exactly.
+	//
+	// Separate from Keyword, which is a substring across two columns and is
+	// what a person types into a search box. This one answers "what did
+	// this actor do", and the caller that asks it is the provisioning
+	// screen asking about `scim`. Doing that through Keyword would also
+	// return every entry whose target happens to contain the word, and
+	// every account somebody named scim-service.
+	Actor string
 	// From and To bound created_at. Zero values are unbounded.
 	From time.Time
 	To   time.Time
@@ -132,6 +141,9 @@ func (s *AuditService) List(ctx context.Context, tenantID string, q AuditQuery, 
 	if keyword := strings.TrimSpace(q.Keyword); keyword != "" {
 		pattern := "%" + escapeLike(keyword) + "%"
 		f.Add(`(actor_username LIKE %s ESCAPE '\' OR target_name LIKE %s ESCAPE '\')`, pattern, pattern)
+	}
+	if actor := strings.TrimSpace(q.Actor); actor != "" {
+		f.Add("actor_username = %s", actor)
 	}
 	if !q.From.IsZero() {
 		f.Add("created_at >= %s", q.From.UTC())

@@ -1258,7 +1258,16 @@ paths:
         - name: keyword
           in: query
           schema: { type: string }
-          description: Matches the actor or the target.
+          description: Matches the actor or the target, as a substring.
+        - name: actor
+          in: query
+          schema: { type: string }
+          description: |
+            One actor, matched exactly. Separate from `keyword` because the
+            questions are different: `keyword` is what somebody types into a
+            search box, and this answers "what did this actor do". Passing
+            `scim` here returns what a directory changed, without also
+            returning every record whose name contains the word.
         - name: from
           in: query
           schema: { type: string, format: date-time }

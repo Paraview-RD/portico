@@ -262,10 +262,22 @@ export const auditApi = {
     kind?: LogKind | "";
     action?: string;
     keyword?: string;
+    /** One actor, matched exactly — see PROVISIONING_ACTOR below. */
+    actor?: string;
     from?: string;
     to?: string;
   }) => request<PageResult<AuditLog>>(`/audit-logs${query(params)}`),
 };
+
+/**
+ * The actor a directory's changes are recorded under.
+ *
+ * Not an account, deliberately: attributing a change no person made to a
+ * user id that exists would be a lie about who acted. It is
+ * `provisioningActor` in internal/service/scim_provision.go, and a test
+ * fails if the two stop agreeing.
+ */
+export const PROVISIONING_ACTOR = "scim";
 
 export const settingsApi = {
   get: () => request<Settings>("/settings"),

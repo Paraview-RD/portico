@@ -70,8 +70,12 @@ export function SettingsPage() {
       {/* In a card, like every other screen's content. Without one the
           fields sat directly on the page background while the profile
           screen's identical fields sat in a card, so the two pages that
-          are most alike looked least alike. */}
-      <Card className="max-w-[var(--form-width)]">
+          are most alike looked least alike.
+
+          The wider of the two form widths: this screen explains what each
+          setting does and why the defaults are what they are, and prose
+          set to the width of a text box is prose nobody finishes. */}
+      <Card className="max-w-[var(--prose-form-width)]">
         <form onSubmit={handleSubmit} className="flex flex-col gap-4">
           <Field label={t("settings.systemName")} required>
             <Input
