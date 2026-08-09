@@ -215,6 +215,22 @@ in, and its credentials stop authenticating at the introspection and
 revocation endpoints too. Nothing is deleted, and there is no delete: the
 audit trail keeps pointing at something that still exists.
 
+Typical journey — hand over a copy of the directory:
+
+1. **Users** → filter to whoever the request is about. The export takes the
+   filters that are on screen, so what you are looking at is what you get.
+2. **Export** → an .xlsx in the same columns the import template uses, so a
+   file taken out can be corrected and fed back in.
+3. **It carries no passwords and has no column for one.** The import
+   template has that column because creating an account needs an initial
+   password; an export is a report, and a report carrying credentials is a
+   credential-distribution mechanism nobody meant to build.
+4. **It is recorded.** Every export appears in **Audit logs** as
+   `USER_EXPORT`, with who ran it and how many accounts left. This is every
+   attribute of every matching account leaving through one request — nothing
+   else here hands over that much at once, and "who took a copy, and when" is
+   asked after an incident rather than before one.
+
 Typical journey — read accounts out of an AD:
 
 1. **Directory integration** → the **Portico reads (LDAP / AD)** tab → add a

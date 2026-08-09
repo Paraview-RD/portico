@@ -21,8 +21,14 @@ in the query layer rather than left to reviewer discipline. Each tenant has
 its own administrators; tenants are provisioned from the command line, so no
 role exists that can see across all of them.
 
-**Accounts, organizations, and groups** — create, edit, enable/disable,
-bulk-import from a spreadsheet. Accounts are disabled, never deleted, so the
+**Accounts, organizations, and groups** — create, edit, enable/disable in
+bulk, import from a spreadsheet and export back to one. An account carries
+the attributes a directory actually has for it — job title, department,
+employee number, name parts, locale, address — named after SCIM 2.0's
+schema, so what your directory holds lands in the right field instead of
+being dropped. Describing somebody and deciding their access are separate
+endpoints, which is what lets people maintain their own details without that
+being a way to change a role. Accounts are disabled, never deleted, so the
 audit trail stays intact. An organization is where somebody sits: one of
 them, arranged as a tree. A group is a set they belong to: any number of
 them, flat, and usually maintained by whatever directory pushes it. They are
