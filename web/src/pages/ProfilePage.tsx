@@ -56,82 +56,101 @@ export function ProfilePage() {
     <>
       <PageHeader title={t("profile.title")} subtitle={t("profile.subtitle")} />
 
-      {/* Read-only above, editable below. The split is the server's: username,
-          role, and organization are not things a user may change about
-          themselves, and showing them in a form would imply otherwise. */}
-      <Card className="mb-4 max-w-[var(--form-width)]">
-        <dl className="flex flex-col gap-3">
-          <Detail label={t("profile.username")} value={user.username} />
-          <div className="flex justify-between gap-4">
-            <dt className="text-[var(--color-fg-muted)]">
-              {t("profile.role")}
-            </dt>
-            <dd>
-              <Badge tone={user.role === "SUPER_ADMIN" ? "warning" : "neutral"}>
-                {t(`role.${user.role}`)}
-              </Badge>
-            </dd>
-          </div>
-          <Detail
-            label={t("profile.organization")}
-            value={user.organizationName || "—"}
-          />
-        </dl>
-      </Card>
+      {/* Two columns on a wide display: the forms at the width a form wants,
+          and the device list beside them taking whatever is left.
 
-      <ProfileDetailsForm onSaved={refresh} />
-
-      <Card
-        title={t("profile.changePassword")}
-        className="max-w-[var(--form-width)]"
-      >
-        {changed ? (
-          <div className="flex flex-col items-start gap-4">
-            <Alert tone="success">{t("profile.passwordChanged")}</Alert>
-            <Button onClick={endSession}>{t("login.submit")}</Button>
-          </div>
-        ) : (
-          <form onSubmit={handleSubmit} className="flex flex-col gap-4">
-            <Field label={t("profile.currentPassword")} required>
-              <Input
-                type="password"
-                value={form.current}
-                onChange={(e) => setForm({ ...form, current: e.target.value })}
-                autoComplete="current-password"
-                required
+          The previous version stacked four cards all clamped to 30rem, which
+          on a 1440px column left two thirds of the screen empty and read as
+          a page that had failed rather than as a deliberate measure. The
+          fix is not to widen the forms — an input is no more usable for
+          being a metre across — it is to put something beside them. */}
+      <div className="grid items-start gap-4 lg:grid-cols-[minmax(0,var(--form-width))_minmax(0,1fr)]">
+        <div className="flex flex-col gap-4">
+          {/* Read-only above, editable below. The split is the server's:
+              username, role, and organization are not things a user may
+              change about themselves, and showing them in a form would
+              imply otherwise. */}
+          <Card>
+            <dl className="grid grid-cols-[auto_1fr] gap-x-6 gap-y-3">
+              <Detail label={t("profile.username")} value={user.username} />
+              <dt className="text-[var(--color-fg-muted)]">
+                {t("profile.role")}
+              </dt>
+              <dd>
+                <Badge
+                  tone={user.role === "SUPER_ADMIN" ? "warning" : "neutral"}
+                >
+                  {t(`role.${user.role}`)}
+                </Badge>
+              </dd>
+              <Detail
+                label={t("profile.organization")}
+                value={user.organizationName || "—"}
               />
-            </Field>
+            </dl>
+          </Card>
 
-            <Field label={t("profile.newPassword")} required>
-              <Input
-                type="password"
-                value={form.next}
-                onChange={(e) => setForm({ ...form, next: e.target.value })}
-                autoComplete="new-password"
-                required
-              />
-            </Field>
+          <ProfileDetailsForm onSaved={refresh} />
 
-            <Field label={t("profile.confirmNewPassword")} required>
-              <Input
-                type="password"
-                value={form.confirm}
-                onChange={(e) => setForm({ ...form, confirm: e.target.value })}
-                autoComplete="new-password"
-                required
-              />
-            </Field>
+          <Card title={t("profile.changePassword")}>
+            {changed ? (
+              <div className="flex flex-col items-start gap-4">
+                <Alert tone="success">{t("profile.passwordChanged")}</Alert>
+                <Button onClick={endSession}>{t("login.submit")}</Button>
+              </div>
+            ) : (
+              <form onSubmit={handleSubmit} className="flex flex-col gap-4">
+                <Field label={t("profile.currentPassword")} required>
+                  <Input
+                    type="password"
+                    value={form.current}
+                    onChange={(e) =>
+                      setForm({ ...form, current: e.target.value })
+                    }
+                    autoComplete="current-password"
+                    required
+                  />
+                </Field>
 
-            {error && <Alert tone="danger">{error}</Alert>}
+                <Field label={t("profile.newPassword")} required>
+                  <Input
+                    type="password"
+                    value={form.next}
+                    onChange={(e) => setForm({ ...form, next: e.target.value })}
+                    autoComplete="new-password"
+                    required
+                  />
+                </Field>
 
-            <div>
-              <Button type="submit" disabled={submitting}>
-                {t("profile.changePassword")}
-              </Button>
-            </div>
-          </form>
-        )}
-      </Card>
+                <Field label={t("profile.confirmNewPassword")} required>
+                  <Input
+                    type="password"
+                    value={form.confirm}
+                    onChange={(e) =>
+                      setForm({ ...form, confirm: e.target.value })
+                    }
+                    autoComplete="new-password"
+                    required
+                  />
+                </Field>
+
+                {error && <Alert tone="danger">{error}</Alert>}
+
+                <div>
+                  <Button type="submit" disabled={submitting}>
+                    {t("profile.changePassword")}
+                  </Button>
+                </div>
+              </form>
+            )}
+          </Card>
+        </div>
+
+        {/* The device list, which is the one thing on this screen that wants
+            width: an address, a user agent string, a timestamp, and a button
+            on one row. At 30rem it wrapped to four lines per session. */}
+        <SessionsCard />
+      </div>
     </>
   );
 }
@@ -175,59 +194,44 @@ function ProfileDetailsForm({ onSaved }: { onSaved: () => Promise<void> }) {
   }
 
   return (
-    <>
-      <Card
-        title={t("profile.details")}
-        className="mb-4 max-w-[var(--form-width)]"
-      >
-        <form onSubmit={handleSubmit} className="flex flex-col gap-4">
-          <Field label={t("profile.displayName")} required>
-            <Input
-              value={form.displayName}
-              onChange={(e) =>
-                setForm({ ...form, displayName: e.target.value })
-              }
-              required
-            />
-          </Field>
+    <Card title={t("profile.details")}>
+      <form onSubmit={handleSubmit} className="flex flex-col gap-4">
+        <Field label={t("profile.displayName")} required>
+          <Input
+            value={form.displayName}
+            onChange={(e) => setForm({ ...form, displayName: e.target.value })}
+            required
+          />
+        </Field>
 
-          <Field label={t("profile.email")} hint={t("profile.contactHint")}>
-            <Input
-              type="email"
-              value={form.email}
-              onChange={(e) => setForm({ ...form, email: e.target.value })}
-              autoComplete="email"
-            />
-          </Field>
+        <Field label={t("profile.email")} hint={t("profile.contactHint")}>
+          <Input
+            type="email"
+            value={form.email}
+            onChange={(e) => setForm({ ...form, email: e.target.value })}
+            autoComplete="email"
+          />
+        </Field>
 
-          <Field label={t("profile.phone")} hint={t("profile.contactHint")}>
-            <Input
-              type="tel"
-              value={form.phone}
-              onChange={(e) => setForm({ ...form, phone: e.target.value })}
-              autoComplete="tel"
-            />
-          </Field>
+        <Field label={t("profile.phone")} hint={t("profile.contactHint")}>
+          <Input
+            type="tel"
+            value={form.phone}
+            onChange={(e) => setForm({ ...form, phone: e.target.value })}
+            autoComplete="tel"
+          />
+        </Field>
 
-          {error && <Alert tone="danger">{error}</Alert>}
-          {saved && <Alert tone="success">{t("profile.detailsSaved")}</Alert>}
+        {error && <Alert tone="danger">{error}</Alert>}
+        {saved && <Alert tone="success">{t("profile.detailsSaved")}</Alert>}
 
-          <div>
-            <Button type="submit" disabled={submitting}>
-              {t("common.save")}
-            </Button>
-          </div>
-        </form>
-      </Card>
-
-      {/* The same width as the cards above it. It was the only one without a
-          constraint, so a column of three narrow cards ended in one that ran
-          to the far edge — which reads as a mistake rather than as a
-          different kind of content. Session rows wrap instead. */}
-      <div className="mt-6 max-w-[var(--form-width)]">
-        <SessionsCard />
-      </div>
-    </>
+        <div>
+          <Button type="submit" disabled={submitting}>
+            {t("common.save")}
+          </Button>
+        </div>
+      </form>
+    </Card>
   );
 }
 
@@ -358,11 +362,15 @@ function SessionsCard() {
   );
 }
 
+// A label and its value as two cells of the surrounding grid, rather than as
+// a row that pushes them to opposite edges. The fragment is what lets the
+// grid see both: wrapping them in a div would make the pair one cell and put
+// the justification problem straight back.
 function Detail({ label, value }: { label: string; value: string }) {
   return (
-    <div className="flex justify-between gap-4">
+    <>
       <dt className="text-[var(--color-fg-muted)]">{label}</dt>
-      <dd className="text-[var(--color-fg)]">{value}</dd>
-    </div>
+      <dd className="min-w-0 text-[var(--color-fg)]">{value}</dd>
+    </>
   );
 }

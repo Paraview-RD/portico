@@ -30,6 +30,13 @@ export interface User {
 
   /** Set while the account is locked out after repeated failed sign-ins. */
   lockedUntil?: string;
+
+  /**
+   * When this password stops working. Present only on `/users/me`, and only
+   * when the tenant expires passwords at all — most do not, and absence
+   * means "never" rather than "unknown".
+   */
+  passwordExpiresAt?: string;
 }
 
 export interface Organization {

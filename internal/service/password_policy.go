@@ -65,6 +65,45 @@ func (p PasswordPolicy) MaxAge() time.Duration {
 	return time.Duration(p.MaxAgeDays) * 24 * time.Hour
 }
 
+// PasswordExpiryFor is when a person's password stops working, or nil when
+// it does not.
+//
+// This exists so the home screen can warn somebody a few days out instead of
+// letting them discover it at the sign-in screen of a morning they were busy.
+// It returns the instant rather than the policy, deliberately: the policy is
+// administrator-only, and a normal user does not need to be told the tenant's
+// rules to be told their own deadline.
+//
+// A password that has never been changed under a policy that expires them is
+// already due, which Expired treats as such; the instant returned then is in
+// the past, and the screen says "expired" rather than counting down.
+func (s *UserService) PasswordExpiryFor(ctx context.Context, tenantID, userID string) (*time.Time, error) {
+	policy, err := s.PasswordPolicyFor(ctx, tenantID)
+	if err != nil {
+		return nil, err
+	}
+	if policy.MaxAgeDays <= 0 {
+		return nil, nil
+	}
+
+	row, err := s.store.ForTenant(tenantID).GetUserByID(ctx, userID)
+	if err != nil {
+		if store.IsNoRows(err) {
+			return nil, ErrUserNotFound
+		}
+		return nil, fmt.Errorf("get user: %w", err)
+	}
+
+	// Never changed: due now, matching what Expired decides so the warning
+	// and the refusal cannot disagree.
+	if row.PasswordChangedAt == nil {
+		now := store.Now()
+		return &now, nil
+	}
+	expires := row.PasswordChangedAt.Add(policy.MaxAge())
+	return &expires, nil
+}
+
 // Expired reports whether a password set at changedAt is past its life.
 //
 // A nil changedAt means the password has never been changed since the

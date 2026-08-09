@@ -413,7 +413,7 @@ paths:
           description: The account.
           content:
             application/json:
-              schema: { $ref: "#/components/schemas/UserEnvelope" }
+              schema: { $ref: "#/components/schemas/MeEnvelope" }
         "401":
           $ref: "#/components/responses/Unauthorized"
     put:
@@ -2737,6 +2737,31 @@ components:
         - type: object
           properties:
             data: { $ref: "#/components/schemas/User" }
+
+    Me:
+      description: |
+        The caller's own account, plus the one fact about it they cannot see
+        anywhere else. A superset of User, so a client written against that
+        keeps working.
+      allOf:
+        - $ref: "#/components/schemas/User"
+        - type: object
+          properties:
+            passwordExpiresAt:
+              type: string
+              format: date-time
+              description: |
+                When this password stops working. Absent when passwords do
+                not expire in this tenant. The instant, not the policy: the
+                policy is administrator-only, and somebody does not need to
+                be told the rules to be told their own deadline.
+
+    MeEnvelope:
+      allOf:
+        - $ref: "#/components/schemas/Envelope"
+        - type: object
+          properties:
+            data: { $ref: "#/components/schemas/Me" }
 
     UserPageEnvelope:
       allOf:

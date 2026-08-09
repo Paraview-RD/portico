@@ -101,10 +101,7 @@ test("every screen is laid out in the same column", async ({
   ).toBe(declared);
 });
 
-test("the blocks on a screen are all the same width", async ({
-  page,
-  signIn,
-}) => {
+test("every row of content spans the same column", async ({ page, signIn }) => {
   await signIn();
   await page.setViewportSize({ width: 1900, height: 900 });
 
@@ -121,11 +118,23 @@ test("the blocks on a screen are all the same width", async ({
       page.getByRole("main").locator("table, form, section").first(),
     ).toBeVisible();
 
-    // Every bordered surface directly in the column — the tables and the
-    // cards. This is what the complaint was actually about: the profile
-    // screen was three cards at one width followed by a fourth at another,
-    // which reads as an accident rather than as a decision.
-    const widths = await page.evaluate(() => {
+    // The property is about rows, not about blocks.
+    //
+    // The first version of this test required every surface on a screen to
+    // be the same width, which was right about the bug and wrong about the
+    // rule. The bug was the profile screen: three cards at 30rem followed by
+    // a fourth running to the far edge, which reads as an accident. But two
+    // cards deliberately placed side by side are also two different widths,
+    // and so is a full-width block above a pair of half-width ones — both
+    // are decisions, and a check that forbade them would forbid every layout
+    // except a single stack.
+    //
+    // What separates the two is the row. Things side by side belong to one
+    // row and may divide it however they like; what must agree is where each
+    // row starts and where it ends. A lone wide card under three narrow ones
+    // is two rows disagreeing about the column, which is exactly the thing
+    // that looked broken.
+    const rows = await page.evaluate(() => {
       // The surfaces content sits on: a card is a section, a table is
       // wrapped in the element carrying its border. Deliberately not "any
       // bordered element" — a search box has a border too, and counting one
@@ -140,25 +149,55 @@ test("the blocks on a screen are all the same width", async ({
 
       // Only the outermost ones. A card may contain a table, and measuring
       // both would compare a surface with something inside it.
-      return surfaces
-        .filter(
-          (element) =>
-            !surfaces.some(
-              (other) => other.contains(element) && other !== element,
-            ),
-        )
-        .map((element) => Math.round(element.getBoundingClientRect().width));
+      const outermost = surfaces.filter(
+        (element) =>
+          !surfaces.some(
+            (other) => other.contains(element) && other !== element,
+          ),
+      );
+
+      const boxes = outermost
+        .map((element) => element.getBoundingClientRect())
+        .sort((a, b) => a.top - b.top);
+
+      // Group into rows: a surface joins the row above it if their vertical
+      // ranges overlap, which is what "side by side" means on screen.
+      const grouped: { left: number; right: number }[] = [];
+      let current: { top: number; bottom: number } | null = null;
+      for (const box of boxes) {
+        if (current && box.top < current.bottom) {
+          const row = grouped[grouped.length - 1];
+          row.left = Math.min(row.left, box.left);
+          row.right = Math.max(row.right, box.right);
+          current.bottom = Math.max(current.bottom, box.bottom);
+        } else {
+          grouped.push({ left: box.left, right: box.right });
+          current = { top: box.top, bottom: box.bottom };
+        }
+      }
+      return grouped.map((row) => ({
+        left: Math.round(row.left),
+        right: Math.round(row.right),
+      }));
     });
 
-    if (new Set(widths).size > 1) {
-      ragged.push(`${screen.label}: ${[...new Set(widths)].join(", ")}px`);
+    // A screen with nothing measurable would satisfy the check below by
+    // having no rows to disagree, so say so rather than pass quietly.
+    expect(
+      rows.length,
+      `${screen.label} has no measurable content surface`,
+    ).toBeGreaterThan(0);
+
+    const spans = new Set(rows.map((row) => `${row.left}–${row.right}`));
+    if (spans.size > 1) {
+      ragged.push(`${screen.label}: ${[...spans].join(" / ")}`);
     }
   }
 
   expect(
     ragged,
-    "these screens stack blocks of different widths, which reads as a " +
-      "mistake rather than as two kinds of content",
+    "on these screens one row of content stops short of where another ends, " +
+      "which reads as a mistake rather than as a layout",
   ).toEqual([]);
 });
 

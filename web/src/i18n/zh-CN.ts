@@ -56,6 +56,18 @@ export const zhCN: Record<keyof typeof enUS, string> = {
   "portal.noneOpenable": "还没有应用填写访问地址。注册应用时可以补上。",
   "portal.account": "你的账号",
   "portal.recentSignIns": "最近登录",
+  "portal.passwordExpires": "密码有效期至",
+  "portal.passwordExpiring":
+    "你的密码将在 {0} 天后过期。趁现在改掉，别等到某个忙碌的早上被登录页拦住。",
+  "portal.passwordExpired": "你的密码已过期，下次登录时会要求先修改。",
+  "portal.contactMissingEmail":
+    "你的账号没有留邮箱。没有邮箱，忘记密码时无法自助找回。",
+  "portal.contactMissingPhone":
+    "你的账号没有留手机号。没有手机号，忘记密码时无法自助找回。",
+  "portal.contactMissingBoth":
+    "你的账号既没有邮箱也没有手机号。两者都没有，忘记密码时无法自助找回。",
+  "portal.goToProfile": "去个人中心",
+  "portal.manageDevices": "已登录的设备",
   "applications.logoUri": "图标",
   "applications.logoUriHelp":
     "应用磁贴上的图片。可以填本服务器上的路径（如 /icons/wiki.svg），也可以填完整的 https 网址。不填则磁贴显示名称首字。",

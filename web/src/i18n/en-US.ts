@@ -61,6 +61,19 @@ export const enUS = {
     "No application has a launch address yet. An administrator can add one when registering it.",
   "portal.account": "Your account",
   "portal.recentSignIns": "Recent sign-ins",
+  "portal.passwordExpires": "Password valid until",
+  "portal.passwordExpiring":
+    "Your password expires in {0} days. Change it now rather than at a sign-in screen on a morning you are busy.",
+  "portal.passwordExpired":
+    "Your password has expired. You will be asked to change it at your next sign-in.",
+  "portal.contactMissingEmail":
+    "No email address on your account. Without one you cannot recover it yourself if you forget your password.",
+  "portal.contactMissingPhone":
+    "No phone number on your account. Without one you cannot recover it yourself if you forget your password.",
+  "portal.contactMissingBoth":
+    "No email address or phone number on your account. Without one you cannot recover it yourself if you forget your password.",
+  "portal.goToProfile": "Go to my account",
+  "portal.manageDevices": "Signed-in devices",
   "applications.logoUri": "Icon",
   "applications.logoUriHelp":
     "The picture on this application's tile. Either an address on this server, such as /icons/wiki.svg, or an absolute https URL. Without one the tile carries the first character of the name.",

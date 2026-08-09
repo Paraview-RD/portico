@@ -2,6 +2,7 @@ package handler
 
 import (
 	"net/http"
+	"time"
 
 	"github.com/paraview/portico/internal/auth"
 	"github.com/paraview/portico/internal/httpx"
@@ -151,6 +152,20 @@ func (h *Handler) RegistrationStatus(w http.ResponseWriter, r *http.Request) {
 	})
 }
 
+// meResponse is the caller's own profile plus the one thing about their
+// account they cannot see anywhere else.
+//
+// The user is embedded rather than nested, so this stays a superset of what
+// /users/me returned before and no client has to be changed to keep working.
+type meResponse struct {
+	model.User
+	// PasswordExpiresAt is when this password stops working, absent when
+	// passwords do not expire in this tenant. The instant, not the policy:
+	// the policy is administrator-only, and somebody does not need to be
+	// told the rules to be told their own deadline.
+	PasswordExpiresAt *time.Time `json:"passwordExpiresAt,omitempty"`
+}
+
 // Me returns the caller's own profile.
 func (h *Handler) Me(w http.ResponseWriter, r *http.Request) {
 	principal := auth.MustPrincipal(r.Context())
@@ -160,7 +175,16 @@ func (h *Handler) Me(w http.ResponseWriter, r *http.Request) {
 		httpx.Fail(w, r, err)
 		return
 	}
-	httpx.OK(w, user)
+
+	// Best effort. Failing to work out an expiry date is not a reason to
+	// refuse somebody their own profile, and the screens that use this all
+	// treat its absence as "no expiry", which is the common case anyway.
+	expiresAt, err := h.users.PasswordExpiryFor(r.Context(), principal.TenantID, principal.UserID)
+	if err != nil {
+		expiresAt = nil
+	}
+
+	httpx.OK(w, meResponse{User: user, PasswordExpiresAt: expiresAt})
 }
 
 type updateProfileRequest struct {
