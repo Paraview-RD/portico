@@ -64,6 +64,12 @@ func testConfig(t *testing.T) *config.Config {
 	// that want none are asserting exactly this.
 	cfg.SMTP = notify.SMTPConfig{}
 
+	// A fixed data key, so the tests exercise the path a configured
+	// deployment takes. A test that ran without one would only ever see the
+	// refusal, and the storing-and-reading-back path would never execute.
+	// The value is not a secret: this database exists for one test.
+	cfg.EncryptionKey = []byte("0123456789abcdef0123456789abcdef")
+
 	return cfg
 }
 

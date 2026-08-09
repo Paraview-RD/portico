@@ -69,6 +69,11 @@ tags:
     description: The systems that sign in through Portico.
   - name: Provisioning
     description: The credentials a directory authenticates to SCIM with.
+  - name: Directories
+    description: |
+      Directories Portico reads accounts out of, which is the opposite
+      direction from Provisioning: those let a directory push into /scim/v2,
+      these have Portico connect to an AD or OpenLDAP and pull.
   - name: Webhooks
     description: Outbound event subscriptions and their delivery history.
   - name: Audit
@@ -1856,6 +1861,193 @@ paths:
         "404":
           $ref: "#/components/responses/NotFound"
 
+  /api/v1/directories:
+    get:
+      tags: [Directories]
+      operationId: listDirectories
+      summary: The directories accounts are read out of.
+      responses:
+        "200":
+          description: The directories.
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/LDAPSourceListEnvelope" }
+        "403":
+          $ref: "#/components/responses/Forbidden"
+    post:
+      tags: [Directories]
+      operationId: createDirectory
+      summary: Register a directory.
+      description: |
+        The attribute map has no defaults, deliberately. Active Directory and
+        OpenLDAP disagree on every one of them — `sAMAccountName` against
+        `uid`, `objectGUID` against `entryUUID` — and a wrong guess imports a
+        directory's worth of accounts named after the wrong field, which
+        looks like a working integration.
+
+        `attrExternalId` is the reconciliation key and the most consequential
+        setting here: it is what makes a rename in the directory a rename
+        rather than a second account.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/LDAPSourceRequest" }
+      responses:
+        "200":
+          description: Registered.
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/LDAPSourceEnvelope" }
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "409":
+          $ref: "#/components/responses/Conflict"
+        "422":
+          $ref: "#/components/responses/ValidationFailed"
+
+  /api/v1/directories/{id}:
+    get:
+      tags: [Directories]
+      operationId: getDirectory
+      summary: One directory.
+      parameters:
+        - $ref: "#/components/parameters/ID"
+      responses:
+        "200":
+          description: The directory.
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/LDAPSourceEnvelope" }
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+    put:
+      tags: [Directories]
+      operationId: updateDirectory
+      summary: Update a directory.
+      description: |
+        Omitting `bindPassword` leaves the stored credential alone, which is
+        what an edit form that cannot display it has to be able to express.
+        Sending it as an empty string clears it, which is how a source moves
+        to an anonymous bind.
+      parameters:
+        - $ref: "#/components/parameters/ID"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/LDAPSourceRequest" }
+      responses:
+        "200":
+          description: Updated.
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/LDAPSourceEnvelope" }
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "422":
+          $ref: "#/components/responses/ValidationFailed"
+
+  /api/v1/directories/{id}/enable:
+    post:
+      tags: [Directories]
+      operationId: enableDirectory
+      summary: Enable a directory.
+      parameters:
+        - $ref: "#/components/parameters/ID"
+      responses:
+        "200":
+          description: Enabled.
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/LDAPSourceEnvelope" }
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+
+  /api/v1/directories/{id}/disable:
+    post:
+      tags: [Directories]
+      operationId: disableDirectory
+      summary: Stop a directory synchronizing.
+      description: |
+        The accounts it brought in are left exactly as they are. The
+        connector and the people are different things, and one control doing
+        both would fight with reactivation.
+      parameters:
+        - $ref: "#/components/parameters/ID"
+      responses:
+        "200":
+          description: Disabled.
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/LDAPSourceEnvelope" }
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+
+  /api/v1/directories/{id}/sync:
+    post:
+      tags: [Directories]
+      operationId: syncDirectory
+      summary: Read the directory now.
+      description: |
+        Synchronous, and answers 200 even when the run failed: the
+        synchronization ran, it did not work, and `outcome` and `error` say
+        so. A 500 would make a console show a generic failure instead of the
+        counts and the reason.
+
+        A directory that returns no entries at all while this source owns
+        accounts fails the run and changes nothing. An empty result is far
+        more often a wrong base DN or user filter than a directory everybody
+        has left, and acting on it would deactivate every one of those
+        accounts.
+      parameters:
+        - $ref: "#/components/parameters/ID"
+      responses:
+        "200":
+          description: The run, successful or not.
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/LDAPSyncRunEnvelope" }
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "422":
+          $ref: "#/components/responses/ValidationFailed"
+
+  /api/v1/directories/{id}/runs:
+    get:
+      tags: [Directories]
+      operationId: listDirectoryRuns
+      summary: Recent synchronizations, newest first.
+      description: |
+        Kept per run rather than as a last-result field, because the question
+        asked after a directory integration misbehaves is not "what is the
+        state now" but "when did this start".
+      parameters:
+        - $ref: "#/components/parameters/ID"
+        - name: limit
+          in: query
+          schema: { type: integer, default: 20, maximum: 100 }
+      responses:
+        "200":
+          description: The runs.
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/LDAPSyncRunListEnvelope" }
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+
   /api/v1/scim-credentials:
     get:
       tags: [Provisioning]
@@ -2762,6 +2954,131 @@ components:
         - type: object
           properties:
             data: { $ref: "#/components/schemas/Me" }
+
+    LDAPSource:
+      type: object
+      description: |
+        A directory Portico reads accounts out of. The bind password is
+        absent by construction — the type has no field for it, so there is no
+        shape in which a forgotten annotation could leak one.
+      properties:
+        id: { type: string }
+        tenantId: { type: string }
+        name: { type: string }
+        host: { type: string }
+        port: { type: integer }
+        encryption: { type: string, enum: [none, starttls, tls] }
+        bindDn:
+          type: string
+          description: Empty means an anonymous bind.
+        hasBindPassword:
+          type: boolean
+          description: |
+            Whether a credential is stored. What a form needs in order to
+            show "set" and offer to replace, without the value being sent.
+        baseDn: { type: string }
+        userFilter: { type: string }
+        attrUsername: { type: string }
+        attrDisplayName: { type: string }
+        attrEmail: { type: string }
+        attrPhone: { type: string }
+        attrExternalId:
+          type: string
+          description: |
+            The reconciliation key's source attribute — objectGUID on Active
+            Directory, entryUUID on OpenLDAP.
+        organizationId: { type: string }
+        organizationName: { type: string }
+        status: { $ref: "#/components/schemas/Status" }
+        lastSyncedAt:
+          type: string
+          format: date-time
+          description: Absent until the first run finishes.
+        createdAt: { type: string, format: date-time }
+        updatedAt: { type: string, format: date-time }
+
+    LDAPSourceRequest:
+      type: object
+      required: [host, baseDn, userFilter, attrUsername, attrDisplayName, attrExternalId]
+      properties:
+        name: { type: string }
+        host:
+          type: string
+          description: The host name alone. Scheme, path, and port are refused here.
+        port: { type: integer, description: "Defaults to 389, or 636 for tls." }
+        encryption: { type: string, enum: [none, starttls, tls] }
+        bindDn: { type: string }
+        bindPassword:
+          type: string
+          description: |
+            Write-only. Omit it to leave the stored credential alone; send an
+            empty string to clear it. Storing one requires the deployment to
+            have PORTICO_ENCRYPTION_KEY set — otherwise the request is
+            refused rather than the value being written in the clear.
+        baseDn: { type: string }
+        userFilter: { type: string }
+        attrUsername: { type: string }
+        attrDisplayName: { type: string }
+        attrEmail: { type: string }
+        attrPhone: { type: string }
+        attrExternalId: { type: string }
+        organizationId:
+          type: string
+          description: Where synchronized accounts land. Optional.
+
+    LDAPSyncRun:
+      type: object
+      properties:
+        id: { type: string }
+        sourceId: { type: string }
+        actorName:
+          type: string
+          description: Empty for the scheduler, which is not a person.
+        startedAt: { type: string, format: date-time }
+        finishedAt: { type: string, format: date-time }
+        outcome: { type: string, enum: [RUNNING, SUCCEEDED, FAILED] }
+        createdCount: { type: integer }
+        updatedCount: { type: integer }
+        deactivatedCount: { type: integer }
+        skippedCount:
+          type: integer
+          description: |
+            Entries the directory returned that could not become an account —
+            no username, no external id, or a username an account this source
+            does not own already holds. Counted rather than fatal.
+        error: { type: string }
+
+    LDAPSourceEnvelope:
+      allOf:
+        - $ref: "#/components/schemas/Envelope"
+        - type: object
+          properties:
+            data: { $ref: "#/components/schemas/LDAPSource" }
+
+    LDAPSourceListEnvelope:
+      allOf:
+        - $ref: "#/components/schemas/Envelope"
+        - type: object
+          properties:
+            data:
+              type: array
+              items: { $ref: "#/components/schemas/LDAPSource" }
+
+    LDAPSyncRunEnvelope:
+      allOf:
+        - $ref: "#/components/schemas/Envelope"
+        - type: object
+          properties:
+            data: { $ref: "#/components/schemas/LDAPSyncRun" }
+
+    LDAPSyncRunListEnvelope:
+      allOf:
+        - $ref: "#/components/schemas/Envelope"
+        - type: object
+          properties:
+            data:
+              type: array
+              items: { $ref: "#/components/schemas/LDAPSyncRun" }
 
     UserPageEnvelope:
       allOf:

@@ -20,6 +20,7 @@ import (
 	"github.com/paraview/portico/internal/oidcp"
 	"github.com/paraview/portico/internal/samlp"
 	"github.com/paraview/portico/internal/scim"
+	"github.com/paraview/portico/internal/secrets"
 	"github.com/paraview/portico/internal/service"
 	"github.com/paraview/portico/internal/store"
 	"github.com/paraview/portico/internal/webhook"
@@ -132,6 +133,19 @@ func New(cfg *config.Config, opts ...Option) (*Server, error) {
 	groups.WithEvents(webhooks)
 
 	scimCredentials := service.NewSCIMCredentialService(st, audit)
+
+	// A nil vault when no key is configured, which is the default: the
+	// deployment runs, and refuses to store a bind password rather than
+	// storing one in the clear. See internal/secrets.
+	var vault *secrets.Vault
+	if len(cfg.EncryptionKey) > 0 {
+		vault, err = secrets.NewVault(cfg.EncryptionKey)
+		if err != nil {
+			_ = st.Close()
+			return nil, err
+		}
+	}
+	directories := service.NewDirectoryService(st, users, audit, webhooks, vault)
 	scimHandler := scim.NewHandler(users, groups, scimCredentials, cfg.PublicURL)
 
 	s := &Server{
@@ -139,7 +153,7 @@ func New(cfg *config.Config, opts ...Option) (*Server, error) {
 		store: st,
 		handler: handler.New(users, orgs, audit, settings, tenants, recovery, sessions,
 			clients, serviceProviders, samlKeys, casServices, scimCredentials,
-			webhooks, groups, providers, samlProviders, casServer),
+			directories, webhooks, groups, providers, samlProviders, casServer),
 		middleware:    auth.NewMiddleware(tokens, users, sessions),
 		metrics:       registry,
 		scim:          scimHandler,

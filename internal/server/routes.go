@@ -207,6 +207,20 @@ func (s *Server) routes() http.Handler {
 				r.Delete("/{id}", h.DeleteWebhook)
 			})
 
+			// Directories Portico reads accounts out of, which is the
+			// opposite direction from the SCIM credentials below: those let
+			// a directory push, these reach out and read.
+			r.Route("/directories", func(r chi.Router) {
+				r.Get("/", h.ListDirectories)
+				r.Post("/", h.CreateDirectory)
+				r.Get("/{id}", h.GetDirectory)
+				r.Put("/{id}", h.UpdateDirectory)
+				r.Post("/{id}/enable", h.EnableDirectory)
+				r.Post("/{id}/disable", h.DisableDirectory)
+				r.Post("/{id}/sync", h.SyncDirectory)
+				r.Get("/{id}/runs", h.ListDirectoryRuns)
+			})
+
 			r.Route("/scim-credentials", func(r chi.Router) {
 				r.Get("/", h.ListSCIMCredentials)
 				r.Post("/", h.CreateSCIMCredential)

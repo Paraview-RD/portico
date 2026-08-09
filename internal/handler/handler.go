@@ -33,6 +33,10 @@ type Handler struct {
 	// The credentials a directory authenticates with. The SCIM API itself
 	// lives in internal/scim; this layer only issues and revokes.
 	scimCredentials *service.SCIMCredentialService
+	// Directories accounts are pulled out of, which is the opposite
+	// direction from the SCIM credentials above: those let a directory push,
+	// this reaches out and reads.
+	directories *service.DirectoryService
 	// Outbound event subscriptions.
 	webhooks *service.WebhookService
 	// Groups: sets of people, as distinct from the organization chart.
@@ -61,6 +65,7 @@ func New(
 	samlKeys *service.SAMLKeyService,
 	casServices *service.CASService,
 	scimCredentials *service.SCIMCredentialService,
+	directories *service.DirectoryService,
 	webhooks *service.WebhookService,
 	groups *service.GroupService,
 	oidc *oidcp.Providers,
@@ -73,7 +78,8 @@ func New(
 		sessions: sessions,
 		clients:  clients, serviceProviders: serviceProviders,
 		samlKeys: samlKeys, casServices: casServices,
-		scimCredentials: scimCredentials, webhooks: webhooks, groups: groups,
+		scimCredentials: scimCredentials, directories: directories,
+		webhooks: webhooks, groups: groups,
 		oidc: oidc, saml: samlProviders, cas: casServer,
 	}
 }
