@@ -1447,6 +1447,15 @@ paths:
                     link, and a scheme that executes would be stored
                     cross-site scripting aimed at everyone who opens the
                     portal.
+                logoUri:
+                  type: string
+                  description: |
+                    The picture on this application's portal tile. Optional;
+                    without one the tile carries the first character of the
+                    name. Either an absolute http(s) URL or a path on this
+                    server such as /icons/wiki.svg — the second keeps the
+                    portal working with no outbound network and tells no
+                    third party who opened it.
       responses:
         "200":
           description: Registered, with the secret if it is confidential.
@@ -1505,6 +1514,8 @@ paths:
                 scopes:
                   type: array
                   items: { type: string }
+                launchUrl: { type: string }
+                logoUri: { type: string }
       responses:
         "200":
           description: Updated.
@@ -1611,6 +1622,7 @@ paths:
                 name: { type: string }
                 metadataXml: { type: string }
                 launchUrl: { type: string }
+                logoUri: { type: string }
       responses:
         "200":
           description: Registered.
@@ -1665,6 +1677,7 @@ paths:
                 name: { type: string }
                 metadataXml: { type: string }
                 launchUrl: { type: string }
+                logoUri: { type: string }
       responses:
         "200":
           description: Updated.
@@ -1745,6 +1758,7 @@ paths:
                 name: { type: string }
                 urlPrefix: { type: string, format: uri }
                 launchUrl: { type: string }
+                logoUri: { type: string }
       responses:
         "200":
           description: Registered.
@@ -1792,6 +1806,7 @@ paths:
                 name: { type: string }
                 urlPrefix: { type: string, format: uri }
                 launchUrl: { type: string }
+                logoUri: { type: string }
       responses:
         "200":
           description: Updated.
@@ -2437,6 +2452,12 @@ components:
             Where a person opens this application, for the portal. Empty when
             none was given. Not a redirect URI: that is where a code is
             delivered mid-flow, and opening it directly produces an error.
+        logoUri:
+          type: string
+          description: |
+            The picture on this application's portal tile. Empty when none
+            was given, in which case the tile carries the first character of
+            the name.
         confidential:
           type: boolean
           description: |
@@ -2473,6 +2494,7 @@ components:
         name: { type: string }
         metadataXml: { type: string }
         launchUrl: { type: string }
+        logoUri: { type: string }
         acsUrls:
           type: array
           items: { type: string }
@@ -2489,6 +2511,7 @@ components:
         name: { type: string }
         urlPrefix: { type: string }
         launchUrl: { type: string }
+        logoUri: { type: string }
         status: { $ref: "#/components/schemas/Status" }
         createdAt: { type: string, format: date-time }
         updatedAt: { type: string, format: date-time }
@@ -2503,6 +2526,12 @@ components:
         name: { type: string }
         protocol: { $ref: "#/components/schemas/Protocol" }
         launchUrl: { type: string, format: uri }
+        logoUri:
+          type: string
+          description: |
+            Empty when none was registered. The screen falls back to a
+            lettered tile rather than to a broken image, so absence here is a
+            normal answer.
 
     Protocol:
       type: string

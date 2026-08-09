@@ -37,6 +37,8 @@ type CasService struct {
 	UpdatedAt time.Time
 	// Where a person opens this application. Not the URL prefix.
 	LaunchUrl string
+	// Picture for this application's portal tile. Absolute http(s) or a path on this server.
+	LogoUri string
 }
 
 type CasTicket struct {
@@ -108,6 +110,8 @@ type OauthClient struct {
 	UpdatedAt              time.Time
 	// Where a person opens this application. Not a redirect URI.
 	LaunchUrl string
+	// Picture for this application's portal tile. Absolute http(s) or a path on this server.
+	LogoUri string
 }
 
 type OauthRefreshToken struct {
@@ -200,6 +204,8 @@ type SamlServiceProvider struct {
 	UpdatedAt   time.Time
 	// Where a person opens this application. Not an assertion consumer service.
 	LaunchUrl string
+	// Picture for this application's portal tile. Absolute http(s) or a path on this server.
+	LogoUri string
 }
 
 type SamlSigningKey struct {

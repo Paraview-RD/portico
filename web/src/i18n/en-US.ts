@@ -61,6 +61,9 @@ export const enUS = {
     "No application has a launch address yet. An administrator can add one when registering it.",
   "portal.account": "Your account",
   "portal.recentSignIns": "Recent sign-ins",
+  "applications.logoUri": "Icon",
+  "applications.logoUriHelp":
+    "The picture on this application's tile. Either an address on this server, such as /icons/wiki.svg, or an absolute https URL. Without one the tile carries the first character of the name.",
   "applications.launchUrl": "Launch address",
   "applications.launchUrlHelp":
     "Where a person opens this application from the home screen. Optional, and not a redirect address — opening one of those directly produces an error.",

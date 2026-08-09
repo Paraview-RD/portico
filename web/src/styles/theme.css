@@ -123,6 +123,24 @@
      The rule is the content, not the element: a form of plain fields uses
      the width above, a form that argues with the reader uses this one. */
   --prose-form-width: 40rem;
+
+  /* --- Application tiles ----------------------------------------------
+     Backgrounds for the lettered tile an application gets when it has no
+     logo of its own. Six, picked from the name so the same application is
+     the same colour on every visit and two applications side by side are
+     unlikely to match — the colour carries no meaning beyond "this is a
+     different one from that one", which is exactly what makes a wall of
+     tiles scannable.
+
+     Deep enough that white text sits on them at the contrast a body of
+     text would need, because the character on the tile is often the only
+     thing distinguishing two similarly named systems. */
+  --color-tile-1: #4f46e5;
+  --color-tile-2: #0891b2;
+  --color-tile-3: #059669;
+  --color-tile-4: #d97706;
+  --color-tile-5: #db2777;
+  --color-tile-6: #7c3aed;
 }
 
 [data-theme="dark"] {

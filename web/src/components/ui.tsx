@@ -658,3 +658,93 @@ export function PageHeader({
     </div>
   );
 }
+
+/* ------------------------------------------------------------ App icon */
+
+/**
+ * The picture on an application's tile, with a fallback that always works.
+ *
+ * Two shapes, in order of preference. A registered logo is rendered as an
+ * image; anything else — no logo, or a logo that fails to load — becomes a
+ * lettered tile in a colour derived from the name.
+ *
+ * The fallback is not a placeholder for a missing feature. Most deployments
+ * will never upload a logo for an internal tool, and a wall of identical grey
+ * squares would be worse than no icons at all. A coloured initial is what
+ * makes a portal scannable: people find an application by its shape and
+ * colour long before they finish reading its name.
+ *
+ * **Rendered through `<img>`, and that matters.** A logo may be an SVG, and
+ * an SVG is a document that can carry script. A browser does not run that
+ * script when the file is loaded as an image, which is the entire reason
+ * accepting a whole SVG here is safe. Inlining one instead — to recolour it
+ * with CSS, say — would turn every registered logo into stored cross-site
+ * scripting on everybody's home screen.
+ */
+export function AppIcon({
+  name,
+  src,
+  size = 40,
+}: {
+  name: string;
+  src?: string;
+  size?: number;
+}) {
+  const [failed, setFailed] = useState(false);
+
+  const dimensions = { width: size, height: size };
+
+  if (src && !failed) {
+    return (
+      <img
+        src={src}
+        // Decorative: the application's name is always beside it, and a
+        // screen reader announcing it twice is worse than not at all.
+        alt=""
+        width={size}
+        height={size}
+        loading="lazy"
+        // An external logo would otherwise tell its host the address of the
+        // page every visitor opened it from.
+        referrerPolicy="no-referrer"
+        onError={() => setFailed(true)}
+        className="shrink-0 rounded-[var(--radius-sm)] object-cover"
+        style={dimensions}
+      />
+    );
+  }
+
+  // The first character, which for a Chinese name is a whole word and for a
+  // Latin one an initial — both of which are what somebody expects on a tile.
+  const initial = [...name.trim()][0] ?? "?";
+
+  return (
+    <span
+      aria-hidden="true"
+      className="flex shrink-0 items-center justify-center rounded-[var(--radius-sm)] font-[weight:var(--font-weight-bold)] text-[var(--color-fg-on-primary)]"
+      style={{
+        ...dimensions,
+        background: `var(--color-tile-${tileColour(name)})`,
+        fontSize: Math.round(size * 0.45),
+      }}
+    >
+      {initial}
+    </span>
+  );
+}
+
+/**
+ * Which of the six tile colours a name gets, 1-based.
+ *
+ * Any stable function of the name would do. What it must not be is random or
+ * index-based: an application that changes colour when the list is re-sorted,
+ * or between two visits, is worse than one with no colour at all, because
+ * people navigate by it.
+ */
+function tileColour(name: string): number {
+  let hash = 0;
+  for (const character of name) {
+    hash = (hash * 31 + character.codePointAt(0)!) % 100000;
+  }
+  return (hash % 6) + 1;
+}

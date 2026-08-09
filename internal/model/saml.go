@@ -34,6 +34,9 @@ type SAMLServiceProvider struct {
 	// Not an assertion consumer service, which is where an assertion is
 	// posted mid-flow.
 	LaunchURL string `json:"launchUrl"`
+	// LogoURI is the picture on this application's portal tile. Empty is
+	// normal and produces a lettered tile instead.
+	LogoURI string `json:"logoUri"`
 	// ACSURLs are the endpoints assertions may be delivered to, extracted
 	// from the metadata for display. They are not what the protocol matches
 	// against — that is the document itself.

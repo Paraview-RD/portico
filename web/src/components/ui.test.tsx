@@ -1,7 +1,7 @@
 import { render, screen } from "@testing-library/react";
 import { describe, expect, it } from "vitest";
 
-import { Field, Input } from "./ui";
+import { AppIcon, Field, Input } from "./ui";
 
 /**
  * Field's accessible name and description.
@@ -62,5 +62,49 @@ describe("Field", () => {
     // would point assistive technology at an element that is not on the page
     // — which is announced as nothing at all, losing the error too.
     expect(input).toHaveAccessibleDescription("That address is not valid.");
+  });
+});
+
+/**
+ * The application tile's picture.
+ *
+ * The security property is the rendering, not the value: a logo may be an
+ * SVG, and an SVG is a document that can carry script. A browser does not run
+ * that script when the file is loaded through `<img>`, which is the entire
+ * reason the server is willing to accept a whole SVG document here.
+ *
+ * So this asserts the element type. It looks like a test of an implementation
+ * detail and is not: a later change that inlines the file to recolour it with
+ * CSS would keep every visible behaviour and turn every registered logo into
+ * stored cross-site scripting on everybody's home screen.
+ */
+describe("AppIcon", () => {
+  it("renders a registered logo through an image element", () => {
+    const { container } = render(
+      <AppIcon name="Internal Wiki" src="/icons/wiki.svg" />,
+    );
+
+    const img = container.querySelector("img");
+    expect(img, "a logo is not being rendered through <img>").not.toBeNull();
+    expect(img).toHaveAttribute("src", "/icons/wiki.svg");
+    // An external logo would otherwise report the address of the page every
+    // visitor opened it from to whoever hosts it.
+    expect(img).toHaveAttribute("referrerpolicy", "no-referrer");
+  });
+
+  it("falls back to the first character when there is no logo", () => {
+    const { container } = render(<AppIcon name="内部 Wiki" />);
+
+    expect(container.querySelector("img")).toBeNull();
+    expect(container.textContent).toBe("内");
+  });
+
+  it("gives the same name the same colour every time", () => {
+    // Not decoration: people navigate a wall of tiles by colour, so one that
+    // changes between visits or when the list is re-sorted is worse than no
+    // colour at all.
+    const first = render(<AppIcon name="Helpdesk" />).container.innerHTML;
+    const second = render(<AppIcon name="Helpdesk" />).container.innerHTML;
+    expect(first).toBe(second);
   });
 });

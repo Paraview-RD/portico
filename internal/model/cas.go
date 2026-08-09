@@ -23,7 +23,10 @@ type CASService struct {
 	URLPrefix string `json:"urlPrefix"`
 	// LaunchURL is where a person opens this application, for the portal.
 	// Not the prefix above, which is a matching rule.
-	LaunchURL string    `json:"launchUrl"`
+	LaunchURL string `json:"launchUrl"`
+	// LogoURI is the picture on this application's portal tile. Empty is
+	// normal and produces a lettered tile instead.
+	LogoURI   string    `json:"logoUri"`
 	Status    Status    `json:"status"`
 	CreatedAt time.Time `json:"createdAt"`
 	UpdatedAt time.Time `json:"updatedAt"`

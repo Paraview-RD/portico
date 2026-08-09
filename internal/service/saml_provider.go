@@ -58,6 +58,9 @@ type RegisterSPInput struct {
 	// LaunchURL is optional: an application without one still signs people
 	// in, it just does not appear in the portal as something to open.
 	LaunchURL string
+	// LogoURI is optional: without one the portal tile carries the first
+	// character of the name.
+	LogoURI string
 }
 
 // Register adds a service provider to the actor's tenant.
@@ -79,6 +82,10 @@ func (s *SAMLServiceProviderService) Register(ctx context.Context, actor auth.Pr
 	if err != nil {
 		return model.SAMLServiceProvider{}, err
 	}
+	logoURI, err := normalizeLogoURI(in.LogoURI)
+	if err != nil {
+		return model.SAMLServiceProvider{}, err
+	}
 
 	err = s.store.ForTenant(tenantID).CreateSAMLServiceProvider(ctx, sqlcgen.CreateSAMLServiceProviderParams{
 		ID:          uuid.NewString(),
@@ -86,6 +93,7 @@ func (s *SAMLServiceProviderService) Register(ctx context.Context, actor auth.Pr
 		Name:        name,
 		MetadataXml: in.MetadataXML,
 		LaunchUrl:   launchURL,
+		LogoUri:     logoURI,
 		Status:      string(model.StatusActive),
 		CreatedAt:   now,
 		UpdatedAt:   now,
@@ -121,6 +129,7 @@ type UpdateSPInput struct {
 	MetadataXML string
 	Name        string
 	LaunchURL   string
+	LogoURI     string
 }
 
 // Update replaces a service provider's name and metadata.
@@ -161,9 +170,13 @@ func (s *SAMLServiceProviderService) Update(ctx context.Context, actor auth.Prin
 	if err != nil {
 		return model.SAMLServiceProvider{}, err
 	}
+	logoURI, err := normalizeLogoURI(in.LogoURI)
+	if err != nil {
+		return model.SAMLServiceProvider{}, err
+	}
 
 	err = s.store.ForTenant(tenantID).UpdateSAMLServiceProvider(
-		ctx, entityID, name, metadata, launchURL, store.Now())
+		ctx, entityID, name, metadata, launchURL, logoURI, store.Now())
 	if err != nil {
 		return model.SAMLServiceProvider{}, fmt.Errorf("update service provider: %w", err)
 	}
@@ -381,6 +394,7 @@ func toServiceProvider(row sqlcgen.SamlServiceProvider) model.SAMLServiceProvide
 		Name:        row.Name,
 		MetadataXML: row.MetadataXml,
 		LaunchURL:   row.LaunchUrl,
+		LogoURI:     row.LogoUri,
 		Status:      model.Status(row.Status),
 		CreatedAt:   row.CreatedAt,
 		UpdatedAt:   row.UpdatedAt,

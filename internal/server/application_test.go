@@ -1,6 +1,7 @@
 package server_test
 
 import (
+	"fmt"
 	"net/http"
 	"net/http/httptest"
 	"net/url"
@@ -827,6 +828,60 @@ func TestEachProtocolSupportsTheSameOperations(t *testing.T) {
 			if res.Status != http.StatusOK {
 				t.Errorf("POST %s/{id}/%s = %d %s", base, action, res.Status, res.Code)
 			}
+		}
+	}
+}
+
+// A logo address is a picture rendered on everybody's home screen, so what
+// it may be is narrower than what a URL parser will accept.
+//
+// The protocol-relative case is the one this exists for. `//host/logo.svg`
+// starts with a slash and looks like a path, so a check written as "does it
+// begin with /" waves it through — and the browser then fetches it from
+// host, which is the outbound request the path form exists to avoid.
+func TestLogoAddressAcceptsOnlyPicturesThisServerWillVouchFor(t *testing.T) {
+	api := newAPITest(t)
+	token := api.adminToken()
+
+	accepted := []string{
+		"",                // no logo, the common case
+		"/icons/wiki.svg", // shipped with this deployment
+		"https://cdn.example.test/l.png",
+		"http://intranet.example.test/l.png", // an internal tool on plain http
+	}
+	refused := []string{
+		"//evil.example.test/logo.svg", // protocol-relative, not a path
+		"javascript:alert(1)",
+		"data:image/svg+xml;base64,PHN2Zz48L3N2Zz4=",
+		"ftp://files.example.test/logo.png",
+	}
+
+	register := func(clientID, logo string) response {
+		return api.do(http.MethodPost, "/api/v1/applications/oauth-clients", token, map[string]any{
+			"clientId":     clientID,
+			"name":         "Logo " + clientID,
+			"redirectUris": []string{"https://app.example.test/callback"},
+			"logoUri":      logo,
+		})
+	}
+
+	for i, logo := range accepted {
+		res := register(fmt.Sprintf("logo-ok-%d", i), logo)
+		if res.Status != http.StatusOK {
+			t.Errorf("logo %q was refused (%d %s), but it is a picture this "+
+				"server can vouch for", logo, res.Status, res.Code)
+		}
+	}
+
+	for i, logo := range refused {
+		res := register(fmt.Sprintf("logo-bad-%d", i), logo)
+		if res.Status == http.StatusOK {
+			t.Errorf("logo %q was accepted; it either executes, embeds, or "+
+				"loads from a host this deployment did not choose", logo)
+			continue
+		}
+		if res.Code != "INVALID_LOGO_URI" {
+			t.Errorf("logo %q refused with %s, want INVALID_LOGO_URI", logo, res.Code)
 		}
 	}
 }

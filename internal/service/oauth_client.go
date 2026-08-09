@@ -64,6 +64,9 @@ type RegisterClientInput struct {
 	// LaunchURL is optional: an application without one still signs people
 	// in, it just does not appear in the portal as something to open.
 	LaunchURL string
+	// LogoURI is optional: without one the portal tile carries the first
+	// character of the name.
+	LogoURI string
 }
 
 // RegisteredClient is a client together with the secret generated for it,
@@ -150,6 +153,10 @@ func (s *OAuthClientService) Register(ctx context.Context, actor auth.Principal,
 	if err != nil {
 		return RegisteredClient{}, err
 	}
+	logoURI, err := normalizeLogoURI(in.LogoURI)
+	if err != nil {
+		return RegisteredClient{}, err
+	}
 
 	err = s.store.ForTenant(tenantID).CreateOAuthClient(ctx, sqlcgen.CreateOAuthClientParams{
 		ID:                     id,
@@ -163,6 +170,7 @@ func (s *OAuthClientService) Register(ctx context.Context, actor auth.Principal,
 		GrantTypes:             grantTypes,
 		Scopes:                 scopes,
 		LaunchUrl:              launchURL,
+		LogoUri:                logoURI,
 		Status:                 string(model.StatusActive),
 		CreatedAt:              now,
 		UpdatedAt:              now,
@@ -204,6 +212,7 @@ type UpdateClientInput struct {
 	PostLogoutRedirectURIs []string
 	Scopes                 []string
 	LaunchURL              string
+	LogoURI                string
 }
 
 // Update changes a relying party's settings.
@@ -251,6 +260,10 @@ func (s *OAuthClientService) Update(ctx context.Context, actor auth.Principal, c
 	if err != nil {
 		return model.OAuthClient{}, err
 	}
+	logoURI, err := normalizeLogoURI(in.LogoURI)
+	if err != nil {
+		return model.OAuthClient{}, err
+	}
 
 	err = s.store.ForTenant(tenantID).UpdateOAuthClient(ctx, sqlcgen.UpdateOAuthClientParams{
 		ClientID:               clientID,
@@ -260,6 +273,7 @@ func (s *OAuthClientService) Update(ctx context.Context, actor auth.Principal, c
 		PostLogoutRedirectUris: emptyIfNil(in.PostLogoutRedirectURIs),
 		Scopes:                 scopes,
 		LaunchUrl:              launchURL,
+		LogoUri:                logoURI,
 		UpdatedAt:              store.Now(),
 	})
 	if err != nil {
@@ -461,6 +475,7 @@ func toOAuthClient(row sqlcgen.OauthClient) model.OAuthClient {
 		ClientID:               row.ClientID,
 		Name:                   row.Name,
 		LaunchURL:              row.LaunchUrl,
+		LogoURI:                row.LogoUri,
 		Confidential:           row.SecretHash != nil,
 		ApplicationType:        row.ApplicationType,
 		AuthMethod:             row.AuthMethod,

@@ -25,6 +25,7 @@ import type {
 } from "../api/types";
 import {
   Alert,
+  AppIcon,
   Badge,
   Button,
   Card,
@@ -223,7 +224,16 @@ export function ApplicationsPage() {
               ) : (
                 clients.map((client) => (
                   <tr key={client.id}>
-                    <Td>{client.name}</Td>
+                    <Td>
+                      <span className="flex items-center gap-2.5">
+                        <AppIcon
+                          name={client.name}
+                          src={client.logoUri}
+                          size={24}
+                        />
+                        {client.name}
+                      </span>
+                    </Td>
                     <Td>
                       <code className="text-[length:var(--font-size-sm)] text-[var(--color-fg-muted)]">
                         {client.clientId}
@@ -322,7 +332,16 @@ export function ApplicationsPage() {
               ) : (
                 providers.map((provider) => (
                   <tr key={provider.id}>
-                    <Td>{provider.name}</Td>
+                    <Td>
+                      <span className="flex items-center gap-2.5">
+                        <AppIcon
+                          name={provider.name}
+                          src={provider.logoUri}
+                          size={24}
+                        />
+                        {provider.name}
+                      </span>
+                    </Td>
                     <Td>
                       <code className="text-[length:var(--font-size-sm)] text-[var(--color-fg-muted)]">
                         {provider.entityId}
@@ -390,7 +409,12 @@ export function ApplicationsPage() {
               ) : (
                 casServices.map((svc) => (
                   <tr key={svc.id}>
-                    <Td>{svc.name}</Td>
+                    <Td>
+                      <span className="flex items-center gap-2.5">
+                        <AppIcon name={svc.name} src={svc.logoUri} size={24} />
+                        {svc.name}
+                      </span>
+                    </Td>
                     <Td>
                       <code className="text-[length:var(--font-size-sm)] text-[var(--color-fg-muted)]">
                         {svc.urlPrefix}
@@ -579,6 +603,7 @@ function ClientFormDialog({
     postLogoutRedirectUris: "",
     scopes: "openid profile email",
     launchUrl: "",
+    logoUri: "",
   });
   const [error, setError] = useState("");
   const [submitting, setSubmitting] = useState(false);
@@ -595,6 +620,7 @@ function ClientFormDialog({
       postLogoutRedirectUris: (client?.postLogoutRedirectUris ?? []).join("\n"),
       scopes: (client?.scopes ?? ["openid", "profile", "email"]).join(" "),
       launchUrl: client?.launchUrl ?? "",
+      logoUri: client?.logoUri ?? "",
     });
   }, [open, client]);
 
@@ -610,6 +636,7 @@ function ClientFormDialog({
         postLogoutRedirectUris: lines(form.postLogoutRedirectUris),
         scopes: form.scopes.split(/\s+/).filter((s) => s !== ""),
         launchUrl: form.launchUrl,
+        logoUri: form.logoUri,
       };
       if (isEdit && client) {
         await applicationApi.oauth.update(client.clientId, shared);
@@ -766,6 +793,22 @@ function ClientFormDialog({
           />
         </Field>
 
+        <Field
+          label={`${t("applications.logoUri")} (${t("common.optional")})`}
+          hint={t("applications.logoUriHelp")}
+        >
+          <div className="flex items-center gap-3">
+            <AppIcon name={form.name || "?"} src={form.logoUri} size={36} />
+            <Input
+              value={form.logoUri}
+              onChange={(e) =>
+                setForm((f) => ({ ...f, logoUri: e.target.value }))
+              }
+              placeholder="/icons/wiki.svg"
+            />
+          </div>
+        </Field>
+
         {error && <Alert tone="danger">{error}</Alert>}
       </form>
     </Modal>
@@ -791,6 +834,7 @@ function ServiceProviderFormDialog({
     name: "",
     metadataXml: "",
     launchUrl: "",
+    logoUri: "",
   });
   const [error, setError] = useState("");
   const [submitting, setSubmitting] = useState(false);
@@ -802,6 +846,7 @@ function ServiceProviderFormDialog({
       name: provider?.name ?? "",
       metadataXml: provider?.metadataXml ?? "",
       launchUrl: provider?.launchUrl ?? "",
+      logoUri: provider?.logoUri ?? "",
     });
   }, [open, provider]);
 
@@ -917,6 +962,22 @@ function ServiceProviderFormDialog({
           />
         </Field>
 
+        <Field
+          label={`${t("applications.logoUri")} (${t("common.optional")})`}
+          hint={t("applications.logoUriHelp")}
+        >
+          <div className="flex items-center gap-3">
+            <AppIcon name={form.name || "?"} src={form.logoUri} size={36} />
+            <Input
+              value={form.logoUri}
+              onChange={(e) =>
+                setForm((f) => ({ ...f, logoUri: e.target.value }))
+              }
+              placeholder="/icons/wiki.svg"
+            />
+          </div>
+        </Field>
+
         {error && <Alert tone="danger">{error}</Alert>}
       </form>
     </Modal>
@@ -942,6 +1003,7 @@ function CASFormDialog({
     name: "",
     urlPrefix: "",
     launchUrl: "",
+    logoUri: "",
   });
   const [error, setError] = useState("");
   const [submitting, setSubmitting] = useState(false);
@@ -953,6 +1015,7 @@ function CASFormDialog({
       name: service?.name ?? "",
       urlPrefix: service?.urlPrefix ?? "",
       launchUrl: service?.launchUrl ?? "",
+      logoUri: service?.logoUri ?? "",
     });
   }, [open, service]);
 
@@ -1028,6 +1091,22 @@ function CASFormDialog({
             }
             placeholder="https://app.example.com/"
           />
+        </Field>
+
+        <Field
+          label={`${t("applications.logoUri")} (${t("common.optional")})`}
+          hint={t("applications.logoUriHelp")}
+        >
+          <div className="flex items-center gap-3">
+            <AppIcon name={form.name || "?"} src={form.logoUri} size={36} />
+            <Input
+              value={form.logoUri}
+              onChange={(e) =>
+                setForm((f) => ({ ...f, logoUri: e.target.value }))
+              }
+              placeholder="/icons/wiki.svg"
+            />
+          </div>
         </Field>
 
         {error && <Alert tone="danger">{error}</Alert>}

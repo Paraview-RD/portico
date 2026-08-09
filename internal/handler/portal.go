@@ -21,6 +21,10 @@ type portalApplication struct {
 	// portal is often asking which registration a tile came from.
 	Protocol  string `json:"protocol"`
 	LaunchURL string `json:"launchUrl"`
+	// LogoURI is the picture for this tile, empty when none was registered.
+	// The screen falls back to a lettered tile rather than to a broken
+	// image, so absence here is a normal answer and not a missing field.
+	LogoURI string `json:"logoUri"`
 }
 
 // PortalApplications lists the applications a person can open.
@@ -54,6 +58,7 @@ func (h *Handler) PortalApplications(w http.ResponseWriter, r *http.Request) {
 		if openable(client.Status, client.LaunchURL) {
 			applications = append(applications, portalApplication{
 				Name: client.Name, Protocol: "oauth", LaunchURL: client.LaunchURL,
+				LogoURI: client.LogoURI,
 			})
 		}
 	}
@@ -67,6 +72,7 @@ func (h *Handler) PortalApplications(w http.ResponseWriter, r *http.Request) {
 		if openable(provider.Status, provider.LaunchURL) {
 			applications = append(applications, portalApplication{
 				Name: provider.Name, Protocol: "saml", LaunchURL: provider.LaunchURL,
+				LogoURI: provider.LogoURI,
 			})
 		}
 	}
@@ -80,6 +86,7 @@ func (h *Handler) PortalApplications(w http.ResponseWriter, r *http.Request) {
 		if openable(svc.Status, svc.LaunchURL) {
 			applications = append(applications, portalApplication{
 				Name: svc.Name, Protocol: "cas", LaunchURL: svc.LaunchURL,
+				LogoURI: svc.LogoURI,
 			})
 		}
 	}

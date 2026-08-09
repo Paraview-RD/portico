@@ -142,6 +142,8 @@ export const errorsZhCN: Record<keyof typeof errorsEnUS, string> = {
 
   // --- 设置与筛选 ---
   INVALID_LAUNCH_URL: "访问地址必须是 http 或 https 的网址。",
+  INVALID_LOGO_URI:
+    "图标地址必须是 http 或 https 的网址，或本服务器上的路径（如 /icons/wiki.svg）。",
   INVALID_NAME: "名称不能为空。",
   INVALID_SETTINGS: "设置取值不合法。",
   INVALID_LOG_KIND: "日志类型不合法。",

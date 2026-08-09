@@ -66,7 +66,12 @@ type OAuthClient struct {
 	// Not a redirect URI: that is where a code is delivered mid-flow, and
 	// opening it directly produces an error rather than the application.
 	// Empty when nobody supplied one, which is allowed.
-	LaunchURL              string   `json:"launchUrl"`
+	LaunchURL string `json:"launchUrl"`
+	// LogoURI is the picture on this application's portal tile. Named after
+	// RFC 7591's field of the same name, which is what a client's own
+	// registration metadata calls it. Empty is normal and produces a
+	// lettered tile instead.
+	LogoURI                string   `json:"logoUri"`
 	RedirectURIs           []string `json:"redirectUris"`
 	PostLogoutRedirectURIs []string `json:"postLogoutRedirectUris"`
 	GrantTypes             []string `json:"grantTypes"`

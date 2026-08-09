@@ -59,6 +59,9 @@ type RegisterCASInput struct {
 	// LaunchURL is optional: an application without one still signs people
 	// in, it just does not appear in the portal as something to open.
 	LaunchURL string
+	// LogoURI is optional: without one the portal tile carries the first
+	// character of the name.
+	LogoURI string
 }
 
 // Register adds a CAS service to the actor's tenant.
@@ -80,12 +83,17 @@ func (s *CASService) Register(ctx context.Context, actor auth.Principal, in Regi
 	if err != nil {
 		return model.CASService{}, err
 	}
+	logoURI, err := normalizeLogoURI(in.LogoURI)
+	if err != nil {
+		return model.CASService{}, err
+	}
 
 	err = s.store.ForTenant(tenantID).CreateCASService(ctx, sqlcgen.CreateCASServiceParams{
 		ID:        uuid.NewString(),
 		Name:      name,
 		UrlPrefix: prefix,
 		LaunchUrl: launchURL,
+		LogoUri:   logoURI,
 		Status:    string(model.StatusActive),
 		CreatedAt: now,
 		UpdatedAt: now,
@@ -120,6 +128,7 @@ type UpdateCASInput struct {
 	// without de-registering it.
 	URLPrefix string
 	LaunchURL string
+	LogoURI   string
 }
 
 // Update changes a CAS registration's name and URL prefix.
@@ -149,9 +158,13 @@ func (s *CASService) Update(ctx context.Context, actor auth.Principal, currentPr
 	if err != nil {
 		return model.CASService{}, err
 	}
+	logoURI, err := normalizeLogoURI(in.LogoURI)
+	if err != nil {
+		return model.CASService{}, err
+	}
 
 	err = s.store.ForTenant(tenantID).UpdateCASService(
-		ctx, currentPrefix, name, normalized, launchURL, store.Now())
+		ctx, currentPrefix, name, normalized, launchURL, logoURI, store.Now())
 	if err != nil {
 		if store.IsUniqueViolation(err) {
 			return model.CASService{}, ErrCASServiceTaken
@@ -458,6 +471,7 @@ func toCASService(row sqlcgen.CasService) model.CASService {
 		TenantID:  row.TenantID,
 		Name:      row.Name,
 		LaunchURL: row.LaunchUrl,
+		LogoURI:   row.LogoUri,
 		URLPrefix: row.UrlPrefix,
 		Status:    model.Status(row.Status),
 		CreatedAt: row.CreatedAt,

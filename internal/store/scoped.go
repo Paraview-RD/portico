@@ -624,10 +624,11 @@ func (s *Scoped) UpdateSAMLServiceProviderStatus(ctx context.Context, entityID, 
 }
 
 // UpdateSAMLServiceProvider replaces a service provider's name and metadata.
-func (s *Scoped) UpdateSAMLServiceProvider(ctx context.Context, entityID, name, metadataXML, launchURL string, now time.Time) error {
+func (s *Scoped) UpdateSAMLServiceProvider(ctx context.Context, entityID, name, metadataXML, launchURL, logoURI string, now time.Time) error {
 	return s.q.UpdateSAMLServiceProvider(ctx, sqlcgen.UpdateSAMLServiceProviderParams{
 		TenantID: s.tenantID, EntityID: entityID,
-		Name: name, MetadataXml: metadataXML, LaunchUrl: launchURL, UpdatedAt: now,
+		Name: name, MetadataXml: metadataXML, LaunchUrl: launchURL,
+		LogoUri: logoURI, UpdatedAt: now,
 	})
 }
 
@@ -696,10 +697,11 @@ func (s *Scoped) UpdateCASServiceStatus(ctx context.Context, prefix, status stri
 // UpdateCASService changes a registration's name and URL prefix. The
 // registration to change is named by its current prefix; UrlPrefix is the
 // new one.
-func (s *Scoped) UpdateCASService(ctx context.Context, currentPrefix, name, newPrefix, launchURL string, now time.Time) error {
+func (s *Scoped) UpdateCASService(ctx context.Context, currentPrefix, name, newPrefix, launchURL, logoURI string, now time.Time) error {
 	return s.q.UpdateCASService(ctx, sqlcgen.UpdateCASServiceParams{
 		TenantID: s.tenantID, UrlPrefix_2: currentPrefix,
-		Name: name, UrlPrefix: newPrefix, LaunchUrl: launchURL, UpdatedAt: now,
+		Name: name, UrlPrefix: newPrefix, LaunchUrl: launchURL,
+		LogoUri: logoURI, UpdatedAt: now,
 	})
 }
 

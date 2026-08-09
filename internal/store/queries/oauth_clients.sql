@@ -3,8 +3,8 @@ INSERT INTO oauth_clients (
     id, tenant_id, client_id, name, secret_hash,
     application_type, auth_method,
     redirect_uris, post_logout_redirect_uris, grant_types, scopes,
-    launch_url, status, created_at, updated_at
-) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15);
+    launch_url, logo_uri, status, created_at, updated_at
+) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16);
 
 -- name: GetOAuthClient :one
 SELECT * FROM oauth_clients WHERE tenant_id = $1 AND client_id = $2 LIMIT 1;
@@ -28,8 +28,9 @@ SET name = $1,
     post_logout_redirect_uris = $4,
     scopes = $5,
     launch_url = $6,
-    updated_at = $7
-WHERE tenant_id = $8 AND client_id = $9;
+    logo_uri = $7,
+    updated_at = $8
+WHERE tenant_id = $9 AND client_id = $10;
 
 -- name: UpdateOAuthClientSecret :exec
 UPDATE oauth_clients

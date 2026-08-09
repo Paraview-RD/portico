@@ -17,8 +17,8 @@ INSERT INTO oauth_clients (
     id, tenant_id, client_id, name, secret_hash,
     application_type, auth_method,
     redirect_uris, post_logout_redirect_uris, grant_types, scopes,
-    launch_url, status, created_at, updated_at
-) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15)
+    launch_url, logo_uri, status, created_at, updated_at
+) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16)
 `
 
 type CreateOAuthClientParams struct {
@@ -34,6 +34,7 @@ type CreateOAuthClientParams struct {
 	GrantTypes             []string
 	Scopes                 []string
 	LaunchUrl              string
+	LogoUri                string
 	Status                 string
 	CreatedAt              time.Time
 	UpdatedAt              time.Time
@@ -53,6 +54,7 @@ func (q *Queries) CreateOAuthClient(ctx context.Context, arg CreateOAuthClientPa
 		pq.Array(arg.GrantTypes),
 		pq.Array(arg.Scopes),
 		arg.LaunchUrl,
+		arg.LogoUri,
 		arg.Status,
 		arg.CreatedAt,
 		arg.UpdatedAt,
@@ -61,7 +63,7 @@ func (q *Queries) CreateOAuthClient(ctx context.Context, arg CreateOAuthClientPa
 }
 
 const getOAuthClient = `-- name: GetOAuthClient :one
-SELECT id, tenant_id, client_id, name, secret_hash, application_type, auth_method, redirect_uris, post_logout_redirect_uris, grant_types, scopes, status, created_at, updated_at, launch_url FROM oauth_clients WHERE tenant_id = $1 AND client_id = $2 LIMIT 1
+SELECT id, tenant_id, client_id, name, secret_hash, application_type, auth_method, redirect_uris, post_logout_redirect_uris, grant_types, scopes, status, created_at, updated_at, launch_url, logo_uri FROM oauth_clients WHERE tenant_id = $1 AND client_id = $2 LIMIT 1
 `
 
 type GetOAuthClientParams struct {
@@ -88,12 +90,13 @@ func (q *Queries) GetOAuthClient(ctx context.Context, arg GetOAuthClientParams) 
 		&i.CreatedAt,
 		&i.UpdatedAt,
 		&i.LaunchUrl,
+		&i.LogoUri,
 	)
 	return i, err
 }
 
 const listOAuthClients = `-- name: ListOAuthClients :many
-SELECT id, tenant_id, client_id, name, secret_hash, application_type, auth_method, redirect_uris, post_logout_redirect_uris, grant_types, scopes, status, created_at, updated_at, launch_url FROM oauth_clients WHERE tenant_id = $1 ORDER BY created_at
+SELECT id, tenant_id, client_id, name, secret_hash, application_type, auth_method, redirect_uris, post_logout_redirect_uris, grant_types, scopes, status, created_at, updated_at, launch_url, logo_uri FROM oauth_clients WHERE tenant_id = $1 ORDER BY created_at
 `
 
 func (q *Queries) ListOAuthClients(ctx context.Context, tenantID string) ([]OauthClient, error) {
@@ -121,6 +124,7 @@ func (q *Queries) ListOAuthClients(ctx context.Context, tenantID string) ([]Oaut
 			&i.CreatedAt,
 			&i.UpdatedAt,
 			&i.LaunchUrl,
+			&i.LogoUri,
 		); err != nil {
 			return nil, err
 		}
@@ -143,8 +147,9 @@ SET name = $1,
     post_logout_redirect_uris = $4,
     scopes = $5,
     launch_url = $6,
-    updated_at = $7
-WHERE tenant_id = $8 AND client_id = $9
+    logo_uri = $7,
+    updated_at = $8
+WHERE tenant_id = $9 AND client_id = $10
 `
 
 type UpdateOAuthClientParams struct {
@@ -154,6 +159,7 @@ type UpdateOAuthClientParams struct {
 	PostLogoutRedirectUris []string
 	Scopes                 []string
 	LaunchUrl              string
+	LogoUri                string
 	UpdatedAt              time.Time
 	TenantID               string
 	ClientID               string
@@ -170,6 +176,7 @@ func (q *Queries) UpdateOAuthClient(ctx context.Context, arg UpdateOAuthClientPa
 		pq.Array(arg.PostLogoutRedirectUris),
 		pq.Array(arg.Scopes),
 		arg.LaunchUrl,
+		arg.LogoUri,
 		arg.UpdatedAt,
 		arg.TenantID,
 		arg.ClientID,

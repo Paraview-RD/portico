@@ -1,8 +1,8 @@
 -- name: CreateCASService :exec
 INSERT INTO cas_services (
-    id, tenant_id, name, url_prefix, launch_url,
+    id, tenant_id, name, url_prefix, launch_url, logo_uri,
     status, created_at, updated_at
-) VALUES ($1, $2, $3, $4, $5, $6, $7, $8);
+) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9);
 
 -- name: ListCASServices :many
 SELECT * FROM cas_services
@@ -33,8 +33,8 @@ WHERE tenant_id = $3 AND url_prefix = $4;
 -- de-register and re-register.
 -- name: UpdateCASService :exec
 UPDATE cas_services
-SET name = $1, url_prefix = $2, launch_url = $3, updated_at = $4
-WHERE tenant_id = $5 AND url_prefix = $6;
+SET name = $1, url_prefix = $2, launch_url = $3, logo_uri = $4, updated_at = $5
+WHERE tenant_id = $6 AND url_prefix = $7;
 
 -- name: CreateCASTicket :exec
 INSERT INTO cas_tickets (

@@ -56,6 +56,9 @@ export const zhCN: Record<keyof typeof enUS, string> = {
   "portal.noneOpenable": "还没有应用填写访问地址。注册应用时可以补上。",
   "portal.account": "你的账号",
   "portal.recentSignIns": "最近登录",
+  "applications.logoUri": "图标",
+  "applications.logoUriHelp":
+    "应用磁贴上的图片。可以填本服务器上的路径（如 /icons/wiki.svg），也可以填完整的 https 网址。不填则磁贴显示名称首字。",
   "applications.launchUrl": "访问地址",
   "applications.launchUrlHelp":
     "用户从首页打开该应用的地址。选填，且不是回调地址——直接打开回调地址只会报错。",

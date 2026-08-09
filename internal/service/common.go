@@ -164,3 +164,57 @@ func normalizeLaunchURL(raw string) (string, error) {
 	}
 	return trimmed, nil
 }
+
+// ErrInvalidLogoURI is a logo address that must not be rendered as a picture.
+var ErrInvalidLogoURI = httpx.BadRequest("INVALID_LOGO_URI",
+	"A logo address must be an http or https URL, or a path on this server.")
+
+// normalizeLogoURI checks the address a portal will render as an <img> src.
+//
+// Two shapes are accepted, and the second is the one worth having: an
+// absolute http(s) URL, or a path on this server such as /icons/wiki.svg. A
+// deployment that ships its own icons under the second form keeps the portal
+// working with no outbound network at all, and tells no third party who
+// opened it.
+//
+// A leading slash is not enough to establish the second shape, which is why
+// this parses rather than testing the prefix: //evil.example.com/logo.svg
+// begins with a slash and is a protocol-relative URL, so a prefix test would
+// wave through exactly the external fetch the path form exists to avoid.
+// Requiring an empty scheme *and* an empty host is what rules it out.
+//
+// `data:` is refused along with everything else outside those two shapes.
+// An SVG rendered through <img> cannot run its own script, so a data URI
+// would not be an immediate hole — but the reason it is safe lives in the
+// rendering, not in the value, and a stored blob that is only safe because
+// of how one component happens to render it is a trap for whoever changes
+// that component.
+//
+// Empty is allowed and means no logo, which is the common case: the tile
+// then carries the first character of the application's name.
+func normalizeLogoURI(raw string) (string, error) {
+	trimmed := strings.TrimSpace(raw)
+	if trimmed == "" {
+		return "", nil
+	}
+
+	parsed, err := url.Parse(trimmed)
+	if err != nil {
+		return "", ErrInvalidLogoURI
+	}
+
+	switch parsed.Scheme {
+	case "http", "https":
+		if parsed.Host == "" {
+			return "", ErrInvalidLogoURI
+		}
+		return trimmed, nil
+	case "":
+		if parsed.Host != "" || !strings.HasPrefix(parsed.Path, "/") {
+			return "", ErrInvalidLogoURI
+		}
+		return trimmed, nil
+	default:
+		return "", ErrInvalidLogoURI
+	}
+}

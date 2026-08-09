@@ -173,6 +173,11 @@ export interface PortalApplication {
   name: string;
   protocol: Protocol;
   launchUrl: string;
+  /**
+   * Empty when none was registered, which is normal. The tile falls back to
+   * the first character of the name rather than to a broken image.
+   */
+  logoUri: string;
 }
 
 /** A registered OAuth 2.1 / OpenID Connect relying party. */
@@ -183,6 +188,8 @@ export interface OAuthClient {
   name: string;
   /** Where a person opens it, for the portal. Empty when none was given. */
   launchUrl: string;
+  /** The picture on its portal tile. Empty when none was given. */
+  logoUri: string;
   /**
    * False for a browser or mobile application, which cannot keep a secret
    * and authenticates with PKCE alone.
@@ -219,6 +226,7 @@ export interface SAMLServiceProvider {
   name: string;
   metadataXml: string;
   launchUrl: string;
+  logoUri: string;
   /** Where assertions are delivered, read out of the metadata document. */
   acsUrls: string[];
   status: Status;
@@ -234,6 +242,7 @@ export interface CASService {
   /** A prefix, not a pattern: there are no wildcards. */
   urlPrefix: string;
   launchUrl: string;
+  logoUri: string;
   status: Status;
   createdAt: string;
   updatedAt: string;
