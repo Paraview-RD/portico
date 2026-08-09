@@ -94,6 +94,8 @@ func New(cfg *config.Config, opts ...Option) (*Server, error) {
 	audit := service.NewAuditService(st)
 	sessions := service.NewSessionService(st, audit)
 	settings := service.NewSettingsService(st, cfg.TokenTTL)
+	// The last stop before English for any message this deployment sends.
+	settings.WithDefaultLocale(cfg.DefaultLocale)
 	users := service.NewUserService(st, audit, settings, tokens, registry)
 	orgs := service.NewOrganizationService(st, audit)
 	tenants := service.NewTenantService(st)
@@ -110,7 +112,7 @@ func New(cfg *config.Config, opts ...Option) (*Server, error) {
 	}
 
 	recovery := service.NewRecoveryService(
-		st, users, audit, deps.mailer, deps.sms, cfg.PublicURL)
+		st, users, audit, settings, deps.mailer, deps.sms, cfg.PublicURL)
 
 	// Attached after construction because the service that knows what this
 	// deployment can send is built later — the same arrangement as

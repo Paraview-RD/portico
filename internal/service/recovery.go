@@ -15,6 +15,7 @@ import (
 	"github.com/google/uuid"
 
 	"github.com/paraview/portico/internal/httpx"
+	"github.com/paraview/portico/internal/i18n"
 	"github.com/paraview/portico/internal/model"
 	"github.com/paraview/portico/internal/notify"
 	"github.com/paraview/portico/internal/store"
@@ -43,11 +44,16 @@ var (
 
 // RecoveryService issues and redeems password-reset tokens (§3.5).
 type RecoveryService struct {
-	store  *store.Store
-	users  *UserService
-	audit  *AuditService
-	mailer notify.Mailer
-	sms    notify.SMSSender
+	store *store.Store
+	users *UserService
+	audit *AuditService
+	// settings is here for one thing: which language to write in. The
+	// account's own preference decides it where there is one, and this is
+	// where the tenant's answer comes from when there is not.
+	settings *SettingsService
+	messages *i18n.Catalog
+	mailer   notify.Mailer
+	sms      notify.SMSSender
 	// publicURL is where a person reaches this deployment, which the server
 	// cannot work out for itself: it sits behind a proxy that rewrites the
 	// host, so the request's own headers are whatever that proxy sends.
@@ -59,13 +65,15 @@ func NewRecoveryService(
 	st *store.Store,
 	users *UserService,
 	audit *AuditService,
+	settings *SettingsService,
 	mailer notify.Mailer,
 	sms notify.SMSSender,
 	publicURL string,
 ) *RecoveryService {
 	return &RecoveryService{
-		store: st, users: users, audit: audit,
-		mailer: mailer, sms: sms,
+		store: st, users: users, audit: audit, settings: settings,
+		messages: i18n.MustLoad(),
+		mailer:   mailer, sms: sms,
 		publicURL: strings.TrimSuffix(publicURL, "/"),
 	}
 }
@@ -305,27 +313,38 @@ func (s *RecoveryService) channelAvailable(channel model.RecoveryChannel) error 
 func (s *RecoveryService) deliver(ctx context.Context, tenant model.Tenant, channel model.RecoveryChannel, row sqlcgen.User, token string) error {
 	link := s.resetLink(tenant.Code, token)
 
+	// Written in the account's own language where it has one. Safe to depend
+	// on the account here in a way it would not be earlier: a request for an
+	// address nobody holds never reaches this function — completeRequest
+	// returns before it — so the language of this message is only ever seen
+	// by the person whose account it is. Choosing it from the row discloses
+	// nothing to anyone else.
+	locale := s.settings.MessageLocale(ctx, tenant.ID, row.PreferredLanguage)
+	data := i18n.RecoveryData{
+		Tenant:   tenant.Name,
+		Name:     row.DisplayName,
+		Username: row.Username,
+		Link:     link,
+		Minutes:  int(RecoveryTokenTTL.Minutes()),
+	}
+
 	var err error
 	switch channel {
 	case model.RecoveryEmail:
+		subject, body, renderErr := s.render(locale,
+			i18n.KeyRecoveryEmailSubject, i18n.KeyRecoveryEmailBody, data)
+		if renderErr != nil {
+			return renderErr
+		}
 		err = s.mailer.Send(ctx, notify.Message{
-			To:      row.Email,
-			Subject: fmt.Sprintf("Reset your %s password", tenant.Name),
-			Body: fmt.Sprintf(`Hello %s,
-
-Someone asked to reset the password for your account (%s). Open this link
-to choose a new one:
-
-%s
-
-The link works once and expires in %d minutes. If this was not you, no
-action is needed — the password has not changed.
-`, row.DisplayName, row.Username, link, int(RecoveryTokenTTL.Minutes())),
+			To: row.Email, Subject: subject, Body: body,
 		})
 	case model.RecoverySMS:
-		err = s.sms.Send(ctx, row.Phone, fmt.Sprintf(
-			"Reset your %s password: %s (expires in %d minutes)",
-			tenant.Name, link, int(RecoveryTokenTTL.Minutes())))
+		text, renderErr := s.messages.Render(locale, i18n.KeyRecoverySMS, data)
+		if renderErr != nil {
+			return renderErr
+		}
+		err = s.sms.Send(ctx, row.Phone, text)
 	}
 
 	// The token is already recorded, so a delivery failure leaves an unusable
@@ -368,4 +387,18 @@ func newRecoveryToken() (token, hash string, err error) {
 func hashRecoveryToken(token string) string {
 	sum := sha256.Sum256([]byte(token))
 	return hex.EncodeToString(sum[:])
+}
+
+// render produces a subject and a body together, so a message is never sent
+// with one of them missing.
+func (s *RecoveryService) render(locale i18n.Locale, subjectKey, bodyKey string, data any) (string, string, error) {
+	subject, err := s.messages.Render(locale, subjectKey, data)
+	if err != nil {
+		return "", "", err
+	}
+	body, err := s.messages.Render(locale, bodyKey, data)
+	if err != nil {
+		return "", "", err
+	}
+	return subject, body, nil
 }

@@ -6,11 +6,13 @@ import (
 	"context"
 	"fmt"
 	"strconv"
+	"strings"
 	"sync"
 	"time"
 
 	"github.com/paraview/portico/internal/auth"
 	"github.com/paraview/portico/internal/httpx"
+	"github.com/paraview/portico/internal/i18n"
 	"github.com/paraview/portico/internal/model"
 	"github.com/paraview/portico/internal/store"
 )
@@ -55,6 +57,16 @@ const (
 	// SettingAuditRetentionDays is how long audit entries are kept. Zero —
 	// the default — keeps them indefinitely.
 	SettingAuditRetentionDays = "audit_retention_days"
+
+	// SettingDefaultLocale is the language of messages this tenant sends to
+	// somebody who has stated no preference of their own. Empty — the
+	// default — follows the deployment's PORTICO_DEFAULT_LOCALE.
+	//
+	// Empty means "unset" rather than "English": one deployment can serve a
+	// Chinese tenant and an English one, and a tenant that has said nothing
+	// should follow whatever the deployment is changed to later rather than
+	// having been frozen at install time.
+	SettingDefaultLocale = "default_locale"
 )
 
 // Settings is the full set of runtime settings for one tenant.
@@ -85,6 +97,14 @@ type Settings struct {
 	// PasswordMaxAgeDays is how long a password stays usable. Zero never
 	// expires.
 	PasswordMaxAgeDays int `json:"passwordMaxAgeDays"`
+
+	// DefaultLocale is the language of messages sent to somebody in this
+	// tenant who has stated no preference. Empty follows the deployment.
+	//
+	// It does not affect the console: a reader picks that for themselves and
+	// it is remembered in their browser. This is for the text that arrives
+	// where there is no menu — a reset link, a confirmation.
+	DefaultLocale string `json:"defaultLocale"`
 
 	// AuditRetentionDays is how long audit entries are kept before the
 	// periodic sweep removes them. Zero keeps them forever, which is the
@@ -193,8 +213,41 @@ type SettingsService struct {
 	// cannot satisfy.
 	deliverable func() []model.RecoveryChannel
 
+	// deploymentLocale is PORTICO_DEFAULT_LOCALE: the language a message
+	// falls back to when neither the account nor its tenant has said
+	// anything. Empty is treated as English.
+	deploymentLocale string
+
 	mu    sync.RWMutex
 	cache map[string]Settings
+}
+
+// WithDefaultLocale tells the settings service what the deployment was
+// configured with, which is the last stop before English.
+//
+// Attached after construction for the same reason WithDeliveryChannels is:
+// it comes from process configuration rather than from anything this
+// service can work out, and every test that builds a settings service
+// should not have to know about it.
+func (s *SettingsService) WithDefaultLocale(locale string) {
+	s.deploymentLocale = locale
+}
+
+// MessageLocale picks the language for a message Portico sends to somebody.
+//
+// One function so the chain exists once. Both mailers ask this rather than
+// each resolving for itself, because two implementations of "which language"
+// is how a confirmation arrives in one language and the reset link that
+// follows it arrives in another.
+//
+// A tenant whose settings cannot be read falls back rather than failing: a
+// person waiting for a reset link should get one in English, not nothing.
+func (s *SettingsService) MessageLocale(ctx context.Context, tenantID, accountPreference string) i18n.Locale {
+	tenantDefault := ""
+	if set, err := s.Get(ctx, tenantID); err == nil {
+		tenantDefault = set.DefaultLocale
+	}
+	return i18n.Resolve(accountPreference, tenantDefault, s.deploymentLocale)
 }
 
 // WithDeliveryChannels tells the settings service what this deployment can
@@ -280,6 +333,8 @@ func (s *SettingsService) Get(ctx context.Context, tenantID string) (Settings, e
 			loaded.RegistrationVerification = row.Value == "true"
 		case SettingSystemName:
 			loaded.SystemName = row.Value
+		case SettingDefaultLocale:
+			loaded.DefaultLocale = row.Value
 		case SettingLockoutThreshold:
 			if n, err := strconv.Atoi(row.Value); err == nil {
 				loaded.LockoutThreshold = n
@@ -376,6 +431,18 @@ func (s *SettingsService) Update(ctx context.Context, tenantID string, next Sett
 			fmt.Sprintf("Password maximum age must be between 0 and %d days; "+
 				"0 never expires.", MaxPasswordMaxAgeDays))
 	}
+	// Empty is allowed and means "follow the deployment". Anything else has
+	// to be a language this build actually has messages for — accepting a
+	// tag with nothing behind it would store a setting that silently does
+	// nothing, which is worse than refusing it.
+	if next.DefaultLocale != "" {
+		if _, ok := i18n.Parse(next.DefaultLocale); !ok {
+			return Settings{}, httpx.BadRequest("INVALID_SETTINGS",
+				fmt.Sprintf("This build has no messages for %q. Leave it empty to "+
+					"follow the deployment default, or choose one of: %s.",
+					next.DefaultLocale, localeList()))
+		}
+	}
 
 	values := map[string]string{
 		SettingTokenTTLMinutes:          strconv.Itoa(next.TokenTTLMinutes),
@@ -395,6 +462,8 @@ func (s *SettingsService) Update(ctx context.Context, tenantID string, next Sett
 		SettingPasswordMaxAgeDays:       strconv.Itoa(next.PasswordMaxAgeDays),
 
 		SettingAuditRetentionDays: strconv.Itoa(next.AuditRetentionDays),
+
+		SettingDefaultLocale: next.DefaultLocale,
 	}
 
 	if err := s.store.ForTenant(tenantID).UpsertSettings(ctx, values, store.Now()); err != nil {
@@ -415,4 +484,15 @@ func (s *SettingsService) RegistrationEnabled(ctx context.Context, tenantID stri
 		return false, err
 	}
 	return settings.RegistrationEnabled, nil
+}
+
+// localeList renders the locales this build ships, for an error message that
+// tells somebody what they could have chosen instead.
+func localeList() string {
+	locales := i18n.Supported()
+	out := make([]string, len(locales))
+	for i, locale := range locales {
+		out[i] = string(locale)
+	}
+	return strings.Join(out, ", ")
 }

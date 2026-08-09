@@ -15,6 +15,7 @@ import (
 	"github.com/google/uuid"
 
 	"github.com/paraview/portico/internal/httpx"
+	"github.com/paraview/portico/internal/i18n"
 	"github.com/paraview/portico/internal/model"
 	"github.com/paraview/portico/internal/notify"
 	"github.com/paraview/portico/internal/store"
@@ -76,6 +77,7 @@ type VerificationService struct {
 	store    *store.Store
 	users    *UserService
 	settings *SettingsService
+	messages *i18n.Catalog
 	audit    *AuditService
 	mailer   notify.Mailer
 	sms      notify.SMSSender
@@ -95,7 +97,8 @@ func NewVerificationService(
 ) *VerificationService {
 	return &VerificationService{
 		store: st, users: users, settings: settings, audit: audit,
-		mailer: mailer, sms: sms, publicURL: publicURL,
+		messages: i18n.MustLoad(),
+		mailer:   mailer, sms: sms, publicURL: publicURL,
 	}
 }
 
@@ -311,29 +314,37 @@ func (s *VerificationService) deliver(ctx context.Context, tenant model.Tenant, 
 	link := s.verifyLink(tenant.Code, token)
 	hours := int(VerificationTokenTTL.Hours())
 
+	locale := s.settings.MessageLocale(ctx, tenant.ID, row.PreferredLanguage)
+	data := i18n.VerificationData{
+		Tenant:   tenant.Name,
+		Name:     row.DisplayName,
+		Username: row.Username,
+		Link:     link,
+		Hours:    hours,
+	}
+
 	switch channel {
 	case model.RecoveryEmail:
+		subject, err := s.messages.Render(locale, i18n.KeyVerificationEmailSubject, data)
+		if err != nil {
+			return err
+		}
+		body, err := s.messages.Render(locale, i18n.KeyVerificationEmailBody, data)
+		if err != nil {
+			return err
+		}
 		return s.mailer.Send(ctx, notify.Message{
 			// The account's stored address, never a submitted one. They are
 			// equal here by construction; taking it from the row is what
 			// keeps that true if the lookup ever changes.
-			To:      row.Email,
-			Subject: fmt.Sprintf("Confirm your %s account", tenant.Name),
-			Body: fmt.Sprintf(`Hello %s,
-
-An account (%s) was registered with this address on %s. Open this link to
-confirm the address and finish signing up:
-
-%s
-
-The link works once and expires in %d hours. If you did not register, no
-action is needed — the account cannot be used until somebody opens that link.
-`, row.DisplayName, row.Username, tenant.Name, link, hours),
+			To: row.Email, Subject: subject, Body: body,
 		})
 	case model.RecoverySMS:
-		return s.sms.Send(ctx, row.Phone, fmt.Sprintf(
-			"Confirm your %s account: %s (expires in %d hours)",
-			tenant.Name, link, hours))
+		text, err := s.messages.Render(locale, i18n.KeyVerificationSMS, data)
+		if err != nil {
+			return err
+		}
+		return s.sms.Send(ctx, row.Phone, text)
 	}
 	return ErrVerificationUnavailable
 }

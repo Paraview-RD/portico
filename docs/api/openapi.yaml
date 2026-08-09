@@ -3052,6 +3052,25 @@ components:
             0 — the default — keeps entries forever, which is the only safe
             default: the trail is the record of what happened, not an
             operational buffer.
+        defaultLocale:
+          type: string
+          enum: ["", "en-US", "zh-CN"]
+          description: |
+            The language of messages this tenant sends — a reset link, a
+            confirmation — to somebody who has stated no preference of their
+            own. It does not affect the console, which each reader chooses
+            for themselves.
+
+            An empty string means "follow the deployment's
+            PORTICO_DEFAULT_LOCALE", and is the default. It is a real value
+            rather than an absence: a tenant that has said nothing should
+            follow whatever the deployment is changed to later, rather than
+            having been frozen at whatever it was on the day the tenant was
+            created.
+
+            A tag this build has no messages for is refused with
+            INVALID_SETTINGS rather than stored, because a stored setting
+            that silently does nothing is worse than one that would not save.
 
     Session:
       type: object

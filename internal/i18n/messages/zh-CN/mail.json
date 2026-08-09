@@ -1,0 +1,9 @@
+{
+  "recovery.email.subject": "重置你在 {{.Tenant}} 的密码",
+  "recovery.email.body": "{{.Name}} 你好，\n\n有人请求重置你的账号（{{.Username}}）的密码。打开下面的链接设置新密码：\n\n{{.Link}}\n\n链接只能使用一次，{{.Minutes}} 分钟后失效。如果不是你本人操作，不需要做任何\n事——密码没有被改动。\n",
+  "recovery.sms": "重置你在 {{.Tenant}} 的密码：{{.Link}}（{{.Minutes}} 分钟内有效）",
+
+  "verification.email.subject": "确认你的 {{.Tenant}} 账号",
+  "verification.email.body": "{{.Name}} 你好，\n\n有人用这个地址在 {{.Tenant}} 注册了账号（{{.Username}}）。打开下面的链接确认\n地址，注册即可完成：\n\n{{.Link}}\n\n链接只能使用一次，{{.Hours}} 小时后失效。如果不是你注册的，不需要做任何事\n——在有人打开那个链接之前，这个账号无法使用。\n",
+  "verification.sms": "确认你的 {{.Tenant}} 账号：{{.Link}}（{{.Hours}} 小时内有效）"
+}

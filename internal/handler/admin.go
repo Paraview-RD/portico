@@ -99,6 +99,12 @@ type updateSettingsRequest struct {
 
 	// 0 keeps everything, which is the default and the only safe ship.
 	AuditRetentionDays *int `json:"auditRetentionDays"`
+
+	// The language of messages this tenant sends to somebody who has stated
+	// no preference. An empty string is a real value here — it means "follow
+	// the deployment" — which is why omitting the field and sending "" have
+	// to be different things, and why this is a pointer like the rest.
+	DefaultLocale *string `json:"defaultLocale"`
 }
 
 // applyTo overlays whatever the request actually carried onto the settings
@@ -109,6 +115,9 @@ func (req updateSettingsRequest) applyTo(current service.Settings) service.Setti
 	overlayBool(&current.RegistrationVerification, req.RegistrationVerification)
 	if req.SystemName != nil {
 		current.SystemName = *req.SystemName
+	}
+	if req.DefaultLocale != nil {
+		current.DefaultLocale = *req.DefaultLocale
 	}
 
 	overlayInt(&current.LockoutThreshold, req.LockoutThreshold)

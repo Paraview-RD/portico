@@ -124,6 +124,10 @@ Configuration is entirely environment variables:
   PORTICO_SMTP_PASSWORD
   PORTICO_SMTP_FROM                required once a host is set
   PORTICO_SMTP_ENCRYPTION          starttls (default) | tls | none
+  PORTICO_DEFAULT_LOCALE           language of messages sent to somebody whose
+                                   own preference and whose tenant's default
+                                   both say nothing: en-US (default) | zh-CN.
+                                   A tag with no messages is refused at start
   PORTICO_INITIAL_ADMIN_USERNAME   bootstrap admin name (default "admin")
   PORTICO_INITIAL_ADMIN_PASSWORD   bootstrap admin password; generated and
                                    printed once if unset

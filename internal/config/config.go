@@ -15,8 +15,10 @@ import (
 	"fmt"
 	"os"
 	"strconv"
+	"strings"
 	"time"
 
+	"github.com/paraview/portico/internal/i18n"
 	"github.com/paraview/portico/internal/notify"
 	"github.com/paraview/portico/internal/secrets"
 )
@@ -98,6 +100,20 @@ type Config struct {
 	// is the default — the binary must run with no environment at all.
 	SMTP notify.SMTPConfig
 
+	// DefaultLocale is the language of a message sent to somebody whose own
+	// preference and whose tenant's default both say nothing.
+	//
+	// It is the last stop before English, and it exists because a deployment
+	// serving one country should not have to set a preference on every
+	// account to stop sending English mail. A tenant that disagrees
+	// overrides it in its own settings; an account that disagrees overrides
+	// that.
+	//
+	// An unshipped tag is refused at startup rather than ignored. A
+	// deployment that set this meant something by it, and silently
+	// continuing in English is how a setting gets called broken years later.
+	DefaultLocale string
+
 	// EncryptionKey protects the few credentials the server has to store and
 	// later use, rather than merely verify — today that is a directory
 	// connector's bind password.
@@ -129,6 +145,13 @@ func Load() (*Config, error) {
 	}
 
 	cfg.PublicURL = envString("PORTICO_PUBLIC_URL", "http://localhost:8410")
+
+	cfg.DefaultLocale = envString("PORTICO_DEFAULT_LOCALE", string(i18n.Default))
+	if _, ok := i18n.Parse(cfg.DefaultLocale); !ok {
+		return nil, fmt.Errorf(
+			"PORTICO_DEFAULT_LOCALE is %q, which this build has no messages for. Available: %s",
+			cfg.DefaultLocale, joinLocales(i18n.Supported()))
+	}
 
 	smtpPort, err := envInt("PORTICO_SMTP_PORT", 587)
 	if err != nil {
@@ -224,6 +247,16 @@ func (c *Config) loadEncryptionKey() error {
 
 	c.EncryptionKey = key
 	return nil
+}
+
+// joinLocales renders the available locales for an error message, so
+// somebody who set an unshipped tag is told what they could have set.
+func joinLocales(locales []i18n.Locale) string {
+	out := make([]string, len(locales))
+	for i, locale := range locales {
+		out[i] = string(locale)
+	}
+	return strings.Join(out, ", ")
 }
 
 func envString(key, fallback string) string {

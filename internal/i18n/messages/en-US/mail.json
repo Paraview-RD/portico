@@ -1,0 +1,9 @@
+{
+  "recovery.email.subject": "Reset your {{.Tenant}} password",
+  "recovery.email.body": "Hello {{.Name}},\n\nSomeone asked to reset the password for your account ({{.Username}}). Open\nthis link to choose a new one:\n\n{{.Link}}\n\nThe link works once and expires in {{.Minutes}} minutes. If this was not\nyou, no action is needed — the password has not changed.\n",
+  "recovery.sms": "Reset your {{.Tenant}} password: {{.Link}} (expires in {{.Minutes}} minutes)",
+
+  "verification.email.subject": "Confirm your {{.Tenant}} account",
+  "verification.email.body": "Hello {{.Name}},\n\nAn account ({{.Username}}) was registered with this address on {{.Tenant}}.\nOpen this link to confirm the address and finish signing up:\n\n{{.Link}}\n\nThe link works once and expires in {{.Hours}} hours. If you did not\nregister, no action is needed — the account cannot be used until somebody\nopens that link.\n",
+  "verification.sms": "Confirm your {{.Tenant}} account: {{.Link}} (expires in {{.Hours}} hours)"
+}
