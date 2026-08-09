@@ -369,6 +369,33 @@ Working toward 0.1.0 — the first release. Nothing has been published yet.
   none of the addresses already stored is one: a redirect URI, an assertion
   consumer service, and a CAS prefix are all places a protocol sends a
   browser mid-flow, and opening any of them directly produces an error.
+- Registrations also gained an optional **icon**, called `logoUri` after the
+  field an OAuth client's own metadata uses (RFC 7591). It may be an absolute
+  http(s) address or a path on this server, and the second form is the one
+  worth having: a portal that fetches logos from third parties reports every
+  visitor to those hosts on every sign-in, and an offline deployment shows a
+  wall of broken images. Six icons ship under `/icons`. An application
+  without one gets a tile bearing the first character of its name, in a
+  colour derived from that name — absence is the common case, not a defect.
+- The home screen **says what somebody can act on today**: a password within
+  a fortnight of expiring, and contact details missing that recovery would
+  need. The second appears only where the deployment has that channel
+  configured, because telling somebody to add an email address so they can
+  recover their password, on a server with no mail set up, promises a
+  capability that does not exist.
+- `/users/me` reports **`passwordExpiresAt`**, absent when the tenant does not
+  expire passwords. The instant rather than the policy: the policy is
+  administrator-only, and somebody does not need to be told the tenant's
+  rules to be told their own deadline. The console reads the account from
+  this endpoint after signing in rather than from the sign-in response, which
+  is a smaller shape — otherwise the warning arrived on the next reload
+  instead of at the sign-in it is about.
+- **The home screen and the profile use more than one column.** Both were a
+  single stack of narrow cards on a 1440px column, which reads as a page that
+  failed to load rather than as a deliberate measure — and on the home screen
+  each label sat hard left with its value hard right, so ten words of content
+  were arranged as a metre of white space. The forms did not get wider;
+  something was put beside them.
 - **Every screen is laid out in the same column**, bounded rather than
   stretching to the edge of whatever display it is on, and every screen puts
   its content on the same kind of surface. The settings form sat directly on

@@ -100,17 +100,30 @@ export function SessionProvider({ children }: { children: ReactNode }) {
     void refresh();
   }, [refresh]);
 
+  // Whose account this is, asked of the one endpoint that answers it fully.
+  //
+  // A sign-in response carries a user too, and taking it from there is a
+  // round trip cheaper — but it is a different, smaller shape: it is the
+  // account row, while /users/me is the account row plus what the server
+  // works out about it, starting with when this password expires. Reading
+  // the cheaper one meant the expiry warning appeared on the next reload and
+  // not at the sign-in it is about, which is the one moment somebody is
+  // holding the password in their head and could act on it.
+  const adoptSession = useCallback(async (token: string, tenant: string) => {
+    tokenStore.set(token);
+    // Remembered so registration and a reload stay in the same tenant rather
+    // than falling back to the default one.
+    tenantStore.set(tenant);
+    setExpired(false);
+    setUser(await userApi.me());
+  }, []);
+
   const signIn = useCallback(
     async (tenant: string, identifier: string, password: string) => {
       const session = await authApi.login(tenant, identifier, password);
-      tokenStore.set(session.token);
-      // Remembered so registration and a reload stay in the same tenant
-      // rather than falling back to the default one.
-      tenantStore.set(tenant);
-      setExpired(false);
-      setUser(session.user);
+      await adoptSession(session.token, tenant);
     },
-    [],
+    [adoptSession],
   );
 
   const signInWithReplacedPassword = useCallback(
@@ -126,12 +139,9 @@ export function SessionProvider({ children }: { children: ReactNode }) {
         currentPassword,
         newPassword,
       });
-      tokenStore.set(session.token);
-      tenantStore.set(tenant);
-      setExpired(false);
-      setUser(session.user);
+      await adoptSession(session.token, tenant);
     },
-    [],
+    [adoptSession],
   );
 
   const signOut = useCallback(async () => {

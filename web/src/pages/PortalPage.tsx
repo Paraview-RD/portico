@@ -149,7 +149,11 @@ function AccountNotices() {
     <div className="flex flex-col gap-2">
       {notices.map((notice) => (
         <Alert key={notice.text} tone={notice.tone}>
-          <span className="flex flex-wrap items-center justify-between gap-3">
+          {/* The action follows the sentence rather than being pushed to the
+              far edge. A banner that puts its button at 95% while its text
+              ends at 40% is the same stretch this screen just stopped doing
+              to its labels, in a different element. */}
+          <span className="flex flex-wrap items-center gap-3">
             {notice.text}
             <Button
               size="sm"

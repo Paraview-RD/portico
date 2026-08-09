@@ -3,6 +3,7 @@ package server_test
 import (
 	"net/http"
 	"testing"
+	"time"
 )
 
 // Password policy: composition, reuse, and expiry.
@@ -289,5 +290,80 @@ func TestTheInitialPasswordCountsAsUsed(t *testing.T) {
 	if res.Status != http.StatusBadRequest || res.Code != "PASSWORD_REUSED" {
 		t.Errorf("resetting to the password the account was created with = %d %s, "+
 			"want 400 PASSWORD_REUSED", res.Status, res.Code)
+	}
+}
+
+// When somebody's password stops working, told to them rather than sprung on
+// them.
+//
+// The date is on /users/me and not on the settings endpoint, which is
+// administrator-only: a normal user does not need to be told the tenant's
+// rules to be told their own deadline. It is absent — not zero, not "never" —
+// when the tenant does not expire passwords at all, which is the usual case
+// and must not render as a configured policy on a home screen.
+func TestOwnProfileSaysWhenThisPasswordStopsWorking(t *testing.T) {
+	api := newAPITest(t)
+	admin := api.adminToken()
+	api.createUser(admin, "expiring-user", "original-password-1", "USER")
+
+	// Off, which is the default and the common deployment.
+	own := api.do(http.MethodGet, "/api/v1/users/me", api.login("expiring-user", "original-password-1"), nil)
+	var profile struct {
+		Username          string  `json:"username"`
+		PasswordExpiresAt *string `json:"passwordExpiresAt"`
+	}
+	own.into(t, &profile)
+	if profile.PasswordExpiresAt != nil {
+		t.Errorf("passwordExpiresAt = %q on a tenant that does not expire "+
+			"passwords; an absent policy would render as a configured one",
+			*profile.PasswordExpiresAt)
+	}
+
+	// On: a date, and one that is in the future for a password just set.
+	api.setPasswordPolicy(admin, map[string]any{"passwordMaxAgeDays": 90})
+
+	own = api.do(http.MethodGet, "/api/v1/users/me", api.login("expiring-user", "original-password-1"), nil)
+	own.into(t, &profile)
+	if profile.PasswordExpiresAt == nil {
+		t.Fatal("passwordExpiresAt is absent although the tenant expires " +
+			"passwords after 90 days, so nobody is warned before the morning " +
+			"the sign-in screen refuses them")
+	}
+	expires, err := time.Parse(time.RFC3339, *profile.PasswordExpiresAt)
+	if err != nil {
+		t.Fatalf("passwordExpiresAt = %q, which is not a timestamp: %v",
+			*profile.PasswordExpiresAt, err)
+	}
+	if !expires.After(time.Now()) {
+		t.Errorf("passwordExpiresAt = %s, in the past, for a password set "+
+			"moments ago under a 90-day policy", expires)
+	}
+
+	// A password that ages out mid-session reports a date in the past rather
+	// than nothing, so the screen can say "expired" instead of counting down
+	// to a day that has been and gone. This is a real sequence and not a
+	// contrived one: a token lasts hours, and an administrator may turn the
+	// policy on, or shorten it, while people are signed in.
+	//
+	// The token has to be taken before the password is aged, because a
+	// sign-in with an expired password is refused outright — which is the
+	// behaviour this warning exists to give somebody notice of.
+	token := api.login("expiring-user", "original-password-1")
+	api.expirePassword(t, "expiring-user")
+
+	own = api.do(http.MethodGet, "/api/v1/users/me", token, nil)
+	own.into(t, &profile)
+	if profile.PasswordExpiresAt == nil {
+		t.Fatal("passwordExpiresAt is absent for a password the sign-in path " +
+			"would now refuse")
+	}
+	expires, err = time.Parse(time.RFC3339, *profile.PasswordExpiresAt)
+	if err != nil {
+		t.Fatalf("passwordExpiresAt = %q: %v", *profile.PasswordExpiresAt, err)
+	}
+	if expires.After(time.Now()) {
+		t.Errorf("passwordExpiresAt = %s, in the future, for a password the "+
+			"sign-in path already refuses; the warning and the refusal have "+
+			"to agree", expires)
 	}
 }
