@@ -38,6 +38,7 @@ export const enUS = {
     "This account is maintained by a directory. Changes made here may be " +
     "overwritten the next time it synchronizes.",
 
+  "nav.home": "Home",
   "nav.users": "Users",
   "nav.organizations": "Organizations",
   "nav.auditLogs": "Audit logs",
@@ -50,6 +51,19 @@ export const enUS = {
   "nav.settings": "Settings",
   "nav.profile": "My profile",
   "nav.signOut": "Sign out",
+
+  "portal.greeting": "Hello, {0}",
+  "portal.subtitle": "Your applications and your account.",
+  "portal.applications": "Applications",
+  "portal.applicationsHint":
+    "Everything registered in this tenant. This version has no per-person assignment, so this list is the same for everyone.",
+  "portal.noneOpenable":
+    "No application has a launch address yet. An administrator can add one when registering it.",
+  "portal.account": "Your account",
+  "portal.recentSignIns": "Recent sign-ins",
+  "applications.launchUrl": "Launch address",
+  "applications.launchUrlHelp":
+    "Where a person opens this application from the home screen. Optional, and not a redirect address — opening one of those directly produces an error.",
 
   "login.title": "Sign in",
   "login.identifier": "Username, email, or phone",

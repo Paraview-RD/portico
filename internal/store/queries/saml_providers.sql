@@ -1,7 +1,8 @@
 -- name: CreateSAMLServiceProvider :exec
 INSERT INTO saml_service_providers (
-    id, tenant_id, entity_id, name, metadata_xml, status, created_at, updated_at
-) VALUES ($1, $2, $3, $4, $5, $6, $7, $8);
+    id, tenant_id, entity_id, name, metadata_xml, launch_url,
+    status, created_at, updated_at
+) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9);
 
 -- name: GetSAMLServiceProvider :one
 SELECT * FROM saml_service_providers
@@ -34,8 +35,8 @@ WHERE tenant_id = $3 AND entity_id = $4;
 -- service layer rejects it rather than silently repointing a registration.
 -- name: UpdateSAMLServiceProvider :exec
 UPDATE saml_service_providers
-SET name = $1, metadata_xml = $2, updated_at = $3
-WHERE tenant_id = $4 AND entity_id = $5;
+SET name = $1, metadata_xml = $2, launch_url = $3, updated_at = $4
+WHERE tenant_id = $5 AND entity_id = $6;
 
 -- name: CreateSAMLAuthRequest :exec
 INSERT INTO saml_auth_requests (

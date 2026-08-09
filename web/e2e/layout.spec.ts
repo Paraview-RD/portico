@@ -21,6 +21,7 @@ import { expect, test } from "./fixtures";
  */
 
 const screens = [
+  { label: "Home", heading: /Hello/ },
   { label: "Users", heading: "Users" },
   { label: "Organizations", heading: "Organizations" },
   { label: "Groups", heading: "Groups" },
@@ -113,8 +114,11 @@ test("the blocks on a screen are all the same width", async ({
       .getByRole("navigation")
       .getByRole("button", { name: screen.label, exact: true })
       .click();
+    // The home screen is a column of cards with no table and no form, so
+    // wait for a card instead. Waiting for something that never appears
+    // would fail the test for a reason that has nothing to do with width.
     await expect(
-      page.getByRole("main").locator("table, form").first(),
+      page.getByRole("main").locator("table, form, section").first(),
     ).toBeVisible();
 
     // Every bordered surface directly in the column — the tables and the
@@ -177,9 +181,12 @@ test("every screen puts its content in the same chrome", async ({
     // Wait for the content itself rather than for the heading: a screen
     // still fetching shows its header over a loading row, and asking about
     // the chrome then measures the wrong thing.
-    await expect(
-      page.getByRole("main").locator("table, form").first(),
-    ).toBeVisible();
+    // The home screen has neither a table nor a form — it is a column of
+    // cards — so there is nothing here for this property to be about. It is
+    // covered by the two tests above.
+    const hasContent =
+      (await page.getByRole("main").locator("table, form").count()) > 0;
+    if (!hasContent) continue;
 
     const framed = await page.evaluate(() => {
       // The primary content is the first table on a list screen and the

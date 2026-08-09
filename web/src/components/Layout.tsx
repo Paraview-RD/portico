@@ -8,6 +8,7 @@ import {
   ChevronDownIcon,
   GlobeIcon,
   GroupsIcon,
+  HomeIcon,
   OrganizationsIcon,
   ProfileIcon,
   ProvisioningIcon,
@@ -51,6 +52,19 @@ interface NavGroup {
 // a preference: it is the list of systems that trust this one to say who
 // somebody is, which is close to the point of the product.
 const navGroups: NavGroup[] = [
+  {
+    // No heading. The home screen is not a category, and giving it one
+    // would put a label above a single item at the top of every sidebar.
+    items: [
+      {
+        route: "/",
+        labelKey: "nav.home",
+        icon: HomeIcon,
+        // The one entry everybody sees, which is the point of it.
+        adminOnly: false,
+      },
+    ],
+  },
   {
     labelKey: "nav.group.directory",
     items: [

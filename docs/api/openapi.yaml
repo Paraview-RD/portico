@@ -477,6 +477,25 @@ paths:
         "422":
           $ref: "#/components/responses/ValidationFailed"
 
+  /api/v1/users/me/groups:
+    get:
+      tags: [Self-service]
+      operationId: listOwnGroups
+      summary: The groups the caller belongs to.
+      description: |
+        Separate from the administrator's view of somebody else's groups,
+        which is a different act. The account is taken from the token and
+        never from a path, so there is no version of this that can be asked
+        about another person.
+      responses:
+        "200":
+          description: The groups.
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/GroupRefListEnvelope" }
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+
   /api/v1/users/me/sessions:
     get:
       tags: [Self-service]
@@ -740,6 +759,35 @@ paths:
           $ref: "#/components/responses/Forbidden"
         "404":
           $ref: "#/components/responses/NotFound"
+
+  /api/v1/portal/applications:
+    get:
+      tags: [Self-service]
+      operationId: portalApplications
+      summary: The applications a person can open.
+      description: |
+        Readable by any signed-in caller, which is the point: this is the home
+        screen for somebody who is not an administrator, and every other
+        application endpoint requires one.
+
+        **These are the tenant's applications, not the caller's.** This
+        version has no notion of who may use what — two fixed roles, no
+        assignment — so every authenticated person may sign in to every
+        registered application, and this list says the same thing to
+        everybody. A client showing it should say so rather than implying an
+        entitlement that does not exist.
+
+        Disabled registrations are omitted, and so are those with no
+        `launchUrl`: a tile that cannot be opened is not an offer.
+      responses:
+        "200":
+          description: The applications, by name.
+          content:
+            application/json:
+              schema:
+                { $ref: "#/components/schemas/PortalApplicationListEnvelope" }
+        "401":
+          $ref: "#/components/responses/Unauthorized"
 
   /api/v1/users:
     get:
@@ -1391,6 +1439,14 @@ paths:
                 scopes:
                   type: array
                   items: { type: string }
+                launchUrl:
+                  type: string
+                  description: |
+                    Where a person opens this application, for the portal.
+                    Optional. Must be http or https — it is rendered as a
+                    link, and a scheme that executes would be stored
+                    cross-site scripting aimed at everyone who opens the
+                    portal.
       responses:
         "200":
           description: Registered, with the secret if it is confidential.
@@ -1554,6 +1610,7 @@ paths:
               properties:
                 name: { type: string }
                 metadataXml: { type: string }
+                launchUrl: { type: string }
       responses:
         "200":
           description: Registered.
@@ -1607,6 +1664,7 @@ paths:
               properties:
                 name: { type: string }
                 metadataXml: { type: string }
+                launchUrl: { type: string }
       responses:
         "200":
           description: Updated.
@@ -1686,6 +1744,7 @@ paths:
               properties:
                 name: { type: string }
                 urlPrefix: { type: string, format: uri }
+                launchUrl: { type: string }
       responses:
         "200":
           description: Registered.
@@ -1732,6 +1791,7 @@ paths:
               properties:
                 name: { type: string }
                 urlPrefix: { type: string, format: uri }
+                launchUrl: { type: string }
       responses:
         "200":
           description: Updated.
@@ -2371,6 +2431,12 @@ components:
         tenantId: { type: string }
         clientId: { type: string }
         name: { type: string }
+        launchUrl:
+          type: string
+          description: |
+            Where a person opens this application, for the portal. Empty when
+            none was given. Not a redirect URI: that is where a code is
+            delivered mid-flow, and opening it directly produces an error.
         confidential:
           type: boolean
           description: |
@@ -2406,6 +2472,7 @@ components:
         entityId: { type: string }
         name: { type: string }
         metadataXml: { type: string }
+        launchUrl: { type: string }
         acsUrls:
           type: array
           items: { type: string }
@@ -2421,9 +2488,25 @@ components:
         tenantId: { type: string }
         name: { type: string }
         urlPrefix: { type: string }
+        launchUrl: { type: string }
         status: { $ref: "#/components/schemas/Status" }
         createdAt: { type: string, format: date-time }
         updatedAt: { type: string, format: date-time }
+
+    PortalApplication:
+      type: object
+      description: |
+        One thing a person can open. Deliberately not the administrative
+        shape: a reader does not need redirect URIs or a metadata document,
+        which are how the protocol works rather than what the application is.
+      properties:
+        name: { type: string }
+        protocol: { $ref: "#/components/schemas/Protocol" }
+        launchUrl: { type: string, format: uri }
+
+    Protocol:
+      type: string
+      enum: [oauth, saml, cas]
 
     IntegrationEndpoints:
       type: object
@@ -2742,6 +2825,15 @@ components:
         - type: object
           properties:
             data: { $ref: "#/components/schemas/Authorization" }
+
+    PortalApplicationListEnvelope:
+      allOf:
+        - $ref: "#/components/schemas/Envelope"
+        - type: object
+          properties:
+            data:
+              type: array
+              items: { $ref: "#/components/schemas/PortalApplication" }
 
     IntegrationEndpointsEnvelope:
       allOf:

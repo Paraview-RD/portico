@@ -9,6 +9,7 @@ import { ForgotPasswordPage } from "./pages/ForgotPasswordPage";
 import { LoginPage } from "./pages/LoginPage";
 import { GroupsPage } from "./pages/GroupsPage";
 import { OrganizationsPage } from "./pages/OrganizationsPage";
+import { PortalPage } from "./pages/PortalPage";
 import { ProfilePage } from "./pages/ProfilePage";
 import { ProvisioningPage } from "./pages/ProvisioningPage";
 import { RegisterPage } from "./pages/RegisterPage";
@@ -69,7 +70,7 @@ export function App() {
     if (!user && !publicRoutes.includes(route)) {
       navigate("/login");
     } else if (user && publicRoutes.includes(route)) {
-      navigate(user.role === "SUPER_ADMIN" ? "/users" : "/profile");
+      navigate("/");
     }
   }, [user, loading, route, navigate, pending, casLogout]);
 
@@ -116,10 +117,15 @@ function AuthenticatedRoute({
   // a screen that would only produce 403s. The server enforces the same
   // rule; this just avoids showing them a wall of permission errors.
   if (!isAdmin) {
-    return <ProfilePage />;
+    // The home screen and their own profile, and nothing else — an
+    // administrative URL typed by hand lands on the portal rather than on a
+    // screen that would only produce 403s.
+    return route === "/profile" ? <ProfilePage /> : <PortalPage />;
   }
 
   switch (route) {
+    case "/":
+      return <PortalPage />;
     case "/organizations":
       return <OrganizationsPage />;
     case "/groups":

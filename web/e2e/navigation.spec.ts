@@ -13,7 +13,11 @@ import { expect, test } from "./fixtures";
  * way a person does.
  */
 
+// Home has no group heading: it is not a category, and a label above a
+// single item at the top of every sidebar is noise. The group assertions
+// below skip the ones with no heading rather than inventing one.
 const entries = [
+  { group: "", label: "Home", path: "/" },
   { group: "Directory", label: "Users", path: "/users" },
   { group: "Directory", label: "Organizations", path: "/organizations" },
   { group: "Directory", label: "Groups", path: "/groups" },
@@ -60,17 +64,15 @@ test("each screen sits in the group it belongs to", async ({
   // so that adding an entry whose label contains a group's name fails
   // outright rather than passing for the wrong reason.
   const occurrences = (needle: string) => text.split(needle).length - 1;
+  const named = entries.filter((entry) => entry.group !== "");
   for (const name of [
-    ...new Set([
-      ...entries.map((e) => e.group),
-      ...entries.map((e) => e.label),
-    ]),
+    ...new Set([...named.map((e) => e.group), ...named.map((e) => e.label)]),
   ]) {
     // A group name inside a longer label is fine — "Audit" inside "Audit
     // logs" — as long as the heading itself is the earlier occurrence, which
     // the ordering assertions then confirm. Two independent occurrences of
     // the same name are not.
-    const insideLabels = entries.filter(
+    const insideLabels = named.filter(
       (e) => e.label !== name && e.label.includes(name),
     ).length;
     expect(
@@ -85,6 +87,7 @@ test("each screen sits in the group it belongs to", async ({
   // while the menu says something untrue — which is the defect this whole
   // change was made to remove.
   for (const entry of entries) {
+    if (entry.group === "") continue;
     const groupAt = text.indexOf(entry.group);
     const itemAt = text.indexOf(entry.label);
     expect(groupAt, `no "${entry.group}" heading in the menu`).toBeGreaterThan(
@@ -100,7 +103,7 @@ test("each screen sits in the group it belongs to", async ({
     // no more than "somewhere below it".
     const laterGroups = entries
       .map((e) => e.group)
-      .filter((g) => text.indexOf(g) > groupAt)
+      .filter((g) => g !== "" && text.indexOf(g) > groupAt)
       .map((g) => text.indexOf(g));
     if (laterGroups.length > 0) {
       expect(

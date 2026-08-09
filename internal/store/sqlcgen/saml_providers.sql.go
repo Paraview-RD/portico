@@ -63,8 +63,9 @@ func (q *Queries) CreateSAMLAuthRequest(ctx context.Context, arg CreateSAMLAuthR
 
 const createSAMLServiceProvider = `-- name: CreateSAMLServiceProvider :exec
 INSERT INTO saml_service_providers (
-    id, tenant_id, entity_id, name, metadata_xml, status, created_at, updated_at
-) VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
+    id, tenant_id, entity_id, name, metadata_xml, launch_url,
+    status, created_at, updated_at
+) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)
 `
 
 type CreateSAMLServiceProviderParams struct {
@@ -73,6 +74,7 @@ type CreateSAMLServiceProviderParams struct {
 	EntityID    string
 	Name        string
 	MetadataXml string
+	LaunchUrl   string
 	Status      string
 	CreatedAt   time.Time
 	UpdatedAt   time.Time
@@ -85,6 +87,7 @@ func (q *Queries) CreateSAMLServiceProvider(ctx context.Context, arg CreateSAMLS
 		arg.EntityID,
 		arg.Name,
 		arg.MetadataXml,
+		arg.LaunchUrl,
 		arg.Status,
 		arg.CreatedAt,
 		arg.UpdatedAt,
@@ -151,7 +154,7 @@ func (q *Queries) GetSAMLAuthRequest(ctx context.Context, arg GetSAMLAuthRequest
 }
 
 const getSAMLServiceProvider = `-- name: GetSAMLServiceProvider :one
-SELECT id, tenant_id, entity_id, name, metadata_xml, status, created_at, updated_at FROM saml_service_providers
+SELECT id, tenant_id, entity_id, name, metadata_xml, status, created_at, updated_at, launch_url FROM saml_service_providers
 WHERE tenant_id = $1 AND entity_id = $2
 LIMIT 1
 `
@@ -173,12 +176,13 @@ func (q *Queries) GetSAMLServiceProvider(ctx context.Context, arg GetSAMLService
 		&i.Status,
 		&i.CreatedAt,
 		&i.UpdatedAt,
+		&i.LaunchUrl,
 	)
 	return i, err
 }
 
 const getSAMLServiceProviderByID = `-- name: GetSAMLServiceProviderByID :one
-SELECT id, tenant_id, entity_id, name, metadata_xml, status, created_at, updated_at FROM saml_service_providers
+SELECT id, tenant_id, entity_id, name, metadata_xml, status, created_at, updated_at, launch_url FROM saml_service_providers
 WHERE tenant_id = $1 AND id = $2
 LIMIT 1
 `
@@ -204,12 +208,13 @@ func (q *Queries) GetSAMLServiceProviderByID(ctx context.Context, arg GetSAMLSer
 		&i.Status,
 		&i.CreatedAt,
 		&i.UpdatedAt,
+		&i.LaunchUrl,
 	)
 	return i, err
 }
 
 const listSAMLServiceProviders = `-- name: ListSAMLServiceProviders :many
-SELECT id, tenant_id, entity_id, name, metadata_xml, status, created_at, updated_at FROM saml_service_providers
+SELECT id, tenant_id, entity_id, name, metadata_xml, status, created_at, updated_at, launch_url FROM saml_service_providers
 WHERE tenant_id = $1
 ORDER BY created_at DESC
 `
@@ -232,6 +237,7 @@ func (q *Queries) ListSAMLServiceProviders(ctx context.Context, tenantID string)
 			&i.Status,
 			&i.CreatedAt,
 			&i.UpdatedAt,
+			&i.LaunchUrl,
 		); err != nil {
 			return nil, err
 		}
@@ -248,13 +254,14 @@ func (q *Queries) ListSAMLServiceProviders(ctx context.Context, tenantID string)
 
 const updateSAMLServiceProvider = `-- name: UpdateSAMLServiceProvider :exec
 UPDATE saml_service_providers
-SET name = $1, metadata_xml = $2, updated_at = $3
-WHERE tenant_id = $4 AND entity_id = $5
+SET name = $1, metadata_xml = $2, launch_url = $3, updated_at = $4
+WHERE tenant_id = $5 AND entity_id = $6
 `
 
 type UpdateSAMLServiceProviderParams struct {
 	Name        string
 	MetadataXml string
+	LaunchUrl   string
 	UpdatedAt   time.Time
 	TenantID    string
 	EntityID    string
@@ -269,6 +276,7 @@ func (q *Queries) UpdateSAMLServiceProvider(ctx context.Context, arg UpdateSAMLS
 	_, err := q.db.ExecContext(ctx, updateSAMLServiceProvider,
 		arg.Name,
 		arg.MetadataXml,
+		arg.LaunchUrl,
 		arg.UpdatedAt,
 		arg.TenantID,
 		arg.EntityID,

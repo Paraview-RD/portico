@@ -12,6 +12,7 @@ import type {
   OAuthClient,
   Organization,
   PageResult,
+  PortalApplication,
   RecoveryChannel,
   RegisteredClient,
   RegistrationStatus,
@@ -336,6 +337,17 @@ export const oauthApi = {
  */
 const segment = encodeURIComponent;
 
+/**
+ * The home screen's own view of the applications.
+ *
+ * Separate from applicationApi because the caller is different: this one is
+ * readable by anybody signed in, and returns a name and a link rather than a
+ * registration.
+ */
+export const portalApi = {
+  applications: () => request<PortalApplication[]>("/portal/applications"),
+};
+
 export const applicationApi = {
   /** What to configure at the other end of an integration. */
   integrationEndpoints: () =>
@@ -352,6 +364,7 @@ export const applicationApi = {
       redirectUris: string[];
       postLogoutRedirectUris: string[];
       scopes: string[];
+      launchUrl?: string;
     }) =>
       request<RegisteredClient>("/applications/oauth-clients", {
         method: "POST",
@@ -397,14 +410,21 @@ export const applicationApi = {
     list: () =>
       request<SAMLServiceProvider[]>("/applications/saml-service-providers"),
 
-    create: (input: { name: string; metadataXml: string }) =>
+    create: (input: {
+      name: string;
+      metadataXml: string;
+      launchUrl?: string;
+    }) =>
       request<SAMLServiceProvider>("/applications/saml-service-providers", {
         method: "POST",
         body: input,
       }),
 
     /** Replacing the metadata is how a certificate is rotated. */
-    update: (id: string, input: { name: string; metadataXml: string }) =>
+    update: (
+      id: string,
+      input: { name: string; metadataXml: string; launchUrl?: string },
+    ) =>
       request<SAMLServiceProvider>(
         `/applications/saml-service-providers/${segment(id)}`,
         { method: "PUT", body: input },
@@ -426,13 +446,16 @@ export const applicationApi = {
   cas: {
     list: () => request<CASService[]>("/applications/cas-services"),
 
-    create: (input: { name: string; urlPrefix: string }) =>
+    create: (input: { name: string; urlPrefix: string; launchUrl?: string }) =>
       request<CASService>("/applications/cas-services", {
         method: "POST",
         body: input,
       }),
 
-    update: (id: string, input: { name: string; urlPrefix: string }) =>
+    update: (
+      id: string,
+      input: { name: string; urlPrefix: string; launchUrl?: string },
+    ) =>
       request<CASService>(`/applications/cas-services/${segment(id)}`, {
         method: "PUT",
         body: input,
@@ -540,4 +563,14 @@ export const groupsApi = {
 
   forUser: (userId: string) =>
     request<GroupRef[]>(`/users/${segment(userId)}/groups`),
+
+  /**
+   * The caller's own groups.
+   *
+   * Not forUser with your own id: that route is administrator-only, because
+   * asking about somebody else is an administrative act. This one takes the
+   * account from the token, so the home screen works for the people who only
+   * have a home screen.
+   */
+  forMe: () => request<GroupRef[]>("/users/me/groups"),
 };

@@ -30,6 +30,10 @@ type SAMLServiceProvider struct {
 	// whole. The protocol library reads the assertion consumer service
 	// endpoints and signing certificates out of it.
 	MetadataXML string `json:"-"`
+	// LaunchURL is where a person opens this application, for the portal.
+	// Not an assertion consumer service, which is where an assertion is
+	// posted mid-flow.
+	LaunchURL string `json:"launchUrl"`
 	// ACSURLs are the endpoints assertions may be delivered to, extracted
 	// from the metadata for display. They are not what the protocol matches
 	// against — that is the document itself.

@@ -35,6 +35,8 @@ type CasService struct {
 	Status    string
 	CreatedAt time.Time
 	UpdatedAt time.Time
+	// Where a person opens this application. Not the URL prefix.
+	LaunchUrl string
 }
 
 type CasTicket struct {
@@ -104,6 +106,8 @@ type OauthClient struct {
 	Status                 string
 	CreatedAt              time.Time
 	UpdatedAt              time.Time
+	// Where a person opens this application. Not a redirect URI.
+	LaunchUrl string
 }
 
 type OauthRefreshToken struct {
@@ -194,6 +198,8 @@ type SamlServiceProvider struct {
 	Status      string
 	CreatedAt   time.Time
 	UpdatedAt   time.Time
+	// Where a person opens this application. Not an assertion consumer service.
+	LaunchUrl string
 }
 
 type SamlSigningKey struct {

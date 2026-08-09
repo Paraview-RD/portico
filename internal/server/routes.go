@@ -68,6 +68,7 @@ func (s *Server) routes() http.Handler {
 			// you out on a phone; that is what the second one is for.
 			r.Post("/auth/logout-everywhere", h.LogoutEverywhere)
 
+			r.Get("/users/me/groups", h.ListOwnGroups)
 			r.Get("/users/me/sessions", h.ListOwnSessions)
 			r.Delete("/users/me/sessions/{sessionID}", h.RevokeOwnSession)
 
@@ -90,6 +91,13 @@ func (s *Server) routes() http.Handler {
 			// screen; writing is administrator-only, below.
 			r.Get("/organizations", h.ListOrganizations)
 			r.Get("/organizations/{id}", h.GetOrganization)
+
+			// The home screen for somebody who is not an administrator.
+			// Every other application endpoint requires one, which is why
+			// this is a separate, narrower view rather than a permission on
+			// the existing lists: what it returns is a name and a link, not
+			// a registration.
+			r.Get("/portal/applications", h.PortalApplications)
 		})
 
 		// --- Administrators only --------------------------------------

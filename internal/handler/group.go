@@ -30,6 +30,28 @@ func (h *Handler) ListGroups(w http.ResponseWriter, r *http.Request) {
 	httpx.OK(w, groups)
 }
 
+// ListOwnGroups returns the groups the caller belongs to.
+//
+// Separate from ListUserGroups, which is administrator-only because asking
+// about somebody else is an administrative act. Asking about yourself is not,
+// and the home screen — the one screen an ordinary user has — needs the
+// answer. Reading it through the administrative route meant every
+// non-administrator's portal made a request that answered 403, caught it, and
+// showed an empty list that looked like membership of nothing.
+//
+// The id is taken from the token and never from the path, so there is no
+// version of this that can be asked about another account.
+func (h *Handler) ListOwnGroups(w http.ResponseWriter, r *http.Request) {
+	actor := auth.MustPrincipal(r.Context())
+
+	groups, err := h.groups.GroupsForUser(r.Context(), actor.TenantID, actor.UserID)
+	if err != nil {
+		httpx.Fail(w, r, err)
+		return
+	}
+	httpx.OK(w, groups)
+}
+
 // GetGroup returns one group.
 func (h *Handler) GetGroup(w http.ResponseWriter, r *http.Request) {
 	actor := auth.MustPrincipal(r.Context())

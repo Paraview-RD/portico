@@ -141,6 +141,7 @@ export const errorsZhCN: Record<keyof typeof errorsEnUS, string> = {
   UNKNOWN_EVENT: "本版本不会发送该事件类型。",
 
   // --- 设置与筛选 ---
+  INVALID_LAUNCH_URL: "访问地址必须是 http 或 https 的网址。",
   INVALID_NAME: "名称不能为空。",
   INVALID_SETTINGS: "设置取值不合法。",
   INVALID_LOG_KIND: "日志类型不合法。",

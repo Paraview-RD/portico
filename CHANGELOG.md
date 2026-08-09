@@ -356,6 +356,19 @@ Working toward 0.1.0 — the first release. Nothing has been published yet.
   and a path described without existing; the second catches the document
   being invalid, which the first cannot see. It found a dangling `$ref` on
   its first run.
+- **A home screen, for everybody.** Somebody who is not an administrator used
+  to sign in and land on their own profile — true, and not the question they
+  arrived with, which is what they can use. `/` now lists the applications
+  they can open, their account at a glance, and their last few sign-ins.
+- The applications on it are **the tenant's, not the reader's**, and the
+  screen says so. This version has two fixed roles and no notion of who may
+  use what, so the list is identical for everybody; implying an entitlement
+  that does not exist would invite the conclusion that an application missing
+  from a colleague's portal is one they were not granted.
+- Application registrations gained an optional **launch address**, because
+  none of the addresses already stored is one: a redirect URI, an assertion
+  consumer service, and a CAS prefix are all places a protocol sends a
+  browser mid-flow, and opening any of them directly produces an error.
 - **Every screen is laid out in the same column**, bounded rather than
   stretching to the edge of whatever display it is on, and every screen puts
   its content on the same kind of surface. The settings form sat directly on

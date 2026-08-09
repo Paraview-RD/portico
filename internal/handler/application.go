@@ -63,6 +63,9 @@ type createClientRequest struct {
 	RedirectURIs           []string `json:"redirectUris"`
 	PostLogoutRedirectURIs []string `json:"postLogoutRedirectUris"`
 	Scopes                 []string `json:"scopes"`
+	// LaunchURL is where a person opens this application, for the portal.
+	// Optional, and not a redirect URI — see model.OAuthClient.
+	LaunchURL string `json:"launchUrl"`
 }
 
 // registeredClientResponse carries the generated secret alongside the client.
@@ -94,6 +97,7 @@ func (h *Handler) CreateClient(w http.ResponseWriter, r *http.Request) {
 		RedirectURIs:           req.RedirectURIs,
 		PostLogoutRedirectURIs: req.PostLogoutRedirectURIs,
 		Scopes:                 req.Scopes,
+		LaunchURL:              req.LaunchURL,
 	})
 	if err != nil {
 		httpx.Fail(w, r, err)
@@ -112,6 +116,7 @@ type updateClientRequest struct {
 	RedirectURIs           []string `json:"redirectUris"`
 	PostLogoutRedirectURIs []string `json:"postLogoutRedirectUris"`
 	Scopes                 []string `json:"scopes"`
+	LaunchURL              string   `json:"launchUrl"`
 }
 
 // UpdateClient changes a relying party's settings.
@@ -131,6 +136,7 @@ func (h *Handler) UpdateClient(w http.ResponseWriter, r *http.Request) {
 			RedirectURIs:           req.RedirectURIs,
 			PostLogoutRedirectURIs: req.PostLogoutRedirectURIs,
 			Scopes:                 req.Scopes,
+			LaunchURL:              req.LaunchURL,
 		})
 	if err != nil {
 		httpx.Fail(w, r, err)
@@ -209,6 +215,7 @@ type serviceProviderRequest struct {
 	// reach.
 	MetadataXML string `json:"metadataXml"`
 	Name        string `json:"name"`
+	LaunchURL   string `json:"launchUrl"`
 }
 
 // CreateServiceProvider registers a SAML service provider.
@@ -224,6 +231,7 @@ func (h *Handler) CreateServiceProvider(w http.ResponseWriter, r *http.Request) 
 	provider, err := h.serviceProviders.Register(r.Context(), principal, service.RegisterSPInput{
 		MetadataXML: req.MetadataXML,
 		Name:        req.Name,
+		LaunchURL:   req.LaunchURL,
 	})
 	if err != nil {
 		httpx.Fail(w, r, err)
@@ -252,6 +260,7 @@ func (h *Handler) UpdateServiceProvider(w http.ResponseWriter, r *http.Request) 
 	provider, err := h.serviceProviders.Update(r.Context(), principal, entityID, service.UpdateSPInput{
 		MetadataXML: req.MetadataXML,
 		Name:        req.Name,
+		LaunchURL:   req.LaunchURL,
 	})
 	if err != nil {
 		httpx.Fail(w, r, err)
@@ -322,6 +331,7 @@ type casServiceRequest struct {
 	// URLPrefix is a prefix, not a pattern. There are no wildcards; see
 	// service.MatchCASService for why the boundary matters.
 	URLPrefix string `json:"urlPrefix"`
+	LaunchURL string `json:"launchUrl"`
 }
 
 // CreateCASService registers a CAS service.
@@ -337,6 +347,7 @@ func (h *Handler) CreateCASService(w http.ResponseWriter, r *http.Request) {
 	svc, err := h.casServices.Register(r.Context(), principal, service.RegisterCASInput{
 		Name:      req.Name,
 		URLPrefix: req.URLPrefix,
+		LaunchURL: req.LaunchURL,
 	})
 	if err != nil {
 		httpx.Fail(w, r, err)
@@ -364,6 +375,7 @@ func (h *Handler) UpdateCASService(w http.ResponseWriter, r *http.Request) {
 	svc, err := h.casServices.Update(r.Context(), principal, prefix, service.UpdateCASInput{
 		Name:      req.Name,
 		URLPrefix: req.URLPrefix,
+		LaunchURL: req.LaunchURL,
 	})
 	if err != nil {
 		httpx.Fail(w, r, err)

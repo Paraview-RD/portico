@@ -20,7 +20,10 @@ type CASService struct {
 	// prefix rather than an exact URL because CAS clients legitimately
 	// append their own return-to parameters, and there are no wildcards in
 	// it — see service.MatchCASService for exactly what matches.
-	URLPrefix string    `json:"urlPrefix"`
+	URLPrefix string `json:"urlPrefix"`
+	// LaunchURL is where a person opens this application, for the portal.
+	// Not the prefix above, which is a matching rule.
+	LaunchURL string    `json:"launchUrl"`
 	Status    Status    `json:"status"`
 	CreatedAt time.Time `json:"createdAt"`
 	UpdatedAt time.Time `json:"updatedAt"`

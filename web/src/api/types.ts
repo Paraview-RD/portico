@@ -162,12 +162,27 @@ export interface Authorization {
 /** Which protocol an application signs in with. */
 export type Protocol = "oauth" | "saml" | "cas";
 
+/**
+ * One thing a person can open from the portal.
+ *
+ * Deliberately not the administrative shape. A reader does not need the
+ * redirect URIs or the metadata document — those are how the protocol works,
+ * not what the application is.
+ */
+export interface PortalApplication {
+  name: string;
+  protocol: Protocol;
+  launchUrl: string;
+}
+
 /** A registered OAuth 2.1 / OpenID Connect relying party. */
 export interface OAuthClient {
   id: string;
   tenantId: string;
   clientId: string;
   name: string;
+  /** Where a person opens it, for the portal. Empty when none was given. */
+  launchUrl: string;
   /**
    * False for a browser or mobile application, which cannot keep a secret
    * and authenticates with PKCE alone.
@@ -203,6 +218,7 @@ export interface SAMLServiceProvider {
   entityId: string;
   name: string;
   metadataXml: string;
+  launchUrl: string;
   /** Where assertions are delivered, read out of the metadata document. */
   acsUrls: string[];
   status: Status;
@@ -217,6 +233,7 @@ export interface CASService {
   name: string;
   /** A prefix, not a pattern: there are no wildcards. */
   urlPrefix: string;
+  launchUrl: string;
   status: Status;
   createdAt: string;
   updatedAt: string;

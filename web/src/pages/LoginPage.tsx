@@ -106,7 +106,10 @@ export function LoginPage() {
       }
 
       if (!completingAuthorization) {
-        navigate("/users");
+        // The home screen, for everybody. Sending an administrator straight
+        // to the user list skipped the one screen that says what this
+        // deployment has in it.
+        navigate("/");
       }
     } catch (err) {
       // Not an error to report and stop at: it is a different form. The

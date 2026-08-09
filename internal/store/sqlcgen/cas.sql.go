@@ -47,8 +47,9 @@ func (q *Queries) ConsumeCASTicket(ctx context.Context, arg ConsumeCASTicketPara
 
 const createCASService = `-- name: CreateCASService :exec
 INSERT INTO cas_services (
-    id, tenant_id, name, url_prefix, status, created_at, updated_at
-) VALUES ($1, $2, $3, $4, $5, $6, $7)
+    id, tenant_id, name, url_prefix, launch_url,
+    status, created_at, updated_at
+) VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
 `
 
 type CreateCASServiceParams struct {
@@ -56,6 +57,7 @@ type CreateCASServiceParams struct {
 	TenantID  string
 	Name      string
 	UrlPrefix string
+	LaunchUrl string
 	Status    string
 	CreatedAt time.Time
 	UpdatedAt time.Time
@@ -67,6 +69,7 @@ func (q *Queries) CreateCASService(ctx context.Context, arg CreateCASServicePara
 		arg.TenantID,
 		arg.Name,
 		arg.UrlPrefix,
+		arg.LaunchUrl,
 		arg.Status,
 		arg.CreatedAt,
 		arg.UpdatedAt,
@@ -118,7 +121,7 @@ func (q *Queries) DeleteExpiredCASTickets(ctx context.Context, arg DeleteExpired
 }
 
 const getCASService = `-- name: GetCASService :one
-SELECT id, tenant_id, name, url_prefix, status, created_at, updated_at FROM cas_services
+SELECT id, tenant_id, name, url_prefix, status, created_at, updated_at, launch_url FROM cas_services
 WHERE tenant_id = $1 AND url_prefix = $2
 LIMIT 1
 `
@@ -139,12 +142,13 @@ func (q *Queries) GetCASService(ctx context.Context, arg GetCASServiceParams) (C
 		&i.Status,
 		&i.CreatedAt,
 		&i.UpdatedAt,
+		&i.LaunchUrl,
 	)
 	return i, err
 }
 
 const getCASServiceByID = `-- name: GetCASServiceByID :one
-SELECT id, tenant_id, name, url_prefix, status, created_at, updated_at FROM cas_services
+SELECT id, tenant_id, name, url_prefix, status, created_at, updated_at, launch_url FROM cas_services
 WHERE tenant_id = $1 AND id = $2
 LIMIT 1
 `
@@ -168,12 +172,13 @@ func (q *Queries) GetCASServiceByID(ctx context.Context, arg GetCASServiceByIDPa
 		&i.Status,
 		&i.CreatedAt,
 		&i.UpdatedAt,
+		&i.LaunchUrl,
 	)
 	return i, err
 }
 
 const listCASServices = `-- name: ListCASServices :many
-SELECT id, tenant_id, name, url_prefix, status, created_at, updated_at FROM cas_services
+SELECT id, tenant_id, name, url_prefix, status, created_at, updated_at, launch_url FROM cas_services
 WHERE tenant_id = $1
 ORDER BY url_prefix
 `
@@ -195,6 +200,7 @@ func (q *Queries) ListCASServices(ctx context.Context, tenantID string) ([]CasSe
 			&i.Status,
 			&i.CreatedAt,
 			&i.UpdatedAt,
+			&i.LaunchUrl,
 		); err != nil {
 			return nil, err
 		}
@@ -211,13 +217,14 @@ func (q *Queries) ListCASServices(ctx context.Context, tenantID string) ([]CasSe
 
 const updateCASService = `-- name: UpdateCASService :exec
 UPDATE cas_services
-SET name = $1, url_prefix = $2, updated_at = $3
-WHERE tenant_id = $4 AND url_prefix = $5
+SET name = $1, url_prefix = $2, launch_url = $3, updated_at = $4
+WHERE tenant_id = $5 AND url_prefix = $6
 `
 
 type UpdateCASServiceParams struct {
 	Name        string
 	UrlPrefix   string
+	LaunchUrl   string
 	UpdatedAt   time.Time
 	TenantID    string
 	UrlPrefix_2 string
@@ -231,6 +238,7 @@ func (q *Queries) UpdateCASService(ctx context.Context, arg UpdateCASServicePara
 	_, err := q.db.ExecContext(ctx, updateCASService,
 		arg.Name,
 		arg.UrlPrefix,
+		arg.LaunchUrl,
 		arg.UpdatedAt,
 		arg.TenantID,
 		arg.UrlPrefix_2,

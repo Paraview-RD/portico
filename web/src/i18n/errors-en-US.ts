@@ -167,6 +167,7 @@ export const errorsEnUS = {
   UNKNOWN_EVENT: "That is not an event this version sends.",
 
   // --- Settings and filters ---
+  INVALID_LAUNCH_URL: "A launch address must be an http or https URL.",
   INVALID_NAME: "A name is required.",
   INVALID_SETTINGS: "Those settings are not valid.",
   INVALID_LOG_KIND: "That is not a valid log type.",

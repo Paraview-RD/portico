@@ -62,6 +62,11 @@ type OAuthClient struct {
 	ApplicationType string `json:"applicationType"`
 	AuthMethod      string `json:"authMethod"`
 
+	// LaunchURL is where a person opens this application, for the portal.
+	// Not a redirect URI: that is where a code is delivered mid-flow, and
+	// opening it directly produces an error rather than the application.
+	// Empty when nobody supplied one, which is allowed.
+	LaunchURL              string   `json:"launchUrl"`
 	RedirectURIs           []string `json:"redirectUris"`
 	PostLogoutRedirectURIs []string `json:"postLogoutRedirectUris"`
 	GrantTypes             []string `json:"grantTypes"`

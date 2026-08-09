@@ -2,9 +2,11 @@ package service
 
 import (
 	"fmt"
+	"net/url"
 	"strings"
 
 	"github.com/paraview/portico/internal/auth"
+	"github.com/paraview/portico/internal/httpx"
 	"github.com/paraview/portico/internal/model"
 )
 
@@ -121,4 +123,44 @@ func (f *filters) Paginate(page Page) (clause string, args []any) {
 	offset := fmt.Sprintf("$%d", len(f.args)+2)
 	return fmt.Sprintf(" LIMIT %s OFFSET %s", limit, offset),
 		append(append([]any{}, f.args...), page.Limit, page.Offset)
+}
+
+// ErrInvalidLaunchURL is a launch address that must not be rendered as a link.
+var ErrInvalidLaunchURL = httpx.BadRequest("INVALID_LAUNCH_URL",
+	"A launch address must be an http or https URL.")
+
+// normalizeLaunchURL checks the address a portal will render as a link.
+//
+// The rules are not the ones a redirect URI or a webhook destination gets,
+// because the risk is not the same. Nothing here is fetched by the server, so
+// the private-address checks that stop a webhook becoming a proxy would only
+// forbid an intranet application that legitimately lives on 10.0.0.0/8. And
+// plain http is allowed for the same reason: this address carries no code and
+// no assertion, so an internal tool on http is a real deployment rather than
+// a mistake.
+//
+// What must be refused is a scheme that executes. This value ends up in an
+// href, and `javascript:` there is stored cross-site scripting aimed at every
+// person who opens the portal — an administrator writes it once and it runs
+// in everybody's browser.
+//
+// Empty is allowed and means the application has no launch address, which is
+// how a registration that is not meant to be opened stays registered.
+func normalizeLaunchURL(raw string) (string, error) {
+	trimmed := strings.TrimSpace(raw)
+	if trimmed == "" {
+		return "", nil
+	}
+
+	parsed, err := url.Parse(trimmed)
+	if err != nil {
+		return "", ErrInvalidLaunchURL
+	}
+	if parsed.Scheme != "http" && parsed.Scheme != "https" {
+		return "", ErrInvalidLaunchURL
+	}
+	if parsed.Host == "" {
+		return "", ErrInvalidLaunchURL
+	}
+	return trimmed, nil
 }

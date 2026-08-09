@@ -578,6 +578,7 @@ function ClientFormDialog({
     redirectUris: "",
     postLogoutRedirectUris: "",
     scopes: "openid profile email",
+    launchUrl: "",
   });
   const [error, setError] = useState("");
   const [submitting, setSubmitting] = useState(false);
@@ -593,6 +594,7 @@ function ClientFormDialog({
       redirectUris: (client?.redirectUris ?? []).join("\n"),
       postLogoutRedirectUris: (client?.postLogoutRedirectUris ?? []).join("\n"),
       scopes: (client?.scopes ?? ["openid", "profile", "email"]).join(" "),
+      launchUrl: client?.launchUrl ?? "",
     });
   }, [open, client]);
 
@@ -607,6 +609,7 @@ function ClientFormDialog({
         redirectUris: lines(form.redirectUris),
         postLogoutRedirectUris: lines(form.postLogoutRedirectUris),
         scopes: form.scopes.split(/\s+/).filter((s) => s !== ""),
+        launchUrl: form.launchUrl,
       };
       if (isEdit && client) {
         await applicationApi.oauth.update(client.clientId, shared);
@@ -750,6 +753,19 @@ function ClientFormDialog({
           />
         </Field>
 
+        <Field
+          label={`${t("applications.launchUrl")} (${t("common.optional")})`}
+          hint={t("applications.launchUrlHelp")}
+        >
+          <Input
+            value={form.launchUrl}
+            onChange={(e) =>
+              setForm((f) => ({ ...f, launchUrl: e.target.value }))
+            }
+            placeholder="https://app.example.com/"
+          />
+        </Field>
+
         {error && <Alert tone="danger">{error}</Alert>}
       </form>
     </Modal>
@@ -771,7 +787,11 @@ function ServiceProviderFormDialog({
   const describeError = useErrorMessage();
   const isEdit = provider !== null;
 
-  const [form, setForm] = useState({ name: "", metadataXml: "" });
+  const [form, setForm] = useState({
+    name: "",
+    metadataXml: "",
+    launchUrl: "",
+  });
   const [error, setError] = useState("");
   const [submitting, setSubmitting] = useState(false);
 
@@ -781,6 +801,7 @@ function ServiceProviderFormDialog({
     setForm({
       name: provider?.name ?? "",
       metadataXml: provider?.metadataXml ?? "",
+      launchUrl: provider?.launchUrl ?? "",
     });
   }, [open, provider]);
 
@@ -883,6 +904,19 @@ function ServiceProviderFormDialog({
           </div>
         </Field>
 
+        <Field
+          label={`${t("applications.launchUrl")} (${t("common.optional")})`}
+          hint={t("applications.launchUrlHelp")}
+        >
+          <Input
+            value={form.launchUrl}
+            onChange={(e) =>
+              setForm((f) => ({ ...f, launchUrl: e.target.value }))
+            }
+            placeholder="https://app.example.com/"
+          />
+        </Field>
+
         {error && <Alert tone="danger">{error}</Alert>}
       </form>
     </Modal>
@@ -904,14 +938,22 @@ function CASFormDialog({
   const describeError = useErrorMessage();
   const isEdit = service !== null;
 
-  const [form, setForm] = useState({ name: "", urlPrefix: "" });
+  const [form, setForm] = useState({
+    name: "",
+    urlPrefix: "",
+    launchUrl: "",
+  });
   const [error, setError] = useState("");
   const [submitting, setSubmitting] = useState(false);
 
   useEffect(() => {
     if (!open) return;
     setError("");
-    setForm({ name: service?.name ?? "", urlPrefix: service?.urlPrefix ?? "" });
+    setForm({
+      name: service?.name ?? "",
+      urlPrefix: service?.urlPrefix ?? "",
+      launchUrl: service?.launchUrl ?? "",
+    });
   }, [open, service]);
 
   async function handleSubmit(event: React.FormEvent) {
@@ -972,6 +1014,19 @@ function CASFormDialog({
             }
             required
             placeholder="https://wiki.example.com/"
+          />
+        </Field>
+
+        <Field
+          label={`${t("applications.launchUrl")} (${t("common.optional")})`}
+          hint={t("applications.launchUrlHelp")}
+        >
+          <Input
+            value={form.launchUrl}
+            onChange={(e) =>
+              setForm((f) => ({ ...f, launchUrl: e.target.value }))
+            }
+            placeholder="https://app.example.com/"
           />
         </Field>
 

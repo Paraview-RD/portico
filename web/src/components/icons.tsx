@@ -81,6 +81,17 @@ export function ApplicationsIcon(props: IconProps) {
   );
 }
 
+/** Home: where a person starts. */
+export function HomeIcon(props: IconProps) {
+  return (
+    <Svg {...props}>
+      <path d="M3 10.5 12 3l9 7.5" />
+      <path d="M5.5 9.5V20a1 1 0 0 0 1 1h11a1 1 0 0 0 1-1V9.5" />
+      <path d="M9.5 21v-6h5v6" />
+    </Svg>
+  );
+}
+
 /** Provisioning: a directory pushing accounts in. */
 export function ProvisioningIcon(props: IconProps) {
   return (

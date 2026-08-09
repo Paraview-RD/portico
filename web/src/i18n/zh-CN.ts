@@ -35,6 +35,7 @@ export const zhCN: Record<keyof typeof enUS, string> = {
   "users.directoryManaged":
     "该账号由目录系统维护，此处的修改可能在下次同步时被覆盖。",
 
+  "nav.home": "首页",
   "nav.users": "用户管理",
   "nav.organizations": "机构管理",
   "nav.auditLogs": "日志审计",
@@ -46,6 +47,18 @@ export const zhCN: Record<keyof typeof enUS, string> = {
   "nav.settings": "系统设置",
   "nav.profile": "个人中心",
   "nav.signOut": "退出登录",
+
+  "portal.greeting": "你好，{0}",
+  "portal.subtitle": "你的应用与账号。",
+  "portal.applications": "应用",
+  "portal.applicationsHint":
+    "本租户已注册的全部应用。当前版本没有按人分配的概念，因此每个人看到的都一样。",
+  "portal.noneOpenable": "还没有应用填写访问地址。注册应用时可以补上。",
+  "portal.account": "你的账号",
+  "portal.recentSignIns": "最近登录",
+  "applications.launchUrl": "访问地址",
+  "applications.launchUrlHelp":
+    "用户从首页打开该应用的地址。选填，且不是回调地址——直接打开回调地址只会报错。",
 
   "login.title": "登录",
   "login.identifier": "账号 / 邮箱 / 手机号",

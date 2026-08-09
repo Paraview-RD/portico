@@ -17,6 +17,7 @@ import {
 import type { ReactNode } from "react";
 
 export type Route =
+  | "/"
   | "/login"
   | "/register"
   | "/forgot-password"
@@ -32,6 +33,7 @@ export type Route =
   | "/profile";
 
 const routes: Route[] = [
+  "/",
   "/login",
   "/register",
   "/forgot-password",
@@ -49,7 +51,7 @@ const routes: Route[] = [
 
 function currentRoute(): Route {
   const path = window.location.pathname as Route;
-  return routes.includes(path) ? path : "/users";
+  return routes.includes(path) ? path : "/";
 }
 
 interface RouterValue {
