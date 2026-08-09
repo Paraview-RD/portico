@@ -596,6 +596,77 @@ paths:
             application/json:
               schema: { $ref: "#/components/schemas/Envelope" }
 
+  /api/v1/users/{id}/profile:
+    put:
+      tags: [Users]
+      operationId: setUserProfile
+      summary: Write an account's descriptive attributes.
+      description: |
+        Separate from `PUT /api/v1/users/{id}`, which changes role, status,
+        and organization. Those decide access; these describe a person. One
+        endpoint taking both would mean a form editing a job title has to
+        send a role, and sending the wrong one by omission is how a screen
+        becomes a privilege-escalation endpoint.
+      parameters:
+        - $ref: "#/components/parameters/ID"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/UserProfile" }
+      responses:
+        "200":
+          description: The account, with the attributes as stored.
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/UserEnvelope" }
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "409":
+          description: Another account already has that employee number.
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Envelope" }
+        "422":
+          $ref: "#/components/responses/ValidationFailed"
+
+  /api/v1/users/me/profile:
+    put:
+      tags: [Self-service]
+      operationId: setOwnProfileAttributes
+      summary: Maintain your own descriptive attributes.
+      description: |
+        The same fields an administrator can write, minus the manager: who
+        somebody reports to is an organizational fact rather than a personal
+        detail, and a self-service screen that could set it would let anybody
+        claim anybody as their manager — which downstream systems read as an
+        approval chain. A `managerId` sent here is ignored rather than
+        refused.
+
+        Safe to expose for the reason the split exists: this cannot reach a
+        role, a status, or an organization, so there is nothing to escalate
+        with.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/UserProfile" }
+      responses:
+        "200":
+          description: The account, with the attributes as stored.
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/UserEnvelope" }
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "409":
+          description: Another account already has that employee number.
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Envelope" }
+
   /api/v1/users/me/password:
     post:
       tags: [Self-service]
@@ -2603,6 +2674,7 @@ components:
           type: [string, "null"]
           format: date-time
           description: Present only while a lockout is actually in force.
+        profile: { $ref: "#/components/schemas/UserProfile" }
         createdAt: { type: string, format: date-time }
         updatedAt: { type: string, format: date-time }
 
@@ -3110,6 +3182,63 @@ components:
         - type: object
           properties:
             data: { $ref: "#/components/schemas/Me" }
+
+    UserProfile:
+      type: object
+      description: |
+        The descriptive half of an account: everything that says who somebody
+        is rather than what they may do.
+
+        The field names come from SCIM 2.0's core User schema (RFC 7643 §4.1)
+        and its enterprise extension (§4.3), so a directory's attributes land
+        where they belong and the meaning of each is settled by that
+        specification rather than by this project.
+
+        Every field is optional; an account with only a username and a
+        display name is complete. SCIM's `organization` and `division` are
+        deliberately absent — this system has an organization tree, and a
+        hand-typed string beside it drifts.
+      properties:
+        nameFormatted: { type: string }
+        familyName: { type: string }
+        givenName: { type: string }
+        middleName: { type: string }
+        honorificPrefix: { type: string }
+        honorificSuffix: { type: string }
+        nickName: { type: string }
+        profileUrl: { type: string }
+        photoUrl: { type: string }
+        title: { type: string }
+        userType: { type: string }
+        preferredLanguage: { type: string }
+        locale: { type: string }
+        timezone: { type: string }
+        addressFormatted: { type: string }
+        streetAddress: { type: string }
+        locality: { type: string }
+        region: { type: string }
+        postalCode: { type: string }
+        country: { type: string }
+        employeeNumber:
+          type: string
+          description: |
+            Unique within the tenant where set. It is how an HR system names
+            a person, so two accounts claiming one is a reconciliation error
+            rather than something to store.
+        costCenter: { type: string }
+        department:
+          type: string
+          description: |
+            Free text as a directory sends it, and distinct from
+            `organizationId`. A directory often sends a name that
+            corresponds to nothing in this tenant's tree; keeping both loses
+            nothing and lets an operator place the person later.
+        managerId:
+          type: string
+          description: Who this person reports to. Empty for nobody.
+        managerName:
+          type: string
+          description: Resolved for display; ignored on write.
 
     LDAPSource:
       type: object

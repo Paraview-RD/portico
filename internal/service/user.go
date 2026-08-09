@@ -226,7 +226,14 @@ func (s *UserService) List(ctx context.Context, tenantID string, q UserQuery, pa
 		`SELECT id, tenant_id, username, display_name, password_hash, phone, email, role, status,
 		        organization_id, token_version, source,
 		        failed_login_attempts, last_failed_login_at, locked_until,
-		        password_changed_at, external_id, ldap_source_id, closed_at, verified_at, created_at, updated_at
+		        password_changed_at, external_id, ldap_source_id, closed_at, verified_at,
+		        name_formatted, family_name, given_name, middle_name,
+		        honorific_prefix, honorific_suffix,
+		        nick_name, profile_url, photo_url,
+		        title, user_type, preferred_language, locale, timezone,
+		        address_formatted, street_address, locality, region, postal_code, country,
+		        employee_number, cost_center, department, manager_id,
+		        created_at, updated_at
 		 FROM users WHERE tenant_id = $1`+clause+`
 		 ORDER BY created_at DESC, id DESC`+pageClause, args...)
 	if err != nil {
@@ -241,7 +248,14 @@ func (s *UserService) List(ctx context.Context, tenantID string, q UserQuery, pa
 			&u.ID, &u.TenantID, &u.Username, &u.DisplayName, &u.PasswordHash, &u.Phone, &u.Email,
 			&u.Role, &u.Status, &u.OrganizationID, &u.TokenVersion, &u.Source,
 			&u.FailedLoginAttempts, &u.LastFailedLoginAt, &u.LockedUntil,
-			&u.PasswordChangedAt, &u.ExternalID, &u.LdapSourceID, &u.ClosedAt, &u.VerifiedAt, &u.CreatedAt, &u.UpdatedAt,
+			&u.PasswordChangedAt, &u.ExternalID, &u.LdapSourceID, &u.ClosedAt, &u.VerifiedAt,
+			&u.NameFormatted, &u.FamilyName, &u.GivenName, &u.MiddleName,
+			&u.HonorificPrefix, &u.HonorificSuffix,
+			&u.NickName, &u.ProfileUrl, &u.PhotoUrl,
+			&u.Title, &u.UserType, &u.PreferredLanguage, &u.Locale, &u.Timezone,
+			&u.AddressFormatted, &u.StreetAddress, &u.Locality, &u.Region, &u.PostalCode, &u.Country,
+			&u.EmployeeNumber, &u.CostCenter, &u.Department, &u.ManagerID,
+			&u.CreatedAt, &u.UpdatedAt,
 		); err != nil {
 			return nil, 0, fmt.Errorf("scan user: %w", err)
 		}
@@ -591,6 +605,33 @@ func (s *UserService) attachOrganizations(ctx context.Context, q *store.Scoped, 
 		}
 	}
 
+	// The same treatment for whoever these people report to: one query for
+	// the page rather than one per row, and a name rather than an id,
+	// because a client should never have to show a bare identifier.
+	managerIDs := make([]string, 0, len(rows))
+	seenManager := make(map[string]struct{}, len(rows))
+	for _, row := range rows {
+		if row.ManagerID == nil {
+			continue
+		}
+		if _, dup := seenManager[*row.ManagerID]; dup {
+			continue
+		}
+		seenManager[*row.ManagerID] = struct{}{}
+		managerIDs = append(managerIDs, *row.ManagerID)
+	}
+
+	managers := make(map[string]string, len(managerIDs))
+	if len(managerIDs) > 0 {
+		found, err := q.ListUsersByIDs(ctx, managerIDs)
+		if err != nil {
+			return nil, fmt.Errorf("resolve manager names: %w", err)
+		}
+		for _, manager := range found {
+			managers[manager.ID] = manager.DisplayName
+		}
+	}
+
 	users := make([]model.User, 0, len(rows))
 	for _, row := range rows {
 		user := model.User{
@@ -606,6 +647,15 @@ func (s *UserService) attachOrganizations(ctx context.Context, q *store.Scoped, 
 			ClosedAt:    row.ClosedAt,
 			CreatedAt:   row.CreatedAt,
 			UpdatedAt:   row.UpdatedAt,
+			Profile:     profileFromRow(row),
+		}
+		if row.ManagerID != nil {
+			// Absent from the map means a manager who has since been
+			// deleted, which cannot happen — accounts are never deleted —
+			// or one in another tenant, which the write path refuses. Left
+			// empty rather than falling back to the id, so a client shows
+			// nothing instead of showing a UUID as a person's name.
+			user.Profile.ManagerName = managers[*row.ManagerID]
 		}
 		// Only while it is actually in force. A stale timestamp on a lock
 		// that has already expired would show an administrator a problem
@@ -759,4 +809,143 @@ func organizationRef(id *string) string {
 		return ""
 	}
 	return *id
+}
+
+// profileFromRow copies the descriptive half of an account out of its row.
+//
+// Written out rather than reflected over. Thirty assignments are dull and a
+// reflection-based copy is one renamed column away from silently dropping a
+// field — and a field that silently stops being returned is exactly the kind
+// of defect nobody reports, because the screen just shows a blank.
+func profileFromRow(row sqlcgen.User) model.UserProfile {
+	profile := model.UserProfile{
+		NameFormatted:   row.NameFormatted,
+		FamilyName:      row.FamilyName,
+		GivenName:       row.GivenName,
+		MiddleName:      row.MiddleName,
+		HonorificPrefix: row.HonorificPrefix,
+		HonorificSuffix: row.HonorificSuffix,
+
+		NickName:   row.NickName,
+		ProfileURL: row.ProfileUrl,
+		PhotoURL:   row.PhotoUrl,
+
+		Title:             row.Title,
+		UserType:          row.UserType,
+		PreferredLanguage: row.PreferredLanguage,
+		Locale:            row.Locale,
+		Timezone:          row.Timezone,
+
+		AddressFormatted: row.AddressFormatted,
+		StreetAddress:    row.StreetAddress,
+		Locality:         row.Locality,
+		Region:           row.Region,
+		PostalCode:       row.PostalCode,
+		Country:          row.Country,
+
+		EmployeeNumber: row.EmployeeNumber,
+		CostCenter:     row.CostCenter,
+		Department:     row.Department,
+	}
+	if row.ManagerID != nil {
+		profile.ManagerID = *row.ManagerID
+	}
+	return profile
+}
+
+// ErrManagerNotFound is returned when the manager named on a profile is not
+// an account in this tenant.
+var ErrManagerNotFound = httpx.UnprocessableEntity("MANAGER_NOT_FOUND",
+	"No such account to report to.")
+
+// ErrManagerIsSelf is returned for somebody reporting to themselves.
+//
+// Longer chains are not checked. A cycle of two is always a mistake and
+// costs one comparison to catch; a cycle of five is a data-quality problem
+// in whatever system produced it, and finding one would mean a recursive
+// query on every write of a field nothing in Portico reads for authorization.
+var ErrManagerIsSelf = httpx.UnprocessableEntity("MANAGER_IS_SELF",
+	"An account cannot report to itself.")
+
+// SetProfile writes the descriptive attributes of an account.
+//
+// Separate from Update, which changes role, status, and organization. Those
+// are decisions about somebody's access; these describe them. A single
+// endpoint taking both would mean a form that edits a job title has to send
+// a role, and sending the wrong one by omission is how a self-service screen
+// becomes a privilege-escalation endpoint.
+func (s *UserService) SetProfile(ctx context.Context, actor auth.Principal, userID string, in model.UserProfile) (model.User, error) {
+	q := s.store.ForTenant(actor.TenantID)
+
+	target, err := q.GetUserByID(ctx, userID)
+	if err != nil {
+		if store.IsNoRows(err) {
+			return model.User{}, ErrUserNotFound
+		}
+		return model.User{}, fmt.Errorf("get user: %w", err)
+	}
+
+	var manager *string
+	if id := strings.TrimSpace(in.ManagerID); id != "" {
+		if id == userID {
+			return model.User{}, ErrManagerIsSelf
+		}
+		// Read through the tenant-scoped view, so naming an account in
+		// another tenant is a miss rather than a cross-tenant reference.
+		if _, err := q.GetUserByID(ctx, id); err != nil {
+			if store.IsNoRows(err) {
+				return model.User{}, ErrManagerNotFound
+			}
+			return model.User{}, fmt.Errorf("get manager: %w", err)
+		}
+		manager = &id
+	}
+
+	err = q.UpdateUserProfileAttributes(ctx, sqlcgen.UpdateUserProfileAttributesParams{
+		ID:                userID,
+		NameFormatted:     strings.TrimSpace(in.NameFormatted),
+		FamilyName:        strings.TrimSpace(in.FamilyName),
+		GivenName:         strings.TrimSpace(in.GivenName),
+		MiddleName:        strings.TrimSpace(in.MiddleName),
+		HonorificPrefix:   strings.TrimSpace(in.HonorificPrefix),
+		HonorificSuffix:   strings.TrimSpace(in.HonorificSuffix),
+		NickName:          strings.TrimSpace(in.NickName),
+		ProfileUrl:        strings.TrimSpace(in.ProfileURL),
+		PhotoUrl:          strings.TrimSpace(in.PhotoURL),
+		Title:             strings.TrimSpace(in.Title),
+		UserType:          strings.TrimSpace(in.UserType),
+		PreferredLanguage: strings.TrimSpace(in.PreferredLanguage),
+		Locale:            strings.TrimSpace(in.Locale),
+		Timezone:          strings.TrimSpace(in.Timezone),
+		AddressFormatted:  strings.TrimSpace(in.AddressFormatted),
+		StreetAddress:     strings.TrimSpace(in.StreetAddress),
+		Locality:          strings.TrimSpace(in.Locality),
+		Region:            strings.TrimSpace(in.Region),
+		PostalCode:        strings.TrimSpace(in.PostalCode),
+		Country:           strings.TrimSpace(in.Country),
+		EmployeeNumber:    strings.TrimSpace(in.EmployeeNumber),
+		CostCenter:        strings.TrimSpace(in.CostCenter),
+		Department:        strings.TrimSpace(in.Department),
+		ManagerID:         manager,
+		UpdatedAt:         store.Now(),
+	})
+	if err != nil {
+		if store.IsUniqueViolation(err) {
+			// The only unique attribute here. An employee number is how an
+			// HR system names a person, so two accounts claiming one is a
+			// reconciliation error rather than something to store.
+			return model.User{}, httpx.Conflict("EMPLOYEE_NUMBER_TAKEN",
+				"Another account already has that employee number.")
+		}
+		return model.User{}, fmt.Errorf("update profile: %w", err)
+	}
+
+	s.audit.Log(ctx, actor.TenantID, AuditEntry{
+		Kind: model.LogOperation, Action: model.ActionUserUpdate,
+		ActorID: actor.UserID, ActorName: actor.Username,
+		TargetType: "USER", TargetID: userID, TargetName: target.Username,
+		Detail: "profile attributes",
+	})
+
+	return s.Get(ctx, actor.TenantID, userID)
 }

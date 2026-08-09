@@ -11,7 +11,7 @@ import (
 
 const getUserForAuthentication = `-- name: GetUserForAuthentication :one
 
-SELECT id, tenant_id, username, display_name, password_hash, phone, email, role, status, organization_id, token_version, source, external_id, failed_login_attempts, last_failed_login_at, locked_until, password_changed_at, created_at, updated_at, ldap_source_id, closed_at, verified_at FROM users WHERE id = $1 LIMIT 1
+SELECT id, tenant_id, username, display_name, password_hash, phone, email, role, status, organization_id, token_version, source, external_id, failed_login_attempts, last_failed_login_at, locked_until, password_changed_at, created_at, updated_at, ldap_source_id, closed_at, verified_at, name_formatted, family_name, given_name, middle_name, honorific_prefix, honorific_suffix, nick_name, profile_url, photo_url, title, user_type, preferred_language, locale, timezone, address_formatted, street_address, locality, region, postal_code, country, employee_number, cost_center, department, manager_id FROM users WHERE id = $1 LIMIT 1
 `
 
 // The one query on a tenant-scoped table that is not itself tenant-scoped.
@@ -52,6 +52,30 @@ func (q *Queries) GetUserForAuthentication(ctx context.Context, id string) (User
 		&i.LdapSourceID,
 		&i.ClosedAt,
 		&i.VerifiedAt,
+		&i.NameFormatted,
+		&i.FamilyName,
+		&i.GivenName,
+		&i.MiddleName,
+		&i.HonorificPrefix,
+		&i.HonorificSuffix,
+		&i.NickName,
+		&i.ProfileUrl,
+		&i.PhotoUrl,
+		&i.Title,
+		&i.UserType,
+		&i.PreferredLanguage,
+		&i.Locale,
+		&i.Timezone,
+		&i.AddressFormatted,
+		&i.StreetAddress,
+		&i.Locality,
+		&i.Region,
+		&i.PostalCode,
+		&i.Country,
+		&i.EmployeeNumber,
+		&i.CostCenter,
+		&i.Department,
+		&i.ManagerID,
 	)
 	return i, err
 }

@@ -62,6 +62,10 @@ type ProvisionUserInput struct {
 	Phone       string
 	ExternalID  string
 	Active      bool
+	// Profile is the descriptive half, which a directory sends alongside
+	// everything else. Written through the same statement the console uses,
+	// so there is one place these attributes are validated.
+	Profile model.UserProfile
 }
 
 // ProvisionUser creates an account on behalf of a directory.
@@ -142,6 +146,13 @@ func (s *UserService) ProvisionUser(ctx context.Context, tenantID string, in Pro
 		}
 	}
 
+	// The descriptive attributes, through the same statement the console
+	// writes. One place these are validated, and one place they can be
+	// wrong. The manager is never set from here — see scim.Handler.
+	if err := s.writeProvisionedProfile(ctx, q, id, in.Profile, now); err != nil {
+		return model.User{}, err
+	}
+
 	s.audit.Log(ctx, tenantID, AuditEntry{
 		Kind: model.LogOperation, Action: model.ActionSCIMUserCreate,
 		ActorName:  ProvisioningActor,
@@ -214,6 +225,13 @@ func (s *UserService) UpdateProvisionedUser(ctx context.Context, tenantID, userI
 			return model.User{}, taken
 		}
 		return model.User{}, fmt.Errorf("write user: %w", err)
+	}
+
+	// The descriptive attributes, through the same statement the console
+	// writes. One place these are validated, and one place they can be
+	// wrong. The manager is never set from here — see scim.Handler.
+	if err := s.writeProvisionedProfile(ctx, q, userID, in.Profile, now); err != nil {
+		return model.User{}, err
 	}
 
 	// Deactivation ends every session the account holds, immediately, the
@@ -352,6 +370,56 @@ func (s *UserService) revokeEverything(ctx context.Context, q *store.Scoped, use
 	}
 	if err := q.RevokeAllRefreshTokensForUser(ctx, userID, now); err != nil {
 		return fmt.Errorf("revoke federated sessions: %w", err)
+	}
+	return nil
+}
+
+// writeProvisionedProfile stores the descriptive attributes a directory sent.
+//
+// The manager is deliberately left alone rather than cleared: a directory
+// does not send one — its id space is its own — so treating "absent" as
+// "remove" would wipe a relationship an operator set in the console on every
+// sync.
+func (s *UserService) writeProvisionedProfile(ctx context.Context, q *store.Scoped, userID string, in model.UserProfile, now time.Time) error {
+	current, err := q.GetUserByID(ctx, userID)
+	if err != nil {
+		return fmt.Errorf("get user: %w", err)
+	}
+
+	err = q.UpdateUserProfileAttributes(ctx, sqlcgen.UpdateUserProfileAttributesParams{
+		ID:                userID,
+		NameFormatted:     in.NameFormatted,
+		FamilyName:        in.FamilyName,
+		GivenName:         in.GivenName,
+		MiddleName:        in.MiddleName,
+		HonorificPrefix:   in.HonorificPrefix,
+		HonorificSuffix:   in.HonorificSuffix,
+		NickName:          in.NickName,
+		ProfileUrl:        in.ProfileURL,
+		PhotoUrl:          in.PhotoURL,
+		Title:             in.Title,
+		UserType:          in.UserType,
+		PreferredLanguage: in.PreferredLanguage,
+		Locale:            in.Locale,
+		Timezone:          in.Timezone,
+		AddressFormatted:  in.AddressFormatted,
+		StreetAddress:     in.StreetAddress,
+		Locality:          in.Locality,
+		Region:            in.Region,
+		PostalCode:        in.PostalCode,
+		Country:           in.Country,
+		EmployeeNumber:    in.EmployeeNumber,
+		CostCenter:        in.CostCenter,
+		Department:        in.Department,
+		ManagerID:         current.ManagerID,
+		UpdatedAt:         now,
+	})
+	if err != nil {
+		if store.IsUniqueViolation(err) {
+			return httpx.Conflict("EMPLOYEE_NUMBER_TAKEN",
+				"Another account already has that employee number.")
+		}
+		return fmt.Errorf("write profile: %w", err)
 	}
 	return nil
 }

@@ -63,6 +63,58 @@ const (
 	SourceSCIM UserSource = "SCIM"
 )
 
+// UserProfile is the optional half of an account: everything that describes
+// a person rather than authenticating one.
+//
+// Nested rather than flattened onto User, for two reasons. It keeps the
+// fields that decide access — username, role, status — visibly separate from
+// the ones that merely describe, so a reviewer reading a handler can see at
+// a glance which is being touched. And it gives the console one object to
+// send back, instead of thirty fields that each have to be remembered
+// individually in an update.
+type UserProfile struct {
+	// Name, in the parts a directory sends. DisplayName stays on User: it is
+	// the one thing every screen shows, and it exists whether or not any of
+	// these do.
+	NameFormatted   string `json:"nameFormatted"`
+	FamilyName      string `json:"familyName"`
+	GivenName       string `json:"givenName"`
+	MiddleName      string `json:"middleName"`
+	HonorificPrefix string `json:"honorificPrefix"`
+	HonorificSuffix string `json:"honorificSuffix"`
+
+	NickName   string `json:"nickName"`
+	ProfileURL string `json:"profileUrl"`
+	PhotoURL   string `json:"photoUrl"`
+
+	Title             string `json:"title"`
+	UserType          string `json:"userType"`
+	PreferredLanguage string `json:"preferredLanguage"`
+	Locale            string `json:"locale"`
+	Timezone          string `json:"timezone"`
+
+	AddressFormatted string `json:"addressFormatted"`
+	StreetAddress    string `json:"streetAddress"`
+	Locality         string `json:"locality"`
+	Region           string `json:"region"`
+	PostalCode       string `json:"postalCode"`
+	Country          string `json:"country"`
+
+	EmployeeNumber string `json:"employeeNumber"`
+	CostCenter     string `json:"costCenter"`
+	// Department is free text as a directory sends it, and is deliberately
+	// not the organization tree. A directory often sends a name that
+	// corresponds to nothing in this tenant; dropping it would lose
+	// information an operator can use to place the person later.
+	Department string `json:"department"`
+
+	// ManagerID is who this person reports to, by id so it survives a
+	// rename. ManagerName is resolved for display so a client never has to
+	// show a bare identifier.
+	ManagerID   string `json:"managerId"`
+	ManagerName string `json:"managerName"`
+}
+
 // User is an account. It never carries the password hash outside the
 // service layer.
 type User struct {
@@ -78,6 +130,16 @@ type User struct {
 	Role        Role       `json:"role"`
 	Status      Status     `json:"status"`
 	Source      UserSource `json:"source"`
+
+	// The attributes below come from SCIM 2.0's core User schema
+	// (RFC 7643 §4.1) and its enterprise extension (§4.3), rather than from
+	// this project's imagination. Portico is already a SCIM server, so using
+	// those names means a directory's fields land where they belong and the
+	// meaning of each is settled by a specification.
+	//
+	// Every one is optional. An account with only a username and a display
+	// name is a complete account.
+	Profile UserProfile `json:"profile"`
 
 	// OrganizationID is empty when the user belongs to no organization,
 	// which is the default for self-registered accounts (§3.4.2).

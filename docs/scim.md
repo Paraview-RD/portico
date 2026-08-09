@@ -18,6 +18,7 @@ own configuration screen shows the truth.
 | **Users** | Create, read, replace, patch, deactivate, and filter |
 | **Groups** | Create, read, replace, patch, delete, filter, and full membership management |
 | PATCH | Users: `active`, `userName`, `displayName`, `externalId`, `emails`, `phoneNumbers`. Groups: `members`, `displayName`, `externalId` |
+| Attributes | The core User schema's `name` parts, `nickName`, `profileUrl`, `title`, `userType`, `preferredLanguage`, `locale`, `timezone`, `photos`, `addresses`; and the enterprise extension's `employeeNumber`, `costCenter`, `department`. Carried on POST, PUT, and GET |
 | Filter | Users: `userName eq "..."`, `externalId eq "..."`. Groups: `displayName eq "..."`, `externalId eq "..."` |
 | Bulk | Not supported |
 | Sort | Not supported |
@@ -27,6 +28,33 @@ own configuration screen shows the truth.
 `GET /scim/v2/ServiceProviderConfig` returns the same list, and a test
 asserts the two agree: every capability advertised has a handler that works,
 and nothing unadvertised quietly does.
+
+### What the attributes do and do not reach
+
+The descriptive attributes above are stored under the names RFC 7643 gives
+them, which is why a directory's fields land where they belong rather than in
+something this project invented.
+
+Two things they deliberately do not reach:
+
+**`manager` is not read from SCIM.** It names another account by id, and a
+directory's id space is its own — accepting one would either store a foreign
+identifier or require resolving it during a sync. Set it in the console;
+Portico reports it on GET, so a directory can read back what an operator
+chose.
+
+**`organization` and `division` are ignored.** Portico has an organization
+tree with codes that downstream systems store. A free-text copy beside it
+drifts, and when the two disagree nobody can say which to believe. The
+enterprise extension's `department` *is* kept, as free text, precisely
+because it often names something that is not in this tenant's tree — losing
+it would lose information an operator can act on.
+
+**PUT replaces; PATCH does not.** SCIM's PUT means "the resource is now
+this", so a directory that stops sending a title is saying the title is gone
+and Portico clears it. If that is not what you want, use PATCH — which is
+also why the PATCH row above lists a shorter set: those are the paths with a
+handler, and `ServiceProviderConfig` advertises exactly them.
 
 ### Groups are not organizations
 

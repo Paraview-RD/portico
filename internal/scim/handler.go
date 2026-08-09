@@ -181,6 +181,7 @@ func (h *Handler) createUser(w http.ResponseWriter, r *http.Request) {
 		Phone:       PrimaryValue(body.PhoneNumbers),
 		ExternalID:  strings.TrimSpace(body.ExternalID),
 		Active:      body.Active,
+		Profile:     profileOf(body),
 	}
 
 	user, err := h.users.ProvisionUser(r.Context(), tenantOf(r), in)
@@ -207,6 +208,7 @@ func (h *Handler) replaceUser(w http.ResponseWriter, r *http.Request) {
 		Phone:       PrimaryValue(body.PhoneNumbers),
 		ExternalID:  strings.TrimSpace(body.ExternalID),
 		Active:      body.Active,
+		Profile:     profileOf(body),
 	}
 
 	user, err := h.users.UpdateProvisionedUser(
@@ -429,4 +431,71 @@ func (h *Handler) fail(w http.ResponseWriter, r *http.Request, err error) {
 		}
 		WriteError(w, r, http.StatusInternalServerError, "", err.Error())
 	}
+}
+
+// profileOf reads the descriptive attributes out of a SCIM resource.
+//
+// Everything here is optional and absent means empty, which is what a
+// replace has to mean: PUT in SCIM is "the resource is now this", so a
+// directory that stops sending a title is saying the title is gone. PATCH is
+// where "leave that alone" is expressed, and PATCH does not route through
+// here.
+//
+// The manager is deliberately not read. It names another account by id, and
+// a directory's id space is its own — accepting one would either store a
+// foreign identifier or require resolving it, and neither belongs in a path
+// this quiet. An operator sets it in the console; docs/scim.md says so.
+func profileOf(body User) model.UserProfile {
+	profile := model.UserProfile{
+		NickName:          strings.TrimSpace(body.NickName),
+		ProfileURL:        strings.TrimSpace(body.ProfileURL),
+		Title:             strings.TrimSpace(body.Title),
+		UserType:          strings.TrimSpace(body.UserType),
+		PreferredLanguage: strings.TrimSpace(body.PreferredLanguage),
+		Locale:            strings.TrimSpace(body.Locale),
+		Timezone:          strings.TrimSpace(body.Timezone),
+	}
+
+	if body.Name != nil {
+		profile.NameFormatted = strings.TrimSpace(body.Name.Formatted)
+		profile.FamilyName = strings.TrimSpace(body.Name.FamilyName)
+		profile.GivenName = strings.TrimSpace(body.Name.GivenName)
+		profile.MiddleName = strings.TrimSpace(body.Name.MiddleName)
+		profile.HonorificPrefix = strings.TrimSpace(body.Name.HonorificPrefix)
+		profile.HonorificSuffix = strings.TrimSpace(body.Name.HonorificSuffix)
+	}
+
+	if len(body.Photos) > 0 {
+		profile.PhotoURL = strings.TrimSpace(body.Photos[0].Value)
+	}
+
+	if address := primaryAddress(body.Addresses); address != nil {
+		profile.AddressFormatted = strings.TrimSpace(address.Formatted)
+		profile.StreetAddress = strings.TrimSpace(address.StreetAddress)
+		profile.Locality = strings.TrimSpace(address.Locality)
+		profile.Region = strings.TrimSpace(address.Region)
+		profile.PostalCode = strings.TrimSpace(address.PostalCode)
+		profile.Country = strings.TrimSpace(address.Country)
+	}
+
+	if body.Enterprise != nil {
+		profile.EmployeeNumber = strings.TrimSpace(body.Enterprise.EmployeeNumber)
+		profile.CostCenter = strings.TrimSpace(body.Enterprise.CostCenter)
+		profile.Department = strings.TrimSpace(body.Enterprise.Department)
+	}
+	return profile
+}
+
+// primaryAddress picks the one a client meant, on the same rule as
+// PrimaryValue: the one marked primary, otherwise the first.
+func primaryAddress(addresses []Address) *Address {
+	for i := range addresses {
+		if addresses[i].Primary {
+			return &addresses[i]
+		}
+	}
+	if len(addresses) > 0 {
+		return &addresses[0]
+	}
+	return nil
 }

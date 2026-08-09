@@ -86,6 +86,10 @@ func (s *Server) routes() http.Handler {
 			r.Post("/cas/authorize", h.CASAuthorize)
 			r.Get("/users/me", h.Me)
 			r.Put("/users/me", h.UpdateOwnProfile)
+			// The descriptive attributes, which anybody may maintain about
+			// themselves. It cannot reach role, status, or organization —
+			// see the handler for why that makes it safe to expose.
+			r.Put("/users/me/profile", h.SetOwnProfileAttributes)
 			r.Post("/users/me/password", h.ChangeOwnPassword)
 			// The one sanctioned way to disable yourself. Everywhere else
 			// that is refused; see the handler for why this is not an
@@ -120,6 +124,10 @@ func (s *Server) routes() http.Handler {
 				r.Post("/", h.CreateUser)
 				r.Get("/{id}", h.GetUser)
 				r.Put("/{id}", h.UpdateUser)
+				// The descriptive attributes, apart from the statement that
+				// changes role, status, and organization — a form editing a
+				// job title must not be able to send a role at all.
+				r.Put("/{id}/profile", h.SetUserProfile)
 				r.Post("/{id}/enable", h.EnableUser)
 				r.Post("/{id}/disable", h.DisableUser)
 				r.Post("/{id}/password", h.ResetUserPassword)

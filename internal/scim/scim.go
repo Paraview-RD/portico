@@ -42,12 +42,16 @@ const MediaType = "application/scim+json"
 
 // Schema URNs, from RFC 7643.
 const (
-	SchemaUser          = "urn:ietf:params:scim:schemas:core:2.0:User"
-	SchemaListResponse  = "urn:ietf:params:scim:api:messages:2.0:ListResponse"
-	SchemaError         = "urn:ietf:params:scim:api:messages:2.0:Error"
-	SchemaPatchOp       = "urn:ietf:params:scim:api:messages:2.0:PatchOp"
-	SchemaServiceConfig = "urn:ietf:params:scim:schemas:core:2.0:ServiceProviderConfig"
-	SchemaResourceType  = "urn:ietf:params:scim:schemas:core:2.0:ResourceType"
+	SchemaUser = "urn:ietf:params:scim:schemas:core:2.0:User"
+	// The enterprise extension, carried under its own URN as RFC 7643 §4.3
+	// requires. A directory looks for this key; a flattened copy at the top
+	// level would be ignored by every client that follows the specification.
+	SchemaEnterpriseUser = "urn:ietf:params:scim:schemas:extension:enterprise:2.0:User"
+	SchemaListResponse   = "urn:ietf:params:scim:api:messages:2.0:ListResponse"
+	SchemaError          = "urn:ietf:params:scim:api:messages:2.0:Error"
+	SchemaPatchOp        = "urn:ietf:params:scim:api:messages:2.0:PatchOp"
+	SchemaServiceConfig  = "urn:ietf:params:scim:schemas:core:2.0:ServiceProviderConfig"
+	SchemaResourceType   = "urn:ietf:params:scim:schemas:core:2.0:ResourceType"
 )
 
 // Error is SCIM's error body. It is not Portico's envelope, deliberately:

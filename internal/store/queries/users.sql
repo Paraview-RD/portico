@@ -194,3 +194,36 @@ RETURNING *;
 UPDATE users
 SET verified_at = $1, updated_at = $1
 WHERE tenant_id = $2 AND id = $3;
+
+-- The descriptive half of an account, kept apart from the statement that
+-- changes role, status, or organization. Those are decisions about somebody's
+-- access; these describe them, and a form that edits one must not be able to
+-- touch the other by omission.
+-- name: UpdateUserProfileAttributes :exec
+UPDATE users
+SET name_formatted = $1,
+    family_name = $2,
+    given_name = $3,
+    middle_name = $4,
+    honorific_prefix = $5,
+    honorific_suffix = $6,
+    nick_name = $7,
+    profile_url = $8,
+    photo_url = $9,
+    title = $10,
+    user_type = $11,
+    preferred_language = $12,
+    locale = $13,
+    timezone = $14,
+    address_formatted = $15,
+    street_address = $16,
+    locality = $17,
+    region = $18,
+    postal_code = $19,
+    country = $20,
+    employee_number = $21,
+    cost_center = $22,
+    department = $23,
+    manager_id = $24,
+    updated_at = $25
+WHERE tenant_id = $26 AND id = $27;

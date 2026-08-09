@@ -534,3 +534,108 @@ func TestDeprovisioningEndsLiveAccessImmediately(t *testing.T) {
 			"the same rather than relying on the status check alone", len(live))
 	}
 }
+
+// A directory's attributes go in and come back out under the names the
+// specification gives them.
+//
+// This is the entire reason the stored field names are SCIM's rather than
+// this project's: a round trip that loses the enterprise extension, or
+// flattens it to the top level where no conforming client looks, is a
+// integration that passes a smoke test and drops half of what the directory
+// sent.
+func TestSCIMCarriesTheProfileAttributesBothWays(t *testing.T) {
+	api := newAPITest(t)
+	client := newSCIMClient(t, api, "profile-round-trip")
+
+	body := map[string]any{
+		"schemas": []string{
+			"urn:ietf:params:scim:schemas:core:2.0:User",
+			"urn:ietf:params:scim:schemas:extension:enterprise:2.0:User",
+		},
+		"userName": "scim-described",
+		"name": map[string]any{
+			"formatted": "Dr Li Si", "familyName": "Li", "givenName": "Si",
+			"honorificPrefix": "Dr",
+		},
+		"displayName": "Li Si",
+		"title":       "Architect",
+		"userType":    "Employee",
+		"locale":      "zh-CN",
+		"timezone":    "Asia/Shanghai",
+		"active":      true,
+		"emails":      []map[string]any{{"value": "lisi@example.test", "primary": true}},
+		"addresses": []map[string]any{{
+			"streetAddress": "1 Example Road", "locality": "Beijing",
+			"country": "CN", "primary": true,
+		}},
+		"urn:ietf:params:scim:schemas:extension:enterprise:2.0:User": map[string]any{
+			"employeeNumber": "E-7000", "costCenter": "CC-7", "department": "Platform",
+		},
+	}
+
+	created := client.do(t, http.MethodPost, "/Users", body)
+	if created.Status != http.StatusCreated {
+		t.Fatalf("create: %d %s", created.Status, created.Body)
+	}
+
+	var out struct {
+		ID   string `json:"id"`
+		Name struct {
+			Formatted       string `json:"formatted"`
+			FamilyName      string `json:"familyName"`
+			GivenName       string `json:"givenName"`
+			HonorificPrefix string `json:"honorificPrefix"`
+		} `json:"name"`
+		Title     string `json:"title"`
+		UserType  string `json:"userType"`
+		Locale    string `json:"locale"`
+		Timezone  string `json:"timezone"`
+		Addresses []struct {
+			StreetAddress string `json:"streetAddress"`
+			Locality      string `json:"locality"`
+			Country       string `json:"country"`
+		} `json:"addresses"`
+		Enterprise *struct {
+			EmployeeNumber string `json:"employeeNumber"`
+			CostCenter     string `json:"costCenter"`
+			Department     string `json:"department"`
+		} `json:"urn:ietf:params:scim:schemas:extension:enterprise:2.0:User"`
+		Schemas []string `json:"schemas"`
+	}
+	created.decode(t, &out)
+
+	if out.Name.FamilyName != "Li" || out.Name.GivenName != "Si" ||
+		out.Name.HonorificPrefix != "Dr" || out.Name.Formatted != "Dr Li Si" {
+		t.Errorf("name came back as %+v; the parts a directory sent were "+
+			"collapsed or dropped", out.Name)
+	}
+	if out.Title != "Architect" || out.UserType != "Employee" ||
+		out.Locale != "zh-CN" || out.Timezone != "Asia/Shanghai" {
+		t.Errorf("scalar attributes came back wrong: %+v", out)
+	}
+	if len(out.Addresses) != 1 || out.Addresses[0].Locality != "Beijing" ||
+		out.Addresses[0].Country != "CN" {
+		t.Errorf("addresses = %+v", out.Addresses)
+	}
+
+	if out.Enterprise == nil {
+		t.Fatal("the enterprise extension is absent from the response. A " +
+			"conforming client looks for it under its own URN and nowhere " +
+			"else, so this is the difference between the department being " +
+			"synchronized and being silently dropped")
+	}
+	if out.Enterprise.EmployeeNumber != "E-7000" || out.Enterprise.Department != "Platform" {
+		t.Errorf("enterprise extension = %+v", out.Enterprise)
+	}
+
+	var declared bool
+	for _, schema := range out.Schemas {
+		if schema == "urn:ietf:params:scim:schemas:extension:enterprise:2.0:User" {
+			declared = true
+		}
+	}
+	if !declared {
+		t.Error("the enterprise schema URN is missing from schemas, so a " +
+			"client cannot tell the extension is present")
+	}
+}

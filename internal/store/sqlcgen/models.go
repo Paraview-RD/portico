@@ -345,8 +345,34 @@ type User struct {
 	LdapSourceID *string
 	// When the account holder closed this account. Null for every other reason it might be disabled.
 	ClosedAt *time.Time
-	// When a self-registered account proved its contact address. Only consulted for source = REGISTRATION; null on every other kind of account and never checked there.
-	VerifiedAt *time.Time
+	// When a self-registered account's contact address was accepted — either proven by a link, or accepted at registration because the tenant did not require proof. Null means the account still has to prove it. Only consulted for source = REGISTRATION.
+	VerifiedAt        *time.Time
+	NameFormatted     string
+	FamilyName        string
+	GivenName         string
+	MiddleName        string
+	HonorificPrefix   string
+	HonorificSuffix   string
+	NickName          string
+	ProfileUrl        string
+	PhotoUrl          string
+	Title             string
+	UserType          string
+	PreferredLanguage string
+	Locale            string
+	Timezone          string
+	AddressFormatted  string
+	StreetAddress     string
+	Locality          string
+	Region            string
+	PostalCode        string
+	Country           string
+	EmployeeNumber    string
+	CostCenter        string
+	// Free text as a directory sends it. Distinct from organization_id, which is this tenant's own tree; keeping both loses nothing and lets an operator place somebody later.
+	Department string
+	// Who this person reports to. Not checked for cycles: one is a data-quality problem in the source system rather than something this schema can prevent.
+	ManagerID *string
 }
 
 type WebhookDelivery struct {

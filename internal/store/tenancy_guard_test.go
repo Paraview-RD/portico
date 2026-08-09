@@ -310,5 +310,51 @@ func tableColumns(t *testing.T, table string) []string {
 		}
 		columns = append(columns, found[1])
 	}
-	return columns
+
+	// And the ones a later migration added.
+	//
+	// Reading only CREATE TABLE was a hole big enough to walk through: every
+	// column added by an ALTER — four of them by the time this was noticed —
+	// was invisible to a guard whose whole job is to notice exactly that. It
+	// passed while the hand-written listing was missing them, which is the
+	// worst way for a test to be wrong, because its being green is what
+	// somebody relies on instead of remembering.
+	//
+	// The migrations are concatenated in filename order above, so a column
+	// added and later dropped is handled by removing it here as well.
+	added := regexp.MustCompile(`(?im)ALTER TABLE ` + table + `\s+(?:ADD COLUMN|ADD)\s+([a-z_]+)\s`)
+	for _, found := range added.FindAllStringSubmatch(schema.String(), -1) {
+		// ADD CONSTRAINT is not a column. Matched case-insensitively above,
+		// so the comparison has to be too.
+		if strings.EqualFold(found[1], "constraint") {
+			continue
+		}
+		columns = append(columns, found[1])
+	}
+
+	dropped := map[string]bool{}
+	removed := regexp.MustCompile(`(?im)DROP COLUMN\s+([a-z_]+)`)
+	// Only the Down sections drop columns, and those never run in a forward
+	// migration — so a column named in one is still present. Restricting the
+	// search to Up keeps a Down section from hiding a live column.
+	for _, section := range strings.Split(schema.String(), "-- +goose Down") {
+		up := strings.SplitN(section, "-- +goose Up", 2)
+		if len(up) != 2 {
+			continue
+		}
+		for _, found := range removed.FindAllStringSubmatch(up[1], -1) {
+			dropped[found[1]] = true
+		}
+	}
+
+	var live []string
+	seen := map[string]bool{}
+	for _, name := range columns {
+		if dropped[name] || seen[name] {
+			continue
+		}
+		seen[name] = true
+		live = append(live, name)
+	}
+	return live
 }

@@ -58,6 +58,9 @@ export const errorsZhCN: Record<keyof typeof errorsEnUS, string> = {
   INVALID_ROLE: "角色取值不合法。",
   INVALID_STATUS: "状态只能是正常或已停用。",
   CANNOT_DISABLE_SELF: "不能停用自己的账号。",
+  EMPLOYEE_NUMBER_TAKEN: "该工号已被其它账号占用。",
+  MANAGER_NOT_FOUND: "找不到该直属上级的账号。",
+  MANAGER_IS_SELF: "账号不能把自己设为直属上级。",
   LAST_ADMIN: "这是本租户最后一名在用管理员，请先指定另一名管理员。",
   REGISTRATION_DISABLED: "本部署未开放自主注册。",
 

@@ -248,3 +248,70 @@ func (h *Handler) ResetUserPassword(w http.ResponseWriter, r *http.Request) {
 	}
 	httpx.OK(w, nil)
 }
+
+// profileRequest is the descriptive half of an account.
+//
+// It is the model type rather than a hand-copied twin. Thirty fields
+// duplicated into a request struct is thirty chances for one to be omitted,
+// and an omitted field here does not fail — it silently stops being
+// editable, which nobody reports because the screen simply never saves it.
+type profileRequest = model.UserProfile
+
+// SetUserProfile writes an account's descriptive attributes.
+//
+// Separate from UpdateUser, which changes role, status, and organization.
+// Those decide access; these describe a person. One endpoint taking both
+// would mean a form editing a job title has to send a role, and sending the
+// wrong one by omission is how a screen becomes a privilege-escalation
+// endpoint.
+func (h *Handler) SetUserProfile(w http.ResponseWriter, r *http.Request) {
+	principal := auth.MustPrincipal(r.Context())
+
+	var req profileRequest
+	if err := httpx.DecodeJSON(w, r, &req); err != nil {
+		httpx.Fail(w, r, err)
+		return
+	}
+
+	user, err := h.users.SetProfile(r.Context(), principal, chi.URLParam(r, "id"), req)
+	if err != nil {
+		httpx.Fail(w, r, err)
+		return
+	}
+	httpx.OK(w, user)
+}
+
+// SetOwnProfileAttributes lets somebody maintain their own descriptive
+// details.
+//
+// The same service call as the administrative one, and that is safe for the
+// reason the split exists: SetProfile cannot change a role, a status, or an
+// organization, so there is nothing here for a self-service caller to
+// escalate with. What it can change is what a colleague sees — a job title,
+// a phone extension — which is exactly what people should not have to open a
+// ticket for.
+func (h *Handler) SetOwnProfileAttributes(w http.ResponseWriter, r *http.Request) {
+	principal := auth.MustPrincipal(r.Context())
+
+	var req profileRequest
+	if err := httpx.DecodeJSON(w, r, &req); err != nil {
+		httpx.Fail(w, r, err)
+		return
+	}
+
+	// Not the manager, though. Who somebody reports to is an organizational
+	// fact rather than a personal detail, and a self-service screen that
+	// could set it would let anybody claim anybody as their manager — which
+	// downstream systems read as an approval chain.
+	req.ManagerID = ""
+	if current, err := h.users.Get(r.Context(), principal.TenantID, principal.UserID); err == nil {
+		req.ManagerID = current.Profile.ManagerID
+	}
+
+	user, err := h.users.SetProfile(r.Context(), principal, principal.UserID, req)
+	if err != nil {
+		httpx.Fail(w, r, err)
+		return
+	}
+	httpx.OK(w, user)
+}

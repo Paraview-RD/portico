@@ -1082,3 +1082,9 @@ func (s *Scoped) MarkUserVerified(ctx context.Context, userID string, at time.Ti
 		TenantID: s.tenantID, ID: userID, VerifiedAt: &at,
 	})
 }
+
+// UpdateUserProfileAttributes writes the descriptive half of an account.
+func (s *Scoped) UpdateUserProfileAttributes(ctx context.Context, arg sqlcgen.UpdateUserProfileAttributesParams) error {
+	arg.TenantID = s.tenantID
+	return s.q.UpdateUserProfileAttributes(ctx, arg)
+}

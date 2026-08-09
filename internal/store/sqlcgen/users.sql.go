@@ -272,7 +272,7 @@ func (q *Queries) CreateUser(ctx context.Context, arg CreateUserParams) error {
 }
 
 const getUserByEmail = `-- name: GetUserByEmail :one
-SELECT id, tenant_id, username, display_name, password_hash, phone, email, role, status, organization_id, token_version, source, external_id, failed_login_attempts, last_failed_login_at, locked_until, password_changed_at, created_at, updated_at, ldap_source_id, closed_at, verified_at FROM users WHERE tenant_id = $1 AND email <> '' AND email = $2 LIMIT 1
+SELECT id, tenant_id, username, display_name, password_hash, phone, email, role, status, organization_id, token_version, source, external_id, failed_login_attempts, last_failed_login_at, locked_until, password_changed_at, created_at, updated_at, ldap_source_id, closed_at, verified_at, name_formatted, family_name, given_name, middle_name, honorific_prefix, honorific_suffix, nick_name, profile_url, photo_url, title, user_type, preferred_language, locale, timezone, address_formatted, street_address, locality, region, postal_code, country, employee_number, cost_center, department, manager_id FROM users WHERE tenant_id = $1 AND email <> '' AND email = $2 LIMIT 1
 `
 
 type GetUserByEmailParams struct {
@@ -309,12 +309,36 @@ func (q *Queries) GetUserByEmail(ctx context.Context, arg GetUserByEmailParams) 
 		&i.LdapSourceID,
 		&i.ClosedAt,
 		&i.VerifiedAt,
+		&i.NameFormatted,
+		&i.FamilyName,
+		&i.GivenName,
+		&i.MiddleName,
+		&i.HonorificPrefix,
+		&i.HonorificSuffix,
+		&i.NickName,
+		&i.ProfileUrl,
+		&i.PhotoUrl,
+		&i.Title,
+		&i.UserType,
+		&i.PreferredLanguage,
+		&i.Locale,
+		&i.Timezone,
+		&i.AddressFormatted,
+		&i.StreetAddress,
+		&i.Locality,
+		&i.Region,
+		&i.PostalCode,
+		&i.Country,
+		&i.EmployeeNumber,
+		&i.CostCenter,
+		&i.Department,
+		&i.ManagerID,
 	)
 	return i, err
 }
 
 const getUserByID = `-- name: GetUserByID :one
-SELECT id, tenant_id, username, display_name, password_hash, phone, email, role, status, organization_id, token_version, source, external_id, failed_login_attempts, last_failed_login_at, locked_until, password_changed_at, created_at, updated_at, ldap_source_id, closed_at, verified_at FROM users WHERE tenant_id = $1 AND id = $2 LIMIT 1
+SELECT id, tenant_id, username, display_name, password_hash, phone, email, role, status, organization_id, token_version, source, external_id, failed_login_attempts, last_failed_login_at, locked_until, password_changed_at, created_at, updated_at, ldap_source_id, closed_at, verified_at, name_formatted, family_name, given_name, middle_name, honorific_prefix, honorific_suffix, nick_name, profile_url, photo_url, title, user_type, preferred_language, locale, timezone, address_formatted, street_address, locality, region, postal_code, country, employee_number, cost_center, department, manager_id FROM users WHERE tenant_id = $1 AND id = $2 LIMIT 1
 `
 
 type GetUserByIDParams struct {
@@ -348,12 +372,36 @@ func (q *Queries) GetUserByID(ctx context.Context, arg GetUserByIDParams) (User,
 		&i.LdapSourceID,
 		&i.ClosedAt,
 		&i.VerifiedAt,
+		&i.NameFormatted,
+		&i.FamilyName,
+		&i.GivenName,
+		&i.MiddleName,
+		&i.HonorificPrefix,
+		&i.HonorificSuffix,
+		&i.NickName,
+		&i.ProfileUrl,
+		&i.PhotoUrl,
+		&i.Title,
+		&i.UserType,
+		&i.PreferredLanguage,
+		&i.Locale,
+		&i.Timezone,
+		&i.AddressFormatted,
+		&i.StreetAddress,
+		&i.Locality,
+		&i.Region,
+		&i.PostalCode,
+		&i.Country,
+		&i.EmployeeNumber,
+		&i.CostCenter,
+		&i.Department,
+		&i.ManagerID,
 	)
 	return i, err
 }
 
 const getUserByIdentifier = `-- name: GetUserByIdentifier :one
-SELECT id, tenant_id, username, display_name, password_hash, phone, email, role, status, organization_id, token_version, source, external_id, failed_login_attempts, last_failed_login_at, locked_until, password_changed_at, created_at, updated_at, ldap_source_id, closed_at, verified_at FROM users
+SELECT id, tenant_id, username, display_name, password_hash, phone, email, role, status, organization_id, token_version, source, external_id, failed_login_attempts, last_failed_login_at, locked_until, password_changed_at, created_at, updated_at, ldap_source_id, closed_at, verified_at, name_formatted, family_name, given_name, middle_name, honorific_prefix, honorific_suffix, nick_name, profile_url, photo_url, title, user_type, preferred_language, locale, timezone, address_formatted, street_address, locality, region, postal_code, country, employee_number, cost_center, department, manager_id FROM users
 WHERE tenant_id = $1
   AND (username = $2
        OR (email <> '' AND email = $2)
@@ -411,12 +459,36 @@ func (q *Queries) GetUserByIdentifier(ctx context.Context, arg GetUserByIdentifi
 		&i.LdapSourceID,
 		&i.ClosedAt,
 		&i.VerifiedAt,
+		&i.NameFormatted,
+		&i.FamilyName,
+		&i.GivenName,
+		&i.MiddleName,
+		&i.HonorificPrefix,
+		&i.HonorificSuffix,
+		&i.NickName,
+		&i.ProfileUrl,
+		&i.PhotoUrl,
+		&i.Title,
+		&i.UserType,
+		&i.PreferredLanguage,
+		&i.Locale,
+		&i.Timezone,
+		&i.AddressFormatted,
+		&i.StreetAddress,
+		&i.Locality,
+		&i.Region,
+		&i.PostalCode,
+		&i.Country,
+		&i.EmployeeNumber,
+		&i.CostCenter,
+		&i.Department,
+		&i.ManagerID,
 	)
 	return i, err
 }
 
 const getUserByPhone = `-- name: GetUserByPhone :one
-SELECT id, tenant_id, username, display_name, password_hash, phone, email, role, status, organization_id, token_version, source, external_id, failed_login_attempts, last_failed_login_at, locked_until, password_changed_at, created_at, updated_at, ldap_source_id, closed_at, verified_at FROM users WHERE tenant_id = $1 AND phone <> '' AND phone = $2 LIMIT 1
+SELECT id, tenant_id, username, display_name, password_hash, phone, email, role, status, organization_id, token_version, source, external_id, failed_login_attempts, last_failed_login_at, locked_until, password_changed_at, created_at, updated_at, ldap_source_id, closed_at, verified_at, name_formatted, family_name, given_name, middle_name, honorific_prefix, honorific_suffix, nick_name, profile_url, photo_url, title, user_type, preferred_language, locale, timezone, address_formatted, street_address, locality, region, postal_code, country, employee_number, cost_center, department, manager_id FROM users WHERE tenant_id = $1 AND phone <> '' AND phone = $2 LIMIT 1
 `
 
 type GetUserByPhoneParams struct {
@@ -451,12 +523,36 @@ func (q *Queries) GetUserByPhone(ctx context.Context, arg GetUserByPhoneParams) 
 		&i.LdapSourceID,
 		&i.ClosedAt,
 		&i.VerifiedAt,
+		&i.NameFormatted,
+		&i.FamilyName,
+		&i.GivenName,
+		&i.MiddleName,
+		&i.HonorificPrefix,
+		&i.HonorificSuffix,
+		&i.NickName,
+		&i.ProfileUrl,
+		&i.PhotoUrl,
+		&i.Title,
+		&i.UserType,
+		&i.PreferredLanguage,
+		&i.Locale,
+		&i.Timezone,
+		&i.AddressFormatted,
+		&i.StreetAddress,
+		&i.Locality,
+		&i.Region,
+		&i.PostalCode,
+		&i.Country,
+		&i.EmployeeNumber,
+		&i.CostCenter,
+		&i.Department,
+		&i.ManagerID,
 	)
 	return i, err
 }
 
 const getUserByUsername = `-- name: GetUserByUsername :one
-SELECT id, tenant_id, username, display_name, password_hash, phone, email, role, status, organization_id, token_version, source, external_id, failed_login_attempts, last_failed_login_at, locked_until, password_changed_at, created_at, updated_at, ldap_source_id, closed_at, verified_at FROM users WHERE tenant_id = $1 AND username = $2 LIMIT 1
+SELECT id, tenant_id, username, display_name, password_hash, phone, email, role, status, organization_id, token_version, source, external_id, failed_login_attempts, last_failed_login_at, locked_until, password_changed_at, created_at, updated_at, ldap_source_id, closed_at, verified_at, name_formatted, family_name, given_name, middle_name, honorific_prefix, honorific_suffix, nick_name, profile_url, photo_url, title, user_type, preferred_language, locale, timezone, address_formatted, street_address, locality, region, postal_code, country, employee_number, cost_center, department, manager_id FROM users WHERE tenant_id = $1 AND username = $2 LIMIT 1
 `
 
 type GetUserByUsernameParams struct {
@@ -490,12 +586,36 @@ func (q *Queries) GetUserByUsername(ctx context.Context, arg GetUserByUsernamePa
 		&i.LdapSourceID,
 		&i.ClosedAt,
 		&i.VerifiedAt,
+		&i.NameFormatted,
+		&i.FamilyName,
+		&i.GivenName,
+		&i.MiddleName,
+		&i.HonorificPrefix,
+		&i.HonorificSuffix,
+		&i.NickName,
+		&i.ProfileUrl,
+		&i.PhotoUrl,
+		&i.Title,
+		&i.UserType,
+		&i.PreferredLanguage,
+		&i.Locale,
+		&i.Timezone,
+		&i.AddressFormatted,
+		&i.StreetAddress,
+		&i.Locality,
+		&i.Region,
+		&i.PostalCode,
+		&i.Country,
+		&i.EmployeeNumber,
+		&i.CostCenter,
+		&i.Department,
+		&i.ManagerID,
 	)
 	return i, err
 }
 
 const listUsersByIDs = `-- name: ListUsersByIDs :many
-SELECT id, tenant_id, username, display_name, password_hash, phone, email, role, status, organization_id, token_version, source, external_id, failed_login_attempts, last_failed_login_at, locked_until, password_changed_at, created_at, updated_at, ldap_source_id, closed_at, verified_at FROM users WHERE tenant_id = $1 AND id = ANY($2::text[])
+SELECT id, tenant_id, username, display_name, password_hash, phone, email, role, status, organization_id, token_version, source, external_id, failed_login_attempts, last_failed_login_at, locked_until, password_changed_at, created_at, updated_at, ldap_source_id, closed_at, verified_at, name_formatted, family_name, given_name, middle_name, honorific_prefix, honorific_suffix, nick_name, profile_url, photo_url, title, user_type, preferred_language, locale, timezone, address_formatted, street_address, locality, region, postal_code, country, employee_number, cost_center, department, manager_id FROM users WHERE tenant_id = $1 AND id = ANY($2::text[])
 `
 
 type ListUsersByIDsParams struct {
@@ -535,6 +655,30 @@ func (q *Queries) ListUsersByIDs(ctx context.Context, arg ListUsersByIDsParams) 
 			&i.LdapSourceID,
 			&i.ClosedAt,
 			&i.VerifiedAt,
+			&i.NameFormatted,
+			&i.FamilyName,
+			&i.GivenName,
+			&i.MiddleName,
+			&i.HonorificPrefix,
+			&i.HonorificSuffix,
+			&i.NickName,
+			&i.ProfileUrl,
+			&i.PhotoUrl,
+			&i.Title,
+			&i.UserType,
+			&i.PreferredLanguage,
+			&i.Locale,
+			&i.Timezone,
+			&i.AddressFormatted,
+			&i.StreetAddress,
+			&i.Locality,
+			&i.Region,
+			&i.PostalCode,
+			&i.Country,
+			&i.EmployeeNumber,
+			&i.CostCenter,
+			&i.Department,
+			&i.ManagerID,
 		); err != nil {
 			return nil, err
 		}
@@ -726,6 +870,103 @@ func (q *Queries) UpdateUserProfile(ctx context.Context, arg UpdateUserProfilePa
 		arg.Email,
 		arg.OrganizationID,
 		arg.Role,
+		arg.UpdatedAt,
+		arg.TenantID,
+		arg.ID,
+	)
+	return err
+}
+
+const updateUserProfileAttributes = `-- name: UpdateUserProfileAttributes :exec
+UPDATE users
+SET name_formatted = $1,
+    family_name = $2,
+    given_name = $3,
+    middle_name = $4,
+    honorific_prefix = $5,
+    honorific_suffix = $6,
+    nick_name = $7,
+    profile_url = $8,
+    photo_url = $9,
+    title = $10,
+    user_type = $11,
+    preferred_language = $12,
+    locale = $13,
+    timezone = $14,
+    address_formatted = $15,
+    street_address = $16,
+    locality = $17,
+    region = $18,
+    postal_code = $19,
+    country = $20,
+    employee_number = $21,
+    cost_center = $22,
+    department = $23,
+    manager_id = $24,
+    updated_at = $25
+WHERE tenant_id = $26 AND id = $27
+`
+
+type UpdateUserProfileAttributesParams struct {
+	NameFormatted     string
+	FamilyName        string
+	GivenName         string
+	MiddleName        string
+	HonorificPrefix   string
+	HonorificSuffix   string
+	NickName          string
+	ProfileUrl        string
+	PhotoUrl          string
+	Title             string
+	UserType          string
+	PreferredLanguage string
+	Locale            string
+	Timezone          string
+	AddressFormatted  string
+	StreetAddress     string
+	Locality          string
+	Region            string
+	PostalCode        string
+	Country           string
+	EmployeeNumber    string
+	CostCenter        string
+	Department        string
+	ManagerID         *string
+	UpdatedAt         time.Time
+	TenantID          string
+	ID                string
+}
+
+// The descriptive half of an account, kept apart from the statement that
+// changes role, status, or organization. Those are decisions about somebody's
+// access; these describe them, and a form that edits one must not be able to
+// touch the other by omission.
+func (q *Queries) UpdateUserProfileAttributes(ctx context.Context, arg UpdateUserProfileAttributesParams) error {
+	_, err := q.db.ExecContext(ctx, updateUserProfileAttributes,
+		arg.NameFormatted,
+		arg.FamilyName,
+		arg.GivenName,
+		arg.MiddleName,
+		arg.HonorificPrefix,
+		arg.HonorificSuffix,
+		arg.NickName,
+		arg.ProfileUrl,
+		arg.PhotoUrl,
+		arg.Title,
+		arg.UserType,
+		arg.PreferredLanguage,
+		arg.Locale,
+		arg.Timezone,
+		arg.AddressFormatted,
+		arg.StreetAddress,
+		arg.Locality,
+		arg.Region,
+		arg.PostalCode,
+		arg.Country,
+		arg.EmployeeNumber,
+		arg.CostCenter,
+		arg.Department,
+		arg.ManagerID,
 		arg.UpdatedAt,
 		arg.TenantID,
 		arg.ID,

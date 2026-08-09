@@ -77,6 +77,9 @@ export const errorsEnUS = {
   INVALID_ROLE: "That is not a valid role.",
   INVALID_STATUS: "Status must be active or disabled.",
   CANNOT_DISABLE_SELF: "You cannot disable your own account.",
+  EMPLOYEE_NUMBER_TAKEN: "Another account already has that employee number.",
+  MANAGER_NOT_FOUND: "No such account to report to.",
+  MANAGER_IS_SELF: "An account cannot report to itself.",
   LAST_ADMIN:
     "This is the tenant's last active administrator. Promote another account first.",
   REGISTRATION_DISABLED: "Sign-up is closed on this deployment.",
