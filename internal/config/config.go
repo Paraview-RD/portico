@@ -9,13 +9,16 @@ package config
 
 import (
 	"crypto/rand"
+	"crypto/subtle"
 	"encoding/hex"
+	"errors"
 	"fmt"
 	"os"
 	"strconv"
 	"time"
 
 	"github.com/paraview/portico/internal/notify"
+	"github.com/paraview/portico/internal/secrets"
 )
 
 // MinJWTSecretLength is the shortest signing secret the server will accept.
@@ -94,6 +97,20 @@ type Config struct {
 	// Host means email recovery is not available on this deployment, which
 	// is the default — the binary must run with no environment at all.
 	SMTP notify.SMTPConfig
+
+	// EncryptionKey protects the few credentials the server has to store and
+	// later use, rather than merely verify — today that is a directory
+	// connector's bind password.
+	//
+	// Nil means no key was configured, which is the default and starts
+	// normally. Nothing silently falls back to storing such a credential in
+	// the clear; the request to save one is refused, with the reason.
+	//
+	// Deliberately not derived from JWTSecret. They protect different things
+	// and leak through different accidents — a signing key ends up in a JWT
+	// debugging session, a data key ends up in a database dump — and one
+	// value doing both jobs means either leak costs both.
+	EncryptionKey []byte
 }
 
 // Load reads configuration from the environment, applying defaults.
@@ -162,7 +179,51 @@ func Load() (*Config, error) {
 		cfg.JWTSecret = []byte(secret)
 	}
 
+	if err := cfg.loadEncryptionKey(); err != nil {
+		return nil, err
+	}
+
 	return cfg, nil
+}
+
+// loadEncryptionKey reads PORTICO_ENCRYPTION_KEY, which is 32 bytes of hex.
+//
+// Hex rather than raw bytes because this is a key and not a passphrase:
+// `openssl rand -hex 32` produces one, and accepting arbitrary text would
+// invite a memorable phrase where 256 bits of entropy is the whole point.
+// There is no stretching here to rescue a weak input, deliberately — adding
+// one would make a passphrase look acceptable.
+func (c *Config) loadEncryptionKey() error {
+	encoded := os.Getenv("PORTICO_ENCRYPTION_KEY")
+	if encoded == "" {
+		return nil
+	}
+
+	key, err := hex.DecodeString(encoded)
+	if err != nil {
+		return fmt.Errorf(
+			"PORTICO_ENCRYPTION_KEY is not hexadecimal. Generate one with: openssl rand -hex %d",
+			secrets.KeyLength)
+	}
+	if len(key) != secrets.KeyLength {
+		return fmt.Errorf(
+			"PORTICO_ENCRYPTION_KEY decodes to %d bytes; it must be exactly %d. Generate one with: openssl rand -hex %d",
+			len(key), secrets.KeyLength, secrets.KeyLength)
+	}
+
+	// Refusing this is worth a line of code: reusing the signing secret as
+	// the data key means a captured token that reveals one reveals both, and
+	// it is the shortcut somebody takes at 2am when a deployment will not
+	// start.
+	if subtle.ConstantTimeCompare(key, c.JWTSecret) == 1 {
+		return errors.New(
+			"PORTICO_ENCRYPTION_KEY is the same value as PORTICO_JWT_SECRET. " +
+				"They protect different things and must not share a value; " +
+				"generate a second one with: openssl rand -hex 32")
+	}
+
+	c.EncryptionKey = key
+	return nil
 }
 
 func envString(key, fallback string) string {

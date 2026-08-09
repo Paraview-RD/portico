@@ -104,6 +104,13 @@ Configuration is entirely environment variables:
   PORTICO_JWT_SECRET               token signing secret; at least %d bytes.
                                    Generate with: openssl rand -hex 32
   PORTICO_TOKEN_TTL                token lifetime, e.g. "2h" (default "2h")
+  PORTICO_ENCRYPTION_KEY           32 bytes of hex protecting credentials the
+                                   server stores and later uses, such as a
+                                   directory bind password. Unset means such a
+                                   credential cannot be saved at all — it is
+                                   never stored in the clear instead. Must
+                                   differ from PORTICO_JWT_SECRET. Generate
+                                   with: openssl rand -hex 32
   PORTICO_TRUST_PROXY_HEADERS      trust X-Forwarded-For (default false; only
                                    enable behind a proxy you control)
   PORTICO_PUBLIC_URL               where people reach this deployment. Used for

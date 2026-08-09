@@ -1,6 +1,7 @@
 package config_test
 
 import (
+	"encoding/hex"
 	"strings"
 	"testing"
 
@@ -133,5 +134,52 @@ func TestTokenTTLParsing(t *testing.T) {
 				t.Errorf("TTL = %v, want %v minutes", cfg.TokenTTL, tt.wantMinutes)
 			}
 		})
+	}
+}
+
+// The data key and the signing key must be different values.
+//
+// Reusing one for both is the shortcut somebody takes when a deployment will
+// not start, and it means a captured token that reveals the signing secret
+// also decrypts every stored credential.
+func TestEncryptionKeyMayNotBeTheSigningSecret(t *testing.T) {
+	shared := strings.Repeat("a", 32)
+	t.Setenv("PORTICO_JWT_SECRET", shared)
+	t.Setenv("PORTICO_ENCRYPTION_KEY", hex.EncodeToString([]byte(shared)))
+
+	if _, err := config.Load(); err == nil {
+		t.Fatal("the same value was accepted as both the signing secret and " +
+			"the data key; one leak would then cost both")
+	}
+}
+
+func TestEncryptionKeyMustBeThirtyTwoHexBytes(t *testing.T) {
+	t.Setenv("PORTICO_JWT_SECRET", strings.Repeat("j", 32))
+
+	for _, value := range []string{
+		"not-hex-at-all",
+		hex.EncodeToString([]byte(strings.Repeat("k", 16))), // too short
+		hex.EncodeToString([]byte(strings.Repeat("k", 64))), // too long
+	} {
+		t.Setenv("PORTICO_ENCRYPTION_KEY", value)
+		if _, err := config.Load(); err == nil {
+			t.Errorf("PORTICO_ENCRYPTION_KEY=%q was accepted", value)
+		}
+	}
+}
+
+// And an unset key starts normally. Encryption is not a prerequisite for
+// running; it is a prerequisite for storing a credential, which is refused
+// at that point with a reason.
+func TestNoEncryptionKeyStartsAnyway(t *testing.T) {
+	t.Setenv("PORTICO_JWT_SECRET", strings.Repeat("j", 32))
+	t.Setenv("PORTICO_ENCRYPTION_KEY", "")
+
+	cfg, err := config.Load()
+	if err != nil {
+		t.Fatalf("load with no encryption key: %v", err)
+	}
+	if cfg.EncryptionKey != nil {
+		t.Error("an unset key produced a key")
 	}
 }
