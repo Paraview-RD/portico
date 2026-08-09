@@ -49,6 +49,13 @@ const (
 	SourceImport UserSource = "IMPORT"
 	// SourceRegistration is a self-registered account.
 	SourceRegistration UserSource = "REGISTRATION"
+	// SourceLDAP is an account a directory synchronization pulled in. It is
+	// distinguished from SourceSCIM even though both mean "a directory owns
+	// this", because the direction differs and so does what an operator does
+	// about it: a SCIM account stopped arriving because the directory stopped
+	// pushing, and an LDAP account stopped arriving because a run here
+	// failed — and there is a run record to read.
+	SourceLDAP UserSource = "LDAP"
 	// SourceSCIM is an account a directory created through provisioning. It
 	// is worth distinguishing from the rest: an administrator editing one is
 	// editing something the next sync may overwrite, and the source is what

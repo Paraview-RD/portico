@@ -119,6 +119,18 @@ const (
 	ActionSPEnable  = "SAML_SP_ENABLE"
 	ActionSPDisable = "SAML_SP_DISABLE"
 
+	// A directory Portico reads accounts out of. Registering one hands a
+	// service account's credential to this server and makes an external
+	// system the source of truth for who exists here, so it is audited at
+	// the same weight as an application registration. The synchronizations
+	// themselves are recorded separately, per run, because their question is
+	// "when did this start" rather than "who allowed it".
+	ActionLDAPSourceCreate  = "LDAP_SOURCE_CREATE"
+	ActionLDAPSourceUpdate  = "LDAP_SOURCE_UPDATE"
+	ActionLDAPSourceEnable  = "LDAP_SOURCE_ENABLE"
+	ActionLDAPSourceDisable = "LDAP_SOURCE_DISABLE"
+	ActionLDAPSync          = "LDAP_SYNC"
+
 	ActionCASServiceCreate  = "CAS_SERVICE_CREATE"
 	ActionCASServiceUpdate  = "CAS_SERVICE_UPDATE"
 	ActionCASServiceEnable  = "CAS_SERVICE_ENABLE"

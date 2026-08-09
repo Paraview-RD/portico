@@ -159,6 +159,19 @@ export const errorsEnUS = {
   SCIM_UNAUTHORIZED: "That token is not valid for provisioning.",
   EXTERNAL_ID_TAKEN: "That externalId is already bound to another account.",
 
+  // --- Directory synchronization ---
+  LDAP_SOURCE_NOT_FOUND: "No such directory.",
+  LDAP_SOURCE_NAME_TAKEN: "A directory with that name already exists.",
+  LDAP_SOURCE_DISABLED: "That directory is disabled.",
+  INVALID_LDAP_ENCRYPTION: "Encryption must be none, STARTTLS, or TLS.",
+  INVALID_LDAP_PORT: "The port must be between 1 and 65535.",
+  INVALID_LDAP_HOST:
+    "Give the host name on its own, without a scheme, path, or port — those are separate fields.",
+  LDAP_FIELD_REQUIRED:
+    "The host, base DN, user filter, and the username, display name, and external id attributes are all required.",
+  NO_ENCRYPTION_KEY:
+    "This deployment has no encryption key, so a bind password cannot be stored. Ask an operator to set PORTICO_ENCRYPTION_KEY, or use an anonymous bind.",
+
   // --- Webhooks ---
   WEBHOOK_NOT_FOUND: "No such subscription.",
   WEBHOOK_NAME_TAKEN: "A subscription with that name already exists.",

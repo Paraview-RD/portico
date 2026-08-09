@@ -235,8 +235,8 @@ export function UsersPage() {
                         which is history; this one says who owns it now,
                         which changes what an edit here will do. A column
                         showing all four would give them equal weight. */}
-                    {user.source === "SCIM" && (
-                      <Badge tone="warning">{t("source.SCIM")}</Badge>
+                    {(user.source === "SCIM" || user.source === "LDAP") && (
+                      <Badge tone="warning">{t(`source.${user.source}`)}</Badge>
                     )}
                   </div>
                 </Td>

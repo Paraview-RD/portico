@@ -10,7 +10,12 @@ export type Status = "ACTIVE" | "DISABLED";
  * next sync will overwrite what an administrator changes here. That is why
  * the list marks only this one.
  */
-export type UserSource = "ADMIN" | "IMPORT" | "REGISTRATION" | "SCIM";
+export type UserSource =
+  | "ADMIN"
+  | "IMPORT"
+  | "REGISTRATION"
+  | "SCIM"
+  | "LDAP";
 
 export interface User {
   id: string;

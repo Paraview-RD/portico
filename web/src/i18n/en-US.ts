@@ -34,6 +34,10 @@ export const enUS = {
   // reason: what matters is not that a directory created it but that a
   // directory still maintains it.
   "source.SCIM": "Directory",
+  // Both mean a directory owns the account; they differ in which way it
+  // travelled, and an operator chasing a stale account needs to know which
+  // — one has a run record here to read, the other does not.
+  "source.LDAP": "LDAP",
   "users.directoryManaged":
     "This account is maintained by a directory. Changes made here may be " +
     "overwritten the next time it synchronizes.",

@@ -950,3 +950,85 @@ func (s *Scoped) withTx(fn func(*sqlcgen.Queries) error) error {
 	st := &Store{db: s.db, Queries: s.q}
 	return st.WithTx(fn)
 }
+
+/* ------------------------------------------------------ LDAP directories */
+
+// CreateLDAPSource registers a directory to read accounts out of.
+func (s *Scoped) CreateLDAPSource(ctx context.Context, arg sqlcgen.CreateLDAPSourceParams) error {
+	arg.TenantID = s.tenantID
+	return s.q.CreateLDAPSource(ctx, arg)
+}
+
+// ListLDAPSources returns the tenant's directories.
+func (s *Scoped) ListLDAPSources(ctx context.Context) ([]sqlcgen.LdapSource, error) {
+	return s.q.ListLDAPSources(ctx, s.tenantID)
+}
+
+// GetLDAPSource returns one by id.
+func (s *Scoped) GetLDAPSource(ctx context.Context, id string) (sqlcgen.LdapSource, error) {
+	return s.q.GetLDAPSource(ctx, sqlcgen.GetLDAPSourceParams{TenantID: s.tenantID, ID: id})
+}
+
+// UpdateLDAPSource replaces the editable settings. The bind password is not
+// among them; it has its own statement so that a form which cannot show the
+// current value cannot blank it either.
+func (s *Scoped) UpdateLDAPSource(ctx context.Context, arg sqlcgen.UpdateLDAPSourceParams) error {
+	arg.TenantID = s.tenantID
+	return s.q.UpdateLDAPSource(ctx, arg)
+}
+
+// UpdateLDAPSourceBindPassword stores a freshly sealed credential.
+func (s *Scoped) UpdateLDAPSourceBindPassword(ctx context.Context, id, sealed string, now time.Time) error {
+	return s.q.UpdateLDAPSourceBindPassword(ctx, sqlcgen.UpdateLDAPSourceBindPasswordParams{
+		TenantID: s.tenantID, ID: id, BindPassword: sealed, UpdatedAt: now,
+	})
+}
+
+// UpdateLDAPSourceStatus enables or disables a directory.
+func (s *Scoped) UpdateLDAPSourceStatus(ctx context.Context, id, status string, now time.Time) error {
+	return s.q.UpdateLDAPSourceStatus(ctx, sqlcgen.UpdateLDAPSourceStatusParams{
+		TenantID: s.tenantID, ID: id, Status: status, UpdatedAt: now,
+	})
+}
+
+// MarkLDAPSourceSynced records that a run finished.
+func (s *Scoped) MarkLDAPSourceSynced(ctx context.Context, id string, at time.Time) error {
+	return s.q.MarkLDAPSourceSynced(ctx, sqlcgen.MarkLDAPSourceSyncedParams{
+		TenantID: s.tenantID, ID: id, LastSyncedAt: &at,
+	})
+}
+
+// StartLDAPSyncRun opens a run record before any directory is contacted, so
+// a sync that dies mid-flight leaves evidence rather than nothing.
+func (s *Scoped) StartLDAPSyncRun(ctx context.Context, arg sqlcgen.StartLDAPSyncRunParams) error {
+	arg.TenantID = s.tenantID
+	return s.q.StartLDAPSyncRun(ctx, arg)
+}
+
+// FinishLDAPSyncRun closes it with what happened.
+func (s *Scoped) FinishLDAPSyncRun(ctx context.Context, arg sqlcgen.FinishLDAPSyncRunParams) error {
+	arg.TenantID = s.tenantID
+	return s.q.FinishLDAPSyncRun(ctx, arg)
+}
+
+// ListLDAPSyncRuns returns a directory's recent runs, newest first.
+func (s *Scoped) ListLDAPSyncRuns(ctx context.Context, sourceID string, limit int32) ([]sqlcgen.LdapSyncRun, error) {
+	return s.q.ListLDAPSyncRuns(ctx, sqlcgen.ListLDAPSyncRunsParams{
+		TenantID: s.tenantID, SourceID: sourceID, Limit: limit,
+	})
+}
+
+// ListUsersFromLDAPSource returns every account a directory owns, which is
+// what a sync compares against to work out what has vanished from it.
+func (s *Scoped) ListUsersFromLDAPSource(ctx context.Context, sourceID string) ([]sqlcgen.User, error) {
+	return s.q.ListUsersFromLDAPSource(ctx, sqlcgen.ListUsersFromLDAPSourceParams{
+		TenantID: s.tenantID, LdapSourceID: &sourceID,
+	})
+}
+
+// BindUserToLDAPSource records which directory owns an account.
+func (s *Scoped) BindUserToLDAPSource(ctx context.Context, userID, sourceID string, now time.Time) error {
+	return s.q.BindUserToLDAPSource(ctx, sqlcgen.BindUserToLDAPSourceParams{
+		TenantID: s.tenantID, ID: userID, LdapSourceID: &sourceID, UpdatedAt: now,
+	})
+}

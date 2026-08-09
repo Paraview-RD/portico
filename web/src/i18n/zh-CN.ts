@@ -32,6 +32,7 @@ export const zhCN: Record<keyof typeof enUS, string> = {
   "role.SUPER_ADMIN": "超级管理员",
   "role.USER": "普通用户",
   "source.SCIM": "目录系统",
+  "source.LDAP": "LDAP",
   "users.directoryManaged":
     "该账号由目录系统维护，此处的修改可能在下次同步时被覆盖。",
 

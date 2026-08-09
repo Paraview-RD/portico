@@ -1,0 +1,725 @@
+package service
+
+import (
+	"context"
+	"errors"
+	"fmt"
+	"math"
+	"net"
+	"strings"
+	"time"
+
+	"github.com/google/uuid"
+
+	"github.com/paraview/portico/internal/auth"
+	"github.com/paraview/portico/internal/directory"
+	"github.com/paraview/portico/internal/httpx"
+	"github.com/paraview/portico/internal/model"
+	"github.com/paraview/portico/internal/secrets"
+	"github.com/paraview/portico/internal/store"
+	"github.com/paraview/portico/internal/store/sqlcgen"
+)
+
+// DirectoryService registers directories and synchronizes accounts out of
+// them.
+//
+// This is the opposite direction from SCIM, which is worth stating because
+// the two land in the same place. SCIM is a server here: a directory pushes
+// and Portico never reaches out. LDAP is a pull, on Portico's initiative and
+// its schedule. The failure modes differ accordingly — a push that stops is
+// silent at this end, while a pull that stops leaves a failed run to point
+// at, which is most of why the run records exist.
+type DirectoryService struct {
+	store    *store.Store
+	users    *UserService
+	audit    *AuditService
+	webhooks *WebhookService
+	vault    *secrets.Vault
+
+	// dial is the LDAP connection, indirected so the reconciliation logic
+	// can be tested against a fake directory. The rules about what happens
+	// to an account that vanished are the part worth testing, and they
+	// should not require a container to exercise.
+	dial func(directory.Config) (DirectoryReader, error)
+}
+
+// DirectoryReader is the part of a directory connection this service uses.
+type DirectoryReader interface {
+	Users() ([]directory.Entry, []error, error)
+	Close()
+}
+
+// NewDirectoryService wires a DirectoryService.
+func NewDirectoryService(st *store.Store, users *UserService, audit *AuditService, webhooks *WebhookService, vault *secrets.Vault) *DirectoryService {
+	return &DirectoryService{
+		store: st, users: users, audit: audit, webhooks: webhooks, vault: vault,
+		dial: func(cfg directory.Config) (DirectoryReader, error) {
+			return directory.Dial(cfg)
+		},
+	}
+}
+
+// Errors this service returns.
+var (
+	ErrLDAPSourceNotFound = httpx.NotFound("LDAP_SOURCE_NOT_FOUND",
+		"No such directory.")
+	ErrLDAPSourceNameTaken = httpx.Conflict("LDAP_SOURCE_NAME_TAKEN",
+		"A directory with that name already exists.")
+	ErrLDAPSourceDisabled = httpx.UnprocessableEntity("LDAP_SOURCE_DISABLED",
+		"That directory is disabled.")
+	ErrInvalidLDAPEncryption = httpx.BadRequest("INVALID_LDAP_ENCRYPTION",
+		"Encryption must be none, starttls, or tls.")
+	ErrLDAPFieldRequired = httpx.BadRequest("LDAP_FIELD_REQUIRED",
+		"Host, base DN, user filter, and the username, display name, and external id attributes are all required.")
+	ErrInvalidLDAPPort = httpx.BadRequest("INVALID_LDAP_PORT",
+		"Port must be between 1 and 65535.")
+	// ErrNoEncryptionKey is what a deployment with no PORTICO_ENCRYPTION_KEY
+	// gets when it tries to store a bind password. Refusing is the point:
+	// the alternative is a service account's credential sitting in a text
+	// column, and nobody would find out until the database leaked.
+	ErrNoEncryptionKey = httpx.UnprocessableEntity("NO_ENCRYPTION_KEY",
+		"This deployment has no PORTICO_ENCRYPTION_KEY, so a bind password cannot be stored. "+
+			"Set one (openssl rand -hex 32) and restart, or use an anonymous bind.")
+)
+
+// LDAPSourceInput is a directory as an administrator describes it.
+type LDAPSourceInput struct {
+	Name       string
+	Host       string
+	Port       int
+	Encryption string
+
+	BindDN string
+	// BindPassword is applied only when non-nil. A nil pointer means "leave
+	// what is stored alone", which is what an edit form that cannot display
+	// the current value has to be able to express — otherwise submitting it
+	// unchanged would blank the credential.
+	BindPassword *string
+
+	BaseDN     string
+	UserFilter string
+
+	AttrUsername    string
+	AttrDisplayName string
+	AttrEmail       string
+	AttrPhone       string
+	AttrExternalID  string
+
+	OrganizationID string
+}
+
+// Register adds a directory.
+func (s *DirectoryService) Register(ctx context.Context, actor auth.Principal, in LDAPSourceInput) (model.LDAPSource, error) {
+	tenantID := actor.TenantID
+
+	normalized, err := s.normalize(in)
+	if err != nil {
+		return model.LDAPSource{}, err
+	}
+
+	sealed := ""
+	if normalized.BindPassword != nil && *normalized.BindPassword != "" {
+		sealed, err = s.seal(*normalized.BindPassword)
+		if err != nil {
+			return model.LDAPSource{}, err
+		}
+	}
+
+	now := store.Now()
+	id := uuid.NewString()
+
+	err = s.store.ForTenant(tenantID).CreateLDAPSource(ctx, sqlcgen.CreateLDAPSourceParams{
+		ID:              id,
+		Name:            normalized.Name,
+		Host:            normalized.Host,
+		Port:            narrow(normalized.Port),
+		Encryption:      normalized.Encryption,
+		BindDn:          normalized.BindDN,
+		BindPassword:    sealed,
+		BaseDn:          normalized.BaseDN,
+		UserFilter:      normalized.UserFilter,
+		AttrUsername:    normalized.AttrUsername,
+		AttrDisplayName: normalized.AttrDisplayName,
+		AttrEmail:       normalized.AttrEmail,
+		AttrPhone:       normalized.AttrPhone,
+		AttrExternalID:  normalized.AttrExternalID,
+		OrganizationID:  optionalID(normalized.OrganizationID),
+		Status:          string(model.StatusActive),
+		CreatedAt:       now,
+		UpdatedAt:       now,
+	})
+	if err != nil {
+		if store.IsUniqueViolation(err) {
+			return model.LDAPSource{}, ErrLDAPSourceNameTaken
+		}
+		return model.LDAPSource{}, fmt.Errorf("register directory: %w", err)
+	}
+
+	source, err := s.Get(ctx, tenantID, id)
+	if err != nil {
+		return model.LDAPSource{}, err
+	}
+
+	s.audit.Log(ctx, tenantID, AuditEntry{
+		Kind: model.LogOperation, Action: model.ActionLDAPSourceCreate,
+		ActorID: actor.UserID, ActorName: actor.Username,
+		TargetType: targetLDAPSource, TargetID: id, TargetName: source.Name,
+		Detail: fmt.Sprintf("%s:%d, base %s", source.Host, source.Port, source.BaseDN),
+	})
+
+	return source, nil
+}
+
+// Update changes a directory's settings.
+func (s *DirectoryService) Update(ctx context.Context, actor auth.Principal, id string, in LDAPSourceInput) (model.LDAPSource, error) {
+	tenantID := actor.TenantID
+
+	if _, err := s.Get(ctx, tenantID, id); err != nil {
+		return model.LDAPSource{}, err
+	}
+
+	normalized, err := s.normalize(in)
+	if err != nil {
+		return model.LDAPSource{}, err
+	}
+
+	now := store.Now()
+	q := s.store.ForTenant(tenantID)
+
+	err = q.UpdateLDAPSource(ctx, sqlcgen.UpdateLDAPSourceParams{
+		ID:              id,
+		Name:            normalized.Name,
+		Host:            normalized.Host,
+		Port:            narrow(normalized.Port),
+		Encryption:      normalized.Encryption,
+		BindDn:          normalized.BindDN,
+		BaseDn:          normalized.BaseDN,
+		UserFilter:      normalized.UserFilter,
+		AttrUsername:    normalized.AttrUsername,
+		AttrDisplayName: normalized.AttrDisplayName,
+		AttrEmail:       normalized.AttrEmail,
+		AttrPhone:       normalized.AttrPhone,
+		AttrExternalID:  normalized.AttrExternalID,
+		OrganizationID:  optionalID(normalized.OrganizationID),
+		UpdatedAt:       now,
+	})
+	if err != nil {
+		if store.IsUniqueViolation(err) {
+			return model.LDAPSource{}, ErrLDAPSourceNameTaken
+		}
+		return model.LDAPSource{}, fmt.Errorf("update directory: %w", err)
+	}
+
+	// Only when the caller sent one. Omitting the field leaves the stored
+	// credential alone; sending an empty string clears it, which is how an
+	// operator moves a source to an anonymous bind.
+	if normalized.BindPassword != nil {
+		sealed := ""
+		if *normalized.BindPassword != "" {
+			sealed, err = s.seal(*normalized.BindPassword)
+			if err != nil {
+				return model.LDAPSource{}, err
+			}
+		}
+		if err := q.UpdateLDAPSourceBindPassword(ctx, id, sealed, now); err != nil {
+			return model.LDAPSource{}, fmt.Errorf("update bind password: %w", err)
+		}
+	}
+
+	updated, err := s.Get(ctx, tenantID, id)
+	if err != nil {
+		return model.LDAPSource{}, err
+	}
+
+	s.audit.Log(ctx, tenantID, AuditEntry{
+		Kind: model.LogOperation, Action: model.ActionLDAPSourceUpdate,
+		ActorID: actor.UserID, ActorName: actor.Username,
+		TargetType: targetLDAPSource, TargetID: id, TargetName: updated.Name,
+		Detail: fmt.Sprintf("%s:%d, base %s", updated.Host, updated.Port, updated.BaseDN),
+	})
+
+	return updated, nil
+}
+
+// SetStatus enables or disables a directory. A disabled one is not
+// synchronized and its accounts are left exactly as they are — disabling the
+// connector must not deactivate the people it brought in.
+func (s *DirectoryService) SetStatus(ctx context.Context, actor auth.Principal, id string, status model.Status) (model.LDAPSource, error) {
+	tenantID := actor.TenantID
+
+	if _, err := s.Get(ctx, tenantID, id); err != nil {
+		return model.LDAPSource{}, err
+	}
+	if err := s.store.ForTenant(tenantID).UpdateLDAPSourceStatus(ctx, id, string(status), store.Now()); err != nil {
+		return model.LDAPSource{}, fmt.Errorf("set directory status: %w", err)
+	}
+
+	updated, err := s.Get(ctx, tenantID, id)
+	if err != nil {
+		return model.LDAPSource{}, err
+	}
+
+	action := model.ActionLDAPSourceDisable
+	if status == model.StatusActive {
+		action = model.ActionLDAPSourceEnable
+	}
+	s.audit.Log(ctx, tenantID, AuditEntry{
+		Kind: model.LogOperation, Action: action,
+		ActorID: actor.UserID, ActorName: actor.Username,
+		TargetType: targetLDAPSource, TargetID: id, TargetName: updated.Name,
+	})
+
+	return updated, nil
+}
+
+// List returns the tenant's directories.
+func (s *DirectoryService) List(ctx context.Context, tenantID string) ([]model.LDAPSource, error) {
+	rows, err := s.store.ForTenant(tenantID).ListLDAPSources(ctx)
+	if err != nil {
+		return nil, fmt.Errorf("list directories: %w", err)
+	}
+
+	sources := make([]model.LDAPSource, 0, len(rows))
+	for _, row := range rows {
+		source, err := s.decorate(ctx, tenantID, row)
+		if err != nil {
+			return nil, err
+		}
+		sources = append(sources, source)
+	}
+	return sources, nil
+}
+
+// Get returns one directory.
+func (s *DirectoryService) Get(ctx context.Context, tenantID, id string) (model.LDAPSource, error) {
+	row, err := s.store.ForTenant(tenantID).GetLDAPSource(ctx, id)
+	if err != nil {
+		if store.IsNoRows(err) {
+			return model.LDAPSource{}, ErrLDAPSourceNotFound
+		}
+		return model.LDAPSource{}, fmt.Errorf("get directory: %w", err)
+	}
+	return s.decorate(ctx, tenantID, row)
+}
+
+// Runs returns a directory's recent synchronizations, newest first.
+func (s *DirectoryService) Runs(ctx context.Context, tenantID, sourceID string, limit int) ([]model.LDAPSyncRun, error) {
+	if _, err := s.Get(ctx, tenantID, sourceID); err != nil {
+		return nil, err
+	}
+	if limit <= 0 || limit > 100 {
+		limit = 20
+	}
+
+	rows, err := s.store.ForTenant(tenantID).ListLDAPSyncRuns(ctx, sourceID, int32(limit))
+	if err != nil {
+		return nil, fmt.Errorf("list sync runs: %w", err)
+	}
+
+	runs := make([]model.LDAPSyncRun, 0, len(rows))
+	for _, row := range rows {
+		runs = append(runs, model.LDAPSyncRun{
+			ID: row.ID, SourceID: row.SourceID, ActorName: row.ActorName,
+			StartedAt: row.StartedAt, FinishedAt: row.FinishedAt,
+			Outcome:          row.Outcome,
+			CreatedCount:     int(row.CreatedCount),
+			UpdatedCount:     int(row.UpdatedCount),
+			DeactivatedCount: int(row.DeactivatedCount),
+			SkippedCount:     int(row.SkippedCount),
+			Error:            row.Error,
+		})
+	}
+	return runs, nil
+}
+
+func (s *DirectoryService) decorate(ctx context.Context, tenantID string, row sqlcgen.LdapSource) (model.LDAPSource, error) {
+	source := model.LDAPSource{
+		ID: row.ID, TenantID: row.TenantID, Name: row.Name,
+		Host: row.Host, Port: int(row.Port), Encryption: row.Encryption,
+		BindDN: row.BindDn, HasBindPassword: row.BindPassword != "",
+		BaseDN: row.BaseDn, UserFilter: row.UserFilter,
+		AttrUsername: row.AttrUsername, AttrDisplayName: row.AttrDisplayName,
+		AttrEmail: row.AttrEmail, AttrPhone: row.AttrPhone,
+		AttrExternalID: row.AttrExternalID,
+		Status:         model.Status(row.Status),
+		LastSyncedAt:   row.LastSyncedAt,
+		CreatedAt:      row.CreatedAt, UpdatedAt: row.UpdatedAt,
+	}
+
+	if row.OrganizationID != nil {
+		source.OrganizationID = *row.OrganizationID
+		org, err := s.store.ForTenant(tenantID).GetOrganizationByID(ctx, *row.OrganizationID)
+		if err == nil {
+			source.OrganizationName = org.Name
+		}
+	}
+	return source, nil
+}
+
+func (s *DirectoryService) seal(plaintext string) (string, error) {
+	sealed, err := s.vault.Seal(plaintext)
+	if errors.Is(err, secrets.ErrNotConfigured) {
+		return "", ErrNoEncryptionKey
+	}
+	if err != nil {
+		return "", fmt.Errorf("seal bind password: %w", err)
+	}
+	return sealed, nil
+}
+
+func (s *DirectoryService) normalize(in LDAPSourceInput) (LDAPSourceInput, error) {
+	in.Name = strings.TrimSpace(in.Name)
+	in.Host = strings.TrimSpace(in.Host)
+	in.BindDN = strings.TrimSpace(in.BindDN)
+	in.BaseDN = strings.TrimSpace(in.BaseDN)
+	in.UserFilter = strings.TrimSpace(in.UserFilter)
+	in.AttrUsername = strings.TrimSpace(in.AttrUsername)
+	in.AttrDisplayName = strings.TrimSpace(in.AttrDisplayName)
+	in.AttrEmail = strings.TrimSpace(in.AttrEmail)
+	in.AttrPhone = strings.TrimSpace(in.AttrPhone)
+	in.AttrExternalID = strings.TrimSpace(in.AttrExternalID)
+
+	if in.Name == "" {
+		in.Name = in.Host
+	}
+
+	switch in.Encryption {
+	case "":
+		in.Encryption = directory.EncryptionSTARTTLS
+	case directory.EncryptionNone, directory.EncryptionSTARTTLS, directory.EncryptionTLS:
+	default:
+		return in, ErrInvalidLDAPEncryption
+	}
+
+	if in.Port == 0 {
+		if in.Encryption == directory.EncryptionTLS {
+			in.Port = 636
+		} else {
+			in.Port = 389
+		}
+	}
+	if in.Port < 1 || in.Port > 65535 {
+		return in, ErrInvalidLDAPPort
+	}
+
+	if in.Host == "" || in.BaseDN == "" || in.UserFilter == "" ||
+		in.AttrUsername == "" || in.AttrDisplayName == "" || in.AttrExternalID == "" {
+		return in, ErrLDAPFieldRequired
+	}
+
+	// A host with a scheme or a port glued on is the commonest paste, and it
+	// produces a connection error far from where the mistake was made.
+	if strings.Contains(in.Host, "://") || strings.Contains(in.Host, "/") {
+		return in, httpx.BadRequest("INVALID_LDAP_HOST",
+			"Give the host name on its own, without a scheme or a path. The port and encryption are separate fields.")
+	}
+	if _, _, err := net.SplitHostPort(in.Host); err == nil {
+		return in, httpx.BadRequest("INVALID_LDAP_HOST",
+			"Give the host name on its own; the port is a separate field.")
+	}
+
+	return in, nil
+}
+
+// narrow converts a count to the width the schema stores it in.
+//
+// The values are a port, already bounded by validation, and directory sizes,
+// which will not realistically reach two billion. "Realistically" is not a
+// bound though, and a silent wrap would write a negative count into a run
+// record somebody is reading to decide whether a synchronization went wrong
+// — so it saturates rather than wrapping.
+func narrow(n int) int32 {
+	switch {
+	case n < 0:
+		return 0
+	case n > math.MaxInt32:
+		return math.MaxInt32
+	default:
+		return int32(n)
+	}
+}
+
+func optionalID(id string) *string {
+	if strings.TrimSpace(id) == "" {
+		return nil
+	}
+	return &id
+}
+
+// SyncNow reads the directory and reconciles what it returns against the
+// accounts this source owns.
+//
+// The run record is opened before the directory is contacted and closed
+// whatever happens, so a sync that dies mid-flight leaves evidence rather
+// than nothing at all.
+func (s *DirectoryService) SyncNow(ctx context.Context, actor auth.Principal, sourceID string) (model.LDAPSyncRun, error) {
+	tenantID := actor.TenantID
+
+	source, err := s.Get(ctx, tenantID, sourceID)
+	if err != nil {
+		return model.LDAPSyncRun{}, err
+	}
+	if source.Status != model.StatusActive {
+		return model.LDAPSyncRun{}, ErrLDAPSourceDisabled
+	}
+
+	q := s.store.ForTenant(tenantID)
+	runID := uuid.NewString()
+	startedAt := store.Now()
+
+	err = q.StartLDAPSyncRun(ctx, sqlcgen.StartLDAPSyncRunParams{
+		ID: runID, SourceID: sourceID, ActorName: actor.Username, StartedAt: startedAt,
+	})
+	if err != nil {
+		return model.LDAPSyncRun{}, fmt.Errorf("open sync run: %w", err)
+	}
+
+	counts, syncErr := s.runSync(ctx, tenantID, sourceID)
+
+	outcome := model.SyncSucceeded
+	message := ""
+	if syncErr != nil {
+		outcome = model.SyncFailed
+		message = syncErr.Error()
+	}
+
+	finishedAt := store.Now()
+	if err := q.FinishLDAPSyncRun(ctx, sqlcgen.FinishLDAPSyncRunParams{
+		ID: runID, FinishedAt: &finishedAt, Outcome: outcome,
+		CreatedCount: narrow(counts.created), UpdatedCount: narrow(counts.updated),
+		DeactivatedCount: narrow(counts.deactivated), SkippedCount: narrow(counts.skipped),
+		Error: message,
+	}); err != nil {
+		return model.LDAPSyncRun{}, fmt.Errorf("close sync run: %w", err)
+	}
+
+	if syncErr == nil {
+		if err := q.MarkLDAPSourceSynced(ctx, sourceID, finishedAt); err != nil {
+			return model.LDAPSyncRun{}, fmt.Errorf("mark synced: %w", err)
+		}
+	}
+
+	s.audit.Log(ctx, tenantID, AuditEntry{
+		Kind: model.LogOperation, Action: model.ActionLDAPSync,
+		ActorID: actor.UserID, ActorName: actor.Username,
+		TargetType: targetLDAPSource, TargetID: sourceID, TargetName: source.Name,
+		Result: syncResult(syncErr),
+		Detail: fmt.Sprintf("created %d, updated %d, deactivated %d, skipped %d",
+			counts.created, counts.updated, counts.deactivated, counts.skipped),
+	})
+
+	return model.LDAPSyncRun{
+		ID: runID, SourceID: sourceID, ActorName: actor.Username,
+		StartedAt: startedAt, FinishedAt: &finishedAt, Outcome: outcome,
+		CreatedCount: counts.created, UpdatedCount: counts.updated,
+		DeactivatedCount: counts.deactivated, SkippedCount: counts.skipped,
+		Error: message,
+	}, nil
+}
+
+type syncCounts struct{ created, updated, deactivated, skipped int }
+
+func syncResult(err error) model.LogResult {
+	if err != nil {
+		return model.LogFailure
+	}
+	return model.LogSuccess
+}
+
+// ErrDirectoryReturnedNothing stops the single worst thing this code could
+// do.
+//
+// A search that matches nothing looks exactly like a directory in which
+// everybody has left. The first is a typo in a base DN or a filter and
+// happens regularly; the second essentially never happens, and if it did,
+// nobody would want it applied automatically at three in the morning. So an
+// empty result set against a source that owns accounts fails the run and
+// changes nothing, and an operator reads the reason.
+var ErrDirectoryReturnedNothing = errors.New(
+	"the directory returned no entries while this source owns accounts here. " +
+		"Nothing was changed: an empty result is far more often a wrong base DN or " +
+		"user filter than a directory everyone has left, and acting on it would " +
+		"deactivate every one of those accounts")
+
+func (s *DirectoryService) runSync(ctx context.Context, tenantID, sourceID string) (syncCounts, error) {
+	var counts syncCounts
+
+	q := s.store.ForTenant(tenantID)
+
+	row, err := q.GetLDAPSource(ctx, sourceID)
+	if err != nil {
+		return counts, fmt.Errorf("read directory: %w", err)
+	}
+
+	bindPassword, err := s.vault.Open(row.BindPassword)
+	if err != nil {
+		return counts, fmt.Errorf("read bind password: %w", err)
+	}
+
+	client, err := s.dial(directory.Config{
+		Host: row.Host, Port: int(row.Port), Encryption: row.Encryption,
+		BindDN: row.BindDn, BindPassword: bindPassword,
+		BaseDN: row.BaseDn, UserFilter: row.UserFilter,
+		Attributes: directory.AttributeMap{
+			Username: row.AttrUsername, DisplayName: row.AttrDisplayName,
+			Email: row.AttrEmail, Phone: row.AttrPhone, ExternalID: row.AttrExternalID,
+		},
+		Timeout: 60 * time.Second,
+	})
+	if err != nil {
+		return counts, err
+	}
+	defer client.Close()
+
+	entries, skipped, err := client.Users()
+	if err != nil {
+		return counts, err
+	}
+	counts.skipped = len(skipped)
+
+	owned, err := q.ListUsersFromLDAPSource(ctx, sourceID)
+	if err != nil {
+		return counts, fmt.Errorf("read owned accounts: %w", err)
+	}
+
+	if len(entries) == 0 && len(owned) > 0 {
+		return counts, ErrDirectoryReturnedNothing
+	}
+
+	byExternalID := make(map[string]sqlcgen.User, len(owned))
+	for _, user := range owned {
+		if user.ExternalID != nil {
+			byExternalID[*user.ExternalID] = user
+		}
+	}
+
+	seen := make(map[string]bool, len(entries))
+	actor := auth.Principal{TenantID: tenantID, Username: DirectoryActor, Role: model.RoleSuperAdmin}
+
+	for _, entry := range entries {
+		seen[entry.ExternalID] = true
+
+		existing, known := byExternalID[entry.ExternalID]
+		if known {
+			changed, err := s.updateFromDirectory(ctx, actor, existing, entry, row)
+			if err != nil {
+				counts.skipped++
+				continue
+			}
+			if changed {
+				counts.updated++
+			}
+			continue
+		}
+
+		created, err := s.createFromDirectory(ctx, tenantID, sourceID, entry, row)
+		if err != nil {
+			// A username another account already holds, most often. Skipped
+			// rather than fatal, and never resolved by taking the name: an
+			// administrator's account must not be silently re-owned by a
+			// directory because somebody there happens to share a username.
+			counts.skipped++
+			continue
+		}
+		if created {
+			counts.created++
+		}
+	}
+
+	for externalID, user := range byExternalID {
+		if seen[externalID] || user.Status != string(model.StatusActive) {
+			continue
+		}
+		if _, err := s.users.SetStatus(ctx, actor, user.ID, model.StatusDisabled); err != nil {
+			counts.skipped++
+			continue
+		}
+		counts.deactivated++
+	}
+
+	return counts, nil
+}
+
+// DirectoryActor is who a synchronization's changes are attributed to.
+//
+// Not a user id, because there is no account: the scheduler ran, or an
+// administrator pressed a button and that press is audited separately as
+// LDAP_SYNC. Recording a real administrator against every account the sync
+// touched would put thousands of entries in the trail under somebody who
+// made one decision.
+const DirectoryActor = "directory sync"
+
+func (s *DirectoryService) createFromDirectory(ctx context.Context, tenantID, sourceID string, entry directory.Entry, row sqlcgen.LdapSource) (bool, error) {
+	organizationID := ""
+	if row.OrganizationID != nil {
+		organizationID = *row.OrganizationID
+	}
+
+	user, err := s.users.Create(ctx, tenantID, CreateUserInput{
+		Username:       entry.Username,
+		DisplayName:    entry.DisplayName,
+		Password:       uuid.NewString(),
+		Phone:          entry.Phone,
+		Email:          entry.Email,
+		Role:           model.RoleUser,
+		OrganizationID: organizationID,
+		Source:         model.SourceLDAP,
+	})
+	if err != nil {
+		return false, err
+	}
+
+	now := store.Now()
+	q := s.store.ForTenant(tenantID)
+	if err := q.SetUserExternalID(ctx, sqlcgen.SetUserExternalIDParams{
+		ID: user.ID, ExternalID: &entry.ExternalID, UpdatedAt: now,
+	}); err != nil {
+		return false, err
+	}
+	if err := q.BindUserToLDAPSource(ctx, user.ID, sourceID, now); err != nil {
+		return false, err
+	}
+	return true, nil
+}
+
+func (s *DirectoryService) updateFromDirectory(ctx context.Context, actor auth.Principal, existing sqlcgen.User, entry directory.Entry, row sqlcgen.LdapSource) (bool, error) {
+	organizationID := ""
+	if row.OrganizationID != nil {
+		organizationID = *row.OrganizationID
+	} else if existing.OrganizationID != nil {
+		organizationID = *existing.OrganizationID
+	}
+
+	sameDetails := existing.DisplayName == entry.DisplayName &&
+		existing.Email == entry.Email &&
+		existing.Phone == entry.Phone
+
+	// An account the directory still lists is an account that should work
+	// here, so a previous deactivation is undone. That is the whole point of
+	// treating a directory as the source of truth, and it is also why
+	// disabling the *source* leaves its accounts alone: otherwise the two
+	// controls would fight.
+	reactivate := existing.Status != string(model.StatusActive)
+
+	if sameDetails && !reactivate {
+		return false, nil
+	}
+
+	if !sameDetails {
+		if _, err := s.users.Update(ctx, actor, existing.ID, UpdateUserInput{
+			DisplayName:    entry.DisplayName,
+			Phone:          entry.Phone,
+			Email:          entry.Email,
+			Role:           model.Role(existing.Role),
+			OrganizationID: organizationID,
+		}); err != nil {
+			return false, err
+		}
+	}
+	if reactivate {
+		if _, err := s.users.SetStatus(ctx, actor, existing.ID, model.StatusActive); err != nil {
+			return false, err
+		}
+	}
+	return true, nil
+}

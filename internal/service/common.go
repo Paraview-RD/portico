@@ -37,6 +37,7 @@ const (
 	targetOAuthClient = "OAUTH_CLIENT"
 	targetSAMLSP      = "SAML_SERVICE_PROVIDER"
 	targetCASService  = "CAS_SERVICE"
+	targetLDAPSource  = "LDAP_SOURCE"
 )
 
 // Page is the limit/offset pair a list query runs with. Handlers translate

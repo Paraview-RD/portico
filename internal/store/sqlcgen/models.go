@@ -70,6 +70,44 @@ type GroupMember struct {
 	AddedAt  time.Time
 }
 
+type LdapSource struct {
+	ID              string
+	TenantID        string
+	Name            string
+	Host            string
+	Port            int32
+	Encryption      string
+	BindDn          string
+	BindPassword    string
+	BaseDn          string
+	UserFilter      string
+	AttrUsername    string
+	AttrDisplayName string
+	AttrEmail       string
+	AttrPhone       string
+	AttrExternalID  string
+	OrganizationID  *string
+	Status          string
+	LastSyncedAt    *time.Time
+	CreatedAt       time.Time
+	UpdatedAt       time.Time
+}
+
+type LdapSyncRun struct {
+	ID               string
+	TenantID         string
+	SourceID         string
+	ActorName        string
+	StartedAt        time.Time
+	FinishedAt       *time.Time
+	Outcome          string
+	CreatedCount     int32
+	UpdatedCount     int32
+	DeactivatedCount int32
+	SkippedCount     int32
+	Error            string
+}
+
 type OauthAuthRequest struct {
 	ID                  string
 	TenantID            string
@@ -290,6 +328,8 @@ type User struct {
 	PasswordChangedAt *time.Time
 	CreatedAt         time.Time
 	UpdatedAt         time.Time
+	// The directory that owns this account, or null when Portico does.
+	LdapSourceID *string
 }
 
 type WebhookDelivery struct {

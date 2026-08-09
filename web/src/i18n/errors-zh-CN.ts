@@ -133,6 +133,19 @@ export const errorsZhCN: Record<keyof typeof errorsEnUS, string> = {
   SCIM_UNAUTHORIZED: "该令牌不能用于目录同步。",
   EXTERNAL_ID_TAKEN: "该 externalId 已绑定到另一个账号。",
 
+  // --- 目录同步 ---
+  LDAP_SOURCE_NOT_FOUND: "目录不存在。",
+  LDAP_SOURCE_NAME_TAKEN: "已有同名目录。",
+  LDAP_SOURCE_DISABLED: "该目录已被停用。",
+  INVALID_LDAP_ENCRYPTION: "加密方式只能是 none、STARTTLS 或 TLS。",
+  INVALID_LDAP_PORT: "端口必须在 1 到 65535 之间。",
+  INVALID_LDAP_HOST:
+    "主机名单独填写，不要带协议、路径或端口——它们是各自独立的字段。",
+  LDAP_FIELD_REQUIRED:
+    "主机、Base DN、用户过滤器，以及用户名、显示名、外部 ID 三个属性都必须填写。",
+  NO_ENCRYPTION_KEY:
+    "本部署未配置加密密钥，无法保存 Bind 密码。请让运维设置 PORTICO_ENCRYPTION_KEY，或改用匿名绑定。",
+
   // --- 事件订阅 ---
   WEBHOOK_NOT_FOUND: "订阅不存在。",
   WEBHOOK_NAME_TAKEN: "已有同名订阅。",
