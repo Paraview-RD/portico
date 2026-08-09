@@ -1,0 +1,31 @@
+{% extends "base.html" %}
+
+{#
+  A page with no translation yet falls back to English rather than 404ing,
+  which is right: an English answer beats no answer. Falling back *silently*
+  is not — a reader would take it for current Chinese text when it is English
+  that may have moved on since anyone last compared the two.
+
+  So the page says which it is, in the language they asked for.
+
+  The two variables are the plugin's own and say exactly this and nothing
+  else: i18n_page_locale is the language being built, i18n_file_locale is the
+  language of the source file actually used. Different means fallback —
+  whatever the file is called, and however many languages are added later.
+
+  Checked against a build: on /zh/ldap/ they are zh and en, on /zh/ (which is
+  translated) both zh, and on the English pages both en.
+
+  A language with no line in notices gets the English sentence rather than
+  nothing, because silence is the failure this whole block exists to fix.
+#}
+{% block announce %}
+  {% set notices = {
+       "zh": "本页尚无中文版本，下面显示的是英文原文。"
+     } %}
+  {% if i18n_page_locale is defined and i18n_file_locale is defined
+        and i18n_file_locale != i18n_page_locale %}
+    {{ notices.get(i18n_page_locale|string,
+         "This page has not been translated yet; it is shown in English.") }}
+  {% endif %}
+{% endblock %}

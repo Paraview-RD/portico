@@ -56,3 +56,7 @@ internal/web/dist/*
 .DS_Store
 .idea/
 .vscode/
+
+# Documentation built into the binary; see hack/build-docs.sh
+internal/docs/site/*
+!internal/docs/site/.gitkeep

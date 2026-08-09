@@ -112,6 +112,32 @@ jobs:
       # request.
       - run: npx --yes @redocly/cli@2.4.0 lint docs/api/openapi.yaml
 
+  # The manual, built the way it is built for a release.
+  #
+  # The site is the lesser half of what this catches. --strict turns a dead
+  # link into a failed build, and these pages reference each other densely
+  # enough that a rename otherwise breaks several of them silently — the
+  # first run of this found two links pointing outside the published site,
+  # both of which worked on GitHub and would have 404'd for every reader of
+  # the shipped manual.
+  docs:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      # Pinned, for the same reason the OpenAPI linter is: a theme that
+      # changes under the build turns somebody else's release into a failure
+      # on an unrelated pull request.
+      - run: pip install mkdocs-material==9.5.44 mkdocs-static-i18n==1.3.1
+      - run: ./hack/build-docs.sh
+      # Report-only, deliberately. Translation lands in batches, and failing
+      # the build on the first untranslated page would mean no batch could
+      # ever be merged — the check exists to make the remainder visible, not
+      # to block it.
+      - run: ./hack/untranslated.sh
+
   # The end-to-end check: the frontend must actually compile into the binary,
   # which is the shape users deploy.
   single-binary:

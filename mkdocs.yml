@@ -1,0 +1,116 @@
+# The documentation that ships inside the binary.
+#
+# Built into internal/docs/site and embedded, so the manual an operator opens
+# is necessarily the manual for the version they are running. A site hosted
+# somewhere else drifts, and the failure mode is somebody following
+# instructions for a release they do not have.
+#
+#   ./hack/build-docs.sh      build it (and restore the .gitkeep mkdocs eats)
+#   mkdocs serve              write it, with reload
+#
+# Only the pages an operator or an integrator needs are here. The conventions
+# this project holds itself to are for contributors and stay in the
+# repository — shipping "how we write Go" inside somebody's identity server
+# is noise in the one place they are looking for an answer.
+site_name: Portico
+site_description: A self-hostable identity platform — single sign-on, multi-tenant, SCIM and LDAP.
+repo_url: https://github.com/paraview/portico
+edit_uri: ""
+
+docs_dir: docs
+site_dir: internal/docs/site
+
+# Served from a subpath inside the application, so links have to be relative
+# to it rather than to a host root.
+use_directory_urls: true
+
+exclude_docs: |
+  README.md
+  *-conventions.md
+  design-principles.md
+  requirements/
+
+theme:
+  name: material
+  custom_dir: mkdocs-overrides
+  features:
+    - navigation.sections
+    - navigation.top
+    - content.code.copy
+    - search.suggest
+  palette:
+    - media: "(prefers-color-scheme: light)"
+      scheme: default
+      primary: indigo
+      toggle:
+        icon: material/weather-night
+        name: Switch to dark
+    - media: "(prefers-color-scheme: dark)"
+      scheme: slate
+      primary: indigo
+      toggle:
+        icon: material/weather-sunny
+        name: Switch to light
+
+plugins:
+  - search
+  # Suffix structure: ldap.md and ldap.zh.md sit side by side.
+  #
+  # Chosen over a directory per language for one concrete reason: these pages
+  # reference each other constantly, and the plugin wants those links written
+  # without the language suffix — so [scim.md](scim.md) is correct in both
+  # files and the existing links did not have to be rewritten. A directory
+  # split would have rewritten every one of them.
+  - i18n:
+      docs_structure: suffix
+      fallback_to_default: true
+      reconfigure_material: true
+      reconfigure_search: true
+      languages:
+        - locale: en
+          name: English
+          default: true
+          build: true
+        - locale: zh
+          name: 简体中文
+          build: true
+          nav_translations:
+            Home: 首页
+            Getting in: 访问指南
+            Reading a directory: 目录对接
+            Provisioning: 目录供给
+            Federation: 单点登录
+            Webhooks: 事件订阅
+            Integrations: 外部依赖
+            Backup and restore: 备份与恢复
+
+nav:
+  - Home: index.md
+  - Getting in: access-guide.md
+  - Reading a directory: ldap.md
+  - Provisioning: scim.md
+  - Federation: federation.md
+  - Webhooks: webhooks.md
+  - Integrations: integrations.md
+  - Backup and restore: backup-and-restore.md
+
+# Dead links fail the build under --strict, which is the point of building
+# the site in CI at all. These pages cross-reference each other densely
+# enough that a rename would otherwise break several silently.
+validation:
+  links:
+    unrecognized_links: warn
+    absolute_links: warn
+
+markdown_extensions:
+  - admonition
+  - attr_list
+  - tables
+  - toc:
+      permalink: true
+      # Chinese headings survive as anchors. The default slugify drops
+      # non-ASCII entirely, which turns "### 4.2 目录对接" into "#42" and
+      # breaks every cross-document anchor into a translated page.
+      slugify: !!python/object/apply:pymdownx.slugs.slugify {kwds: {case: lower}}
+  - pymdownx.superfences
+  - pymdownx.details

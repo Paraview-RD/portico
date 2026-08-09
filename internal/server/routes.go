@@ -10,6 +10,7 @@ import (
 	"github.com/go-chi/chi/v5"
 
 	"github.com/paraview/portico/internal/casp"
+	"github.com/paraview/portico/internal/docs"
 	"github.com/paraview/portico/internal/httpx"
 	"github.com/paraview/portico/internal/oidcp"
 	"github.com/paraview/portico/internal/samlp"
@@ -274,6 +275,13 @@ func (s *Server) routes() http.Handler {
 	// Anything outside /api/v1 is the single-page app. API 404s keep
 	// returning the JSON envelope; only non-API paths fall through to the
 	// UI, so a mistyped endpoint never returns HTML to an API client.
+	// The manual, before the single-page application's catch-all. Public on
+	// purpose: most of what it explains is how to configure a deployment
+	// somebody has not signed into yet, and it names where credentials come
+	// from rather than what any of them are.
+	r.Handle(docs.Prefix, http.RedirectHandler(docs.Prefix+"/", http.StatusMovedPermanently))
+	r.Handle(docs.Prefix+"/*", docs.Handler())
+
 	uiHandler := web.Handler()
 	r.NotFound(func(w http.ResponseWriter, r *http.Request) {
 		if strings.HasPrefix(r.URL.Path, "/api/") {

@@ -413,6 +413,6 @@ curl -s http://localhost:8410/.well-known/openid-configuration | jq
 ```
 
 The complete flow, driven by a real relying-party library, is in
-[internal/server/federation_test.go](../internal/server/federation_test.go) —
+[internal/server/federation_test.go](https://github.com/paraview/portico/blob/main/internal/server/federation_test.go) —
 it is the most useful worked example in the repository, because it is the one
 that has to keep passing.
