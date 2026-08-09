@@ -11,6 +11,9 @@
 - **[backup-and-restore.md](backup-and-restore.md)** — what to copy, why a
   database dump on its own is not a backup of this system, and the three
   things a point-in-time restore does that nobody expects.
+- **[ldap.md](ldap.md)** — reading accounts *out of* an AD or OpenLDAP, which
+  is the opposite direction from SCIM: what is synchronized, why the external
+  id attribute is the one to get right, and what a run will refuse to do.
 - **[scim.md](scim.md)** — provisioning accounts from a directory: what is
   implemented, how groups differ from organizations, and why DELETE
   deactivates rather than deletes.

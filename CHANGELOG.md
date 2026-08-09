@@ -6,7 +6,40 @@ follow [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
-Nothing yet.
+Working toward 0.2.0. See
+[docs/requirements/v0.1-requirements.md](docs/requirements/v0.1-requirements.md)
+§4.1 for the scope.
+
+### Added
+
+- **Accounts can be read out of an Active Directory or OpenLDAP.** The
+  opposite direction from SCIM, which is a server here: a directory pushes
+  into `/scim/v2` and Portico never reaches out, while this has Portico
+  connect and pull. Reconciled on the directory's own stable identifier, so
+  a rename stays a rename rather than becoming a second account.
+- The attribute map has no defaults, because Active Directory and OpenLDAP
+  disagree on every one of them and a wrong guess imports a directory's worth
+  of accounts named after the wrong field. The console ships both as presets
+  and leaves every field visible and editable.
+- `objectGUID` is handled as the binary value it is and rendered in
+  Microsoft's own GUID form. Read as text it becomes mojibake that varies
+  with the bytes, and it is the reconciliation key — so a rename would
+  silently become a duplicate.
+- **A run that gets an empty result changes nothing and fails.** An empty
+  search looks exactly like a directory everybody has left; it is far more
+  often a wrong base DN, and acting on it would deactivate every account the
+  source owns.
+- A synchronization never touches an account it does not own. Ownership is
+  recorded rather than inferred from the username, so an administrator who
+  shares a name with somebody in the directory is skipped rather than
+  renamed, demoted, or later deactivated.
+- Every run is kept — created, updated, deactivated and skipped counts, and
+  the reason when it failed — because the question afterwards is "when did
+  this start", which one overwritten result cannot answer.
+- **`PORTICO_ENCRYPTION_KEY`**, protecting credentials the server has to
+  store and later use rather than merely verify. Today that is a directory
+  bind password. Without it, saving one is refused rather than written in the
+  clear. It must differ from `PORTICO_JWT_SECRET`.
 
 ## [0.1.0] - 2026-08-09
 

@@ -4,11 +4,12 @@ A self-hostable identity platform: standard single sign-on, multi-tenant
 isolation, and a complete self-service flow — a single Go binary with the
 web UI compiled in, backed by PostgreSQL.
 
-> **Version 0.1** — the first one. What is described below is what exists,
-> not what is planned; [CHANGELOG.md](CHANGELOG.md) has the full list and,
-> at its foot, what is deliberately absent. There are no published binaries
-> yet — build it from source with either recipe under
-> [Running it](#running-it).
+> **v0.1.0 is tagged; this branch is 0.2 in progress.** What is described
+> below is what exists in the tree, not what is planned — the difference
+> between the tag and here is at the top of
+> [CHANGELOG.md](CHANGELOG.md), under Unreleased, and its foot lists what is
+> deliberately absent from both. There are no published binaries yet; build
+> from source with either recipe under [Running it](#running-it).
 
 ## What it does
 
@@ -27,6 +28,14 @@ them, arranged as a tree. A group is a set they belong to: any number of
 them, flat, and usually maintained by whatever directory pushes it. They are
 separate concepts because they have incompatible shapes, and group
 membership grants nothing.
+
+**Reading accounts out of a directory** — connect to an Active Directory or
+OpenLDAP and pull users in, reconciled on the directory's own stable
+identifier so a rename stays a rename. Accounts that stop appearing are
+deactivated; ones that reappear come back. A run that gets an empty result
+refuses to act on it, because a wrong base DN looks identical to a directory
+everybody has left. [docs/ldap.md](docs/ldap.md) has the attribute maps for
+both and the list of what a synchronization will not do.
 
 **Provisioning from a directory** — SCIM 2.0 for users and groups, with the
 PATCH shapes Okta and Entra actually send rather than only the ones the

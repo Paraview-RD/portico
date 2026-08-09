@@ -191,6 +191,27 @@ in, and its credentials stop authenticating at the introspection and
 revocation endpoints too. Nothing is deleted, and there is no delete: the
 audit trail keeps pointing at something that still exists.
 
+Typical journey — read accounts out of an AD:
+
+1. **Directory integration** → the **Portico reads (LDAP / AD)** tab → add a
+   directory. Host, base DN, and a read-only service account; Portico never
+   writes to your directory.
+2. Pick the preset that matches, then **check every attribute against your
+   own directory**. They are presets rather than defaults because Active
+   Directory and OpenLDAP disagree on all of them, and a wrong one imports
+   everybody named after the wrong field.
+3. The external id attribute is the one to get right — `objectGUID` on AD,
+   `entryUUID` on OpenLDAP. It is what makes a rename in the directory a
+   rename here instead of a second account.
+4. **Synchronize**, then read the counts. Anything skipped is an entry that
+   could not become an account, most often a username an account Portico
+   owns already holds.
+5. Storing a bind password needs `PORTICO_ENCRYPTION_KEY` set on the
+   deployment. Without it the save is refused rather than the credential
+   being written in the clear.
+
+Full detail, including what a run refuses to do, is in [ldap.md](ldap.md).
+
 Typical journey — let a directory keep the accounts up to date:
 
 1. **Provisioning** → issue a credential. Like a client secret it is shown
