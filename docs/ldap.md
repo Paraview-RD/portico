@@ -120,9 +120,15 @@ updated, deactivated, skipped — and the history is kept per run, because the
 question asked when something has gone wrong is not "what is the state now"
 but "when did this start".
 
-There is no scheduler yet. Until there is, a cron job calling
-`POST /api/v1/directories/{id}/sync` with an administrator's token does the
-same thing.
+There is no scheduler yet, and the obvious workaround is worse than it
+looks. A cron job can call `POST /api/v1/directories/{id}/sync`, but an
+access token lasts `PORTICO_TOKEN_TTL` (two hours by default) and is revoked
+by a password change or a sign-out-everywhere — so the job has to sign in on
+each run, which means an administrator's password sitting in the cron
+environment. That is a worse credential to leave lying about than the bind
+password this page spends a section protecting.
+
+Run it by hand until the scheduler exists, or accept that trade knowingly.
 
 ## Troubleshooting
 
