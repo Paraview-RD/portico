@@ -347,9 +347,14 @@ function SessionsCard() {
                 </p>
               </div>
 
+              {/* Bordered, not ghost. Ghost is for an action that sits in a
+                  group — a table's action column, a toolbar — where the
+                  cluster is what says "these are buttons". This one is alone
+                  at the end of a row, and borderless it reads as a caption
+                  rather than as the control that ends a session. */}
               <Button
                 size="sm"
-                variant="ghost"
+                variant="secondary"
                 disabled={busy}
                 onClick={() => void revoke(session)}
               >

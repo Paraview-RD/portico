@@ -157,7 +157,7 @@ function AccountNotices() {
             {notice.text}
             <Button
               size="sm"
-              variant="ghost"
+              variant="secondary"
               onClick={() => navigate("/profile")}
             >
               {t("portal.goToProfile")}
@@ -329,7 +329,14 @@ function AccountSummary() {
         >
           {t("profile.changePassword")}
         </Button>
-        <Button size="sm" variant="ghost" onClick={() => navigate("/profile")}>
+        {/* The same variant as the button beside it. They are peers — both
+            go to the profile screen — and one bordered next to one not reads
+            as a difference in kind that is not there. */}
+        <Button
+          size="sm"
+          variant="secondary"
+          onClick={() => navigate("/profile")}
+        >
           {t("portal.manageDevices")}
         </Button>
       </div>

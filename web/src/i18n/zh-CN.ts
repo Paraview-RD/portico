@@ -323,6 +323,8 @@ export const zhCN: Record<keyof typeof enUS, string> = {
   "settings.auditRetention": "审计日志保留天数",
   "settings.auditRetentionHelp":
     "填 0 表示永久保留，也是默认值。若填其它值则至少为 7，超期条目会被每小时的清理任务删除——永久删除，不留副本。",
+  "settings.basicsLegend": "基础设置",
+  "settings.auditLegend": "日志审计",
   "settings.passwordLegend": "密码策略",
   "settings.passwordHelp":
     "真正起作用的是长度。复杂度要求和有效期反而会让密码更容易被猜中——NIST 800-63B 明确不推荐这两项——之所以提供，是因为不少部署要通过强制要求它们的审计。如果你有选择权，请关掉它们，把最小长度调高。",

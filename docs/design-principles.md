@@ -57,6 +57,19 @@ role sprawl is how token systems stop being a single source of truth.
 - Shadow is reserved for elevation (something floating above the page —
   dropdowns, modals) — not used as a decorative border substitute.
 
+## Button variants
+
+`primary` is the one thing the screen is for, and there is at most one per
+view. `danger` is the same thing when it destroys something. `secondary` is
+everything else a reader is expected to press.
+
+`ghost` is the one with a rule attached, because borderless is only legible
+in context: **use it for an action that sits in a group** — a table's action
+column, a toolbar, a row of peers — where the cluster is what says "these are
+buttons". A lone ghost button reads as a caption. So a single action at the
+end of a list row is `secondary`, and two buttons side by side are the same
+variant as each other unless one of them genuinely outranks the other.
+
 ## Component states
 
 Every interactive component defines, at minimum: default, hover, active,
