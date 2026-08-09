@@ -103,7 +103,8 @@ export const errorsEnUS = {
   INVALID_UPLOAD: "That upload could not be read.",
   INVALID_SPREADSHEET: "That file is not a readable .xlsx workbook.",
   EMPTY_SPREADSHEET: "That workbook has no rows.",
-  TOO_MANY_USERS: "Too many accounts in one request. Select fewer and try again.",
+  TOO_MANY_USERS:
+    "Too many accounts in one request. Select fewer and try again.",
   TOO_MANY_ROWS: "That workbook has too many rows for one import.",
   IMPORT_FAILED: "The import could not be completed.",
 

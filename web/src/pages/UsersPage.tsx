@@ -1,7 +1,15 @@
 import { useCallback, useEffect, useState } from "react";
 
 import { groupsApi, organizationApi, userApi } from "../api/endpoints";
-import type { GroupRef, Organization, Role, Status, User } from "../api/types";
+import type {
+  BulkResult,
+  GroupRef,
+  Organization,
+  Role,
+  Status,
+  User,
+  UserProfile,
+} from "../api/types";
 import {
   Alert,
   Badge,
@@ -40,6 +48,12 @@ export function UsersPage() {
   const [roleFilter, setRoleFilter] = useState<Role | "">("");
   const [statusFilter, setStatusFilter] = useState<Status | "">("");
   const [organizationFilter, setOrganizationFilter] = useState("");
+  const [exporting, setExporting] = useState(false);
+  // The accounts ticked for a bulk action, by id. Cleared whenever the list
+  // reloads: a selection that survived a filter change would act on people
+  // who are no longer on screen.
+  const [selected, setSelected] = useState<string[]>([]);
+  const [bulkResult, setBulkResult] = useState<BulkResult | null>(null);
 
   const [editing, setEditing] = useState<User | null>(null);
   const [creating, setCreating] = useState(false);
@@ -49,6 +63,20 @@ export function UsersPage() {
     user: User;
     enable: boolean;
   } | null>(null);
+
+  // Runs a bulk call and keeps its per-account report on screen. The call
+  // succeeds even when some accounts were refused, so there is nothing to
+  // catch in the ordinary case — the outcomes are the answer.
+  async function runBulk(action: () => Promise<BulkResult>) {
+    setError("");
+    setBulkResult(null);
+    try {
+      setBulkResult(await action());
+      await load();
+    } catch (err) {
+      setError(describeError(err));
+    }
+  }
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -64,6 +92,10 @@ export function UsersPage() {
       });
       setUsers(result.items);
       setTotal(result.total);
+      // A selection that survived a filter change would act on people who
+      // are no longer on screen — exactly the mistake a bulk control makes
+      // expensive.
+      setSelected([]);
     } catch (err) {
       setError(describeError(err));
     } finally {
@@ -121,6 +153,28 @@ export function UsersPage() {
         subtitle={t("users.subtitle")}
         actions={
           <>
+            {/* Exports what is on screen, not everything: the same filters
+                the list is using. "Export what I am looking at" is what
+                somebody means, and a button that quietly ignored the filters
+                would hand them a file with the wrong people in it. */}
+            <Button
+              variant="secondary"
+              disabled={exporting}
+              onClick={() => {
+                setExporting(true);
+                void userApi
+                  .exportUsers({
+                    keyword,
+                    role: roleFilter,
+                    status: statusFilter,
+                    organizationId: organizationFilter,
+                  })
+                  .catch((err) => setError(describeError(err)))
+                  .finally(() => setExporting(false));
+              }}
+            >
+              {exporting ? t("users.exporting") : t("users.export")}
+            </Button>
             <Button variant="secondary" onClick={() => setImporting(true)}>
               {t("users.import")}
             </Button>
@@ -208,9 +262,103 @@ export function UsersPage() {
         </div>
       )}
 
+      {selected.length > 0 && (
+        <div className="mb-3 flex flex-wrap items-center gap-3 rounded-[var(--radius-sm)] border border-[var(--color-border)] bg-[var(--color-bg)] p-3">
+          <span className="font-[weight:var(--font-weight-medium)]">
+            {t("users.selectedCount", String(selected.length))}
+          </span>
+          <Button
+            size="sm"
+            variant="secondary"
+            onClick={() =>
+              void runBulk(() => userApi.bulkSetStatus(selected, "ACTIVE"))
+            }
+          >
+            {t("common.enable")}
+          </Button>
+          <Button
+            size="sm"
+            variant="secondary"
+            onClick={() =>
+              void runBulk(() => userApi.bulkSetStatus(selected, "DISABLED"))
+            }
+          >
+            {t("common.disable")}
+          </Button>
+          <div className="w-56">
+            <Select
+              value=""
+              onChange={(e) => {
+                const organizationId = e.target.value;
+                if (organizationId === "") return;
+                void runBulk(() =>
+                  userApi.bulkSetOrganization(
+                    selected,
+                    organizationId === "__none__" ? "" : organizationId,
+                  ),
+                );
+              }}
+            >
+              <option value="">{t("users.bulkMoveTo")}</option>
+              <option value="__none__">{t("users.bulkNoOrganization")}</option>
+              {organizations.map((org) => (
+                <option key={org.id} value={org.id}>
+                  {org.name}
+                </option>
+              ))}
+            </Select>
+          </div>
+          <Button size="sm" variant="ghost" onClick={() => setSelected([])}>
+            {t("common.cancel")}
+          </Button>
+        </div>
+      )}
+
+      {bulkResult && (
+        <div className="mb-3">
+          <Alert tone={bulkResult.failed === 0 ? "success" : "warning"}>
+            <div>
+              {t(
+                "users.bulkSummary",
+                String(bulkResult.succeeded),
+                String(bulkResult.failed),
+              )}
+            </div>
+            {/* Which ones, not just how many. Somebody who selected forty
+                people and had one refused needs to know it was the last
+                administrator, and which account that was. */}
+            {bulkResult.outcomes
+              .filter((outcome) => outcome.code)
+              .map((outcome) => (
+                <div
+                  key={outcome.userId}
+                  className="mt-1 text-[length:var(--font-size-sm)]"
+                >
+                  {users.find((u) => u.id === outcome.userId)?.username ??
+                    outcome.userId}
+                  : {outcome.message}
+                </div>
+              ))}
+          </Alert>
+        </div>
+      )}
+
       <Table>
         <thead>
           <tr>
+            <Th>
+              {/* Selects what is on this page, not every account matching the
+                  filter. A control that silently reached beyond what somebody
+                  can see is how a bulk disable becomes an incident. */}
+              <input
+                type="checkbox"
+                aria-label={t("users.selectAll")}
+                checked={users.length > 0 && selected.length === users.length}
+                onChange={(e) =>
+                  setSelected(e.target.checked ? users.map((u) => u.id) : [])
+                }
+              />
+            </Th>
             <Th>{t("users.colUsername")}</Th>
             <Th>{t("users.colDisplayName")}</Th>
             <Th>{t("users.colRole")}</Th>
@@ -221,12 +369,26 @@ export function UsersPage() {
         </thead>
         <tbody>
           {loading ? (
-            <LoadingRow colSpan={6} />
+            <LoadingRow colSpan={7} />
           ) : users.length === 0 ? (
-            <EmptyRow colSpan={6} />
+            <EmptyRow colSpan={7} />
           ) : (
             users.map((user) => (
               <tr key={user.id}>
+                <Td>
+                  <input
+                    type="checkbox"
+                    aria-label={user.username}
+                    checked={selected.includes(user.id)}
+                    onChange={(e) =>
+                      setSelected((current) =>
+                        e.target.checked
+                          ? [...current, user.id]
+                          : current.filter((id) => id !== user.id),
+                      )
+                    }
+                  />
+                </Td>
                 <Td>
                   <div className="flex flex-wrap items-center gap-1">
                     {user.username}
@@ -373,6 +535,38 @@ export function UsersPage() {
   );
 }
 
+// Every attribute empty, which is what an account with none looks like.
+// Spread over whatever the server returned rather than trusting the response
+// to carry all of them, so a field added on the server and not yet here does
+// not make this object undefined-valued.
+const emptyProfile: UserProfile = {
+  nameFormatted: "",
+  familyName: "",
+  givenName: "",
+  middleName: "",
+  honorificPrefix: "",
+  honorificSuffix: "",
+  nickName: "",
+  profileUrl: "",
+  photoUrl: "",
+  title: "",
+  userType: "",
+  preferredLanguage: "",
+  locale: "",
+  timezone: "",
+  addressFormatted: "",
+  streetAddress: "",
+  locality: "",
+  region: "",
+  postalCode: "",
+  country: "",
+  employeeNumber: "",
+  costCenter: "",
+  department: "",
+  managerId: "",
+  managerName: "",
+};
+
 function UserFormDialog({
   open,
   user,
@@ -399,6 +593,13 @@ function UserFormDialog({
     role: "USER" as Role,
     organizationId: "",
   });
+  // The descriptive attributes, held apart from the fields above because
+  // they go to a different endpoint — the one that cannot change a role or a
+  // status. Keeping them in one object here and splitting them on submit
+  // would put the two back together in the one place it matters.
+  const [profile, setProfile] = useState<UserProfile>(emptyProfile);
+  const [showProfile, setShowProfile] = useState(false);
+
   const [error, setError] = useState("");
   const [submitting, setSubmitting] = useState(false);
   const [groups, setGroups] = useState<GroupRef[] | null>(null);
@@ -417,6 +618,10 @@ function UserFormDialog({
       role: user?.role ?? "USER",
       organizationId: user?.organizationId ?? "",
     });
+    setProfile({ ...emptyProfile, ...(user?.profile ?? {}) });
+    // Collapsed by default. Most edits here are a display name or an
+    // organization; twenty-four fields open every time would bury them.
+    setShowProfile(false);
   }, [open, user]);
 
   // Read-only, and fetched rather than carried on the user: membership is
@@ -464,8 +669,14 @@ function UserFormDialog({
           role: form.role,
           organizationId: form.organizationId,
         });
+        // Second, and only when it was opened. An account whose profile
+        // section was never expanded should not have its attributes
+        // rewritten with what the form happened to be holding.
+        if (showProfile) {
+          await userApi.setProfile(user.id, profile);
+        }
       } else {
-        await userApi.create({
+        const created = await userApi.create({
           username: form.username,
           displayName: form.displayName,
           password: form.password,
@@ -474,6 +685,9 @@ function UserFormDialog({
           role: form.role,
           organizationId: form.organizationId,
         });
+        if (showProfile) {
+          await userApi.setProfile(created.id, profile);
+        }
       }
       onSaved();
     } catch (err) {
@@ -584,6 +798,66 @@ function UserFormDialog({
             onChange={(e) => set("email", e.target.value)}
           />
         </Field>
+
+        {/* The descriptive attributes, behind a disclosure.
+            Collapsed because most edits here are a display name or an
+            organization, and twenty-four fields open every time would bury
+            them. Expanded, it writes through the endpoint that cannot reach
+            a role — the same split the server draws. */}
+        <div className="rounded-[var(--radius-sm)] border border-[var(--color-border)]">
+          <button
+            type="button"
+            aria-expanded={showProfile}
+            onClick={() => setShowProfile(!showProfile)}
+            className="flex w-full items-center justify-between px-4 py-3 text-left"
+          >
+            <span className="font-[weight:var(--font-weight-medium)]">
+              {t("users.profileSection")}
+            </span>
+            <span className="text-[var(--color-fg-muted)]">
+              {showProfile ? "−" : "+"}
+            </span>
+          </button>
+
+          {showProfile && (
+            <div className="flex flex-col gap-4 border-t border-[var(--color-border)] p-4">
+              <p className="text-[length:var(--font-size-sm)] text-[var(--color-fg-muted)]">
+                {t("users.profileHint")}
+              </p>
+
+              <div className="grid gap-4 sm:grid-cols-2">
+                {(
+                  [
+                    ["givenName", "users.attr.givenName"],
+                    ["familyName", "users.attr.familyName"],
+                    ["title", "users.attr.title"],
+                    ["department", "users.attr.department"],
+                    ["employeeNumber", "users.attr.employeeNumber"],
+                    ["costCenter", "users.attr.costCenter"],
+                    ["userType", "users.attr.userType"],
+                    ["nickName", "users.attr.nickName"],
+                    ["preferredLanguage", "users.attr.preferredLanguage"],
+                    ["timezone", "users.attr.timezone"],
+                    ["locality", "users.attr.locality"],
+                    ["country", "users.attr.country"],
+                  ] as const
+                ).map(([field, label]) => (
+                  <Field key={field} label={t(label)}>
+                    <Input
+                      value={profile[field]}
+                      onChange={(e) =>
+                        setProfile((current) => ({
+                          ...current,
+                          [field]: e.target.value,
+                        }))
+                      }
+                    />
+                  </Field>
+                ))}
+              </div>
+            </div>
+          )}
+        </div>
 
         {/* Not a Field: there is no control here and nothing to submit.
             Wrapping it in one would give it a label pointing at an input

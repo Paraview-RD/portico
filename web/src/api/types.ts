@@ -35,6 +35,20 @@ export interface User {
    */
   closedAt?: string;
 
+  /**
+   * The descriptive half: who somebody is, as opposed to what they may do.
+   * The field names are SCIM's (RFC 7643), which is why a directory's
+   * attributes land in them.
+   */
+  profile?: UserProfile;
+
+  /**
+   * Additional organizations this person is involved with, beside the one
+   * they belong to. Advisory: they grant nothing. Present on a single
+   * account, absent from a page of them.
+   */
+  attachments?: OrganizationRef[];
+
   /** Set while the account is locked out after repeated failed sign-ins. */
   lockedUntil?: string;
 
@@ -44,6 +58,60 @@ export interface User {
    * means "never" rather than "unknown".
    */
   passwordExpiresAt?: string;
+}
+
+/** An organization named without carrying the whole of it. */
+export interface OrganizationRef {
+  id: string;
+  name: string;
+  code: string;
+}
+
+/** What a bulk request did, per account. */
+export interface BulkResult {
+  total: number;
+  succeeded: number;
+  failed: number;
+  outcomes: {
+    userId: string;
+    /** Empty on success; the error code otherwise. */
+    code?: string;
+    message?: string;
+  }[];
+}
+
+/**
+ * The descriptive attributes of an account, named after SCIM 2.0's core User
+ * schema and its enterprise extension. Every one is optional.
+ */
+export interface UserProfile {
+  nameFormatted: string;
+  familyName: string;
+  givenName: string;
+  middleName: string;
+  honorificPrefix: string;
+  honorificSuffix: string;
+  nickName: string;
+  profileUrl: string;
+  photoUrl: string;
+  title: string;
+  userType: string;
+  preferredLanguage: string;
+  locale: string;
+  timezone: string;
+  addressFormatted: string;
+  streetAddress: string;
+  locality: string;
+  region: string;
+  postalCode: string;
+  country: string;
+  employeeNumber: string;
+  costCenter: string;
+  /** Free text as a directory sends it; not the organization tree. */
+  department: string;
+  managerId: string;
+  /** Resolved for display; ignored on write. */
+  managerName: string;
 }
 
 export interface Organization {
@@ -63,6 +131,14 @@ export interface Organization {
    * be sorted or filtered without being taken apart again.
    */
   parentId: string;
+
+  /**
+   * Whoever is responsible for this organization. Grants nothing — this
+   * version has two fixed roles and being named here confers neither.
+   */
+  managerId: string;
+  /** Resolved for display; ignored on write. */
+  managerName: string;
 }
 
 export type LogKind =

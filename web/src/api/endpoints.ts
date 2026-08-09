@@ -7,6 +7,7 @@ import type {
   CASService,
   ImportResult,
   IntegrationEndpoints,
+  BulkResult,
   IssuedSCIMCredential,
   LDAPSource,
   LDAPSourceInput,
@@ -19,6 +20,7 @@ import type {
   RecoveryChannel,
   RegisteredClient,
   RegistrationStatus,
+  UserProfile,
   Role,
   CreatedWebhookSubscription,
   Group,
@@ -259,9 +261,78 @@ export const userApi = {
 
   downloadTemplate: () =>
     download("/users/import/template", "portico-user-import-template.xlsx"),
+
+  /**
+   * The tenant's accounts as a spreadsheet, in the same columns the import
+   * template uses — so a file taken out can be edited and fed back in.
+   *
+   * Takes the same filters the list does, so "export what I am looking at"
+   * is one call rather than a second, subtly different notion of filtering.
+   */
+  exportUsers: (query: Record<string, string> = {}) => {
+    const params = new URLSearchParams(
+      Object.entries(query).filter(([, value]) => value !== ""),
+    );
+    const suffix = params.toString() === "" ? "" : `?${params}`;
+    return download(`/users/export${suffix}`, "portico-users.xlsx");
+  },
+
+  /** The descriptive attributes, which cannot reach role or status. */
+  setProfile: (id: string, profile: UserProfile) =>
+    request<User>(`/users/${segment(id)}/profile`, {
+      method: "PUT",
+      body: profile,
+    }),
+
+  setOwnProfile: (profile: UserProfile) =>
+    request<User>("/users/me/profile", { method: "PUT", body: profile }),
+
+  /**
+   * Enables or disables several accounts.
+   *
+   * Answers 200 with a per-account result even when some failed: an operator
+   * who selected forty people and hit one they may not disable needs to know
+   * which one, and wants the other thirty-nine done.
+   */
+  bulkSetStatus: (userIds: string[], status: Status) =>
+    request<BulkResult>("/users/bulk/status", {
+      method: "POST",
+      body: { userIds, status },
+    }),
+
+  bulkSetOrganization: (userIds: string[], organizationId: string) =>
+    request<BulkResult>("/users/bulk/organization", {
+      method: "POST",
+      body: { userIds, organizationId },
+    }),
 };
 
 export const organizationApi = {
+  /**
+   * Nominates whoever is responsible for an organization. Grants nothing —
+   * this version has two fixed roles and being named here confers neither.
+   * An empty id clears the nomination.
+   */
+  setManager: (id: string, managerId: string) =>
+    request<Organization>(`/organizations/${segment(id)}/manager`, {
+      method: "PUT",
+      body: { managerId },
+    }),
+
+  /** Records that somebody is involved with an organization they do not
+   * primarily belong to. Does not move their primary membership. */
+  attachUser: (id: string, userId: string) =>
+    request<null>(`/organizations/${segment(id)}/attachments`, {
+      method: "POST",
+      body: { userId },
+    }),
+
+  detachUser: (id: string, userId: string) =>
+    request<null>(
+      `/organizations/${segment(id)}/attachments/${segment(userId)}`,
+      { method: "DELETE" },
+    ),
+
   list: (activeOnly = false) =>
     request<Organization[]>(
       `/organizations${activeOnly ? "?activeOnly=true" : ""}`,
