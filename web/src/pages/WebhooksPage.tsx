@@ -22,6 +22,7 @@ import {
   Table,
   Td,
   Th,
+  DocsLink,
 } from "../components/ui";
 
 /**
@@ -143,7 +144,12 @@ export function WebhooksPage() {
         title={t("webhooks.title")}
         subtitle={t("webhooks.subtitle")}
         actions={
-          <Button onClick={() => setCreating(true)}>{t("webhooks.new")}</Button>
+          <>
+            <DocsLink page="webhooks/" />
+            <Button onClick={() => setCreating(true)}>
+              {t("webhooks.new")}
+            </Button>
+          </>
         }
       />
 

@@ -5,6 +5,7 @@ import type { enUS } from "./en-US";
  * build rather than rendering a raw key in the UI.
  */
 export const zhCN: Record<keyof typeof enUS, string> = {
+  "common.docs": "查看文档",
   "common.save": "保存",
   "common.cancel": "取消",
   "common.confirm": "确定",
@@ -323,6 +324,10 @@ export const zhCN: Record<keyof typeof enUS, string> = {
   "settings.auditRetention": "审计日志保留天数",
   "settings.auditRetentionHelp":
     "填 0 表示永久保留，也是默认值。若填其它值则至少为 7，超期条目会被每小时的清理任务删除——永久删除，不留副本。",
+  "settings.defaultLocale": "消息默认语言",
+  "settings.defaultLocaleHelp":
+    "发给未设置个人语言偏好的人的邮件与短信用哪种语言。不影响控制台界面——那是每个人自己选的，记在浏览器里。",
+  "settings.defaultLocaleFollow": "跟随部署默认",
   "settings.basicsLegend": "基础设置",
   "settings.auditLegend": "日志审计",
   "settings.passwordLegend": "密码策略",

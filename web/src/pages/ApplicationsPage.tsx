@@ -41,6 +41,7 @@ import {
   Td,
   Textarea,
   Th,
+  DocsLink,
 } from "../components/ui";
 import { useErrorMessage, useT } from "../i18n";
 
@@ -136,6 +137,7 @@ export function ApplicationsPage() {
         subtitle={t("applications.subtitle")}
         actions={
           <>
+            <DocsLink page="federation/" />
             <Button
               variant="secondary"
               disabled={endpoints === null}

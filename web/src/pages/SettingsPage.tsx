@@ -9,8 +9,9 @@ import {
   Field,
   Input,
   PageHeader,
+  Select,
 } from "../components/ui";
-import { useErrorMessage, useT } from "../i18n";
+import { locales, useErrorMessage, useT } from "../i18n";
 
 export function SettingsPage() {
   const t = useT();
@@ -114,6 +115,34 @@ export function SettingsPage() {
                     }
                     required
                   />
+                </Field>
+
+                {/* Not the console's language, which each reader picks for
+                    themselves and which is remembered in their browser. This
+                    is for the text that arrives where there is no menu — a
+                    reset link, a confirmation. */}
+                <Field
+                  label={t("settings.defaultLocale")}
+                  hint={t("settings.defaultLocaleHelp")}
+                >
+                  <Select
+                    value={settings.defaultLocale}
+                    onChange={(e) =>
+                      setSettings({
+                        ...settings,
+                        defaultLocale: e.target.value,
+                      })
+                    }
+                  >
+                    <option value="">
+                      {t("settings.defaultLocaleFollow")}
+                    </option>
+                    {locales.map((locale) => (
+                      <option key={locale.code} value={locale.code}>
+                        {locale.name}
+                      </option>
+                    ))}
+                  </Select>
                 </Field>
 
                 <label className="flex items-start gap-2.5">

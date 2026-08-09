@@ -27,6 +27,7 @@ import {
   Table,
   Td,
   Th,
+  DocsLink,
 } from "../components/ui";
 import { useErrorMessage, useT } from "../i18n";
 
@@ -61,6 +62,7 @@ export function ProvisioningPage() {
       <PageHeader
         title={t("provisioning.title")}
         subtitle={t("provisioning.subtitle")}
+        actions={<DocsLink page="scim/" />}
       />
 
       <div

@@ -21,6 +21,7 @@ import type { ReactNode } from "react";
 import { authApi, userApi } from "./api/endpoints";
 import { setSessionEndedHandler, tenantStore, tokenStore } from "./api/client";
 import type { User } from "./api/types";
+import { hasStoredLanguage, matchLanguage, useLanguage } from "./i18n";
 
 interface SessionValue {
   user: User | null;
@@ -59,6 +60,7 @@ interface SessionValue {
 const SessionContext = createContext<SessionValue | null>(null);
 
 export function SessionProvider({ children }: { children: ReactNode }) {
+  const { setLanguage } = useLanguage();
   const [user, setUser] = useState<User | null>(null);
   const [loading, setLoading] = useState(true);
   const [expired, setExpired] = useState(false);
@@ -109,14 +111,30 @@ export function SessionProvider({ children }: { children: ReactNode }) {
   // the cheaper one meant the expiry warning appeared on the next reload and
   // not at the sign-in it is about, which is the one moment somebody is
   // holding the password in their head and could act on it.
-  const adoptSession = useCallback(async (token: string, tenant: string) => {
-    tokenStore.set(token);
-    // Remembered so registration and a reload stay in the same tenant rather
-    // than falling back to the default one.
-    tenantStore.set(tenant);
-    setExpired(false);
-    setUser(await userApi.me());
-  }, []);
+  const adoptSession = useCallback(
+    async (token: string, tenant: string) => {
+      tokenStore.set(token);
+      // Remembered so registration and a reload stay in the same tenant rather
+      // than falling back to the default one.
+      tenantStore.set(tenant);
+      setExpired(false);
+
+      const account = await userApi.me();
+      setUser(account);
+
+      // The account's own language, but only where this browser has not been
+      // told one. A person who picked English here should not have it
+      // switched under them because an administrator filled in a field, and
+      // somebody signing in to a shared machine should not inherit whatever
+      // the last person chose either — "no stored choice" is the only case
+      // where the account is the better answer than the browser.
+      if (!hasStoredLanguage()) {
+        const preferred = matchLanguage(account.profile?.preferredLanguage);
+        if (preferred) setLanguage(preferred);
+      }
+    },
+    [setLanguage],
+  );
 
   const signIn = useCallback(
     async (tenant: string, identifier: string, password: string) => {

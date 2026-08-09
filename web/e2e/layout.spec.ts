@@ -229,14 +229,29 @@ test("every screen puts its content in the same chrome", async ({
 
     const framed = await page.evaluate(() => {
       // The primary content is the first table on a list screen and the
-      // first form on a settings-like one. Either way it must sit inside a
+      // first field on a settings-like one. Either way it must sit inside a
       // bordered surface — that is the whole property: the reader sees the
       // same frame around the same kind of thing on every screen.
-      const content = document.querySelector("main table, main form");
+      //
+      // A field rather than the form around it, because the property is
+      // about what the reader sees around the controls. A screen may lay
+      // several bordered groups out inside one form — the settings screen
+      // does, in two columns — and asking whether the form itself has a
+      // border would call that bare while every field on it sits in a card.
+      const content =
+        document.querySelector("main table") ??
+        document.querySelector("main form :is(input, select, textarea)") ??
+        document.querySelector("main form");
       if (!content) return false;
 
+      // From the parent, never from the content itself. An <input> has a
+      // border of its own, so starting at one would report every form as
+      // framed — including a form sitting bare on the page background, which
+      // is the single thing this test exists to catch. (It did, for one
+      // revision of this file, until removing every card from the settings
+      // screen failed to fail it.)
       for (
-        let node: Element | null = content;
+        let node: Element | null = content.parentElement;
         node && node.tagName !== "MAIN";
         node = node.parentElement
       ) {

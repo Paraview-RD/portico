@@ -31,7 +31,7 @@ import {
   useState,
 } from "react";
 
-import { useT } from "../i18n";
+import { docsUrl, useLanguage, useT } from "../i18n";
 
 function cx(...classes: (string | false | undefined | null)[]): string {
   return classes.filter(Boolean).join(" ");
@@ -747,4 +747,37 @@ function tileColour(name: string): number {
     hash = (hash * 31 + character.codePointAt(0)!) % 100000;
   }
   return (hash % 6) + 1;
+}
+
+/**
+ * A link to the page of the manual that explains this screen.
+ *
+ * Contextual rather than one entry in the sidebar, because that is the whole
+ * advantage of shipping the manual inside the product: the answer is one
+ * click from the question rather than a search away. It opens in a new tab —
+ * somebody halfway through configuring a directory should not lose the form
+ * to read about it.
+ *
+ * The reader's own language, and the manual falls back to English with a
+ * notice on pages that have not been translated yet.
+ */
+export function DocsLink({ page }: { page: string }) {
+  const t = useT();
+  const { language } = useLanguage();
+
+  return (
+    <a
+      href={docsUrl(language, page)}
+      target="_blank"
+      rel="noreferrer"
+      className={cx(
+        "inline-flex h-8 items-center rounded-[var(--radius-sm)] px-3",
+        "border border-[var(--color-border-strong)] bg-[var(--color-bg)]",
+        "text-[length:var(--font-size-sm)] text-[var(--color-fg)]",
+        "hover:bg-[var(--color-bg-hover)]",
+      )}
+    >
+      {t("common.docs")}
+    </a>
+  );
 }

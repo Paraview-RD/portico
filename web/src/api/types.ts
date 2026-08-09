@@ -170,6 +170,18 @@ export interface Settings {
   systemName: string;
 
   /**
+   * The language of messages this tenant sends — a reset link, a
+   * confirmation — to somebody who has stated no preference of their own.
+   * Empty means "follow the deployment", and is a real value rather than an
+   * absence: a tenant that has said nothing follows a deployment that
+   * changes its mind later.
+   *
+   * It does not affect the console. That is each reader's own choice and is
+   * remembered in their browser.
+   */
+  defaultLocale: string;
+
+  /**
    * Consecutive failed sign-ins that lock an account. Zero switches lockout
    * off — a deployment that trusts its reverse proxy's throttling may want
    * that, though the two controls cover different attacks.

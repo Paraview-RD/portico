@@ -20,6 +20,7 @@ import {
   Table,
   Td,
   Th,
+  DocsLink,
 } from "../components/ui";
 import { useErrorMessage, useT } from "../i18n";
 
@@ -114,9 +115,12 @@ export function DirectoriesPanel() {
         <p className="max-w-[var(--prose-form-width)] text-[length:var(--font-size-sm)] text-[var(--color-fg-muted)]">
           {t("directories.hint")}
         </p>
-        <Button onClick={() => setCreating(true)}>
-          {t("directories.new")}
-        </Button>
+        <div className="flex gap-2">
+          <DocsLink page="ldap/" />
+          <Button onClick={() => setCreating(true)}>
+            {t("directories.new")}
+          </Button>
+        </div>
       </div>
 
       {error && (

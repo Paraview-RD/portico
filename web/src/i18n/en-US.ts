@@ -4,6 +4,7 @@
  * error rather than a raw key rendered in the UI.
  */
 export const enUS = {
+  "common.docs": "Documentation",
   "common.save": "Save",
   "common.cancel": "Cancel",
   "common.confirm": "Confirm",
@@ -343,6 +344,10 @@ export const enUS = {
   "settings.auditRetention": "Audit log retention (days)",
   "settings.auditRetentionHelp":
     "0 keeps everything, which is the default. Any other value must be at least 7, and entries older than it are deleted by the hourly cleanup — permanently, with no copy kept.",
+  "settings.defaultLocale": "Language of messages sent",
+  "settings.defaultLocaleHelp":
+    "The language of mail and text messages sent to somebody who has stated no preference of their own. It does not affect the console, which each reader chooses for themselves and which is remembered in their browser.",
+  "settings.defaultLocaleFollow": "Follow the deployment default",
   "settings.basicsLegend": "Basics",
   "settings.auditLegend": "Audit log",
   "settings.passwordLegend": "Password policy",

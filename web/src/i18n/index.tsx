@@ -7,38 +7,36 @@ import {
 } from "react";
 import type { ReactNode } from "react";
 
-import { enUS } from "./en-US";
 import type { TranslationKey } from "./en-US";
-import { codesCarryingDetail, errorsEnUS } from "./errors-en-US";
-import { errorsZhCN } from "./errors-zh-CN";
-import { zhCN } from "./zh-CN";
+import { codesCarryingDetail } from "./errors-en-US";
+import { defaultLanguage, localeFor, locales, matchLanguage } from "./locales";
+import type { Language } from "./locales";
 
-export type Language = "en-US" | "zh-CN";
+export type { Language } from "./locales";
+export { docsUrl, locales, matchLanguage } from "./locales";
 
-const bundles: Record<Language, Record<TranslationKey, string>> = {
-  "en-US": enUS,
-  "zh-CN": zhCN,
-};
-
-const errorBundles: Record<Language, Record<string, string>> = {
-  "en-US": errorsEnUS,
-  "zh-CN": errorsZhCN,
-};
-
-export const languageNames: Record<Language, string> = {
-  "en-US": "English",
-  "zh-CN": "简体中文",
-};
+/**
+ * The languages on offer, for a menu. Derived from the registry rather than
+ * listed again here — a second list is a second thing to forget.
+ */
+export const languageNames: Record<Language, string> = Object.fromEntries(
+  locales.map((locale) => [locale.code, locale.name]),
+);
 
 const STORAGE_KEY = "portico.language";
 
+/** Whether this browser has been told a language, as opposed to guessing one. */
+export function hasStoredLanguage(): boolean {
+  return matchLanguage(localStorage.getItem(STORAGE_KEY) ?? "") !== undefined;
+}
+
 /** Picks the initial language from storage, then the browser, then English. */
 function detectLanguage(): Language {
-  const stored = localStorage.getItem(STORAGE_KEY);
-  if (stored === "en-US" || stored === "zh-CN") {
-    return stored;
-  }
-  return navigator.language.toLowerCase().startsWith("zh") ? "zh-CN" : "en-US";
+  return (
+    matchLanguage(localStorage.getItem(STORAGE_KEY) ?? "") ??
+    matchLanguage(navigator.language) ??
+    defaultLanguage
+  );
 }
 
 /** Substitutes {0}, {1}, … with the given arguments. */
@@ -70,7 +68,11 @@ export function LanguageProvider({ children }: { children: ReactNode }) {
   }, []);
 
   const t = useCallback<Translate>(
-    (key, ...args) => interpolate(bundles[language][key] ?? key, args),
+    (key, ...args) =>
+      interpolate(
+        localeFor(language).messages[key as TranslationKey] ?? key,
+        args,
+      ),
     [language],
   );
 
@@ -131,7 +133,7 @@ export function useErrorMessage(): DescribeError {
         return error.message || t("common.unexpectedError");
       }
 
-      const translated = errorBundles[language][code];
+      const translated = localeFor(language).errors[code];
       if (!translated) return error.message || t("common.unexpectedError");
 
       // Some messages carry a value the translation cannot — the URI that
