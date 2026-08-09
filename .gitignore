@@ -27,6 +27,13 @@
 # copy because it is written down next to instructions that work.
 /TASK_CONTEXT_*.md
 
+# A pull request description, written to a file so it can be handed to
+# `gh pr create --body-file`. It describes one branch at one moment, so
+# committing it leaves a permanent file that is wrong the day after it
+# merges. It was committed once, by a `git add -A` that picked it up while
+# it was untracked, and was out of date within the hour.
+/PR_DESCRIPTION.md
+
 # Frontend
 web/node_modules/
 
