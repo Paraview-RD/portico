@@ -100,8 +100,9 @@ SET finished_at = $1,
     updated_count = $4,
     deactivated_count = $5,
     skipped_count = $6,
-    error = $7
-WHERE tenant_id = $8 AND id = $9
+    error_code = $7,
+    error = $8
+WHERE tenant_id = $9 AND id = $10
 `
 
 type FinishLDAPSyncRunParams struct {
@@ -111,6 +112,7 @@ type FinishLDAPSyncRunParams struct {
 	UpdatedCount     int32
 	DeactivatedCount int32
 	SkippedCount     int32
+	ErrorCode        string
 	Error            string
 	TenantID         string
 	ID               string
@@ -124,6 +126,7 @@ func (q *Queries) FinishLDAPSyncRun(ctx context.Context, arg FinishLDAPSyncRunPa
 		arg.UpdatedCount,
 		arg.DeactivatedCount,
 		arg.SkippedCount,
+		arg.ErrorCode,
 		arg.Error,
 		arg.TenantID,
 		arg.ID,
@@ -217,7 +220,7 @@ func (q *Queries) ListLDAPSources(ctx context.Context, tenantID string) ([]LdapS
 }
 
 const listLDAPSyncRuns = `-- name: ListLDAPSyncRuns :many
-SELECT id, tenant_id, source_id, actor_name, started_at, finished_at, outcome, created_count, updated_count, deactivated_count, skipped_count, error FROM ldap_sync_runs
+SELECT id, tenant_id, source_id, actor_name, started_at, finished_at, outcome, created_count, updated_count, deactivated_count, skipped_count, error_code, error FROM ldap_sync_runs
 WHERE tenant_id = $1 AND source_id = $2
 ORDER BY started_at DESC
 LIMIT $3
@@ -250,6 +253,7 @@ func (q *Queries) ListLDAPSyncRuns(ctx context.Context, arg ListLDAPSyncRunsPara
 			&i.UpdatedCount,
 			&i.DeactivatedCount,
 			&i.SkippedCount,
+			&i.ErrorCode,
 			&i.Error,
 		); err != nil {
 			return nil, err

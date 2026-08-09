@@ -326,6 +326,7 @@ func (s *DirectoryService) Runs(ctx context.Context, tenantID, sourceID string, 
 			UpdatedCount:     int(row.UpdatedCount),
 			DeactivatedCount: int(row.DeactivatedCount),
 			SkippedCount:     int(row.SkippedCount),
+			ErrorCode:        row.ErrorCode,
 			Error:            row.Error,
 		})
 	}
@@ -477,10 +478,11 @@ func (s *DirectoryService) SyncNow(ctx context.Context, actor auth.Principal, so
 	counts, syncErr := s.runSync(ctx, tenantID, sourceID)
 
 	outcome := model.SyncSucceeded
-	message := ""
+	message, code := "", ""
 	if syncErr != nil {
 		outcome = model.SyncFailed
 		message = syncErr.Error()
+		code = refusalCode(syncErr)
 	}
 
 	finishedAt := store.Now()
@@ -488,7 +490,7 @@ func (s *DirectoryService) SyncNow(ctx context.Context, actor auth.Principal, so
 		ID: runID, FinishedAt: &finishedAt, Outcome: outcome,
 		CreatedCount: narrow(counts.created), UpdatedCount: narrow(counts.updated),
 		DeactivatedCount: narrow(counts.deactivated), SkippedCount: narrow(counts.skipped),
-		Error: message,
+		ErrorCode: code, Error: message,
 	}); err != nil {
 		return model.LDAPSyncRun{}, fmt.Errorf("close sync run: %w", err)
 	}
@@ -513,7 +515,7 @@ func (s *DirectoryService) SyncNow(ctx context.Context, actor auth.Principal, so
 		StartedAt: startedAt, FinishedAt: &finishedAt, Outcome: outcome,
 		CreatedCount: counts.created, UpdatedCount: counts.updated,
 		DeactivatedCount: counts.deactivated, SkippedCount: counts.skipped,
-		Error: message,
+		ErrorCode: code, Error: message,
 	}, nil
 }
 
@@ -535,11 +537,36 @@ func syncResult(err error) model.LogResult {
 // nobody would want it applied automatically at three in the morning. So an
 // empty result set against a source that owns accounts fails the run and
 // changes nothing, and an operator reads the reason.
-var ErrDirectoryReturnedNothing = errors.New(
-	"the directory returned no entries while this source owns accounts here. " +
+var ErrDirectoryReturnedNothing = refusal{
+	code: "DIRECTORY_RETURNED_NOTHING",
+	text: "The directory returned no entries while this source owns accounts here. " +
 		"Nothing was changed: an empty result is far more often a wrong base DN or " +
 		"user filter than a directory everyone has left, and acting on it would " +
-		"deactivate every one of those accounts")
+		"deactivate every one of those accounts.",
+}
+
+// refusal is a failure Portico decided on rather than one the directory
+// reported, and the difference is what decides whether a console can
+// translate it.
+//
+// An error from the LDAP server keeps its own wording: "No Such Object" is
+// what an operator will paste into a search engine, and a translated version
+// would be worse than useless. A refusal made here has a code, so the reader
+// sees it in their own language.
+type refusal struct {
+	code string
+	text string
+}
+
+func (r refusal) Error() string { return r.text }
+
+func refusalCode(err error) string {
+	var r refusal
+	if errors.As(err, &r) {
+		return r.code
+	}
+	return ""
+}
 
 func (s *DirectoryService) runSync(ctx context.Context, tenantID, sourceID string) (syncCounts, error) {
 	var counts syncCounts

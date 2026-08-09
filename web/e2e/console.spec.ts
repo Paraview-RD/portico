@@ -24,7 +24,7 @@ const authenticatedScreens = [
   { path: "/organizations", heading: "Organizations" },
   { path: "/groups", heading: "Groups" },
   { path: "/applications", heading: "Applications" },
-  { path: "/provisioning", heading: /provisioning/i },
+  { path: "/provisioning", heading: /directory integration/i },
   { path: "/webhooks", heading: /event subscriptions/i },
   { path: "/audit-logs", heading: "Audit logs" },
   { path: "/settings", heading: "Settings" },

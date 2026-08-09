@@ -10,6 +10,7 @@ import type {
   IssuedSCIMCredential,
   SCIMCredential,
 } from "../api/types";
+import { DirectoriesPanel } from "./DirectoriesPanel";
 import { useRouter } from "../router";
 import {
   Alert,
@@ -43,7 +44,66 @@ import { useErrorMessage, useT } from "../i18n";
  * beside the other things that connect to Portico rather than below the
  * password rules.
  */
+/**
+ * Two directions, one screen.
+ *
+ * A SCIM credential lets a directory push accounts into Portico. An LDAP
+ * source has Portico reach out and pull them. They land in the same place,
+ * and the tabs exist so that nobody has to work out which of the two a given
+ * deployment is doing from the shape of the form.
+ */
 export function ProvisioningPage() {
+  const t = useT();
+  const [tab, setTab] = useState<"directories" | "scim">("directories");
+
+  return (
+    <>
+      <PageHeader
+        title={t("provisioning.title")}
+        subtitle={t("provisioning.subtitle")}
+      />
+
+      <div
+        role="tablist"
+        aria-label={t("provisioning.title")}
+        className="mb-4 flex gap-1 border-b border-[var(--color-border)]"
+      >
+        {(["directories", "scim"] as const).map((value) => (
+          <button
+            key={value}
+            id={`provisioning-tab-${value}`}
+            role="tab"
+            type="button"
+            aria-selected={tab === value}
+            aria-controls="provisioning-panel"
+            onClick={() => setTab(value)}
+            className={
+              tab === value
+                ? "-mb-px border-b-2 border-[var(--color-primary)] px-4 py-2 text-[length:var(--font-size-sm)] font-[weight:var(--font-weight-medium)] text-[var(--color-fg)]"
+                : "-mb-px border-b-2 border-transparent px-4 py-2 text-[length:var(--font-size-sm)] text-[var(--color-fg-muted)] hover:text-[var(--color-fg)]"
+            }
+          >
+            {t(`provisioning.tab.${value}`)}
+          </button>
+        ))}
+      </div>
+
+      <div
+        id="provisioning-panel"
+        role="tabpanel"
+        aria-labelledby={`provisioning-tab-${tab}`}
+      >
+        {tab === "directories" ? (
+          <DirectoriesPanel />
+        ) : (
+          <SCIMCredentialsPanel />
+        )}
+      </div>
+    </>
+  );
+}
+
+function SCIMCredentialsPanel() {
   const t = useT();
   const describeError = useErrorMessage();
 
@@ -114,13 +174,12 @@ export function ProvisioningPage() {
 
   return (
     <>
-      <PageHeader
-        title={t("scim.title")}
-        subtitle={t("scim.subtitle")}
-        actions={
-          <Button onClick={() => setCreating(true)}>{t("scim.new")}</Button>
-        }
-      />
+      <div className="mb-4 flex flex-wrap items-start justify-between gap-3">
+        <p className="max-w-[var(--prose-form-width)] text-[length:var(--font-size-sm)] text-[var(--color-fg-muted)]">
+          {t("scim.subtitle")}
+        </p>
+        <Button onClick={() => setCreating(true)}>{t("scim.new")}</Button>
+      </div>
 
       {error && (
         <div className="mb-4">

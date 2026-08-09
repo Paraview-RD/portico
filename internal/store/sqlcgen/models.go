@@ -105,6 +105,7 @@ type LdapSyncRun struct {
 	UpdatedCount     int32
 	DeactivatedCount int32
 	SkippedCount     int32
+	ErrorCode        string
 	Error            string
 }
 

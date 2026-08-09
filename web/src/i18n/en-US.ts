@@ -50,7 +50,7 @@ export const enUS = {
   // Shorter than the page's own heading, which says "Directory provisioning
   // (SCIM)". A menu entry has to fit beside an icon; the heading has room to
   // name the protocol, and the person looking for it knows one of the two.
-  "nav.provisioning": "Provisioning",
+  "nav.provisioning": "Directory integration",
   "nav.webhooks": "Webhooks",
   "nav.settings": "Settings",
   "nav.profile": "My profile",
@@ -410,6 +410,73 @@ export const enUS = {
   "webhooks.confirmDeleteTitle": "Delete this subscription?",
   "webhooks.confirmDelete":
     "“{0}” will stop receiving events immediately and its delivery history will be removed. To pause it instead, disable it.",
+
+  // --- Provisioning: two directions ---
+  "provisioning.title": "Directory integration",
+  "provisioning.subtitle":
+    "Accounts arriving from somewhere else, in either direction.",
+  // Named for the direction rather than the protocol, because that is the
+  // thing people get wrong: one has Portico reach out, the other has a
+  // directory reach in, and the difference decides where you look when
+  // accounts stop arriving.
+  "provisioning.tab.directories": "Portico reads (LDAP / AD)",
+  "provisioning.tab.scim": "The directory pushes (SCIM)",
+
+  "directories.hint":
+    "Portico connects to your directory and reads accounts out of it. An account that stops appearing is deactivated here; one that reappears comes back.",
+  "directories.new": "Add a directory",
+  "directories.edit": "Edit directory",
+  "directories.colName": "Name",
+  "directories.colAddress": "Address",
+  "directories.colLastSync": "Last synchronized",
+  "directories.colStatus": "Status",
+  "directories.neverSynced": "Never",
+  "directories.sync": "Synchronize",
+  "directories.syncing": "Synchronizing…",
+  "directories.history": "History",
+  "directories.historyTitle": "Synchronizations — {0}",
+  "directories.byScheduler": "scheduled",
+  "directories.runSummary":
+    "{0} created, {1} updated, {2} deactivated, {3} skipped.",
+  "directories.emptyResult":
+    "The directory returned no entries while accounts here belong to it. Nothing was changed — an empty result is far more often a wrong base DN or user filter than a directory everybody has left, and acting on it would deactivate every one of those accounts.",
+  "directories.runFailed": "The synchronization failed.",
+  "directories.outcome.SUCCEEDED": "Succeeded",
+  "directories.outcome.FAILED": "Failed",
+  "directories.outcome.RUNNING": "Running",
+
+  "directories.name": "Name",
+  "directories.namePlaceholder": "Head office AD",
+  "directories.host": "Host",
+  "directories.port": "Port",
+  "directories.encryption": "Encryption",
+  "directories.encryptionNone": "None (plain LDAP)",
+  "directories.bindDn": "Bind DN",
+  "directories.bindDnHelp":
+    "The service account Portico reads as. Leave empty for an anonymous bind.",
+  "directories.bindPassword": "Bind password",
+  "directories.bindPasswordHelp":
+    "Stored encrypted. Requires the deployment to have an encryption key configured.",
+  "directories.bindPasswordStored":
+    "A password is stored. Leave this empty to keep it, or type a new one to replace it.",
+  "directories.bindPasswordUnchanged": "Unchanged",
+  "directories.baseDn": "Base DN",
+  "directories.attributes": "Which attribute carries which fact",
+  "directories.attributesHint":
+    "There are no defaults, because Active Directory and OpenLDAP disagree on every one of these. The presets fill them in and leave them editable — check them against your own directory rather than trusting them.",
+  "directories.presetAD": "Active Directory",
+  "directories.presetOpenLDAP": "OpenLDAP",
+  "directories.userFilter": "User filter",
+  "directories.attrUsername": "Username",
+  "directories.attrDisplayName": "Display name",
+  "directories.attrEmail": "Email",
+  "directories.attrPhone": "Phone",
+  "directories.attrExternalId": "External id",
+  "directories.attrExternalIdHelp":
+    "The directory's own stable identifier — objectGUID on Active Directory, entryUUID on OpenLDAP. This is what makes a rename a rename instead of a second account, so it is the field to get right.",
+  "directories.organization": "Put accounts in",
+  "directories.organizationHelp": "Where synchronized accounts land. Optional.",
+  "directories.organizationNone": "No organization",
 
   "scim.title": "Directory provisioning (SCIM)",
   "scim.subtitle":

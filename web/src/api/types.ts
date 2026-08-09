@@ -10,12 +10,7 @@ export type Status = "ACTIVE" | "DISABLED";
  * next sync will overwrite what an administrator changes here. That is why
  * the list marks only this one.
  */
-export type UserSource =
-  | "ADMIN"
-  | "IMPORT"
-  | "REGISTRATION"
-  | "SCIM"
-  | "LDAP";
+export type UserSource = "ADMIN" | "IMPORT" | "REGISTRATION" | "SCIM" | "LDAP";
 
 export interface User {
   id: string;
@@ -228,6 +223,88 @@ export interface OAuthClient {
 export interface RegisteredClient {
   client: OAuthClient;
   secret?: string;
+}
+
+/**
+ * A directory Portico reads accounts out of.
+ *
+ * The opposite direction from a SCIM credential: that lets a directory push
+ * into /scim/v2, this has Portico connect and pull. There is no bind password
+ * field, and that is not an omission — the server never sends one back.
+ */
+export interface LDAPSource {
+  id: string;
+  tenantId: string;
+  name: string;
+  host: string;
+  port: number;
+  encryption: "none" | "starttls" | "tls";
+  /** Empty means an anonymous bind. */
+  bindDn: string;
+  /** Whether a credential is stored, so a form can say "set" without it. */
+  hasBindPassword: boolean;
+  baseDn: string;
+  userFilter: string;
+  attrUsername: string;
+  attrDisplayName: string;
+  attrEmail: string;
+  attrPhone: string;
+  /**
+   * Where the reconciliation key comes from — objectGUID on Active
+   * Directory, entryUUID on OpenLDAP. The most consequential field on the
+   * form: it is what makes a rename a rename rather than a second account.
+   */
+  attrExternalId: string;
+  organizationId: string;
+  organizationName: string;
+  status: Status;
+  /** Absent until the first run finishes. */
+  lastSyncedAt?: string;
+  createdAt: string;
+  updatedAt: string;
+}
+
+/** What one synchronization did. */
+export interface LDAPSyncRun {
+  id: string;
+  sourceId: string;
+  /** Empty for the scheduler, which is not a person. */
+  actorName: string;
+  startedAt: string;
+  finishedAt?: string;
+  outcome: "RUNNING" | "SUCCEEDED" | "FAILED";
+  createdCount: number;
+  updatedCount: number;
+  deactivatedCount: number;
+  /** Entries that could not become an account. Counted, not fatal. */
+  skippedCount: number;
+  /**
+   * Set when Portico refused, empty when the directory reported the failure.
+   * A known code is rendered in the reader's language; anything else is the
+   * LDAP server's own wording and is shown verbatim, because that is the
+   * string somebody will search for.
+   */
+  errorCode?: string;
+  error?: string;
+}
+
+/** What a form sends. bindPassword is write-only and optional. */
+export interface LDAPSourceInput {
+  name: string;
+  host: string;
+  port: number;
+  encryption: "none" | "starttls" | "tls";
+  bindDn: string;
+  /** Omit to leave the stored credential alone; empty string clears it. */
+  bindPassword?: string;
+  baseDn: string;
+  userFilter: string;
+  attrUsername: string;
+  attrDisplayName: string;
+  attrEmail: string;
+  attrPhone: string;
+  attrExternalId: string;
+  organizationId: string;
 }
 
 /** A registered SAML 2.0 service provider. */

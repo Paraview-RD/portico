@@ -30,7 +30,7 @@ const screens = [
   { label: "Organizations", api: "**/api/v1/organizations*" },
   { label: "Groups", api: "**/api/v1/groups" },
   { label: "Applications", api: "**/api/v1/applications/oauth-clients" },
-  { label: "Provisioning", api: "**/api/v1/scim-credentials" },
+  { label: "Directory integration", api: "**/api/v1/directories" },
   { label: "Webhooks", api: "**/api/v1/webhooks" },
   { label: "Audit logs", api: "**/api/v1/audit-logs*" },
 ];

@@ -64,8 +64,9 @@ SET finished_at = $1,
     updated_count = $4,
     deactivated_count = $5,
     skipped_count = $6,
-    error = $7
-WHERE tenant_id = $8 AND id = $9;
+    error_code = $7,
+    error = $8
+WHERE tenant_id = $9 AND id = $10;
 
 -- name: ListLDAPSyncRuns :many
 SELECT * FROM ldap_sync_runs

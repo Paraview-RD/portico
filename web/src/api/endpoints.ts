@@ -8,6 +8,9 @@ import type {
   ImportResult,
   IntegrationEndpoints,
   IssuedSCIMCredential,
+  LDAPSource,
+  LDAPSourceInput,
+  LDAPSyncRun,
   LogKind,
   OAuthClient,
   Organization,
@@ -481,6 +484,42 @@ export const applicationApi = {
  * directory, not a relying party, and the two have nothing in common beyond
  * both being things an administrator issues.
  */
+export const directoriesApi = {
+  list: () => request<LDAPSource[]>("/directories"),
+
+  create: (input: LDAPSourceInput) =>
+    request<LDAPSource>("/directories", { method: "POST", body: input }),
+
+  update: (id: string, input: LDAPSourceInput) =>
+    request<LDAPSource>(`/directories/${segment(id)}`, {
+      method: "PUT",
+      body: input,
+    }),
+
+  enable: (id: string) =>
+    request<LDAPSource>(`/directories/${segment(id)}/enable`, {
+      method: "POST",
+    }),
+
+  disable: (id: string) =>
+    request<LDAPSource>(`/directories/${segment(id)}/disable`, {
+      method: "POST",
+    }),
+
+  /**
+   * Runs the synchronization and waits for it. A failed run answers 200
+   * with the reason in the body — the request succeeded, the sync did not —
+   * so callers read `outcome` rather than catching.
+   */
+  sync: (id: string) =>
+    request<LDAPSyncRun>(`/directories/${segment(id)}/sync`, {
+      method: "POST",
+    }),
+
+  runs: (id: string) =>
+    request<LDAPSyncRun[]>(`/directories/${segment(id)}/runs`),
+};
+
 export const scimCredentialsApi = {
   list: () => request<SCIMCredential[]>("/scim-credentials"),
 

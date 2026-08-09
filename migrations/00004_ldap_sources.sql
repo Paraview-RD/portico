@@ -109,7 +109,15 @@ CREATE TABLE ldap_sync_runs (
     skipped_count INTEGER NOT NULL DEFAULT 0,
 
     -- Why it failed, in the operator's words rather than a stack trace.
-    error TEXT NOT NULL DEFAULT ''
+    --
+    -- Two columns, because the failures have two origins. A refusal Portico
+    -- decided on has a code the console can render in the reader's language.
+    -- An error the directory reported does not: it is the LDAP server's own
+    -- wording, and translating "No Such Object" would take away the string
+    -- an operator is going to paste into a search engine. So the code is
+    -- empty for those and the console shows the text as it arrived.
+    error_code TEXT NOT NULL DEFAULT '',
+    error      TEXT NOT NULL DEFAULT ''
 );
 
 CREATE INDEX idx_ldap_sync_runs_source ON ldap_sync_runs (tenant_id, source_id, started_at DESC);

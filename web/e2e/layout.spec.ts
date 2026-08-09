@@ -26,7 +26,7 @@ const screens = [
   { label: "Organizations", heading: "Organizations" },
   { label: "Groups", heading: "Groups" },
   { label: "Applications", heading: "Applications" },
-  { label: "Provisioning", heading: /provisioning/i },
+  { label: "Directory integration", heading: /directory integration/i },
   { label: "Webhooks", heading: /event subscriptions/i },
   { label: "Audit logs", heading: "Audit logs" },
   { label: "Settings", heading: "Settings" },

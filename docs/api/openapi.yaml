@@ -3046,6 +3046,14 @@ components:
             Entries the directory returned that could not become an account —
             no username, no external id, or a username an account this source
             does not own already holds. Counted rather than fatal.
+        errorCode:
+          type: string
+          description: |
+            Set when Portico refused, empty when the directory reported the
+            failure. A client renders a known code in the reader's language;
+            anything else is the LDAP server's own wording and should be
+            shown verbatim, because that is the string an operator will
+            search for.
         error: { type: string }
 
     LDAPSourceEnvelope:

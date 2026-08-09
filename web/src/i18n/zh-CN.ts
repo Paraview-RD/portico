@@ -43,7 +43,7 @@ export const zhCN: Record<keyof typeof enUS, string> = {
   "nav.applications": "应用管理",
   // 与页面标题「目录同步（SCIM）」用同一个词。菜单项和它打开的页面各叫一个
   // 名字，读者要多想一步才能确认是同一件事。
-  "nav.provisioning": "目录同步",
+  "nav.provisioning": "目录对接",
   "nav.webhooks": "事件订阅",
   "nav.settings": "系统设置",
   "nav.profile": "个人中心",
@@ -387,6 +387,67 @@ export const zhCN: Record<keyof typeof enUS, string> = {
   "webhooks.confirmDeleteTitle": "删除此订阅？",
   "webhooks.confirmDelete":
     "“{0}”将立即停止接收事件，投递记录也会一并删除。若只是暂停，请改用“禁用”。",
+
+  // --- 目录对接：两个方向 ---
+  "provisioning.title": "目录对接",
+  "provisioning.subtitle": "账号从别处来，两个方向都在这里。",
+  // 用方向命名而不是协议名，因为容易搞混的正是这一点：一个是 Portico 主动去取，
+  // 一个是目录主动推过来，而账号不再进来时该去哪儿查，取决于是哪一种。
+  "provisioning.tab.directories": "Portico 去读（LDAP / AD）",
+  "provisioning.tab.scim": "目录推过来（SCIM）",
+
+  "directories.hint":
+    "Portico 连接你的目录并从中读取账号。目录里不再出现的账号会在这里被停用；重新出现则自动恢复。",
+  "directories.new": "添加目录",
+  "directories.edit": "编辑目录",
+  "directories.colName": "名称",
+  "directories.colAddress": "地址",
+  "directories.colLastSync": "最近同步",
+  "directories.colStatus": "状态",
+  "directories.neverSynced": "从未同步",
+  "directories.sync": "立即同步",
+  "directories.syncing": "同步中…",
+  "directories.history": "同步记录",
+  "directories.historyTitle": "同步记录 —— {0}",
+  "directories.byScheduler": "定时任务",
+  "directories.runSummary": "新增 {0}，更新 {1}，停用 {2}，跳过 {3}。",
+  "directories.emptyResult":
+    "目录一条记录都没返回，而这里还有归属于它的账号。本次未作任何改动——结果为空，多半是 Base DN 或用户过滤器填错了，而不是所有人都离职了；照做会把这些账号全部停用。",
+  "directories.runFailed": "同步失败。",
+  "directories.outcome.SUCCEEDED": "成功",
+  "directories.outcome.FAILED": "失败",
+  "directories.outcome.RUNNING": "进行中",
+
+  "directories.name": "名称",
+  "directories.namePlaceholder": "总部 AD",
+  "directories.host": "主机",
+  "directories.port": "端口",
+  "directories.encryption": "加密方式",
+  "directories.encryptionNone": "不加密（明文 LDAP）",
+  "directories.bindDn": "Bind DN",
+  "directories.bindDnHelp": "Portico 用来读取的服务账号。留空表示匿名绑定。",
+  "directories.bindPassword": "Bind 密码",
+  "directories.bindPasswordHelp": "加密存储。需要本部署已配置加密密钥。",
+  "directories.bindPasswordStored":
+    "已存有密码。留空表示保持不变，填入新值则替换。",
+  "directories.bindPasswordUnchanged": "保持不变",
+  "directories.baseDn": "Base DN",
+  "directories.attributes": "哪个属性对应哪个字段",
+  "directories.attributesHint":
+    "这里没有默认值——Active Directory 和 OpenLDAP 在每一项上都不一样。预设会把它们填好并保持可改：请对照你自己的目录核实，不要直接相信。",
+  "directories.presetAD": "Active Directory",
+  "directories.presetOpenLDAP": "OpenLDAP",
+  "directories.userFilter": "用户过滤器",
+  "directories.attrUsername": "用户名",
+  "directories.attrDisplayName": "显示名",
+  "directories.attrEmail": "邮箱",
+  "directories.attrPhone": "手机号",
+  "directories.attrExternalId": "外部 ID",
+  "directories.attrExternalIdHelp":
+    "目录自己的稳定标识——AD 用 objectGUID，OpenLDAP 用 entryUUID。它决定了改名是改名、还是变成第二个账号，是这张表里最该填对的一项。",
+  "directories.organization": "归入机构",
+  "directories.organizationHelp": "同步进来的账号归属的机构。选填。",
+  "directories.organizationNone": "不归入机构",
 
   "scim.title": "目录同步（SCIM）",
   "scim.subtitle":

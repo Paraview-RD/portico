@@ -79,5 +79,10 @@ type LDAPSyncRun struct {
 	// thousand must not stop the rest.
 	SkippedCount int `json:"skippedCount"`
 
-	Error string `json:"error,omitempty"`
+	// ErrorCode is set when Portico itself refused, and empty when the
+	// directory reported the failure. The console renders a known code in
+	// the reader's language and shows the text below verbatim otherwise —
+	// an LDAP server's own wording is what somebody will search for.
+	ErrorCode string `json:"errorCode,omitempty"`
+	Error     string `json:"error,omitempty"`
 }
