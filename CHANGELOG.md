@@ -36,6 +36,22 @@ Working toward 0.2.0. See
 - Every run is kept — created, updated, deactivated and skipped counts, and
   the reason when it failed — because the question afterwards is "when did
   this start", which one overwritten result cannot answer.
+- **Somebody can close their own account.** The one sanctioned way to
+  disable yourself — everywhere else that is refused, so an administrator
+  cannot lock themselves out by accident, and this is the case that rule was
+  never about. The password is required, for the same reason changing one is:
+  a stolen token must not be enough to destroy the account it was stolen
+  from. The tenant's last active administrator cannot close theirs; there
+  would be nobody left who could undo it.
+- Closing deactivates rather than deletes, so it is reversible and the audit
+  trail keeps pointing at an account that exists. Signing in afterwards says
+  `ACCOUNT_CLOSED` rather than `ACCOUNT_DISABLED`: the two look identical in
+  the status column and call for different conversations. `closedAt` is on
+  the user record so an administrator can tell "they left" from "we suspended
+  them", and it is cleared when the account is reinstated.
+- Reinstating does not revive the sessions the closure ended. A token from a
+  laptop somebody no longer has must not start working again because an
+  administrator undid a departure.
 - **`PORTICO_ENCRYPTION_KEY`**, protecting credentials the server has to
   store and later use rather than merely verify. Today that is a directory
   bind password. Without it, saving one is refused rather than written in the

@@ -452,6 +452,63 @@ paths:
         "422":
           $ref: "#/components/responses/ValidationFailed"
 
+  /api/v1/users/me/close:
+    post:
+      tags: [Self-service]
+      operationId: closeOwnAccount
+      summary: Close your own account.
+      description: |
+        The one sanctioned way to disable yourself. Everywhere else that is
+        refused, so an administrator cannot lock themselves out by accident;
+        this is the case that rule was never about.
+
+        It deactivates rather than deletes, matching every other decision in
+        this system: the account stops signing in, every session and every
+        federated refresh token dies immediately, and an administrator can
+        reinstate it. Signing in afterwards answers `ACCOUNT_CLOSED` rather
+        than `ACCOUNT_DISABLED`, because the two call for different responses.
+
+        The password is required for the same reason changing one requires it:
+        a stolen token must not be enough to destroy the account it was
+        stolen from. The last active administrator in a tenant cannot close
+        their account — there would be nobody left who could undo it.
+
+        The token this request was made with is dead by the time the response
+        arrives.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [password]
+              properties:
+                password: { type: string, format: password }
+      responses:
+        "200":
+          description: Closed.
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: "#/components/schemas/Envelope"
+                  - type: object
+                    properties:
+                      data:
+                        type: object
+                        properties:
+                          closed: { type: boolean }
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "422":
+          description: |
+            The password did not match (`CURRENT_PASSWORD_MISMATCH`), or this
+            is the tenant's last active administrator (`LAST_ADMIN`) — there
+            would be nobody left who could reinstate the account.
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Envelope" }
+
   /api/v1/users/me/password:
     post:
       tags: [Self-service]

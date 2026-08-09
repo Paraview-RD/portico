@@ -252,6 +252,22 @@ one that colleague was not granted.
 Self-registered accounts always get this role; it cannot be requested at
 sign-up.
 
+**Closing an account.** Anyone can close their own from **My profile**, after
+confirming with their password. It is the one place self-disabling is allowed
+— everywhere else it is refused so that an administrator cannot lock
+themselves out by accident.
+
+It deactivates rather than deletes: the account stops signing in, every
+session and every federated refresh token ends immediately, and the audit
+trail keeps pointing at an account that still exists. **An administrator can
+reinstate it** by enabling the account, which also clears the closure mark;
+the sessions that were ended stay ended. A tenant's last active administrator
+cannot close theirs, since nobody would be left to undo it.
+
+Somebody who closes their account and then tries to sign in is told the
+account was closed, not that it was disabled — the two call for different
+responses, and the user list shows which happened.
+
 ## Before you expose this
 
 Portico serves plain HTTP and does not rate-limit requests. Both are

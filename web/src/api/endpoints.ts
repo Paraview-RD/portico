@@ -165,6 +165,17 @@ export const userApi = {
   revokeSessionFor: (id: string, sessionId: string) =>
     request<null>(`/users/${id}/sessions/${sessionId}`, { method: "DELETE" }),
 
+  /**
+   * Closes the caller's own account. The token this is sent with is dead by
+   * the time the response arrives, so callers sign out immediately after
+   * rather than making another request with it.
+   */
+  closeOwnAccount: (password: string) =>
+    request<{ closed: boolean }>("/users/me/close", {
+      method: "POST",
+      body: { password },
+    }),
+
   changeOwnPassword: (currentPassword: string, newPassword: string) =>
     request<{ reauthenticationRequired: boolean }>("/users/me/password", {
       method: "POST",

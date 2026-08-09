@@ -81,6 +81,10 @@ func (s *Server) routes() http.Handler {
 			r.Get("/users/me", h.Me)
 			r.Put("/users/me", h.UpdateOwnProfile)
 			r.Post("/users/me/password", h.ChangeOwnPassword)
+			// The one sanctioned way to disable yourself. Everywhere else
+			// that is refused; see the handler for why this is not an
+			// exception to that rule but the case it was never about.
+			r.Post("/users/me/close", h.CloseOwnAccount)
 
 			// Open endpoints for downstream systems (§3.7). They are
 			// deliberately readable by any authenticated caller: a

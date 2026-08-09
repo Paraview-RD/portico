@@ -225,7 +225,7 @@ func (s *UserService) List(ctx context.Context, tenantID string, q UserQuery, pa
 		`SELECT id, tenant_id, username, display_name, password_hash, phone, email, role, status,
 		        organization_id, token_version, source,
 		        failed_login_attempts, last_failed_login_at, locked_until,
-		        password_changed_at, external_id, ldap_source_id, created_at, updated_at
+		        password_changed_at, external_id, ldap_source_id, closed_at, created_at, updated_at
 		 FROM users WHERE tenant_id = $1`+clause+`
 		 ORDER BY created_at DESC, id DESC`+pageClause, args...)
 	if err != nil {
@@ -240,7 +240,7 @@ func (s *UserService) List(ctx context.Context, tenantID string, q UserQuery, pa
 			&u.ID, &u.TenantID, &u.Username, &u.DisplayName, &u.PasswordHash, &u.Phone, &u.Email,
 			&u.Role, &u.Status, &u.OrganizationID, &u.TokenVersion, &u.Source,
 			&u.FailedLoginAttempts, &u.LastFailedLoginAt, &u.LockedUntil,
-			&u.PasswordChangedAt, &u.ExternalID, &u.LdapSourceID, &u.CreatedAt, &u.UpdatedAt,
+			&u.PasswordChangedAt, &u.ExternalID, &u.LdapSourceID, &u.ClosedAt, &u.CreatedAt, &u.UpdatedAt,
 		); err != nil {
 			return nil, 0, fmt.Errorf("scan user: %w", err)
 		}
@@ -517,6 +517,15 @@ func (s *UserService) SetStatus(ctx context.Context, actor auth.Principal, userI
 		return model.User{}, fmt.Errorf("update user status: %w", err)
 	}
 
+	// Enabling a closed account is reinstating somebody, and the mark comes
+	// off with it. Leaving it would produce a row that reads as closed and
+	// signs in perfectly well — a state nobody can interpret.
+	if status == model.StatusActive && target.ClosedAt != nil {
+		if err := q.ReopenUserAccount(ctx, userID, store.Now()); err != nil {
+			return model.User{}, fmt.Errorf("reopen account: %w", err)
+		}
+	}
+
 	if status == model.StatusDisabled {
 		// Disabling has to reach the relying parties too. A refresh token
 		// checks the account's status when it is presented, but the token
@@ -593,6 +602,7 @@ func (s *UserService) attachOrganizations(ctx context.Context, q *store.Scoped, 
 			Role:        model.Role(row.Role),
 			Status:      model.Status(row.Status),
 			Source:      model.UserSource(row.Source),
+			ClosedAt:    row.ClosedAt,
 			CreatedAt:   row.CreatedAt,
 			UpdatedAt:   row.UpdatedAt,
 		}

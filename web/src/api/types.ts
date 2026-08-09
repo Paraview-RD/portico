@@ -28,6 +28,13 @@ export interface User {
   createdAt: string;
   updatedAt: string;
 
+  /**
+   * When the holder closed the account themselves. Absent for every other
+   * reason it might be disabled — the two look the same in `status` and mean
+   * different things.
+   */
+  closedAt?: string;
+
   /** Set while the account is locked out after repeated failed sign-ins. */
   lockedUntil?: string;
 

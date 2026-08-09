@@ -151,6 +151,15 @@ export function ProfilePage() {
             on one row. At 30rem it wrapped to four lines per session. */}
         <SessionsCard />
       </div>
+
+      {/* Below both columns rather than at the foot of one of them.
+          Underneath the right column it was a card floating in half the
+          width with empty space beside it — which the layout guard called
+          ragged, correctly. Full width also reads as what it is: a final
+          section, separate from the account maintenance above it. */}
+      <div className="mt-4">
+        <CloseAccountCard />
+      </div>
     </>
   );
 }
@@ -366,6 +375,87 @@ function SessionsCard() {
 // a row that pushes them to opposite edges. The fragment is what lets the
 // grid see both: wrapping them in a div would make the pair one cell and put
 // the justification problem straight back.
+/**
+ * Closing your own account.
+ *
+ * Last on the screen and behind a confirmation, because it is the one
+ * destructive thing here — and unlike the buttons above it, the person doing
+ * it cannot undo it themselves.
+ *
+ * The copy says what actually happens rather than being vague to seem gentle:
+ * the account stops signing in, everything signed in as it ends now, and an
+ * administrator can put it back. "Delete" would be the wrong word and is
+ * avoided; nothing is deleted.
+ */
+function CloseAccountCard() {
+  const t = useT();
+  const describeError = useErrorMessage();
+  const { endSession } = useSession();
+
+  const [confirming, setConfirming] = useState(false);
+  const [password, setPassword] = useState("");
+  const [error, setError] = useState("");
+  const [busy, setBusy] = useState(false);
+
+  async function close(event: React.FormEvent) {
+    event.preventDefault();
+    setError("");
+    setBusy(true);
+    try {
+      await userApi.closeOwnAccount(password);
+      // The token is already dead; going through endSession is what stops
+      // the next render making a request that fails without explanation.
+      endSession();
+    } catch (err) {
+      setError(describeError(err));
+      setBusy(false);
+    }
+  }
+
+  return (
+    <Card title={t("profile.closeAccount")}>
+      <p className="mb-4 text-[length:var(--font-size-sm)] text-[var(--color-fg-muted)]">
+        {t("profile.closeAccountHelp")}
+      </p>
+
+      {confirming ? (
+        <form onSubmit={close} className="flex flex-col gap-4">
+          <Alert tone="warning">{t("profile.closeAccountConfirm")}</Alert>
+          <Field label={t("profile.closeAccountPassword")} required>
+            <Input
+              type="password"
+              value={password}
+              onChange={(e) => setPassword(e.target.value)}
+              autoComplete="current-password"
+              required
+            />
+          </Field>
+          {error && <Alert tone="danger">{error}</Alert>}
+          <div className="flex gap-2">
+            <Button type="submit" variant="danger" disabled={busy}>
+              {t("profile.closeAccountAction")}
+            </Button>
+            <Button
+              variant="secondary"
+              onClick={() => {
+                setConfirming(false);
+                setPassword("");
+                setError("");
+              }}
+            >
+              {t("common.cancel")}
+            </Button>
+          </div>
+        </form>
+      ) : (
+        <Button variant="secondary" onClick={() => setConfirming(true)}>
+          {t("profile.closeAccount")}
+        </Button>
+      )}
+    </Card>
+  );
+}
+
 function Detail({ label, value }: { label: string; value: string }) {
   return (
     <>

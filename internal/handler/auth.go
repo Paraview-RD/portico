@@ -219,6 +219,39 @@ func (h *Handler) UpdateOwnProfile(w http.ResponseWriter, r *http.Request) {
 	httpx.OK(w, user)
 }
 
+type closeAccountRequest struct {
+	// The password, for the same reason changing one requires it: a stolen
+	// token must not be enough to destroy the account it was stolen from.
+	Password string `json:"password"`
+}
+
+// CloseOwnAccount is the one sanctioned way to disable yourself.
+//
+// Everywhere else it is refused, so that an administrator cannot lock
+// themselves out by accident. This is the case that rule was never about:
+// somebody deliberately leaving, having confirmed with their password.
+//
+// It deactivates rather than deletes. The account stops signing in, every
+// session and federated refresh token dies immediately, and an administrator
+// can reinstate it — which an anonymizing deletion could not.
+func (h *Handler) CloseOwnAccount(w http.ResponseWriter, r *http.Request) {
+	principal := auth.MustPrincipal(r.Context())
+
+	var req closeAccountRequest
+	if err := httpx.DecodeJSON(w, r, &req); err != nil {
+		httpx.Fail(w, r, err)
+		return
+	}
+
+	if err := h.users.CloseOwnAccount(r.Context(), principal, req.Password, httpx.ClientIP(r)); err != nil {
+		httpx.Fail(w, r, err)
+		return
+	}
+	// The token this request arrived with is already dead. Say so, rather
+	// than letting the client's next call fail without explanation.
+	httpx.OK(w, map[string]any{"closed": true})
+}
+
 type changePasswordRequest struct {
 	CurrentPassword string `json:"currentPassword"`
 	NewPassword     string `json:"newPassword"`

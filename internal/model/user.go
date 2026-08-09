@@ -86,6 +86,12 @@ type User struct {
 	// show a bare id.
 	OrganizationName string `json:"organizationName"`
 
+	// ClosedAt is when the account holder closed it themselves, and nil for
+	// every other reason an account might be disabled. The distinction is
+	// the reason the field exists: "they left" and "we suspended them" look
+	// identical in the status column and call for different responses.
+	ClosedAt *time.Time `json:"closedAt,omitempty"`
+
 	// LockedUntil is set while the account is locked out after repeated
 	// failed sign-ins, and nil otherwise. It is reported so an administrator
 	// looking at a user who "cannot log in" can see why without reading the

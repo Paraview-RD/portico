@@ -520,6 +520,13 @@ export const enUS = {
   "login.forgotPassword": "Forgot your password?",
   "profile.details": "Your details",
   "profile.detailsSaved": "Saved.",
+  "profile.closeAccount": "Close this account",
+  "profile.closeAccountHelp":
+    "Closing your account stops it signing in and ends everything currently signed in as you, immediately. Nothing is deleted — an administrator can reinstate it, and the audit trail keeps pointing at it.",
+  "profile.closeAccountConfirm":
+    "This takes effect at once. You will be signed out here and everywhere else, and you will not be able to sign in again without an administrator.",
+  "profile.closeAccountPassword": "Your password, to confirm",
+  "profile.closeAccountAction": "Close my account",
   "profile.sessionsTitle": "Signed-in devices",
   "profile.sessionsHelp":
     "Everything currently signed in as you. The address and browser are shown exactly as they arrived — if you do not recognize one, end it.",

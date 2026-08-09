@@ -1032,3 +1032,20 @@ func (s *Scoped) BindUserToLDAPSource(ctx context.Context, userID, sourceID stri
 		TenantID: s.tenantID, ID: userID, LdapSourceID: &sourceID, UpdatedAt: now,
 	})
 }
+
+// CloseUserAccount marks an account closed by its holder: disabled, stamped,
+// and every token it holds revoked, in one statement so no window exists
+// where it is closed but still signed in.
+func (s *Scoped) CloseUserAccount(ctx context.Context, userID string, now time.Time) error {
+	return s.q.CloseUserAccount(ctx, sqlcgen.CloseUserAccountParams{
+		TenantID: s.tenantID, ID: userID, Now: now,
+	})
+}
+
+// ReopenUserAccount clears the closure mark, which an administrator enabling
+// the account does as part of the same act.
+func (s *Scoped) ReopenUserAccount(ctx context.Context, userID string, now time.Time) error {
+	return s.q.ReopenUserAccount(ctx, sqlcgen.ReopenUserAccountParams{
+		TenantID: s.tenantID, ID: userID, UpdatedAt: now,
+	})
+}

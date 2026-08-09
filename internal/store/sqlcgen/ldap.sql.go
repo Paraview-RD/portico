@@ -270,7 +270,7 @@ func (q *Queries) ListLDAPSyncRuns(ctx context.Context, arg ListLDAPSyncRunsPara
 }
 
 const listUsersFromLDAPSource = `-- name: ListUsersFromLDAPSource :many
-SELECT id, tenant_id, username, display_name, password_hash, phone, email, role, status, organization_id, token_version, source, external_id, failed_login_attempts, last_failed_login_at, locked_until, password_changed_at, created_at, updated_at, ldap_source_id FROM users
+SELECT id, tenant_id, username, display_name, password_hash, phone, email, role, status, organization_id, token_version, source, external_id, failed_login_attempts, last_failed_login_at, locked_until, password_changed_at, created_at, updated_at, ldap_source_id, closed_at FROM users
 WHERE tenant_id = $1 AND ldap_source_id = $2
 `
 
@@ -311,6 +311,7 @@ func (q *Queries) ListUsersFromLDAPSource(ctx context.Context, arg ListUsersFrom
 			&i.CreatedAt,
 			&i.UpdatedAt,
 			&i.LdapSourceID,
+			&i.ClosedAt,
 		); err != nil {
 			return nil, err
 		}

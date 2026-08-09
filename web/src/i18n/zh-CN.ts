@@ -489,6 +489,13 @@ export const zhCN: Record<keyof typeof enUS, string> = {
   "login.forgotPassword": "忘记密码？",
   "profile.details": "个人信息",
   "profile.detailsSaved": "已保存。",
+  "profile.closeAccount": "注销账号",
+  "profile.closeAccountHelp":
+    "注销后该账号无法再登录，当前以你身份登录的全部会话会立刻结束。不会删除任何数据——管理员可以恢复，审计记录仍然指向这个账号。",
+  "profile.closeAccountConfirm":
+    "立即生效。你会在本机和其它所有设备上被登出，并且在管理员恢复之前无法再登录。",
+  "profile.closeAccountPassword": "输入密码以确认",
+  "profile.closeAccountAction": "确认注销",
   "profile.sessionsTitle": "已登录的设备",
   "profile.sessionsHelp":
     "当前以你的身份登录的全部会话。地址和浏览器按收到的原样显示——如果有不认识的，结束它。",

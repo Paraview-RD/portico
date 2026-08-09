@@ -52,6 +52,26 @@ func (q *Queries) ClearLoginFailures(ctx context.Context, arg ClearLoginFailures
 	return err
 }
 
+const closeUserAccount = `-- name: CloseUserAccount :exec
+UPDATE users
+SET status = 'DISABLED',
+    closed_at = $3::timestamptz,
+    token_version = token_version + 1,
+    updated_at = $3::timestamptz
+WHERE tenant_id = $1 AND id = $2
+`
+
+type CloseUserAccountParams struct {
+	TenantID string
+	ID       string
+	Now      time.Time
+}
+
+func (q *Queries) CloseUserAccount(ctx context.Context, arg CloseUserAccountParams) error {
+	_, err := q.db.ExecContext(ctx, closeUserAccount, arg.TenantID, arg.ID, arg.Now)
+	return err
+}
+
 const countOtherActiveAdmins = `-- name: CountOtherActiveAdmins :one
 SELECT COUNT(*) FROM users
 WHERE tenant_id = $1 AND role = $2 AND status = $3 AND id <> $4
@@ -191,7 +211,7 @@ func (q *Queries) CreateUser(ctx context.Context, arg CreateUserParams) error {
 }
 
 const getUserByEmail = `-- name: GetUserByEmail :one
-SELECT id, tenant_id, username, display_name, password_hash, phone, email, role, status, organization_id, token_version, source, external_id, failed_login_attempts, last_failed_login_at, locked_until, password_changed_at, created_at, updated_at, ldap_source_id FROM users WHERE tenant_id = $1 AND email <> '' AND email = $2 LIMIT 1
+SELECT id, tenant_id, username, display_name, password_hash, phone, email, role, status, organization_id, token_version, source, external_id, failed_login_attempts, last_failed_login_at, locked_until, password_changed_at, created_at, updated_at, ldap_source_id, closed_at FROM users WHERE tenant_id = $1 AND email <> '' AND email = $2 LIMIT 1
 `
 
 type GetUserByEmailParams struct {
@@ -226,12 +246,13 @@ func (q *Queries) GetUserByEmail(ctx context.Context, arg GetUserByEmailParams) 
 		&i.CreatedAt,
 		&i.UpdatedAt,
 		&i.LdapSourceID,
+		&i.ClosedAt,
 	)
 	return i, err
 }
 
 const getUserByID = `-- name: GetUserByID :one
-SELECT id, tenant_id, username, display_name, password_hash, phone, email, role, status, organization_id, token_version, source, external_id, failed_login_attempts, last_failed_login_at, locked_until, password_changed_at, created_at, updated_at, ldap_source_id FROM users WHERE tenant_id = $1 AND id = $2 LIMIT 1
+SELECT id, tenant_id, username, display_name, password_hash, phone, email, role, status, organization_id, token_version, source, external_id, failed_login_attempts, last_failed_login_at, locked_until, password_changed_at, created_at, updated_at, ldap_source_id, closed_at FROM users WHERE tenant_id = $1 AND id = $2 LIMIT 1
 `
 
 type GetUserByIDParams struct {
@@ -263,12 +284,13 @@ func (q *Queries) GetUserByID(ctx context.Context, arg GetUserByIDParams) (User,
 		&i.CreatedAt,
 		&i.UpdatedAt,
 		&i.LdapSourceID,
+		&i.ClosedAt,
 	)
 	return i, err
 }
 
 const getUserByIdentifier = `-- name: GetUserByIdentifier :one
-SELECT id, tenant_id, username, display_name, password_hash, phone, email, role, status, organization_id, token_version, source, external_id, failed_login_attempts, last_failed_login_at, locked_until, password_changed_at, created_at, updated_at, ldap_source_id FROM users
+SELECT id, tenant_id, username, display_name, password_hash, phone, email, role, status, organization_id, token_version, source, external_id, failed_login_attempts, last_failed_login_at, locked_until, password_changed_at, created_at, updated_at, ldap_source_id, closed_at FROM users
 WHERE tenant_id = $1
   AND (username = $2
        OR (email <> '' AND email = $2)
@@ -324,12 +346,13 @@ func (q *Queries) GetUserByIdentifier(ctx context.Context, arg GetUserByIdentifi
 		&i.CreatedAt,
 		&i.UpdatedAt,
 		&i.LdapSourceID,
+		&i.ClosedAt,
 	)
 	return i, err
 }
 
 const getUserByPhone = `-- name: GetUserByPhone :one
-SELECT id, tenant_id, username, display_name, password_hash, phone, email, role, status, organization_id, token_version, source, external_id, failed_login_attempts, last_failed_login_at, locked_until, password_changed_at, created_at, updated_at, ldap_source_id FROM users WHERE tenant_id = $1 AND phone <> '' AND phone = $2 LIMIT 1
+SELECT id, tenant_id, username, display_name, password_hash, phone, email, role, status, organization_id, token_version, source, external_id, failed_login_attempts, last_failed_login_at, locked_until, password_changed_at, created_at, updated_at, ldap_source_id, closed_at FROM users WHERE tenant_id = $1 AND phone <> '' AND phone = $2 LIMIT 1
 `
 
 type GetUserByPhoneParams struct {
@@ -362,12 +385,13 @@ func (q *Queries) GetUserByPhone(ctx context.Context, arg GetUserByPhoneParams) 
 		&i.CreatedAt,
 		&i.UpdatedAt,
 		&i.LdapSourceID,
+		&i.ClosedAt,
 	)
 	return i, err
 }
 
 const getUserByUsername = `-- name: GetUserByUsername :one
-SELECT id, tenant_id, username, display_name, password_hash, phone, email, role, status, organization_id, token_version, source, external_id, failed_login_attempts, last_failed_login_at, locked_until, password_changed_at, created_at, updated_at, ldap_source_id FROM users WHERE tenant_id = $1 AND username = $2 LIMIT 1
+SELECT id, tenant_id, username, display_name, password_hash, phone, email, role, status, organization_id, token_version, source, external_id, failed_login_attempts, last_failed_login_at, locked_until, password_changed_at, created_at, updated_at, ldap_source_id, closed_at FROM users WHERE tenant_id = $1 AND username = $2 LIMIT 1
 `
 
 type GetUserByUsernameParams struct {
@@ -399,12 +423,13 @@ func (q *Queries) GetUserByUsername(ctx context.Context, arg GetUserByUsernamePa
 		&i.CreatedAt,
 		&i.UpdatedAt,
 		&i.LdapSourceID,
+		&i.ClosedAt,
 	)
 	return i, err
 }
 
 const listUsersByIDs = `-- name: ListUsersByIDs :many
-SELECT id, tenant_id, username, display_name, password_hash, phone, email, role, status, organization_id, token_version, source, external_id, failed_login_attempts, last_failed_login_at, locked_until, password_changed_at, created_at, updated_at, ldap_source_id FROM users WHERE tenant_id = $1 AND id = ANY($2::text[])
+SELECT id, tenant_id, username, display_name, password_hash, phone, email, role, status, organization_id, token_version, source, external_id, failed_login_attempts, last_failed_login_at, locked_until, password_changed_at, created_at, updated_at, ldap_source_id, closed_at FROM users WHERE tenant_id = $1 AND id = ANY($2::text[])
 `
 
 type ListUsersByIDsParams struct {
@@ -442,6 +467,7 @@ func (q *Queries) ListUsersByIDs(ctx context.Context, arg ListUsersByIDsParams) 
 			&i.CreatedAt,
 			&i.UpdatedAt,
 			&i.LdapSourceID,
+			&i.ClosedAt,
 		); err != nil {
 			return nil, err
 		}
@@ -518,6 +544,26 @@ func (q *Queries) RecordFailedLogin(ctx context.Context, arg RecordFailedLoginPa
 	var i RecordFailedLoginRow
 	err := row.Scan(&i.FailedLoginAttempts, &i.LockedUntil)
 	return i, err
+}
+
+const reopenUserAccount = `-- name: ReopenUserAccount :exec
+UPDATE users
+SET closed_at = NULL, updated_at = $1
+WHERE tenant_id = $2 AND id = $3
+`
+
+type ReopenUserAccountParams struct {
+	UpdatedAt time.Time
+	TenantID  string
+	ID        string
+}
+
+// Reinstating is deliberate: an administrator enabling a closed account is
+// undoing somebody's decision, so the mark comes off with it rather than
+// leaving a row that reads as closed and signs in.
+func (q *Queries) ReopenUserAccount(ctx context.Context, arg ReopenUserAccountParams) error {
+	_, err := q.db.ExecContext(ctx, reopenUserAccount, arg.UpdatedAt, arg.TenantID, arg.ID)
+	return err
 }
 
 const updateUserPassword = `-- name: UpdateUserPassword :exec

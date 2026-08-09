@@ -11,6 +11,7 @@ export const errorsZhCN: Record<keyof typeof errorsEnUS, string> = {
   INVALID_CREDENTIALS: "账号或密码不正确。",
   MISSING_CREDENTIALS: "请输入账号和密码。",
   ACCOUNT_DISABLED: "该账号已被停用。",
+  ACCOUNT_CLOSED: "该账号已由本人注销。如需恢复，请联系管理员。",
   ACCOUNT_LOCKED: "登录失败次数过多。请稍后再试，或联系管理员解锁账号。",
   MISSING_TOKEN: "尚未登录。",
   INVALID_TOKEN: "登录状态已失效，请重新登录。",

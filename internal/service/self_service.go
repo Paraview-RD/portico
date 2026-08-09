@@ -10,6 +10,7 @@ import (
 	"github.com/paraview/portico/internal/model"
 	"github.com/paraview/portico/internal/store"
 	"github.com/paraview/portico/internal/store/sqlcgen"
+	"github.com/paraview/portico/internal/webhook"
 )
 
 // ProfileInput is what a user may change about themselves.
@@ -110,4 +111,86 @@ func describeContactChange(before sqlcgen.User, after model.User) string {
 		return ""
 	}
 	return strings.Join(changes, "; ")
+}
+
+// ErrAccountClosed is what a closed account gets at sign-in.
+//
+// Distinct from ACCOUNT_DISABLED, and worth the extra code: the two call for
+// different actions. Somebody an administrator suspended should talk to that
+// administrator; somebody who closed their own account and now wants back in
+// is asking for a different conversation, and being told "your account is
+// disabled" would send them down the wrong path.
+var ErrAccountClosed = httpx.Forbidden("ACCOUNT_CLOSED",
+	"This account was closed by its owner. An administrator can reinstate it.")
+
+// CloseOwnAccount is the one sanctioned way to disable yourself.
+//
+// Everywhere else that is refused — ErrCannotDisableSelf exists so an
+// administrator cannot lock themselves out by accident. This is not an
+// exception to that rule so much as the case it was never about: somebody
+// deliberately leaving, having been asked to confirm.
+//
+// It deactivates rather than deletes, matching every other decision here, so
+// the audit trail keeps pointing at an account that exists and an
+// administrator can undo a mistake. Whether a deployment needs the
+// irreversible kind is a question about personal-data erasure obligations
+// rather than about this code.
+func (s *UserService) CloseOwnAccount(ctx context.Context, actor auth.Principal, password, ip string) error {
+	q := s.store.ForTenant(actor.TenantID)
+
+	row, err := q.GetUserByID(ctx, actor.UserID)
+	if err != nil {
+		if store.IsNoRows(err) {
+			return ErrUserNotFound
+		}
+		return fmt.Errorf("get user: %w", err)
+	}
+
+	// The password, for the same reason changing one requires it: a stolen
+	// token must not be enough to destroy the account it was stolen from.
+	if !auth.CheckPassword(row.PasswordHash, password) {
+		s.audit.Log(ctx, actor.TenantID, AuditEntry{
+			Kind: model.LogOperation, Action: model.ActionAccountClose,
+			Result:  model.LogFailure,
+			ActorID: actor.UserID, ActorName: actor.Username,
+			Detail: "password did not match", IP: ip,
+		})
+		return httpx.UnprocessableEntity("CURRENT_PASSWORD_MISMATCH",
+			"The password is incorrect.")
+	}
+
+	// The tenant has to keep an administrator. Somebody closing the last one
+	// would leave nobody who can reinstate them, which is a locked-out
+	// tenant recoverable only from the command line.
+	if model.Role(row.Role).IsAdmin() {
+		if err := s.ensureNotLastAdmin(ctx, q, actor.UserID); err != nil {
+			return err
+		}
+	}
+
+	now := store.Now()
+	if err := q.CloseUserAccount(ctx, actor.UserID, now); err != nil {
+		return fmt.Errorf("close account: %w", err)
+	}
+	// Portico's own sessions die with the token version above; a relying
+	// party's refresh token is a separate credential in a separate table and
+	// would otherwise stay valid for its full month.
+	if err := q.RevokeAllRefreshTokensForUser(ctx, actor.UserID, now); err != nil {
+		return fmt.Errorf("revoke federated sessions: %w", err)
+	}
+
+	s.audit.Log(ctx, actor.TenantID, AuditEntry{
+		Kind: model.LogOperation, Action: model.ActionAccountClose,
+		ActorID: actor.UserID, ActorName: actor.Username,
+		TargetType: "USER", TargetID: actor.UserID, TargetName: actor.Username,
+		IP: ip,
+	})
+
+	// Downstream systems are told the same thing they are told about any
+	// deactivation: this account no longer signs in. Whether it left or was
+	// suspended is Portico's business, not theirs.
+	if user, err := s.Get(ctx, actor.TenantID, actor.UserID); err == nil {
+		s.publish(ctx, actor.TenantID, webhook.EventUserDisabled, user)
+	}
+	return nil
 }

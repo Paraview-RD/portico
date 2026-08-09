@@ -11,7 +11,7 @@ import (
 
 const getUserForAuthentication = `-- name: GetUserForAuthentication :one
 
-SELECT id, tenant_id, username, display_name, password_hash, phone, email, role, status, organization_id, token_version, source, external_id, failed_login_attempts, last_failed_login_at, locked_until, password_changed_at, created_at, updated_at, ldap_source_id FROM users WHERE id = $1 LIMIT 1
+SELECT id, tenant_id, username, display_name, password_hash, phone, email, role, status, organization_id, token_version, source, external_id, failed_login_attempts, last_failed_login_at, locked_until, password_changed_at, created_at, updated_at, ldap_source_id, closed_at FROM users WHERE id = $1 LIMIT 1
 `
 
 // The one query on a tenant-scoped table that is not itself tenant-scoped.
@@ -50,6 +50,7 @@ func (q *Queries) GetUserForAuthentication(ctx context.Context, id string) (User
 		&i.CreatedAt,
 		&i.UpdatedAt,
 		&i.LdapSourceID,
+		&i.ClosedAt,
 	)
 	return i, err
 }

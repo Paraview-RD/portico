@@ -125,6 +125,12 @@ const (
 	// the same weight as an application registration. The synchronizations
 	// themselves are recorded separately, per run, because their question is
 	// "when did this start" rather than "who allowed it".
+	// Somebody closing their own account. Its own verb rather than a
+	// user-disable, because the trail has to be able to answer "did they
+	// leave or did we suspend them" — the two call for different responses
+	// and a shared verb would lose the difference for good.
+	ActionAccountClose = "ACCOUNT_CLOSE"
+
 	ActionLDAPSourceCreate  = "LDAP_SOURCE_CREATE"
 	ActionLDAPSourceUpdate  = "LDAP_SOURCE_UPDATE"
 	ActionLDAPSourceEnable  = "LDAP_SOURCE_ENABLE"

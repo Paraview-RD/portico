@@ -331,6 +331,8 @@ type User struct {
 	UpdatedAt         time.Time
 	// The directory that owns this account, or null when Portico does.
 	LdapSourceID *string
+	// When the account holder closed this account. Null for every other reason it might be disabled.
+	ClosedAt *time.Time
 }
 
 type WebhookDelivery struct {

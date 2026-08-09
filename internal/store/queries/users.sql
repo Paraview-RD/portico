@@ -152,3 +152,19 @@ SET failed_login_attempts = 0,
     locked_until = NULL,
     updated_at = sqlc.arg(now)::timestamptz
 WHERE tenant_id = sqlc.arg(tenant_id) AND id = sqlc.arg(id);
+
+-- name: CloseUserAccount :exec
+UPDATE users
+SET status = 'DISABLED',
+    closed_at = sqlc.arg(now)::timestamptz,
+    token_version = token_version + 1,
+    updated_at = sqlc.arg(now)::timestamptz
+WHERE tenant_id = $1 AND id = $2;
+
+-- Reinstating is deliberate: an administrator enabling a closed account is
+-- undoing somebody's decision, so the mark comes off with it rather than
+-- leaving a row that reads as closed and signs in.
+-- name: ReopenUserAccount :exec
+UPDATE users
+SET closed_at = NULL, updated_at = $1
+WHERE tenant_id = $2 AND id = $3;

@@ -127,6 +127,16 @@ func (s *UserService) Login(ctx context.Context, tenant model.Tenant, identifier
 	}
 
 	if model.Status(row.Status) != model.StatusActive {
+		// Closed by its owner is reported as such rather than as disabled.
+		// The two look identical in the status column and call for entirely
+		// different next steps: one person should talk to their
+		// administrator about a suspension, the other is asking to come
+		// back. Telling them both "disabled" sends one of them down the
+		// wrong path.
+		if row.ClosedAt != nil {
+			s.logLoginFailure(ctx, tenant.ID, row.ID, row.Username, ip, "account closed by its owner")
+			return Session{}, ErrAccountClosed
+		}
 		s.logLoginFailure(ctx, tenant.ID, row.ID, row.Username, ip, "account disabled")
 		return Session{}, ErrAccountDisabled
 	}
