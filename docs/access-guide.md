@@ -175,7 +175,15 @@ Typical journey — connect an application:
    metadata address, or CAS server URL into the application's own
    configuration. These come from the running deployment, so they always
    match what is actually served.
-5. **Audit logs** → the registration is recorded with the redirect URIs or
+5. Fill in the **launch address** and the **icon** while you are there. Both
+   are optional and neither affects signing in — but an application without
+   a launch address never appears on anybody's Home screen, and the person
+   who notices is a user who was told the application is available and
+   cannot find it. None of the addresses already on the form is a launch
+   address: a redirect URI, an assertion consumer service, and a CAS prefix
+   are all places a protocol sends a browser mid-flow, and opening one
+   directly produces an error rather than the application.
+6. **Audit logs** → the registration is recorded with the redirect URIs or
    assertion consumer services it permits.
 
 Disabling an application stops it immediately — it can no longer sign anyone
@@ -203,9 +211,22 @@ after.
 
 ### User (`USER`)
 
-Can sign in, view their own profile, and change their own password. Nothing
-else — the navigation only shows **My profile**, and the server rejects
-administrative calls regardless of what the UI shows.
+Signing in lands on **Home**: the applications registered in their tenant
+that have a launch address, their account at a glance, their last few
+sign-ins, and a warning if their password is about to expire or they have no
+address to recover it to. From there, **My profile** — details, password,
+and the devices signed in as them, any of which they can end.
+
+Those two entries are the whole navigation. Typing an administrative address
+by hand shows Home instead, and the address bar is corrected to say so —
+but that is a convenience, not the boundary: the server answers
+`ADMIN_REQUIRED` to an administrative call whatever the UI is showing.
+
+The applications on Home are **the tenant's, not theirs**, and the screen
+says so. This version has two fixed roles and no notion of who may use what,
+so everybody's list is identical; without that sentence a reader would
+reasonably conclude that an application missing from a colleague's Home is
+one that colleague was not granted.
 
 Self-registered accounts always get this role; it cannot be requested at
 sign-up.

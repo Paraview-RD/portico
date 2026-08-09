@@ -53,6 +53,7 @@ Usage:
                           [--tenant <code>] [--name <name>] [--public]
                           [--type WEB|NATIVE|USER_AGENT]
                           [--post-logout-redirect-uri <uri>] [--scope <scope>]
+                          [--launch-url <url>] [--logo-uri <url|path>]
   portico client list        [--tenant <code>]
   portico client enable      --id <client-id> [--tenant <code>]
   portico client disable     --id <client-id> [--tenant <code>]
@@ -101,6 +102,13 @@ func runClientRegister(args []string) error {
 	fs.Var(&postLogout, "post-logout-redirect-uri", "where to return after sign-out (repeatable)")
 	fs.Var(&scopes, "scope", "an allowed scope (repeatable; defaults to openid profile email)")
 
+	// The two the portal needs. Without them an application registered from
+	// here signs people in and then never appears on the home screen, which
+	// looks like the portal being broken rather than like a field nobody
+	// filled in.
+	launchURL := fs.String("launch-url", "", "where a person opens it, for the home screen")
+	logoURI := fs.String("logo-uri", "", "its icon: an https URL, or a path on this server such as /icons/wiki.svg")
+
 	if err := fs.Parse(args); err != nil {
 		return err
 	}
@@ -122,6 +130,8 @@ func runClientRegister(args []string) error {
 		RedirectURIs:           redirects,
 		PostLogoutRedirectURIs: postLogout,
 		Scopes:                 scopes,
+		LaunchURL:              *launchURL,
+		LogoURI:                *logoURI,
 	})
 	if err != nil {
 		return err

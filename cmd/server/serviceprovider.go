@@ -52,6 +52,7 @@ func spUsage() {
 
 Usage:
   portico sp register           --metadata <file|url> [--tenant <code>] [--name <name>]
+                                [--launch-url <url>] [--logo-uri <url|path>]
   portico sp list               [--tenant <code>]
   portico sp enable             --entity-id <id> [--tenant <code>]
   portico sp disable            --entity-id <id> [--tenant <code>]
@@ -84,6 +85,12 @@ func runSPRegister(args []string) error {
 	tenant := fs.String("tenant", "", "tenant code (defaults to the default tenant)")
 	metadata := fs.String("metadata", "", "path or https:// URL of the service provider's metadata (required)")
 	name := fs.String("name", "", "display name (defaults to the entity id)")
+	// The two the portal needs. Without them an application registered from
+	// here signs people in and then never appears on the home screen, which
+	// looks like the portal being broken rather than like a field nobody
+	// filled in.
+	launchURL := fs.String("launch-url", "", "where a person opens it, for the home screen")
+	logoURI := fs.String("logo-uri", "", "its icon: an https URL, or a path on this server such as /icons/wiki.svg")
 	if err := fs.Parse(args); err != nil {
 		return err
 	}
@@ -105,6 +112,8 @@ func runSPRegister(args []string) error {
 	provider, err := p.RegisterServiceProvider(context.Background(), *tenant, service.RegisterSPInput{
 		MetadataXML: document,
 		Name:        *name,
+		LaunchURL:   *launchURL,
+		LogoURI:     *logoURI,
 	})
 	if err != nil {
 		return err

@@ -41,6 +41,7 @@ func casUsage() {
 
 Usage:
   portico cas register --url <prefix> [--tenant <code>] [--name <name>]
+                       [--launch-url <url>] [--logo-uri <url|path>]
   portico cas list     [--tenant <code>]
   portico cas enable   --url <prefix> [--tenant <code>]
   portico cas disable  --url <prefix> [--tenant <code>]
@@ -71,6 +72,12 @@ func runCASRegister(args []string) error {
 	tenant := fs.String("tenant", "", "tenant code (defaults to the default tenant)")
 	prefix := fs.String("url", "", "service URL prefix (required)")
 	name := fs.String("name", "", "display name (defaults to the prefix)")
+	// The two the portal needs. Without them an application registered from
+	// here signs people in and then never appears on the home screen, which
+	// looks like the portal being broken rather than like a field nobody
+	// filled in.
+	launchURL := fs.String("launch-url", "", "where a person opens it, for the home screen")
+	logoURI := fs.String("logo-uri", "", "its icon: an https URL, or a path on this server such as /icons/wiki.svg")
 	if err := fs.Parse(args); err != nil {
 		return err
 	}
@@ -87,6 +94,8 @@ func runCASRegister(args []string) error {
 	registered, err := p.RegisterCASService(context.Background(), *tenant, service.RegisterCASInput{
 		URLPrefix: *prefix,
 		Name:      *name,
+		LaunchURL: *launchURL,
+		LogoURI:   *logoURI,
 	})
 	if err != nil {
 		return err

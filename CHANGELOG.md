@@ -6,7 +6,20 @@ follow [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
-Working toward 0.1.0 — the first release. Nothing has been published yet.
+Nothing yet.
+
+## [0.1.0] - 2026-08-09
+
+The first version. Everything below exists, is tested, and is what a
+deployment gets — the four single sign-on protocols, multi-tenancy enforced
+in the query layer, directory provisioning, webhooks, and the self-service
+flow.
+
+What is deliberately absent is listed under **Known limitations** at the
+foot, and it is worth reading before deploying rather than after: there are
+two fixed roles and no permission model, no MFA, no TLS, and no rate
+limiting. The last two are not oversights — Portico expects a reverse proxy
+in front of it.
 
 ### Changed
 
@@ -369,6 +382,13 @@ Working toward 0.1.0 — the first release. Nothing has been published yet.
   none of the addresses already stored is one: a redirect URI, an assertion
   consumer service, and a CAS prefix are all places a protocol sends a
   browser mid-flow, and opening any of them directly produces an error.
+- The launch address and the icon are settable from the command line too
+  (`--launch-url`, `--logo-uri` on `client`/`sp`/`cas register`), so an
+  application provisioned without touching the console still appears on the
+  home screen. A guard test now checks that every environment variable the
+  server reads appears both in `portico --help` and in `.env.example`;
+  `PORTICO_METRICS_ADDR` was missing from the first for as long as it had
+  existed.
 - Registrations also gained an optional **icon**, called `logoUri` after the
   field an OAuth client's own metadata uses (RFC 7591). It may be an absolute
   http(s) address or a path on this server, and the second form is the one

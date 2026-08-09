@@ -94,6 +94,10 @@ Usage:
 Configuration is entirely environment variables:
 
   PORTICO_ADDR                     listen address (default ":8410")
+  PORTICO_METRICS_ADDR             Prometheus listener, e.g. 127.0.0.1:9410.
+                                   Unset means no metrics endpoint at all. It
+                                   is not authenticated, so bind it where only
+                                   your monitoring can reach it
   PORTICO_DB_DRIVER                storage driver (default "postgres")
   PORTICO_DB_DSN                   required. PostgreSQL connection string, e.g.
                                    postgres://portico:secret@localhost:5432/portico?sslmode=disable

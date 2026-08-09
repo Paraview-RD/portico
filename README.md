@@ -4,9 +4,11 @@ A self-hostable identity platform: standard single sign-on, multi-tenant
 isolation, and a complete self-service flow — a single Go binary with the
 web UI compiled in, backed by PostgreSQL.
 
-> **Status: pre-release, under active development.** Nothing has been
-> published yet, and the protocol support described below is being built.
-> See [CHANGELOG.md](CHANGELOG.md) for what actually exists today.
+> **Version 0.1** — the first one. What is described below is what exists,
+> not what is planned; [CHANGELOG.md](CHANGELOG.md) has the full list and,
+> at its foot, what is deliberately absent. There are no published binaries
+> yet — build it from source with either recipe under
+> [Running it](#running-it).
 
 ## What it does
 
@@ -53,6 +55,17 @@ three off by default, and documented as the compliance features they are
 rather than the security ones they are not. Recovery needs an SMTP relay; point `PORTICO_SMTP_HOST` at whatever
 you already run. SMS recovery is defined as a provider interface and ships
 without one.
+
+**A home screen, for everybody** — signing in lands on the applications you
+can open, your account at a glance, and your last few sign-ins, rather than
+on an administrative screen most people cannot use. The applications on it
+are the tenant's and not the reader's, and the screen says so plainly: this
+version has two fixed roles and no notion of who may use what, so the list is
+identical for everybody. An application appears there once it has a launch
+address — none of the addresses a protocol already stores is one, since a
+redirect URI and an assertion consumer service are places a browser is sent
+mid-flow — and carries whatever icon was registered for it, or a tile bearing
+the first letter of its name if none was.
 
 **Sessions that revoke** — every sign-in is listed on your own profile with
 the address and browser it came from, and any of them can be ended on its
@@ -162,6 +175,11 @@ portico sp register --metadata ./sp-metadata.xml --name Confluence
 portico cas register --url https://wiki.example.com/ --name Wiki
 ```
 
+All three also take `--launch-url` and `--logo-uri`, which is what puts an
+application on the home screen with a recognizable tile. Both are optional
+and neither affects signing in — an application without a launch address
+still works, it simply is not offered as something to open.
+
 Everything hangs off `PORTICO_PUBLIC_URL` for the default tenant and
 `PORTICO_PUBLIC_URL/t/<code>` for any other: the OIDC issuer at the root,
 SAML metadata at `/saml/metadata`, CAS at `/cas`.
@@ -197,16 +215,24 @@ touch `internal/store/queries/`.
 ```
 cmd/server/        entry point
 internal/
-  auth/            passwords, JWTs, authentication middleware
+  config/          environment variables, read and validated once
+  server/          routing, and the version the build reports
+  middleware/      authentication, request logging, security headers
   handler/         HTTP handlers
   service/         business rules
   store/           database access; sqlcgen/ is generated
-  testdb/          throwaway PostgreSQL for tests
   model/           domain types
+  auth/            passwords, JWTs, token verification
+  httpx/           the response envelope and the error type it carries
   casp/            the CAS protocol, implemented directly
   oidcp/           adapts Portico to the OpenID Provider interface
   samlp/           adapts Portico to the SAML identity provider role
+  scim/            the SCIM 2.0 endpoints a directory provisions through
+  webhook/         outbound delivery, signing, and retries
+  notify/          email and the SMS interface that ships without a provider
+  metrics/         Prometheus, on its own listener when one is configured
   provision/       tenant and client provisioning, for the CLI
+  testdb/          throwaway PostgreSQL for tests
   web/             embeds the built frontend
 migrations/        schema, embedded and applied at startup
 web/               React + Vite frontend
