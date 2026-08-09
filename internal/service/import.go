@@ -16,8 +16,16 @@ import (
 
 // Import column order. The template writes these headers, and the parser
 // reads by position so a translated header row still imports correctly.
+// Columns are **appended, never inserted**. The parser reads by position so
+// that a translated header row still imports — which also means putting a
+// new column in the middle silently remaps every spreadsheet anybody has
+// already prepared, turning a phone number into an email address without a
+// single error.
 var importColumns = []string{
 	"username", "displayName", "password", "phone", "email", "role", "organizationCode",
+	// Appended in V0.2, along with the attributes themselves.
+	"title", "department", "employeeNumber", "userType",
+	"givenName", "familyName", "preferredLanguage", "timezone",
 }
 
 // maxImportRows bounds one upload. Beyond this the request should be split;
@@ -162,11 +170,23 @@ type importRecord struct {
 	email            string
 	role             string
 	organizationCode string
+
+	title             string
+	department        string
+	employeeNumber    string
+	userType          string
+	givenName         string
+	familyName        string
+	preferredLanguage string
+	timezone          string
 }
 
 func (r importRecord) isBlank() bool {
-	return r.username == "" && r.displayName == "" && r.password == "" &&
-		r.phone == "" && r.email == "" && r.role == "" && r.organizationCode == ""
+	// A row is blank when every cell is. Written as a comparison against the
+	// zero value rather than as a chain of ands, so that appending a column
+	// to the struct cannot leave a row with only that column set looking
+	// blank — which would silently skip it.
+	return r == importRecord{}
 }
 
 func parseImportRow(row []string) importRecord {
@@ -184,6 +204,29 @@ func parseImportRow(row []string) importRecord {
 		email:            cell(4),
 		role:             cell(5),
 		organizationCode: cell(6),
+
+		title:             cell(7),
+		department:        cell(8),
+		employeeNumber:    cell(9),
+		userType:          cell(10),
+		givenName:         cell(11),
+		familyName:        cell(12),
+		preferredLanguage: cell(13),
+		timezone:          cell(14),
+	}
+}
+
+// profile assembles the descriptive attributes a row carried.
+func (r importRecord) profile() model.UserProfile {
+	return model.UserProfile{
+		Title:             r.title,
+		Department:        r.department,
+		EmployeeNumber:    r.employeeNumber,
+		UserType:          r.userType,
+		GivenName:         r.givenName,
+		FamilyName:        r.familyName,
+		PreferredLanguage: r.preferredLanguage,
+		Timezone:          r.timezone,
 	}
 }
 
@@ -206,7 +249,7 @@ func (s *UserService) importOneRow(ctx context.Context, tenantID string, rec imp
 		orgID = id
 	}
 
-	_, err := s.Create(ctx, tenantID, CreateUserInput{
+	user, err := s.Create(ctx, tenantID, CreateUserInput{
 		Username:       rec.username,
 		DisplayName:    rec.displayName,
 		Password:       rec.password,
@@ -216,8 +259,31 @@ func (s *UserService) importOneRow(ctx context.Context, tenantID string, rec imp
 		OrganizationID: orgID,
 		Source:         model.SourceImport,
 	})
-	return err
+	if err != nil {
+		return err
+	}
+
+	// The descriptive attributes, through the same statement everything else
+	// uses — so a duplicate employee number in a spreadsheet is refused here
+	// exactly as it would be in the console, and lands in the per-row error
+	// report rather than failing the whole upload.
+	profile := rec.profile()
+	if profile == (model.UserProfile{}) {
+		return nil
+	}
+	actor := auth.Principal{TenantID: tenantID, Username: importActor, Role: model.RoleSuperAdmin}
+	if _, err := s.SetProfile(ctx, actor, user.ID, profile); err != nil {
+		return err
+	}
+	return nil
 }
+
+// importActor is who an imported row's attributes are attributed to.
+//
+// The import itself is already audited as one act by the administrator who
+// uploaded the file; attributing a further entry per row to them would put a
+// thousand entries in the trail for one decision.
+const importActor = "spreadsheet import"
 
 // organizationIDsByCode maps a tenant's active organization codes to ids.
 func (s *UserService) organizationIDsByCode(ctx context.Context, tenantID string) (map[string]string, error) {
@@ -264,7 +330,10 @@ func ImportTemplate() (*excelize.File, error) {
 	// does not exist on a fresh instance would make the very first import
 	// fail for no good reason. Blank means "no organization", which is
 	// always valid.
-	example := []any{"jane.doe", "Jane Doe", "initial-password", "13800000000", "jane@example.com", "USER", ""}
+	example := []any{
+		"jane.doe", "Jane Doe", "initial-password", "13800000000", "jane@example.com", "USER", "",
+		"Staff Engineer", "Platform", "E-0001", "Employee", "Jane", "Doe", "en-GB", "Europe/London",
+	}
 	for i, value := range example {
 		cell, err := excelize.CoordinatesToCellName(i+1, 2)
 		if err != nil {
@@ -276,4 +345,109 @@ func ImportTemplate() (*excelize.File, error) {
 	}
 
 	return file, nil
+}
+
+// ExportUsers writes a tenant's accounts as a spreadsheet.
+//
+// The same column order the import template uses, so a file exported here
+// can be edited and fed back in — which is what "bulk operations" means in
+// practice for most of the people who ask for it.
+//
+// Passwords are not exported, and there is no column for them. The import
+// template has one because creating an account needs an initial password;
+// an export is a report, and a report that carries credentials is a
+// credential-distribution mechanism nobody meant to build.
+func (s *UserService) ExportUsers(ctx context.Context, actor auth.Principal, q UserQuery) (*excelize.File, int, error) {
+	// Everything matching the filter, in pages, rather than one unbounded
+	// query: a tenant with fifty thousand accounts should produce a large
+	// file slowly rather than hold the connection while assembling one
+	// enormous result set in memory.
+	const page = 500
+
+	orgs, err := s.organizationCodesByID(ctx, actor.TenantID)
+	if err != nil {
+		return nil, 0, err
+	}
+
+	file := excelize.NewFile()
+	sheet := file.GetSheetName(0)
+	for i, header := range importColumns {
+		cell, err := excelize.CoordinatesToCellName(i+1, 1)
+		if err != nil {
+			return nil, 0, err
+		}
+		if err := file.SetCellValue(sheet, cell, header); err != nil {
+			return nil, 0, err
+		}
+	}
+
+	row := 2
+	for offset := 0; ; offset += page {
+		users, _, err := s.List(ctx, actor.TenantID, q, Page{Limit: page, Offset: offset})
+		if err != nil {
+			return nil, 0, err
+		}
+		if len(users) == 0 {
+			break
+		}
+		for _, user := range users {
+			values := []any{
+				user.Username, user.DisplayName,
+				// The password column, deliberately empty. Present so the
+				// file's shape matches the import template; blank because
+				// there is nothing here to put in it and nothing that
+				// should be.
+				"",
+				user.Phone, user.Email, string(user.Role), orgs[user.OrganizationID],
+				user.Profile.Title, user.Profile.Department, user.Profile.EmployeeNumber,
+				user.Profile.UserType, user.Profile.GivenName, user.Profile.FamilyName,
+				user.Profile.PreferredLanguage, user.Profile.Timezone,
+			}
+			for i, value := range values {
+				cell, err := excelize.CoordinatesToCellName(i+1, row)
+				if err != nil {
+					return nil, 0, err
+				}
+				if err := file.SetCellValue(sheet, cell, value); err != nil {
+					return nil, 0, err
+				}
+			}
+			row++
+		}
+		if len(users) < page {
+			break
+		}
+	}
+
+	exported := row - 2
+
+	// Audited, and this is the entry somebody will want.
+	//
+	// An export is every attribute of every account in the tenant leaving
+	// through one request. Nothing else in this system hands over that much
+	// at once, so "who took a copy of the directory, and when" is a question
+	// that gets asked after a data-handling incident and cannot be answered
+	// afterwards if it was not recorded at the time.
+	s.audit.Log(ctx, actor.TenantID, AuditEntry{
+		Kind: model.LogOperation, Action: model.ActionUserExport,
+		ActorID: actor.UserID, ActorName: actor.Username,
+		Detail: fmt.Sprintf("exported %d accounts", exported),
+	})
+
+	return file, exported, nil
+}
+
+// organizationCodesByID is the reverse of organizationIDsByCode: an export
+// names an organization by the code downstream systems store, not by an id
+// nobody outside this database can resolve.
+func (s *UserService) organizationCodesByID(ctx context.Context, tenantID string) (map[string]string, error) {
+	orgs, err := s.store.ForTenant(tenantID).ListOrganizations(ctx)
+	if err != nil {
+		return nil, fmt.Errorf("list organizations: %w", err)
+	}
+	byID := make(map[string]string, len(orgs))
+	for _, org := range orgs {
+		byID[org.ID] = org.Code
+	}
+	return byID, nil
 }

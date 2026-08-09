@@ -2,6 +2,7 @@ package service
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"net/mail"
 	"strings"
@@ -948,4 +949,124 @@ func (s *UserService) SetProfile(ctx context.Context, actor auth.Principal, user
 	})
 
 	return s.Get(ctx, actor.TenantID, userID)
+}
+
+// BulkOutcome is what one account in a bulk request did.
+type BulkOutcome struct {
+	UserID string `json:"userId"`
+	// Code is empty on success, and the error code otherwise. Per account
+	// rather than for the request as a whole: an operator selecting forty
+	// people and finding one of them is the last administrator needs to know
+	// which one, not that "it failed".
+	Code    string `json:"code,omitempty"`
+	Message string `json:"message,omitempty"`
+}
+
+// BulkResult summarizes a bulk request.
+type BulkResult struct {
+	Total     int           `json:"total"`
+	Succeeded int           `json:"succeeded"`
+	Failed    int           `json:"failed"`
+	Outcomes  []BulkOutcome `json:"outcomes"`
+}
+
+// MaxBulkUsers bounds one bulk request.
+//
+// Each account is its own statement with its own audit entry and its own
+// webhook, so a request of ten thousand would hold a connection for minutes
+// and produce a result nobody can read. The console pages at a hundred; this
+// is five of those.
+const MaxBulkUsers = 500
+
+// ErrTooManyBulkUsers is returned for a request beyond that.
+var ErrTooManyBulkUsers = httpx.BadRequest("TOO_MANY_USERS",
+	fmt.Sprintf("At most %d accounts at a time.", MaxBulkUsers))
+
+// BulkSetStatus enables or disables several accounts.
+//
+// Each one goes through SetStatus rather than a single UPDATE, and that is
+// the point rather than an oversight: every rule that applies to disabling
+// one account — the last administrator cannot be disabled, nobody can
+// disable themselves, sessions and federated tokens end immediately, the
+// trail records it — applies to each of these. A bulk path that wrote
+// straight to the table would be a way around all of them, and the way
+// around would be invisible.
+//
+// Failures are collected rather than fatal. An operator who selected forty
+// people and hit one they may not disable wants the other thirty-nine done
+// and a note about the one, not a refusal with nothing changed.
+func (s *UserService) BulkSetStatus(ctx context.Context, actor auth.Principal, userIDs []string, status model.Status) (BulkResult, error) {
+	if len(userIDs) > MaxBulkUsers {
+		return BulkResult{}, ErrTooManyBulkUsers
+	}
+
+	result := BulkResult{Total: len(userIDs), Outcomes: make([]BulkOutcome, 0, len(userIDs))}
+	for _, id := range userIDs {
+		outcome := BulkOutcome{UserID: id}
+		if _, err := s.SetStatus(ctx, actor, id, status); err != nil {
+			outcome.Code, outcome.Message = describeBulkError(err)
+			result.Failed++
+		} else {
+			result.Succeeded++
+		}
+		result.Outcomes = append(result.Outcomes, outcome)
+	}
+	return result, nil
+}
+
+// BulkSetOrganization moves several accounts into one organization, or out
+// of any with an empty id.
+//
+// Through Update, for the same reason as above: it is the path that
+// validates the organization exists, belongs to this tenant, and is not
+// disabled.
+func (s *UserService) BulkSetOrganization(ctx context.Context, actor auth.Principal, userIDs []string, organizationID string) (BulkResult, error) {
+	if len(userIDs) > MaxBulkUsers {
+		return BulkResult{}, ErrTooManyBulkUsers
+	}
+
+	result := BulkResult{Total: len(userIDs), Outcomes: make([]BulkOutcome, 0, len(userIDs))}
+	for _, id := range userIDs {
+		outcome := BulkOutcome{UserID: id}
+
+		current, err := s.Get(ctx, actor.TenantID, id)
+		if err != nil {
+			outcome.Code, outcome.Message = describeBulkError(err)
+			result.Failed++
+			result.Outcomes = append(result.Outcomes, outcome)
+			continue
+		}
+
+		// Everything else is carried through unchanged. Update replaces the
+		// editable fields, so sending only the organization would blank a
+		// display name and demote whoever was an administrator.
+		_, err = s.Update(ctx, actor, id, UpdateUserInput{
+			DisplayName:    current.DisplayName,
+			Phone:          current.Phone,
+			Email:          current.Email,
+			Role:           current.Role,
+			OrganizationID: organizationID,
+		})
+		if err != nil {
+			outcome.Code, outcome.Message = describeBulkError(err)
+			result.Failed++
+		} else {
+			result.Succeeded++
+		}
+		result.Outcomes = append(result.Outcomes, outcome)
+	}
+	return result, nil
+}
+
+// describeBulkError turns a service error into something a per-row report
+// can carry, without letting an internal fault masquerade as a rule.
+func describeBulkError(err error) (code, message string) {
+	var apiErr *httpx.Error
+	if errors.As(err, &apiErr) {
+		return apiErr.Code, apiErr.Message
+	}
+	// An unexpected failure is reported as one rather than as a validation
+	// result, so a database problem does not read as "this account may not
+	// be disabled".
+	return "INTERNAL_ERROR", "This account could not be changed."
 }

@@ -128,6 +128,15 @@ func (s *Server) routes() http.Handler {
 				// changes role, status, and organization — a form editing a
 				// job title must not be able to send a role at all.
 				r.Put("/{id}/profile", h.SetUserProfile)
+				// The tenant's accounts as a spreadsheet, taking the same
+				// filters the listing does. Audited: this is every
+				// attribute of every account leaving in one request.
+				r.Get("/export", h.ExportUsers)
+				// Several at a time, each through the path a single one
+				// takes — so the rules that protect the last administrator
+				// are not bypassed by selecting more people.
+				r.Post("/bulk/status", h.BulkSetUserStatus)
+				r.Post("/bulk/organization", h.BulkSetUserOrganization)
 				r.Post("/{id}/enable", h.EnableUser)
 				r.Post("/{id}/disable", h.DisableUser)
 				r.Post("/{id}/password", h.ResetUserPassword)

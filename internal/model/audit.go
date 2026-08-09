@@ -103,6 +103,12 @@ const (
 	ActionOrgDisable = "ORG_DISABLE"
 	ActionOrgAssign  = "ORG_ASSIGN"
 
+	// Every attribute of every account in a tenant, leaving through one
+	// request. Nothing else here hands over that much at once, and "who took
+	// a copy of the directory, and when" is asked after an incident rather
+	// than before one.
+	ActionUserExport = "USER_EXPORT"
+
 	// Application registration, one set of verbs per protocol.
 	//
 	// These are the most privileged administrative acts in the system, and

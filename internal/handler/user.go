@@ -15,14 +15,9 @@ import (
 func (h *Handler) ListUsers(w http.ResponseWriter, r *http.Request) {
 	principal := auth.MustPrincipal(r.Context())
 	pagination := httpx.ParsePagination(r)
-	query := r.URL.Query()
 
-	users, total, err := h.users.List(r.Context(), principal.TenantID, service.UserQuery{
-		Keyword:        query.Get("keyword"),
-		Status:         model.Status(query.Get("status")),
-		Role:           model.Role(query.Get("role")),
-		OrganizationID: query.Get("organizationId"),
-	}, service.Page{Limit: pagination.Limit(), Offset: pagination.Offset()})
+	users, total, err := h.users.List(r.Context(), principal.TenantID, userQueryFrom(r),
+		service.Page{Limit: pagination.Limit(), Offset: pagination.Offset()})
 	if err != nil {
 		httpx.Fail(w, r, err)
 		return
@@ -32,6 +27,22 @@ func (h *Handler) ListUsers(w http.ResponseWriter, r *http.Request) {
 }
 
 // GetUser returns one user.
+// userQueryFrom reads the list filters off a request.
+//
+// Shared with the export, so "export what I am looking at" is the same
+// filters rather than a second, subtly different set that drifts from this
+// one.
+func userQueryFrom(r *http.Request) service.UserQuery {
+	query := r.URL.Query()
+	return service.UserQuery{
+		Keyword:        query.Get("keyword"),
+		Status:         model.Status(query.Get("status")),
+		Role:           model.Role(query.Get("role")),
+		OrganizationID: query.Get("organizationId"),
+	}
+}
+
+// GetUser returns one account, with the organizations it is attached to.
 func (h *Handler) GetUser(w http.ResponseWriter, r *http.Request) {
 	principal := auth.MustPrincipal(r.Context())
 

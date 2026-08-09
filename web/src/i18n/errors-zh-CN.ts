@@ -81,6 +81,7 @@ export const errorsZhCN: Record<keyof typeof errorsEnUS, string> = {
   INVALID_UPLOAD: "上传内容无法读取。",
   INVALID_SPREADSHEET: "该文件不是可读的 .xlsx 工作簿。",
   EMPTY_SPREADSHEET: "该工作簿没有数据行。",
+  TOO_MANY_USERS: "一次选中的账号太多了，请分批操作。",
   TOO_MANY_ROWS: "该工作簿行数超出单次导入上限。",
   IMPORT_FAILED: "导入未能完成。",
 

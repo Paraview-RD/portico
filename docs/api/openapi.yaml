@@ -495,6 +495,132 @@ paths:
 
         "401":
           $ref: "#/components/responses/Unauthorized"
+  /api/v1/users/export:
+    get:
+      tags: [Users]
+      operationId: exportUsers
+      summary: The tenant's accounts as a spreadsheet.
+      description: |
+        The same columns the import template has, so a file taken from here
+        can be edited and fed back in — which is what bulk operations means
+        in practice for most people who ask for one. It takes the same
+        filters the listing does, so "export what I am looking at" is one
+        call rather than a second concept.
+
+        **No passwords, and no column for one.** The import template has that
+        column because creating an account needs an initial password; an
+        export is a report, and a report carrying credentials is a
+        credential-distribution mechanism nobody meant to build.
+
+        Audited. This is every attribute of every account in the tenant
+        leaving through one request — nothing else here hands over that much
+        at once, and "who took a copy of the directory, and when" is asked
+        after an incident rather than before one.
+      parameters:
+        - name: keyword
+          in: query
+          schema: { type: string }
+        - name: status
+          in: query
+          schema: { $ref: "#/components/schemas/Status" }
+        - name: role
+          in: query
+          schema: { $ref: "#/components/schemas/Role" }
+        - name: organizationId
+          in: query
+          schema: { type: string }
+      responses:
+        "200":
+          description: An .xlsx workbook.
+          content:
+            application/vnd.openxmlformats-officedocument.spreadsheetml.sheet:
+              schema: { type: string, format: binary }
+        "403":
+          $ref: "#/components/responses/Forbidden"
+
+  /api/v1/users/bulk/status:
+    post:
+      tags: [Users]
+      operationId: bulkSetUserStatus
+      summary: Enable or disable several accounts.
+      description: |
+        Each account goes through exactly the path a single one takes, which
+        is the point rather than an inefficiency: every rule that applies to
+        disabling one applies here — the last active administrator cannot be
+        disabled, nobody can disable themselves, sessions and federated
+        refresh tokens end immediately, and each is recorded in the trail. A
+        bulk path writing straight to the table would be a way around all of
+        them, and an invisible one.
+
+        Failures are collected rather than fatal, and reported per account.
+        Somebody who selected forty people and hit one they may not disable
+        wants the other thirty-nine done and a note about the one.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [userIds, status]
+              properties:
+                userIds:
+                  type: array
+                  items: { type: string }
+                  maxItems: 500
+                status: { $ref: "#/components/schemas/Status" }
+      responses:
+        "200":
+          description: What each account did.
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/BulkResultEnvelope" }
+        "400":
+          description: More accounts than one request may carry.
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Envelope" }
+        "403":
+          $ref: "#/components/responses/Forbidden"
+
+  /api/v1/users/bulk/organization:
+    post:
+      tags: [Users]
+      operationId: bulkSetUserOrganization
+      summary: Move several accounts into one organization.
+      description: |
+        An empty `organizationId` moves them out of any, which is a real
+        request rather than an omission.
+
+        Everything else about each account is carried through unchanged — the
+        endpoint replaces an account's editable fields, so sending only the
+        organization would blank a display name and demote an administrator.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [userIds]
+              properties:
+                userIds:
+                  type: array
+                  items: { type: string }
+                  maxItems: 500
+                organizationId: { type: string }
+      responses:
+        "200":
+          description: What each account did.
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/BulkResultEnvelope" }
+        "400":
+          description: More accounts than one request may carry.
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Envelope" }
+        "403":
+          $ref: "#/components/responses/Forbidden"
+
   /api/v1/users/me:
     get:
       tags: [Self-service]
@@ -3316,6 +3442,34 @@ components:
         - type: object
           properties:
             data: { $ref: "#/components/schemas/Me" }
+
+    BulkResult:
+      type: object
+      description: |
+        What a bulk request did, per account. The outcomes are individual
+        because the failures are: an operator needs to know *which* account
+        was the last administrator, not that "it failed".
+      properties:
+        total: { type: integer }
+        succeeded: { type: integer }
+        failed: { type: integer }
+        outcomes:
+          type: array
+          items:
+            type: object
+            properties:
+              userId: { type: string }
+              code:
+                type: string
+                description: Empty on success; the error code otherwise.
+              message: { type: string }
+
+    BulkResultEnvelope:
+      allOf:
+        - $ref: "#/components/schemas/Envelope"
+        - type: object
+          properties:
+            data: { $ref: "#/components/schemas/BulkResult" }
 
     UserProfile:
       type: object

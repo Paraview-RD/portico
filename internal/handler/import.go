@@ -5,6 +5,7 @@ import (
 
 	"github.com/paraview/portico/internal/auth"
 	"github.com/paraview/portico/internal/httpx"
+	"github.com/paraview/portico/internal/model"
 	"github.com/paraview/portico/internal/service"
 )
 
@@ -66,4 +67,94 @@ func (h *Handler) ImportTemplate(w http.ResponseWriter, r *http.Request) {
 		// would corrupt the response.
 		return
 	}
+}
+
+// ExportUsers serves the tenant's accounts as a spreadsheet.
+//
+// The same columns the import template has, so a file taken from here can be
+// edited and fed back in — which is what bulk operations means in practice
+// for most of the people who ask for one.
+//
+// It takes the same filters the user list does, so "export what I am looking
+// at" is one call rather than a second concept.
+func (h *Handler) ExportUsers(w http.ResponseWriter, r *http.Request) {
+	principal := auth.MustPrincipal(r.Context())
+
+	file, _, err := h.users.ExportUsers(r.Context(), principal, userQueryFrom(r))
+	if err != nil {
+		httpx.Fail(w, r, err)
+		return
+	}
+	defer func() { _ = file.Close() }()
+
+	w.Header().Set("Content-Type",
+		"application/vnd.openxmlformats-officedocument.spreadsheetml.sheet")
+	w.Header().Set("Content-Disposition", `attachment; filename="portico-users.xlsx"`)
+
+	if err := file.Write(w); err != nil {
+		// The headers are already sent, so this can only be logged; Fail
+		// would corrupt the response.
+		return
+	}
+}
+
+type bulkStatusRequest struct {
+	UserIDs []string `json:"userIds"`
+	Status  string   `json:"status"`
+}
+
+// BulkSetUserStatus enables or disables several accounts.
+//
+// Each goes through the same path a single one does, so every rule that
+// applies to disabling one applies here — including that the last
+// administrator cannot be disabled and that nobody can disable themselves.
+// A bulk path that wrote straight to the table would be a way around all of
+// them, and an invisible one.
+func (h *Handler) BulkSetUserStatus(w http.ResponseWriter, r *http.Request) {
+	principal := auth.MustPrincipal(r.Context())
+
+	var req bulkStatusRequest
+	if err := httpx.DecodeJSON(w, r, &req); err != nil {
+		httpx.Fail(w, r, err)
+		return
+	}
+
+	status := model.Status(req.Status)
+	if !status.Valid() {
+		httpx.Fail(w, r, httpx.BadRequest("INVALID_STATUS",
+			"Status must be ACTIVE or DISABLED."))
+		return
+	}
+
+	result, err := h.users.BulkSetStatus(r.Context(), principal, req.UserIDs, status)
+	if err != nil {
+		httpx.Fail(w, r, err)
+		return
+	}
+	httpx.OK(w, result)
+}
+
+type bulkOrganizationRequest struct {
+	UserIDs []string `json:"userIds"`
+	// Empty moves them out of any organization, which is a real request and
+	// not an omission — so this is a plain string rather than a pointer.
+	OrganizationID string `json:"organizationId"`
+}
+
+// BulkSetUserOrganization moves several accounts into one organization.
+func (h *Handler) BulkSetUserOrganization(w http.ResponseWriter, r *http.Request) {
+	principal := auth.MustPrincipal(r.Context())
+
+	var req bulkOrganizationRequest
+	if err := httpx.DecodeJSON(w, r, &req); err != nil {
+		httpx.Fail(w, r, err)
+		return
+	}
+
+	result, err := h.users.BulkSetOrganization(r.Context(), principal, req.UserIDs, req.OrganizationID)
+	if err != nil {
+		httpx.Fail(w, r, err)
+		return
+	}
+	httpx.OK(w, result)
 }

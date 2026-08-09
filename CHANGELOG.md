@@ -36,6 +36,39 @@ Working toward 0.2.0. See
 - Every run is kept — created, updated, deactivated and skipped counts, and
   the reason when it failed — because the question afterwards is "when did
   this start", which one overwritten result cannot answer.
+- **An account has the attributes a directory actually has for it** — 24 of
+  them, named after SCIM 2.0's core User schema and its enterprise extension
+  rather than invented, so a directory's fields land where they belong. They
+  round-trip through SCIM in both directions, with the enterprise extension
+  under its own URN where a conforming client looks for it.
+- Describing somebody and deciding their access are separate endpoints.
+  `/users/{id}/profile` cannot reach a role, a status, or an organization,
+  which is what makes the self-service version of it safe — minus the
+  manager, because a reporting line is an organizational fact that downstream
+  systems read as an approval chain.
+- **An organization can name whoever is responsible for it**, and a person
+  can be attached to organizations beside the one they belong to. Both grant
+  nothing: this version has two fixed roles, and a field that quietly became
+  a third would be a permission model nobody designed. The primary membership
+  does not move — it stays the one thing SCIM writes and an export names.
+- Multiple root organizations always worked; there is now a test saying so,
+  so a later change cannot quietly introduce a single-root assumption.
+- **The directory can be exported as a spreadsheet**, in the same columns the
+  import template uses, so a file taken out can be edited and fed back in.
+  No passwords and no column for one: an export is a report, and a report
+  carrying credentials is a credential-distribution mechanism nobody meant to
+  build. Audited, because "who took a copy of the directory, and when" is
+  asked after an incident rather than before one.
+- **Accounts can be enabled, disabled, or moved between organizations in
+  bulk.** Each one goes through the path a single account takes, so the rule
+  that protects the last active administrator is not bypassed by selecting
+  more people — a bulk path writing straight to the table would be a way
+  around every such rule, and an invisible one. Failures are reported per
+  account, because an operator needs to know *which* one.
+- The import template gained eight columns, appended rather than inserted:
+  the parser reads by position so that a translated header still works, which
+  also means a column in the middle would silently remap every spreadsheet
+  anybody has already prepared.
 - **Self-registration can require a confirmed address.** Off by default, per
   tenant. Registration used to create a usable account with whatever email
   was typed — and that address is both a sign-in identifier and where a
