@@ -129,6 +129,33 @@ export function SettingsPage() {
             </span>
           </label>
 
+          {/* Nested under registration because it is meaningless without it,
+              and shown greyed rather than hidden when registration is off —
+              hiding it would make the setting vanish and reappear as
+              somebody toggles the box above, which reads as a bug. */}
+          <label className="ml-6 flex items-start gap-2.5">
+            <input
+              type="checkbox"
+              className="mt-1"
+              disabled={!settings.registrationEnabled}
+              checked={settings.registrationVerification}
+              onChange={(e) =>
+                setSettings({
+                  ...settings,
+                  registrationVerification: e.target.checked,
+                })
+              }
+            />
+            <span>
+              <span className="block font-[weight:var(--font-weight-medium)] text-[var(--color-fg)]">
+                {t("settings.registrationVerification")}
+              </span>
+              <span className="block text-[length:var(--font-size-sm)] text-[var(--color-fg-muted)]">
+                {t("settings.registrationVerificationHelp")}
+              </span>
+            </span>
+          </label>
+
           <fieldset className="flex flex-col gap-4 rounded-[var(--radius-sm)] border border-[var(--color-border)] p-4">
             <legend className="px-1 text-[length:var(--font-size-sm)] font-[weight:var(--font-weight-medium)] text-[var(--color-fg)]">
               {t("settings.lockoutLegend")}

@@ -14,6 +14,7 @@ import { ProfilePage } from "./pages/ProfilePage";
 import { ProvisioningPage } from "./pages/ProvisioningPage";
 import { RegisterPage } from "./pages/RegisterPage";
 import { ResetPasswordPage } from "./pages/ResetPasswordPage";
+import { VerifyPage } from "./pages/VerifyPage";
 import { SettingsPage } from "./pages/SettingsPage";
 import { UsersPage } from "./pages/UsersPage";
 import { WebhooksPage } from "./pages/WebhooksPage";
@@ -66,6 +67,9 @@ export function App() {
       "/register",
       "/forgot-password",
       "/reset-password",
+      // Reached from a link in an email, by somebody who by definition
+      // cannot sign in yet.
+      "/verify",
     ];
     if (!user && !publicRoutes.includes(route)) {
       navigate("/login");
@@ -105,6 +109,8 @@ export function App() {
         return <ForgotPasswordPage />;
       case "/reset-password":
         return <ResetPasswordPage />;
+      case "/verify":
+        return <VerifyPage />;
       default:
         return <LoginPage />;
     }

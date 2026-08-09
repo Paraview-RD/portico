@@ -90,6 +90,12 @@ const (
 	ActionUserImport  = "USER_IMPORT"
 	ActionUserUnlock  = "USER_UNLOCK"
 	ActionUserSelfReg = "USER_SELF_REGISTER"
+	// A self-registered account proving the address it gave. Two verbs
+	// rather than one: a burst of sends with no confirmations is a
+	// deliverability problem, and the two counts side by side are what make
+	// it visible.
+	ActionVerificationSent    = "REGISTRATION_VERIFY_SENT"
+	ActionVerificationConfirm = "REGISTRATION_VERIFY_CONFIRM"
 
 	ActionOrgCreate  = "ORG_CREATE"
 	ActionOrgUpdate  = "ORG_UPDATE"

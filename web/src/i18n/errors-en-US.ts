@@ -23,6 +23,14 @@ export const errorsEnUS = {
   INVALID_CREDENTIALS: "Wrong username or password.",
   MISSING_CREDENTIALS: "Enter your username and password.",
   ACCOUNT_DISABLED: "This account has been disabled.",
+  ACCOUNT_UNVERIFIED:
+    "This account has not confirmed its email address yet. Check for the message, or ask for another below.",
+  INVALID_VERIFICATION_TOKEN:
+    "That confirmation link is not valid or has already been used. Ask for another.",
+  VERIFICATION_UNAVAILABLE:
+    "New accounts here must confirm an address, and this deployment cannot send one. An administrator has to configure a mail relay or switch the requirement off.",
+  NO_DELIVERY_CHANNEL:
+    "Requiring confirmation needs a way to send it. Configure a mail relay first, or leave it off.",
   ACCOUNT_CLOSED:
     "This account was closed by its owner. An administrator can reinstate it.",
   ACCOUNT_LOCKED:

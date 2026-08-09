@@ -73,9 +73,13 @@ func (h *Handler) GetSettings(w http.ResponseWriter, r *http.Request) {
 // name. Absent has to mean "leave it alone", and only a pointer can say
 // that.
 type updateSettingsRequest struct {
-	TokenTTLMinutes     *int    `json:"tokenTtlMinutes"`
-	RegistrationEnabled *bool   `json:"registrationEnabled"`
-	SystemName          *string `json:"systemName"`
+	TokenTTLMinutes     *int  `json:"tokenTtlMinutes"`
+	RegistrationEnabled *bool `json:"registrationEnabled"`
+	// Requiring a self-registered account to prove its address. Refused
+	// where this deployment has no way to send one, rather than accepted and
+	// then stranding every registration on a message that never arrives.
+	RegistrationVerification *bool   `json:"registrationVerification"`
+	SystemName               *string `json:"systemName"`
 
 	// Zero threshold switches lockout off, which a deployment that trusts
 	// its reverse proxy's throttling may well want — but it has to be sent
@@ -102,6 +106,7 @@ type updateSettingsRequest struct {
 func (req updateSettingsRequest) applyTo(current service.Settings) service.Settings {
 	overlayInt(&current.TokenTTLMinutes, req.TokenTTLMinutes)
 	overlayBool(&current.RegistrationEnabled, req.RegistrationEnabled)
+	overlayBool(&current.RegistrationVerification, req.RegistrationVerification)
 	if req.SystemName != nil {
 		current.SystemName = *req.SystemName
 	}

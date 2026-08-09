@@ -36,6 +36,33 @@ Working toward 0.2.0. See
 - Every run is kept — created, updated, deactivated and skipped counts, and
   the reason when it failed — because the question afterwards is "when did
   this start", which one overwritten result cannot answer.
+- **Self-registration can require a confirmed address.** Off by default, per
+  tenant. Registration used to create a usable account with whatever email
+  was typed — and that address is both a sign-in identifier and where a
+  password-reset link is sent, so somebody could open an account under a
+  colleague's address and receive their reset links. Acceptable on a closed
+  intranet, which is the only place open registration was ever usable here;
+  not acceptable facing outward.
+- Turning it on where nothing can be sent is refused at the point of turning
+  it on, rather than accepted and then stranding every registration on a
+  message that never arrives. Registration checks again before creating the
+  account, because a mail relay can be taken out of the environment
+  afterwards.
+- **Turning it on does not lock out anybody who already registered.** An
+  account registered while the requirement is off is marked accepted then,
+  and the migration does the same for accounts that predate the column — the
+  same rule, applied once to history and continuously afterwards. Without it
+  a policy change would silently revoke access from every existing member.
+- Sign-in tells an unconfirmed account why it was refused, and the resend
+  endpoint tells nobody anything. The asymmetry is deliberate: the first is
+  a registration oracle and is accepted because the alternative is a dead
+  end for somebody who never opened the message — and it is confined to a
+  caller who already has the password. The second is public, so it answers
+  identically for an unknown address, an already-confirmed account, and a
+  successful send.
+- Only self-registered accounts are gated. An administrator-created,
+  imported, or directory-synchronized account is vouched for by whoever
+  created it.
 - **Somebody can close their own account.** The one sanctioned way to
   disable yourself — everywhere else that is refused, so an administrator
   cannot lock themselves out by accident, and this is the case that rule was

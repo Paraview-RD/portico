@@ -11,6 +11,13 @@ export const errorsZhCN: Record<keyof typeof errorsEnUS, string> = {
   INVALID_CREDENTIALS: "账号或密码不正确。",
   MISSING_CREDENTIALS: "请输入账号和密码。",
   ACCOUNT_DISABLED: "该账号已被停用。",
+  ACCOUNT_UNVERIFIED:
+    "该账号还没有确认邮箱地址。请查收邮件，或在下方重新发送。",
+  INVALID_VERIFICATION_TOKEN: "该确认链接无效或已被使用，请重新获取。",
+  VERIFICATION_UNAVAILABLE:
+    "本部署要求新账号确认地址，但没有可用的发送渠道。需要管理员配置邮件中继，或关闭该要求。",
+  NO_DELIVERY_CHANNEL:
+    "要求确认地址需要有发送渠道。请先配置邮件中继，或保持关闭。",
   ACCOUNT_CLOSED: "该账号已由本人注销。如需恢复，请联系管理员。",
   ACCOUNT_LOCKED: "登录失败次数过多。请稍后再试，或联系管理员解锁账号。",
   MISSING_TOKEN: "尚未登录。",

@@ -1049,3 +1049,36 @@ func (s *Scoped) ReopenUserAccount(ctx context.Context, userID string, now time.
 		TenantID: s.tenantID, ID: userID, UpdatedAt: now,
 	})
 }
+
+/* ---------------------------------------------- Registration verification */
+
+// CreateRegistrationVerification records an outstanding request to prove an
+// address.
+func (s *Scoped) CreateRegistrationVerification(ctx context.Context, arg sqlcgen.CreateRegistrationVerificationParams) error {
+	arg.TenantID = s.tenantID
+	return s.q.CreateRegistrationVerification(ctx, arg)
+}
+
+// SupersedeRegistrationVerifications marks every outstanding request for an
+// account used, so asking again invalidates the previous link.
+func (s *Scoped) SupersedeRegistrationVerifications(ctx context.Context, userID string, now time.Time) error {
+	return s.q.SupersedeRegistrationVerifications(ctx, sqlcgen.SupersedeRegistrationVerificationsParams{
+		TenantID: s.tenantID, UserID: userID, UsedAt: &now,
+	})
+}
+
+// ConsumeRegistrationVerification spends a token and returns it, in one
+// statement. A read followed by a write would let the same link be redeemed
+// twice.
+func (s *Scoped) ConsumeRegistrationVerification(ctx context.Context, tokenHash string, now time.Time) (sqlcgen.RegistrationVerification, error) {
+	return s.q.ConsumeRegistrationVerification(ctx, sqlcgen.ConsumeRegistrationVerificationParams{
+		TenantID: s.tenantID, TokenHash: tokenHash, Now: now,
+	})
+}
+
+// MarkUserVerified records that an account proved its address.
+func (s *Scoped) MarkUserVerified(ctx context.Context, userID string, at time.Time) error {
+	return s.q.MarkUserVerified(ctx, sqlcgen.MarkUserVerifiedParams{
+		TenantID: s.tenantID, ID: userID, VerifiedAt: &at,
+	})
+}

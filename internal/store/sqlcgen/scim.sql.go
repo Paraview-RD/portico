@@ -97,7 +97,7 @@ func (q *Queries) GetSCIMCredentialByTokenHash(ctx context.Context, tokenHash st
 }
 
 const getUserByExternalID = `-- name: GetUserByExternalID :one
-SELECT id, tenant_id, username, display_name, password_hash, phone, email, role, status, organization_id, token_version, source, external_id, failed_login_attempts, last_failed_login_at, locked_until, password_changed_at, created_at, updated_at, ldap_source_id, closed_at FROM users
+SELECT id, tenant_id, username, display_name, password_hash, phone, email, role, status, organization_id, token_version, source, external_id, failed_login_attempts, last_failed_login_at, locked_until, password_changed_at, created_at, updated_at, ldap_source_id, closed_at, verified_at FROM users
 WHERE tenant_id = $1 AND external_id = $2
 LIMIT 1
 `
@@ -132,6 +132,7 @@ func (q *Queries) GetUserByExternalID(ctx context.Context, arg GetUserByExternal
 		&i.UpdatedAt,
 		&i.LdapSourceID,
 		&i.ClosedAt,
+		&i.VerifiedAt,
 	)
 	return i, err
 }

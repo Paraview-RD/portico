@@ -86,6 +86,11 @@ export interface AuditLog {
 export interface Settings {
   tokenTtlMinutes: number;
   registrationEnabled: boolean;
+  /**
+   * Requires a self-registered account to confirm its address before it can
+   * sign in. Turning it on is refused where the deployment cannot send one.
+   */
+  registrationVerification: boolean;
   systemName: string;
 
   /**

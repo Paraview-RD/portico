@@ -113,6 +113,15 @@ func describeContactChange(before sqlcgen.User, after model.User) string {
 	return strings.Join(changes, "; ")
 }
 
+// ErrAccountUnverified is what a self-registered account gets before it has
+// proved the address it gave.
+//
+// Its own code rather than ACCOUNT_DISABLED, because the person can act on
+// it: the sign-in screen offers to send the message again. Reporting it as
+// disabled would send them to an administrator instead.
+var ErrAccountUnverified = httpx.Forbidden("ACCOUNT_UNVERIFIED",
+	"This account has not confirmed its email address yet. Check for the message, or ask for another.")
+
 // ErrAccountClosed is what a closed account gets at sign-in.
 //
 // Distinct from ACCOUNT_DISABLED, and worth the extra code: the two call for

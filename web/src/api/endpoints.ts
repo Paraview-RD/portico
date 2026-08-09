@@ -74,9 +74,35 @@ export const authApi = {
     phone?: string;
     email?: string;
   }) =>
-    request<User>("/auth/register", {
+    request<User & { verificationRequired?: boolean }>("/auth/register", {
       method: "POST",
       body: input,
+      anonymous: true,
+    }),
+
+  /**
+   * Redeems a confirmation link. Public, because the account cannot sign in
+   * until it succeeds — which is the point of it.
+   */
+  confirmRegistration: (token: string, tenant: string) =>
+    request<{ verified: boolean }>("/auth/register/verify", {
+      method: "POST",
+      body: { token, tenant },
+      anonymous: true,
+    }),
+
+  /**
+   * Asks for another confirmation link.
+   *
+   * Always succeeds, whether or not the address belongs to anybody — the
+   * endpoint is public, so telling the difference would make it a way to
+   * find out who has an account here. Callers must not report anything
+   * other than "if that address has an account, a message is on its way".
+   */
+  resendVerification: (destination: string, tenant: string) =>
+    request<{ sent: boolean }>("/auth/register/verify/resend", {
+      method: "POST",
+      body: { destination, tenant },
       anonymous: true,
     }),
 

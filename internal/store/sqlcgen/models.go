@@ -219,6 +219,18 @@ type PasswordReset struct {
 	CreatedAt time.Time
 }
 
+// Outstanding address-verification requests from self-registration. Rows survive use as part of the trail; expiry and used_at are what make a token unusable, not deletion.
+type RegistrationVerification struct {
+	ID        string
+	TenantID  string
+	UserID    string
+	TokenHash string
+	Channel   string
+	ExpiresAt time.Time
+	UsedAt    *time.Time
+	CreatedAt time.Time
+}
+
 type SamlAuthRequest struct {
 	ID         string
 	TenantID   string
@@ -333,6 +345,8 @@ type User struct {
 	LdapSourceID *string
 	// When the account holder closed this account. Null for every other reason it might be disabled.
 	ClosedAt *time.Time
+	// When a self-registered account proved its contact address. Only consulted for source = REGISTRATION; null on every other kind of account and never checked there.
+	VerifiedAt *time.Time
 }
 
 type WebhookDelivery struct {

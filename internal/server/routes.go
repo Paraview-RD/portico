@@ -59,6 +59,12 @@ func (s *Server) routes() http.Handler {
 		// password and refuses if that password has not expired.
 		r.Post("/auth/password/expired", h.ChangeExpiredPassword)
 
+		// Proving the address a self-registration gave. Public by
+		// necessity: the account cannot sign in until it succeeds, which is
+		// the entire point.
+		r.Post("/auth/register/verify", h.ConfirmRegistration)
+		r.Post("/auth/register/verify/resend", h.ResendVerification)
+
 		// --- Any signed-in user ---------------------------------------
 		r.Group(func(r chi.Router) {
 			r.Use(mw.RequireAuth)

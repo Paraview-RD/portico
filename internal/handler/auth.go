@@ -102,6 +102,18 @@ type registerRequest struct {
 	Email       string `json:"email"`
 }
 
+// registerResponse is the new account, plus whether it can be used yet.
+//
+// Embedded rather than nested, so this stays a superset of what registration
+// returned before and no existing client has to change to keep working.
+type registerResponse struct {
+	model.User
+	// VerificationRequired tells the screen to say "check your email"
+	// instead of "you can sign in now". Without it the screen would have to
+	// guess from the tenant's settings, which it cannot read.
+	VerificationRequired bool `json:"verificationRequired,omitempty"`
+}
+
 // Register creates an account from a public sign-up.
 func (h *Handler) Register(w http.ResponseWriter, r *http.Request) {
 	var req registerRequest
@@ -116,12 +128,101 @@ func (h *Handler) Register(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	required, err := h.verification.Required(r.Context(), tenant.ID)
+	if err != nil {
+		httpx.Fail(w, r, err)
+		return
+	}
+	// Checked before the account exists, not after. The setting was
+	// validated when it was turned on, but SMTP can be taken out of the
+	// environment afterwards — and creating an account that can never be
+	// verified is worse than refusing the registration, because the username
+	// and the address are then taken by something nobody can use.
+	if required && !h.settings.CanDeliver() {
+		httpx.Fail(w, r, service.ErrVerificationUnavailable)
+		return
+	}
+
 	user, err := h.users.Register(r.Context(), tenant.ID, toRegisterInput(req), httpx.ClientIP(r))
 	if err != nil {
 		httpx.Fail(w, r, err)
 		return
 	}
-	httpx.OK(w, user)
+
+	if required {
+		if err := h.verification.Send(r.Context(), tenant, user.ID); err != nil {
+			// The account exists and cannot be used. Say so rather than
+			// reporting success: the person would otherwise wait for a
+			// message that was never sent. Resend is their way forward.
+			httpx.Fail(w, r, err)
+			return
+		}
+	}
+
+	httpx.OK(w, registerResponse{User: user, VerificationRequired: required})
+}
+
+type verifyRequest struct {
+	Tenant string `json:"tenant"`
+	Token  string `json:"token"`
+}
+
+// ConfirmRegistration redeems a verification link.
+//
+// Public by necessity: the account cannot sign in until this succeeds, which
+// is the whole point of it.
+func (h *Handler) ConfirmRegistration(w http.ResponseWriter, r *http.Request) {
+	var req verifyRequest
+	if err := httpx.DecodeJSON(w, r, &req); err != nil {
+		httpx.Fail(w, r, err)
+		return
+	}
+
+	tenant, err := h.resolvePublicTenant(r, req.Tenant)
+	if err != nil {
+		httpx.Fail(w, r, err)
+		return
+	}
+
+	if err := h.verification.Confirm(r.Context(), tenant.ID, req.Token, httpx.ClientIP(r)); err != nil {
+		httpx.Fail(w, r, err)
+		return
+	}
+	httpx.OK(w, map[string]any{"verified": true})
+}
+
+type resendVerificationRequest struct {
+	Tenant string `json:"tenant"`
+	// Destination is the email address or phone number given at
+	// registration, not a username. The lookup is against the contact
+	// columns for the same reason password recovery's is: resolving across
+	// all three identifiers would let one account's email, equal to
+	// another's username, send that other account's link to whoever typed
+	// it.
+	Destination string `json:"destination"`
+}
+
+// ResendVerification sends another link.
+//
+// Answers the same thing whether or not an account was found, whether or not
+// it still needs verifying, and whether or not the message went out. This
+// endpoint is public and unauthenticated, so anything else would make it an
+// oracle for "does this address have an account here".
+func (h *Handler) ResendVerification(w http.ResponseWriter, r *http.Request) {
+	var req resendVerificationRequest
+	if err := httpx.DecodeJSON(w, r, &req); err != nil {
+		httpx.Fail(w, r, err)
+		return
+	}
+
+	tenant, err := h.resolvePublicTenant(r, req.Tenant)
+	if err != nil {
+		httpx.Fail(w, r, err)
+		return
+	}
+
+	h.verification.Resend(r.Context(), tenant, req.Destination, httpx.ClientIP(r))
+	httpx.OK(w, map[string]any{"sent": true})
 }
 
 // RegistrationStatus tells an anonymous caller whether sign-up is open, so

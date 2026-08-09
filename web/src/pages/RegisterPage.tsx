@@ -31,6 +31,10 @@ export function RegisterPage() {
   });
   const [error, setError] = useState("");
   const [done, setDone] = useState(false);
+  // Whether this tenant makes the address prove itself before the account
+  // can be used. Answered by the server, because the screen is anonymous
+  // and cannot read the tenant's settings.
+  const [mustConfirm, setMustConfirm] = useState(false);
   const [submitting, setSubmitting] = useState(false);
 
   function set(field: keyof typeof form, value: string) {
@@ -52,13 +56,19 @@ export function RegisterPage() {
     try {
       // The client attaches this to anonymous requests as a header.
       tenantStore.set(tenant);
-      await authApi.register({
+      const created = await authApi.register({
         username: form.username,
         displayName: form.displayName,
         password: form.password,
         phone: form.phone,
         email: form.email,
       });
+      // The server says whether this tenant requires the address to be
+      // confirmed. Reading it from the response rather than from the
+      // tenant's settings, which an unauthenticated screen cannot see —
+      // and guessing would mean telling somebody to check an inbox that
+      // has nothing in it.
+      setMustConfirm(Boolean(created.verificationRequired));
       setDone(true);
     } catch (err) {
       setError(describeError(err));
@@ -81,7 +91,11 @@ export function RegisterPage() {
     >
       {done ? (
         <div className="flex flex-col gap-4">
-          <Alert tone="success">{t("register.success")}</Alert>
+          <Alert tone="success">
+            {mustConfirm
+              ? t("verify.checkYourEmail", form.email)
+              : t("register.success")}
+          </Alert>
           <Button onClick={() => navigate("/login")}>
             {t("register.signIn")}
           </Button>

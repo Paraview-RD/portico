@@ -248,6 +248,93 @@ paths:
             application/json:
               schema: { $ref: "#/components/schemas/RecoveryChannelsEnvelope" }
 
+  /api/v1/auth/register/verify:
+    post:
+      tags: [Authentication]
+      operationId: confirmRegistration
+      summary: Confirm the address a registration gave.
+      description: |
+        Redeems the link from the message. Public by necessity: the account
+        cannot sign in until this succeeds, which is the point of it.
+
+        Unknown, spent, and expired tokens all answer
+        `INVALID_VERIFICATION_TOKEN`. Distinguishing them would tell somebody
+        holding a stolen but dead link that it was once real, and a
+        legitimate person does the same thing in all three cases — asks for
+        another.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [token]
+              properties:
+                tenant: { type: string }
+                token: { type: string }
+      responses:
+        "200":
+          description: The address is confirmed and the account can sign in.
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: "#/components/schemas/Envelope"
+                  - type: object
+                    properties:
+                      data:
+                        type: object
+                        properties:
+                          verified: { type: boolean }
+        "400":
+          description: The link is not valid or has already been used.
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Envelope" }
+
+  /api/v1/auth/register/verify/resend:
+    post:
+      tags: [Authentication]
+      operationId: resendVerification
+      summary: Send another confirmation link.
+      description: |
+        Answers 200 whether or not an account was found, whether or not it
+        still needs confirming, and whether or not the message went out.
+        This endpoint is public and unauthenticated, so anything else would
+        make it an oracle for "does this address have an account here".
+
+        Note the deliberate asymmetry with sign-in, which *does* disclose:
+        an unconfirmed account is told so, because the alternative is a dead
+        end for somebody who never opened the message. That disclosure is
+        confined to a caller who already has the password.
+
+        `destination` is the email address or phone number given at
+        registration, not a username.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [destination]
+              properties:
+                tenant: { type: string }
+                destination: { type: string }
+      responses:
+        "200":
+          description: Accepted, whether or not anything was sent.
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: "#/components/schemas/Envelope"
+                  - type: object
+                    properties:
+                      data:
+                        type: object
+                        properties:
+                          sent: { type: boolean }
+
   /api/v1/auth/password-recovery:
     post:
       tags: [Authentication]
@@ -2601,6 +2688,12 @@ components:
       properties:
         systemName: { type: string }
         registrationEnabled: { type: boolean }
+        registrationVerification:
+          type: boolean
+          description: |
+            Requires a self-registered account to confirm its email address
+            or phone number before it can sign in. Turning it on is refused
+            where the deployment has no way to send one.
         tokenTtlMinutes: { type: integer }
         lockoutThreshold:
           type: integer
@@ -2672,6 +2765,12 @@ components:
       type: object
       properties:
         registrationEnabled: { type: boolean }
+        registrationVerification:
+          type: boolean
+          description: |
+            Requires a self-registered account to confirm its email address
+            or phone number before it can sign in. Turning it on is refused
+            where the deployment has no way to send one.
         systemName: { type: string }
         tenant: { type: string }
         tenantName: { type: string }

@@ -22,6 +22,7 @@ export type Route =
   | "/register"
   | "/forgot-password"
   | "/reset-password"
+  | "/verify"
   | "/users"
   | "/organizations"
   | "/groups"
@@ -38,6 +39,7 @@ const routes: Route[] = [
   "/register",
   "/forgot-password",
   "/reset-password",
+  "/verify",
   "/users",
   "/organizations",
   "/groups",

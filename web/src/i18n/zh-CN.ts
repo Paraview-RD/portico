@@ -316,6 +316,9 @@ export const zhCN: Record<keyof typeof enUS, string> = {
   "settings.passwordMaxAge": "最长有效期（天）",
   "settings.passwordMaxAgeHelp":
     "填 0 表示永不过期。密码过期后必须先更换才能登录。",
+  "settings.registrationVerification": "要求确认邮箱地址",
+  "settings.registrationVerificationHelp":
+    "自助注册的账号必须先打开发到所填地址的链接，才能登录。不开启的话，任何人都可以用同事的邮箱开户——而找回密码的链接正是发到那个地址。需要邮件中继，没有则保存会被拒绝。",
   "settings.lockoutLegend": "登录失败锁定",
   "settings.lockoutHelp":
     "连续输错密码后锁定账号。这不是限流——它防的是某一个账号的密码被猜中，对大量尝试给服务器带来的负载无能为力，反向代理的限流仍要保留。",
@@ -509,6 +512,19 @@ export const zhCN: Record<keyof typeof enUS, string> = {
   "profile.email": "邮箱",
   "profile.phone": "手机号",
   "profile.contactHint": "同时可作为登录账号，找回密码的链接也发送到这里。",
+  "verify.title": "确认账号",
+  "verify.subtitle": "完成你刚才的注册。",
+  "verify.working": "确认中…",
+  "verify.done": "地址已确认，现在可以登录了。",
+  "verify.noToken":
+    "这个地址缺少确认码。请直接打开邮件里的链接，不要手动输入网址。",
+  "verify.resendAddress": "重新发送到",
+  "verify.resendAddressHelp":
+    "注册时填的地址。这里要填地址而不是账号名——邮件是发到那个地址的。",
+  "verify.resend": "重新发送确认邮件",
+  "verify.resent": "如果该地址下确有待确认的账号，邮件已经在路上了。",
+  "verify.checkYourEmail":
+    "就差一步。打开我们发到 {0} 的链接确认地址，然后就可以登录了。",
   "recovery.title": "重置密码",
   "recovery.subtitle": "我们会给你发送一个重新设置密码的链接。",
   "recovery.channel": "发送方式",

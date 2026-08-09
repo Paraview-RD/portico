@@ -337,6 +337,9 @@ export const enUS = {
   "settings.passwordMaxAge": "Maximum age (days)",
   "settings.passwordMaxAgeHelp":
     "0 never expires. An expired password cannot sign in until it is replaced.",
+  "settings.registrationVerification": "Require a confirmed email address",
+  "settings.registrationVerificationHelp":
+    "A self-registered account cannot sign in until it opens a link sent to the address it gave. Without this, somebody can open an account under a colleague's address — and that address is where a password-reset link would be sent. Needs a mail relay; saving is refused without one.",
   "settings.lockoutLegend": "Failed sign-in lockout",
   "settings.lockoutHelp":
     "Locks an account after repeated wrong passwords. This is not a rate limit — it stops one account's password being guessed, and does nothing about the load a flood of attempts puts on the server. Keep the reverse proxy throttle as well.",
@@ -541,6 +544,20 @@ export const enUS = {
   "profile.phone": "Phone",
   "profile.contactHint":
     "Also works as a sign-in identifier, and is where a reset link would go.",
+  "verify.title": "Confirm your account",
+  "verify.subtitle": "Finishing the sign-up you started.",
+  "verify.working": "Confirming…",
+  "verify.done": "Your address is confirmed. You can sign in now.",
+  "verify.noToken":
+    "This address is missing its confirmation code. Open the link from the message rather than typing the address by hand.",
+  "verify.resendAddress": "Send another confirmation to",
+  "verify.resendAddressHelp":
+    "The address you registered with. It has to be the address rather than the username, because that is where the message goes.",
+  "verify.resend": "Send the confirmation message again",
+  "verify.resent":
+    "If that address has an account waiting to be confirmed, a message is on its way.",
+  "verify.checkYourEmail":
+    "Almost done. Open the link we sent to {0} to confirm the address, then sign in.",
   "recovery.title": "Reset your password",
   "recovery.subtitle": "We will send you a link to choose a new one.",
   "recovery.channel": "Send it by",

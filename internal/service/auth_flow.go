@@ -141,6 +141,26 @@ func (s *UserService) Login(ctx context.Context, tenant model.Tenant, identifier
 		return Session{}, ErrAccountDisabled
 	}
 
+	// A self-registered account that has not proved its address does not get
+	// in, where the tenant requires that.
+	//
+	// This one discloses, unlike almost everything else on this path: it
+	// tells a caller who got the password right that the account exists and
+	// is unverified. That is a registration oracle and it is accepted
+	// deliberately, because the alternative is a dead end — somebody who
+	// registered and never opened the email would be refused with no way to
+	// find out why. The disclosure is confined to whoever already has the
+	// password; the public resend endpoint gives nothing away.
+	//
+	// Only REGISTRATION accounts. An administrator-created, imported, or
+	// directory-synchronized account is vouched for by whoever created it.
+	if model.UserSource(row.Source) == model.SourceRegistration && row.VerifiedAt == nil {
+		if settings.RegistrationVerification {
+			s.logLoginFailure(ctx, tenant.ID, row.ID, row.Username, ip, "address not verified")
+			return Session{}, ErrAccountUnverified
+		}
+	}
+
 	// An expired password does not produce a session. Issuing one and
 	// flagging it would mean handing out a working token and asking the
 	// client to be well behaved, which an API client simply would not be.
@@ -582,6 +602,25 @@ func (s *UserService) Register(ctx context.Context, tenantID string, in Register
 	})
 	if err != nil {
 		return model.User{}, err
+	}
+
+	// Accepted under the rules in force at the time.
+	//
+	// Where the tenant does not require verification, the address is marked
+	// accepted now — so turning the requirement on later applies to
+	// registrations after it and not to people who are already using their
+	// accounts. The migration that introduced the column does the same thing
+	// for accounts that predate it; this is that rule applied continuously
+	// rather than once, and without it a policy change silently revokes
+	// access from every existing member.
+	settings, err := s.settings.Get(ctx, tenantID)
+	if err != nil {
+		return model.User{}, err
+	}
+	if !settings.RegistrationVerification {
+		if err := s.store.ForTenant(tenantID).MarkUserVerified(ctx, user.ID, store.Now()); err != nil {
+			return model.User{}, fmt.Errorf("mark accepted: %w", err)
+		}
 	}
 
 	s.audit.Log(ctx, tenantID, AuditEntry{

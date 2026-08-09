@@ -11,6 +11,7 @@ import (
 
 	"github.com/paraview/portico/internal/auth"
 	"github.com/paraview/portico/internal/httpx"
+	"github.com/paraview/portico/internal/model"
 	"github.com/paraview/portico/internal/store"
 )
 
@@ -22,6 +23,15 @@ const (
 	// the same build serve a closed intranet and an open internet
 	// deployment (§3.10).
 	SettingRegistrationEnabled = "registration_enabled"
+	// SettingRegistrationVerification requires a self-registered account to
+	// prove its contact address before it can sign in.
+	//
+	// Off by default, and a switch rather than a fixed rule: a closed
+	// intranet where registration is already behind the network boundary
+	// gains nothing from it, while a deployment facing outward cannot do
+	// without it. Turning it on is refused where no channel can deliver —
+	// see SettingsService.Update.
+	SettingRegistrationVerification = "registration_verification"
 	// SettingSystemName is shown in the UI header.
 	SettingSystemName = "system_name"
 	// SettingLockoutThreshold is how many consecutive failed sign-ins lock
@@ -49,9 +59,14 @@ const (
 
 // Settings is the full set of runtime settings for one tenant.
 type Settings struct {
-	TokenTTLMinutes     int    `json:"tokenTtlMinutes"`
-	RegistrationEnabled bool   `json:"registrationEnabled"`
-	SystemName          string `json:"systemName"`
+	TokenTTLMinutes     int  `json:"tokenTtlMinutes"`
+	RegistrationEnabled bool `json:"registrationEnabled"`
+	// RegistrationVerification requires a self-registered account to prove
+	// its email address or phone number before it can sign in. Without it
+	// somebody can open an account under a colleague's address — and that
+	// address is where a password-reset link would be sent.
+	RegistrationVerification bool   `json:"registrationVerification"`
+	SystemName               string `json:"systemName"`
 
 	// LockoutThreshold is the number of consecutive failed sign-ins that
 	// locks an account. Zero means no lockout.
@@ -168,8 +183,29 @@ type SettingsService struct {
 	store    *store.Store
 	defaults Settings
 
+	// deliverable reports which channels this deployment can actually reach
+	// somebody on. Attached after construction rather than injected,
+	// because the service that knows is built later — the same arrangement
+	// as users.WithEvents.
+	//
+	// Nil means "unknown", which is treated as none: a deployment that has
+	// not wired this up should not be able to turn on a requirement it
+	// cannot satisfy.
+	deliverable func() []model.RecoveryChannel
+
 	mu    sync.RWMutex
 	cache map[string]Settings
+}
+
+// WithDeliveryChannels tells the settings service what this deployment can
+// send, so it can refuse a setting that depends on being able to.
+func (s *SettingsService) WithDeliveryChannels(channels func() []model.RecoveryChannel) {
+	s.deliverable = channels
+}
+
+// CanDeliver reports whether any channel is configured.
+func (s *SettingsService) CanDeliver() bool {
+	return s.deliverable != nil && len(s.deliverable()) > 0
 }
 
 // NewSettingsService returns a service whose defaults come from the process
@@ -240,6 +276,8 @@ func (s *SettingsService) Get(ctx context.Context, tenantID string) (Settings, e
 			}
 		case SettingRegistrationEnabled:
 			loaded.RegistrationEnabled = row.Value == "true"
+		case SettingRegistrationVerification:
+			loaded.RegistrationVerification = row.Value == "true"
 		case SettingSystemName:
 			loaded.SystemName = row.Value
 		case SettingLockoutThreshold:
@@ -291,6 +329,20 @@ func (s *SettingsService) Update(ctx context.Context, tenantID string, next Sett
 	if next.SystemName == "" {
 		next.SystemName = s.defaults.SystemName
 	}
+	// Requiring verification on a deployment that cannot send anything would
+	// accept the setting and then strand every registration on a message
+	// that never arrives. Refused at the point of turning it on, with the
+	// reason — the same principle as the home screen only suggesting a
+	// recovery channel that exists.
+	//
+	// Checked when set rather than continuously: removing SMTP from the
+	// environment afterwards leaves the setting standing, so registration
+	// checks again at the moment it would need to send.
+	if next.RegistrationVerification && !s.CanDeliver() {
+		return Settings{}, httpx.UnprocessableEntity("NO_DELIVERY_CHANNEL",
+			"Requiring verification needs a way to send it. Configure PORTICO_SMTP_HOST and restart, "+
+				"or leave verification off.")
+	}
 	if next.LockoutThreshold < 0 || next.LockoutThreshold > MaxLockoutThreshold {
 		return Settings{}, httpx.BadRequest("INVALID_SETTINGS",
 			fmt.Sprintf("Lockout threshold must be between 0 and %d; 0 switches lockout off.",
@@ -326,9 +378,10 @@ func (s *SettingsService) Update(ctx context.Context, tenantID string, next Sett
 	}
 
 	values := map[string]string{
-		SettingTokenTTLMinutes:     strconv.Itoa(next.TokenTTLMinutes),
-		SettingRegistrationEnabled: strconv.FormatBool(next.RegistrationEnabled),
-		SettingSystemName:          next.SystemName,
+		SettingTokenTTLMinutes:          strconv.Itoa(next.TokenTTLMinutes),
+		SettingRegistrationEnabled:      strconv.FormatBool(next.RegistrationEnabled),
+		SettingRegistrationVerification: strconv.FormatBool(next.RegistrationVerification),
+		SettingSystemName:               next.SystemName,
 
 		SettingLockoutThreshold:       strconv.Itoa(next.LockoutThreshold),
 		SettingLockoutDurationMinutes: strconv.Itoa(next.LockoutDurationMinutes),

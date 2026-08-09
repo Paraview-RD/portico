@@ -168,3 +168,29 @@ WHERE tenant_id = $1 AND id = $2;
 UPDATE users
 SET closed_at = NULL, updated_at = $1
 WHERE tenant_id = $2 AND id = $3;
+
+-- name: CreateRegistrationVerification :exec
+INSERT INTO registration_verifications (
+    id, tenant_id, user_id, token_hash, channel, expires_at, created_at
+) VALUES ($1, $2, $3, $4, $5, $6, $7);
+
+-- Asking again invalidates the previous link, so only the newest message
+-- works and an older one somebody else has read does not.
+-- name: SupersedeRegistrationVerifications :exec
+UPDATE registration_verifications
+SET used_at = $1
+WHERE tenant_id = $2 AND user_id = $3 AND used_at IS NULL;
+
+-- name: ConsumeRegistrationVerification :one
+UPDATE registration_verifications
+SET used_at = sqlc.arg(now)::timestamptz
+WHERE tenant_id = $1
+  AND token_hash = $2
+  AND used_at IS NULL
+  AND expires_at > sqlc.arg(now)::timestamptz
+RETURNING *;
+
+-- name: MarkUserVerified :exec
+UPDATE users
+SET verified_at = $1, updated_at = $1
+WHERE tenant_id = $2 AND id = $3;

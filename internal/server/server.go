@@ -112,6 +112,15 @@ func New(cfg *config.Config, opts ...Option) (*Server, error) {
 	recovery := service.NewRecoveryService(
 		st, users, audit, deps.mailer, deps.sms, cfg.PublicURL)
 
+	// Attached after construction because the service that knows what this
+	// deployment can send is built later — the same arrangement as
+	// users.WithEvents below. It is what lets the settings service refuse a
+	// verification requirement it could not satisfy.
+	settings.WithDeliveryChannels(recovery.AvailableChannels)
+
+	verification := service.NewVerificationService(
+		st, users, settings, audit, deps.mailer, deps.sms, cfg.PublicURL)
+
 	clients := service.NewOAuthClientService(st, audit)
 	keys := service.NewSigningKeyService(st)
 	providers := oidcp.NewProviders(cfg.PublicURL, federationCryptoKey(cfg.JWTSecret),
@@ -151,7 +160,7 @@ func New(cfg *config.Config, opts ...Option) (*Server, error) {
 	s := &Server{
 		cfg:   cfg,
 		store: st,
-		handler: handler.New(users, orgs, audit, settings, tenants, recovery, sessions,
+		handler: handler.New(users, orgs, audit, settings, tenants, recovery, verification, sessions,
 			clients, serviceProviders, samlKeys, casServices, scimCredentials,
 			directories, webhooks, groups, providers, samlProviders, casServer),
 		middleware:    auth.NewMiddleware(tokens, users, sessions),

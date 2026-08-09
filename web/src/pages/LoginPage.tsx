@@ -47,6 +47,11 @@ export function LoginPage() {
   // that do not exist.
   const [lookedUpTenant, setLookedUpTenant] = useState(initialTenant);
   const [identifier, setIdentifier] = useState("");
+  // Set when a sign-in is refused for an unconfirmed address, which is the
+  // one refusal this screen can act on.
+  const [unverified, setUnverified] = useState(false);
+  const [resent, setResent] = useState(false);
+  const [resendTo, setResendTo] = useState("");
   const [password, setPassword] = useState("");
   const [error, setError] = useState("");
   const [submitting, setSubmitting] = useState(false);
@@ -119,6 +124,17 @@ export function LoginPage() {
         setMustReplacePassword(true);
         setError("");
         return;
+      }
+      // Also not a dead end. Somebody who registered and never opened the
+      // message needs a way to get another one, and this is the only screen
+      // that can offer it — the confirmation link carries a token, not an
+      // address, so the page it lands on does not know who to send to.
+      if (err instanceof ApiError && err.code === "ACCOUNT_UNVERIFIED") {
+        setUnverified(true);
+        // Pre-filled only when they signed in with an address, which is the
+        // case where we already know the answer. Otherwise it stays empty
+        // rather than being seeded with a username that would not work.
+        if (identifier.includes("@")) setResendTo(identifier.trim());
       }
       setError(describeError(err));
     } finally {
@@ -209,6 +225,47 @@ export function LoginPage() {
         )}
 
         {error && <Alert tone="danger">{error}</Alert>}
+
+        {unverified && !resent && (
+          // The address, asked for rather than taken from the field above.
+          //
+          // That field holds a username as often as an address, and the
+          // server resolves a resend against the contact columns only — so
+          // reusing it would produce a button that reports success and
+          // sends nothing. Widening the server's lookup instead would mean
+          // a username could name the account a message goes to, which is
+          // the shape of mistake password recovery deliberately avoids.
+          <Field
+            label={t("verify.resendAddress")}
+            hint={t("verify.resendAddressHelp")}
+          >
+            <div className="flex gap-2">
+              <Input
+                type="email"
+                value={resendTo}
+                onChange={(e) => setResendTo(e.target.value)}
+                autoComplete="email"
+              />
+              <Button
+                variant="secondary"
+                disabled={resendTo.trim() === ""}
+                onClick={() => {
+                  // Fired and forgotten on purpose. The endpoint answers
+                  // the same thing whether or not the address belongs to
+                  // anybody, so there is nothing to report — and reporting
+                  // a failure would leak exactly what it refuses to.
+                  void authApi
+                    .resendVerification(resendTo.trim(), tenant.trim())
+                    .catch(() => undefined);
+                  setResent(true);
+                }}
+              >
+                {t("verify.resend")}
+              </Button>
+            </div>
+          </Field>
+        )}
+        {resent && <Alert tone="success">{t("verify.resent")}</Alert>}
 
         <Button type="submit" disabled={submitting}>
           {submitting ? t("login.signingIn") : t("login.submit")}

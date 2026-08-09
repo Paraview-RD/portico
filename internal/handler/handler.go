@@ -33,6 +33,8 @@ type Handler struct {
 	// The credentials a directory authenticates with. The SCIM API itself
 	// lives in internal/scim; this layer only issues and revokes.
 	scimCredentials *service.SCIMCredentialService
+	// Proving a self-registered account owns the address it gave.
+	verification *service.VerificationService
 	// Directories accounts are pulled out of, which is the opposite
 	// direction from the SCIM credentials above: those let a directory push,
 	// this reaches out and reads.
@@ -59,6 +61,7 @@ func New(
 	settings *service.SettingsService,
 	tenants *service.TenantService,
 	recovery *service.RecoveryService,
+	verification *service.VerificationService,
 	sessions *service.SessionService,
 	clients *service.OAuthClientService,
 	serviceProviders *service.SAMLServiceProviderService,
@@ -75,8 +78,9 @@ func New(
 	return &Handler{
 		users: users, orgs: orgs, audit: audit,
 		settings: settings, tenants: tenants, recovery: recovery,
-		sessions: sessions,
-		clients:  clients, serviceProviders: serviceProviders,
+		verification: verification,
+		sessions:     sessions,
+		clients:      clients, serviceProviders: serviceProviders,
 		samlKeys: samlKeys, casServices: casServices,
 		scimCredentials: scimCredentials, directories: directories,
 		webhooks: webhooks, groups: groups,
