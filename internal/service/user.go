@@ -136,6 +136,7 @@ func (s *UserService) LookupForAuth(ctx context.Context, userID string) (auth.Ac
 		DisplayName:  row.DisplayName,
 		Role:         model.Role(row.Role),
 		Status:       model.Status(row.Status),
+		Closed:       row.ClosedAt != nil,
 		TokenVersion: row.TokenVersion,
 	}
 	if row.OrganizationID != nil {

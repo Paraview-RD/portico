@@ -33,6 +33,14 @@ func TestClosingYourAccountEndsEverythingAtOnce(t *testing.T) {
 		if after.Status != http.StatusUnauthorized {
 			t.Errorf("%s still works after closing (%d %s); a closed account "+
 				"with a live session is not closed", name, after.Status, after.Code)
+			continue
+		}
+		// And says which of the two things happened, here as well as at
+		// sign-in. One path saying CLOSED and the neighbouring one saying
+		// DISABLED is how a person ends up asking their administrator why
+		// they were suspended.
+		if after.Code != "ACCOUNT_CLOSED" {
+			t.Errorf("%s was refused with %s, want ACCOUNT_CLOSED", name, after.Code)
 		}
 	}
 

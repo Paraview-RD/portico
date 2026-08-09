@@ -13,12 +13,17 @@ import (
 // Account is the subset of a user record the middleware needs in order to
 // decide whether a presented token is still valid.
 type Account struct {
-	ID               string
-	TenantID         string
-	Username         string
-	DisplayName      string
-	Role             model.Role
-	Status           model.Status
+	ID          string
+	TenantID    string
+	Username    string
+	DisplayName string
+	Role        model.Role
+	Status      model.Status
+	// Closed reports that the holder closed the account themselves, so a
+	// refusal can say which of the two things happened. Without it a person
+	// who closed their own account is told it was disabled, and goes to ask
+	// their administrator why they were suspended.
+	Closed           bool
 	OrganizationID   string
 	OrganizationName string
 	TokenVersion     int64
@@ -120,6 +125,10 @@ func (m *Middleware) authenticate(r *http.Request) (Principal, error) {
 	}
 
 	if user.Status != model.StatusActive {
+		if user.Closed {
+			return Principal{}, httpx.Unauthorized("ACCOUNT_CLOSED",
+				"This account was closed by its owner. An administrator can reinstate it.")
+		}
 		return Principal{}, httpx.Unauthorized("ACCOUNT_DISABLED", "This account has been disabled.")
 	}
 	if user.TokenVersion != claims.TokenVersion {
