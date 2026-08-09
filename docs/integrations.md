@@ -19,9 +19,11 @@ depend on being available.
 Configured entirely through `PORTICO_DB_DSN`. There is no default — a
 connection string for someone else's database is not something to guess.
 
-### SMTP — required for password recovery
+### SMTP — required for password recovery and for confirming a registration
 
-Password recovery sends a message, so it needs a way to send one. Portico
+Both send a message, so both need a way to send one; a tenant that requires
+new accounts to confirm their address cannot turn that on without a relay
+configured, and is told so at the point of turning it on. Portico
 speaks plain SMTP rather than any provider's SDK: a self-hosted deployment
 should be able to point at whatever it already runs, whether that is a
 company relay, Amazon SES, Postmark, Resend, or a local Postfix.
@@ -54,6 +56,34 @@ only.
 *Status: the interface and a no-op implementation exist; concrete providers
 are not yet written.*
 
+### Active Directory or OpenLDAP — optional, and the one Portico reaches out to
+
+A directory connector reads accounts out of an AD or OpenLDAP. It is the only
+integration where Portico opens the connection to a system somebody else
+runs, and the only one where it stores a credential it later has to *use*
+rather than merely check.
+
+There is no vendor account and nothing to buy: it is your own directory, and
+the account to use is a **read-only service account** you create in it.
+Portico never writes to the directory, so a bind account with write access is
+a standing risk for no benefit.
+
+| Setting | Meaning |
+|---|---|
+| Server address, bind DN, bind password, base DN, filters, attribute map | Per connector, in the console under **Directory integration** — not environment variables, because a deployment may have several. |
+| `PORTICO_ENCRYPTION_KEY` | 32 bytes of hex that the bind password is sealed under (AES-256-GCM) before it is written. **Unset, saving a bind password is refused** rather than stored in the clear. Must differ from `PORTICO_JWT_SECRET`. |
+
+The honest limit of that encryption: anyone who can read the process
+environment can read the credential. What it defends against is the leak that
+actually happens — a backup, a replica, a snapshot handed to somebody for
+debugging.
+
+**It is a data source, not a sign-in path.** Passwords are never read from
+the directory and never written to it; an account synchronized in cannot be
+authenticated with its AD password. Federating sign-in is a different feature
+and does not exist. [ldap.md](ldap.md) has the attribute maps and the list of
+what a synchronization refuses to do.
+
 ### Prometheus — optional, and it does the reaching
 
 Setting `PORTICO_METRICS_ADDR` opens a second listener publishing metrics in
@@ -68,9 +98,16 @@ address, the listener does not exist. See
 
 ## Nothing else
 
-No message broker, no cache, no object store, no external identity provider.
-Nothing phones home — the metrics endpoint above is read by your monitoring,
-never pushed by Portico.
+No message broker, no cache, no object store. No external identity provider
+either: the directory above is read for accounts, never asked to
+authenticate anybody, so no sign-in leaves this system.
+
+Nothing phones home. Portico opens exactly three kinds of outbound
+connection, all of them to addresses you configured: your database, your
+SMTP relay, and a directory you pointed it at. Webhooks add a fourth, to
+destinations a tenant administrator registers — restricted to public HTTPS
+and re-checked at connection time so they cannot be aimed inward. The
+metrics endpoint is read by your monitoring and pushed nowhere.
 
 ## Adding one
 
@@ -89,7 +126,8 @@ deployment.
 | `github.com/jackc/pgx/v5` | The PostgreSQL driver, used through `database/sql`. Pure Go, so the binary still cross-compiles freely and runs in a `scratch` container with no libc. |
 | `github.com/wneessen/go-mail` | Builds and sends the recovery messages. Chosen over `net/smtp` for correct address and header encoding — getting that wrong is how a crafted recipient turns into extra envelope commands. |
 | `github.com/pressly/goose/v3` | Used as a library, not a CLI, so migrations run at startup and there is no separate tool to ship or run. |
-| `github.com/xuri/excelize/v2` | Reads and writes the bulk-import workbooks. |
+| `github.com/go-ldap/ldap/v3` | Speaks LDAP to the directory above. Pure Go, so it costs the deployment nothing: no OpenLDAP client library to install and the `scratch` container still works. |
+| `github.com/xuri/excelize/v2` | Reads and writes the bulk-import workbooks, and the directory export. |
 | `github.com/golang-jwt/jwt/v5` | Signs and verifies access tokens. |
 | `github.com/prometheus/client_golang` | The metrics registry and exposition handler. Adds no runtime dependency: with `PORTICO_METRICS_ADDR` unset it registers collectors nothing reads and opens no listener. |
 | `sqlc` | Development-time code generation from SQL. Contributors only need it when changing a query; the generated code is committed. |

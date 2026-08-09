@@ -168,8 +168,9 @@ The MVP has exactly two roles and no way to define more (requirements §3.3).
 
 ### Administrator (`SUPER_ADMIN`)
 
-Can do everything: create/edit users, enable and disable accounts, reset
-other people's passwords, bulk-import from a spreadsheet, manage
+Can do everything: create/edit users and their details, enable and disable
+accounts one at a time or in bulk, reset other people's passwords,
+bulk-import from a spreadsheet and export back to one, manage
 organizations and groups, register the applications that sign in through
 Portico, issue the credentials a directory provisions with, subscribe other
 systems to events, read the audit log, and change system settings.
@@ -231,6 +232,23 @@ Typical journey — hand over a copy of the directory:
    else here hands over that much at once, and "who took a copy, and when" is
    asked after an incident rather than before one.
 
+Typical journey — act on many accounts at once:
+
+1. **Users** → tick the accounts, or the box in the header to take the whole
+   page. Selection is per page on purpose: a control that silently included
+   accounts you never scrolled past would be a bad thing to attach *disable*
+   to.
+2. **Enable**, **Disable**, or **Move to organization** from the bar that
+   appears.
+3. Every account goes through the same path a single one does, so the rules
+   still hold: the last active administrator cannot be disabled, you cannot
+   disable yourself, and each account's sessions and downstream refresh
+   tokens end immediately. Selecting more people is not a way around any of
+   that.
+4. Results come back per account. If some failed, the reason names *which* —
+   act on those and leave the rest alone rather than repeating the whole
+   selection.
+
 Typical journey — read accounts out of an AD:
 
 1. **Directory integration** → the **Portico reads (LDAP / AD)** tab → add a
@@ -277,6 +295,16 @@ that have a launch address, their account at a glance, their last few
 sign-ins, and a warning if their password is about to expire or they have no
 address to recover it to. From there, **My profile** — details, password,
 and the devices signed in as them, any of which they can end.
+
+**Details** is the descriptive half of an account — name parts, job title,
+department, locale, address, the fields a directory would hold — and people
+maintain their own. It reaches none of the deciding half: not their role, not
+their status, not which organization they sit in. That is not a rule the
+screen enforces by hiding controls; describing somebody and deciding their
+access are separate endpoints, and the one they can call has no way to carry
+a role. Their **manager** is on the same side of that line: a reporting line
+is an organizational fact that downstream systems read as an approval chain,
+so an administrator sets it.
 
 Those two entries are the whole navigation. Typing an administrative address
 by hand shows Home instead, and the address bar is corrected to say so —
