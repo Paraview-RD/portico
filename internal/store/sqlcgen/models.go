@@ -197,6 +197,8 @@ type Organization struct {
 	SortOrder int64
 	CreatedAt time.Time
 	UpdatedAt time.Time
+	// Who is responsible for this organization. Grants nothing: this version has two fixed roles, and a field that quietly became a third would be the worst way to acquire one.
+	ManagerID *string
 }
 
 type PasswordHistory struct {
@@ -373,6 +375,14 @@ type User struct {
 	Department string
 	// Who this person reports to. Not checked for cycles: one is a data-quality problem in the source system rather than something this schema can prevent.
 	ManagerID *string
+}
+
+// Additional organizations a person is attached to. Advisory: grants nothing, synchronizes nowhere, and does not change users.organization_id, which remains the one authoritative membership.
+type UserOrganizationAttachment struct {
+	TenantID       string
+	UserID         string
+	OrganizationID string
+	CreatedAt      time.Time
 }
 
 type WebhookDelivery struct {

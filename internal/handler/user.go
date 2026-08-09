@@ -40,6 +40,15 @@ func (h *Handler) GetUser(w http.ResponseWriter, r *http.Request) {
 		httpx.Fail(w, r, err)
 		return
 	}
+
+	// Attachments cost a query, so a page of users does not carry them and a
+	// single account does — this is the screen that shows one person, and
+	// the one place the question "what else are they involved with" is
+	// asked. Failing to load them is not worth refusing the account over.
+	if attachments, err := h.orgs.Attachments(r.Context(), principal.TenantID, user.ID); err == nil {
+		user.Attachments = attachments
+	}
+
 	httpx.OK(w, user)
 }
 

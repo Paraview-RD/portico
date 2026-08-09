@@ -2263,6 +2263,117 @@ paths:
         "404":
           $ref: "#/components/responses/NotFound"
 
+  /api/v1/organizations/{id}/manager:
+    put:
+      tags: [Organizations]
+      operationId: setOrganizationManager
+      summary: Nominate whoever is responsible for an organization.
+      description: |
+        **It grants nothing.** This version has two fixed roles, and being
+        named here confers neither of them: it does not let the person
+        administer the organization, edit its members, or do anything an
+        ordinary account cannot. The field answers "who runs this department"
+        for somebody reading the chart and for downstream systems that ask.
+
+        An empty `managerId` clears the nomination.
+      parameters:
+        - $ref: "#/components/parameters/ID"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                managerId: { type: string }
+      responses:
+        "200":
+          description: The organization.
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/OrganizationEnvelope" }
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "422":
+          description: No such account to put in charge.
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Envelope" }
+
+  /api/v1/organizations/{id}/attachments:
+    post:
+      tags: [Organizations]
+      operationId: attachUserToOrganization
+      summary: Record that somebody is involved with this organization.
+      description: |
+        An attachment beside a primary membership — the case of somebody in
+        the platform team who also sits on a project.
+
+        **It does not move their primary membership**, which stays the one
+        authoritative answer to where they sit: the one SCIM and the
+        directory sync write, and the one an export names. **And it grants
+        nothing**, the same as group membership and for the same reason:
+        there is no permission model here to attach it to.
+
+        Idempotent. Attaching somebody to the organization they already
+        belong to is refused rather than recorded, because two records of the
+        same fact can disagree once the primary membership moves.
+      parameters:
+        - $ref: "#/components/parameters/ID"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [userId]
+              properties:
+                userId: { type: string }
+      responses:
+        "200":
+          description: Attached.
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Envelope" }
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "422":
+          description: |
+            That account already belongs to this organization, so an
+            attachment would be a second record of the same fact.
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Envelope" }
+
+  /api/v1/organizations/{id}/attachments/{userID}:
+    delete:
+      tags: [Organizations]
+      operationId: detachUserFromOrganization
+      summary: Remove an attachment.
+      description: |
+        Idempotent: removing one that is not there succeeds, because a caller
+        reconciling a list should not have to know what is already gone.
+      parameters:
+        - $ref: "#/components/parameters/ID"
+        - name: userID
+          in: path
+          required: true
+          schema: { type: string }
+      responses:
+        "200":
+          description: Detached.
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Envelope" }
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+
   /api/v1/scim-credentials:
     get:
       tags: [Provisioning]
@@ -2675,6 +2786,20 @@ components:
           format: date-time
           description: Present only while a lockout is actually in force.
         profile: { $ref: "#/components/schemas/UserProfile" }
+        attachments:
+          type: array
+          description: |
+            Additional organizations this person is involved with, beside the
+            one they primarily belong to. Advisory: they grant nothing and
+            synchronize nowhere. Present on a single account, absent from a
+            page of them — they cost a query, and the list screen does not
+            ask the question.
+          items:
+            type: object
+            properties:
+              id: { type: string }
+              name: { type: string }
+              code: { type: string }
         createdAt: { type: string, format: date-time }
         updatedAt: { type: string, format: date-time }
 
@@ -2692,6 +2817,15 @@ components:
         parentId: { type: string, description: Empty for a root. }
         status: { $ref: "#/components/schemas/Status" }
         sortOrder: { type: integer }
+        managerId:
+          type: string
+          description: |
+            Whoever is responsible for this organization. Grants nothing —
+            this version has two fixed roles and being named here confers
+            neither.
+        managerName:
+          type: string
+          description: Resolved for display; ignored on write.
         userCount: { type: integer }
         createdAt: { type: string, format: date-time }
         updatedAt: { type: string, format: date-time }

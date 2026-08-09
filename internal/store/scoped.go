@@ -1088,3 +1088,44 @@ func (s *Scoped) UpdateUserProfileAttributes(ctx context.Context, arg sqlcgen.Up
 	arg.TenantID = s.tenantID
 	return s.q.UpdateUserProfileAttributes(ctx, arg)
 }
+
+/* --------------------------------------------- Organization attachments */
+
+// SetOrganizationManager nominates whoever is responsible for it, or clears
+// the nomination with nil.
+func (s *Scoped) SetOrganizationManager(ctx context.Context, id string, managerID *string, now time.Time) error {
+	return s.q.SetOrganizationManager(ctx, sqlcgen.SetOrganizationManagerParams{
+		TenantID: s.tenantID, ID: id, ManagerID: managerID, UpdatedAt: now,
+	})
+}
+
+// AttachUserToOrganization adds an advisory attachment. Idempotent: asking
+// twice is not an error, because a caller reconciling a list should not have
+// to know what is already there.
+func (s *Scoped) AttachUserToOrganization(ctx context.Context, userID, organizationID string, now time.Time) error {
+	return s.q.AttachUserToOrganization(ctx, sqlcgen.AttachUserToOrganizationParams{
+		TenantID: s.tenantID, UserID: userID, OrganizationID: organizationID, CreatedAt: now,
+	})
+}
+
+// DetachUserFromOrganization removes one.
+func (s *Scoped) DetachUserFromOrganization(ctx context.Context, userID, organizationID string) error {
+	return s.q.DetachUserFromOrganization(ctx, sqlcgen.DetachUserFromOrganizationParams{
+		TenantID: s.tenantID, UserID: userID, OrganizationID: organizationID,
+	})
+}
+
+// ListUserOrganizationAttachments returns the organizations a person is
+// attached to, not counting the one they primarily belong to.
+func (s *Scoped) ListUserOrganizationAttachments(ctx context.Context, userID string) ([]sqlcgen.Organization, error) {
+	return s.q.ListUserOrganizationAttachments(ctx, sqlcgen.ListUserOrganizationAttachmentsParams{
+		TenantID: s.tenantID, UserID: userID,
+	})
+}
+
+// ListOrganizationAttachedUsers returns the people attached to one.
+func (s *Scoped) ListOrganizationAttachedUsers(ctx context.Context, organizationID string) ([]sqlcgen.User, error) {
+	return s.q.ListOrganizationAttachedUsers(ctx, sqlcgen.ListOrganizationAttachedUsersParams{
+		TenantID: s.tenantID, OrganizationID: organizationID,
+	})
+}

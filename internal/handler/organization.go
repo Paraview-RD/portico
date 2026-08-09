@@ -125,3 +125,73 @@ func (h *Handler) setOrganizationStatus(w http.ResponseWriter, r *http.Request, 
 	}
 	httpx.OK(w, org)
 }
+
+type organizationManagerRequest struct {
+	// Empty clears the nomination. A pointer would distinguish "not sent"
+	// from "sent as empty", and here they should mean the same thing: this
+	// endpoint exists to set exactly one field, so an empty body asking for
+	// nobody is not ambiguous.
+	ManagerID string `json:"managerId"`
+}
+
+// SetOrganizationManager nominates whoever is responsible for one.
+//
+// It grants nothing, which is worth knowing before reaching for it: this
+// version has two fixed roles, and being named here confers none of them.
+// The field answers "who runs this department" for a person reading the
+// chart and for downstream systems that ask.
+func (h *Handler) SetOrganizationManager(w http.ResponseWriter, r *http.Request) {
+	principal := auth.MustPrincipal(r.Context())
+
+	var req organizationManagerRequest
+	if err := httpx.DecodeJSON(w, r, &req); err != nil {
+		httpx.Fail(w, r, err)
+		return
+	}
+
+	org, err := h.orgs.SetManager(r.Context(), principal, chi.URLParam(r, "id"), req.ManagerID)
+	if err != nil {
+		httpx.Fail(w, r, err)
+		return
+	}
+	httpx.OK(w, org)
+}
+
+type organizationAttachmentRequest struct {
+	UserID string `json:"userId"`
+}
+
+// AttachUserToOrganization records that somebody is involved with an
+// organization they do not primarily belong to.
+//
+// Their primary membership does not move, and this grants nothing — the same
+// as group membership, and for the same reason: there is no permission model
+// here to attach it to.
+func (h *Handler) AttachUserToOrganization(w http.ResponseWriter, r *http.Request) {
+	principal := auth.MustPrincipal(r.Context())
+
+	var req organizationAttachmentRequest
+	if err := httpx.DecodeJSON(w, r, &req); err != nil {
+		httpx.Fail(w, r, err)
+		return
+	}
+
+	if err := h.orgs.AttachUser(r.Context(), principal, chi.URLParam(r, "id"), req.UserID); err != nil {
+		httpx.Fail(w, r, err)
+		return
+	}
+	httpx.OK(w, nil)
+}
+
+// DetachUserFromOrganization removes an attachment.
+func (h *Handler) DetachUserFromOrganization(w http.ResponseWriter, r *http.Request) {
+	principal := auth.MustPrincipal(r.Context())
+
+	err := h.orgs.DetachUser(r.Context(), principal,
+		chi.URLParam(r, "id"), chi.URLParam(r, "userID"))
+	if err != nil {
+		httpx.Fail(w, r, err)
+		return
+	}
+	httpx.OK(w, nil)
+}

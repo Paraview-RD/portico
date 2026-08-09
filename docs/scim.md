@@ -63,6 +63,7 @@ Portico has both, and they are different things:
 | | Organization | Group |
 |---|---|---|
 | How many per person | Exactly one | Any number |
+| …plus attachments | Any number, advisory: they grant nothing, synchronize nowhere, and do not change the one above | — |
 | Shape | A tree | Flat |
 | Identified by | A stable code downstream systems store | Its name |
 | Usually maintained by | An administrator | A directory |

@@ -12,6 +12,29 @@ import (
 	"github.com/lib/pq"
 )
 
+const attachUserToOrganization = `-- name: AttachUserToOrganization :exec
+INSERT INTO user_organization_attachments (tenant_id, user_id, organization_id, created_at)
+VALUES ($1, $2, $3, $4)
+ON CONFLICT (tenant_id, user_id, organization_id) DO NOTHING
+`
+
+type AttachUserToOrganizationParams struct {
+	TenantID       string
+	UserID         string
+	OrganizationID string
+	CreatedAt      time.Time
+}
+
+func (q *Queries) AttachUserToOrganization(ctx context.Context, arg AttachUserToOrganizationParams) error {
+	_, err := q.db.ExecContext(ctx, attachUserToOrganization,
+		arg.TenantID,
+		arg.UserID,
+		arg.OrganizationID,
+		arg.CreatedAt,
+	)
+	return err
+}
+
 const createOrganization = `-- name: CreateOrganization :exec
 INSERT INTO organizations (
     id, tenant_id, name, code, remark, parent_id, status, sort_order,
@@ -48,8 +71,24 @@ func (q *Queries) CreateOrganization(ctx context.Context, arg CreateOrganization
 	return err
 }
 
+const detachUserFromOrganization = `-- name: DetachUserFromOrganization :exec
+DELETE FROM user_organization_attachments
+WHERE tenant_id = $1 AND user_id = $2 AND organization_id = $3
+`
+
+type DetachUserFromOrganizationParams struct {
+	TenantID       string
+	UserID         string
+	OrganizationID string
+}
+
+func (q *Queries) DetachUserFromOrganization(ctx context.Context, arg DetachUserFromOrganizationParams) error {
+	_, err := q.db.ExecContext(ctx, detachUserFromOrganization, arg.TenantID, arg.UserID, arg.OrganizationID)
+	return err
+}
+
 const getOrganizationByCode = `-- name: GetOrganizationByCode :one
-SELECT id, tenant_id, name, code, remark, parent_id, status, sort_order, created_at, updated_at FROM organizations WHERE tenant_id = $1 AND code = $2 LIMIT 1
+SELECT id, tenant_id, name, code, remark, parent_id, status, sort_order, created_at, updated_at, manager_id FROM organizations WHERE tenant_id = $1 AND code = $2 LIMIT 1
 `
 
 type GetOrganizationByCodeParams struct {
@@ -71,12 +110,13 @@ func (q *Queries) GetOrganizationByCode(ctx context.Context, arg GetOrganization
 		&i.SortOrder,
 		&i.CreatedAt,
 		&i.UpdatedAt,
+		&i.ManagerID,
 	)
 	return i, err
 }
 
 const getOrganizationByID = `-- name: GetOrganizationByID :one
-SELECT id, tenant_id, name, code, remark, parent_id, status, sort_order, created_at, updated_at FROM organizations WHERE tenant_id = $1 AND id = $2 LIMIT 1
+SELECT id, tenant_id, name, code, remark, parent_id, status, sort_order, created_at, updated_at, manager_id FROM organizations WHERE tenant_id = $1 AND id = $2 LIMIT 1
 `
 
 type GetOrganizationByIDParams struct {
@@ -98,12 +138,13 @@ func (q *Queries) GetOrganizationByID(ctx context.Context, arg GetOrganizationBy
 		&i.SortOrder,
 		&i.CreatedAt,
 		&i.UpdatedAt,
+		&i.ManagerID,
 	)
 	return i, err
 }
 
 const listActiveOrganizations = `-- name: ListActiveOrganizations :many
-SELECT id, tenant_id, name, code, remark, parent_id, status, sort_order, created_at, updated_at FROM organizations
+SELECT id, tenant_id, name, code, remark, parent_id, status, sort_order, created_at, updated_at, manager_id FROM organizations
 WHERE tenant_id = $1 AND status = 'ACTIVE'
 ORDER BY sort_order, created_at
 `
@@ -128,6 +169,90 @@ func (q *Queries) ListActiveOrganizations(ctx context.Context, tenantID string) 
 			&i.SortOrder,
 			&i.CreatedAt,
 			&i.UpdatedAt,
+			&i.ManagerID,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Close(); err != nil {
+		return nil, err
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
+const listOrganizationAttachedUsers = `-- name: ListOrganizationAttachedUsers :many
+SELECT u.id, u.tenant_id, u.username, u.display_name, u.password_hash, u.phone, u.email, u.role, u.status, u.organization_id, u.token_version, u.source, u.external_id, u.failed_login_attempts, u.last_failed_login_at, u.locked_until, u.password_changed_at, u.created_at, u.updated_at, u.ldap_source_id, u.closed_at, u.verified_at, u.name_formatted, u.family_name, u.given_name, u.middle_name, u.honorific_prefix, u.honorific_suffix, u.nick_name, u.profile_url, u.photo_url, u.title, u.user_type, u.preferred_language, u.locale, u.timezone, u.address_formatted, u.street_address, u.locality, u.region, u.postal_code, u.country, u.employee_number, u.cost_center, u.department, u.manager_id FROM users u
+JOIN user_organization_attachments a
+  ON a.tenant_id = u.tenant_id AND a.user_id = u.id
+WHERE a.tenant_id = $1 AND a.organization_id = $2
+ORDER BY u.display_name
+`
+
+type ListOrganizationAttachedUsersParams struct {
+	TenantID       string
+	OrganizationID string
+}
+
+func (q *Queries) ListOrganizationAttachedUsers(ctx context.Context, arg ListOrganizationAttachedUsersParams) ([]User, error) {
+	rows, err := q.db.QueryContext(ctx, listOrganizationAttachedUsers, arg.TenantID, arg.OrganizationID)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	items := []User{}
+	for rows.Next() {
+		var i User
+		if err := rows.Scan(
+			&i.ID,
+			&i.TenantID,
+			&i.Username,
+			&i.DisplayName,
+			&i.PasswordHash,
+			&i.Phone,
+			&i.Email,
+			&i.Role,
+			&i.Status,
+			&i.OrganizationID,
+			&i.TokenVersion,
+			&i.Source,
+			&i.ExternalID,
+			&i.FailedLoginAttempts,
+			&i.LastFailedLoginAt,
+			&i.LockedUntil,
+			&i.PasswordChangedAt,
+			&i.CreatedAt,
+			&i.UpdatedAt,
+			&i.LdapSourceID,
+			&i.ClosedAt,
+			&i.VerifiedAt,
+			&i.NameFormatted,
+			&i.FamilyName,
+			&i.GivenName,
+			&i.MiddleName,
+			&i.HonorificPrefix,
+			&i.HonorificSuffix,
+			&i.NickName,
+			&i.ProfileUrl,
+			&i.PhotoUrl,
+			&i.Title,
+			&i.UserType,
+			&i.PreferredLanguage,
+			&i.Locale,
+			&i.Timezone,
+			&i.AddressFormatted,
+			&i.StreetAddress,
+			&i.Locality,
+			&i.Region,
+			&i.PostalCode,
+			&i.Country,
+			&i.EmployeeNumber,
+			&i.CostCenter,
+			&i.Department,
+			&i.ManagerID,
 		); err != nil {
 			return nil, err
 		}
@@ -143,7 +268,7 @@ func (q *Queries) ListActiveOrganizations(ctx context.Context, tenantID string) 
 }
 
 const listOrganizations = `-- name: ListOrganizations :many
-SELECT id, tenant_id, name, code, remark, parent_id, status, sort_order, created_at, updated_at FROM organizations WHERE tenant_id = $1 ORDER BY sort_order, created_at
+SELECT id, tenant_id, name, code, remark, parent_id, status, sort_order, created_at, updated_at, manager_id FROM organizations WHERE tenant_id = $1 ORDER BY sort_order, created_at
 `
 
 func (q *Queries) ListOrganizations(ctx context.Context, tenantID string) ([]Organization, error) {
@@ -166,6 +291,7 @@ func (q *Queries) ListOrganizations(ctx context.Context, tenantID string) ([]Org
 			&i.SortOrder,
 			&i.CreatedAt,
 			&i.UpdatedAt,
+			&i.ManagerID,
 		); err != nil {
 			return nil, err
 		}
@@ -181,7 +307,7 @@ func (q *Queries) ListOrganizations(ctx context.Context, tenantID string) ([]Org
 }
 
 const listOrganizationsByIDs = `-- name: ListOrganizationsByIDs :many
-SELECT id, tenant_id, name, code, remark, parent_id, status, sort_order, created_at, updated_at FROM organizations WHERE tenant_id = $1 AND id = ANY($2::text[])
+SELECT id, tenant_id, name, code, remark, parent_id, status, sort_order, created_at, updated_at, manager_id FROM organizations WHERE tenant_id = $1 AND id = ANY($2::text[])
 `
 
 type ListOrganizationsByIDsParams struct {
@@ -209,6 +335,7 @@ func (q *Queries) ListOrganizationsByIDs(ctx context.Context, arg ListOrganizati
 			&i.SortOrder,
 			&i.CreatedAt,
 			&i.UpdatedAt,
+			&i.ManagerID,
 		); err != nil {
 			return nil, err
 		}
@@ -221,6 +348,77 @@ func (q *Queries) ListOrganizationsByIDs(ctx context.Context, arg ListOrganizati
 		return nil, err
 	}
 	return items, nil
+}
+
+const listUserOrganizationAttachments = `-- name: ListUserOrganizationAttachments :many
+SELECT o.id, o.tenant_id, o.name, o.code, o.remark, o.parent_id, o.status, o.sort_order, o.created_at, o.updated_at, o.manager_id FROM organizations o
+JOIN user_organization_attachments a
+  ON a.tenant_id = o.tenant_id AND a.organization_id = o.id
+WHERE a.tenant_id = $1 AND a.user_id = $2
+ORDER BY o.sort_order, o.created_at
+`
+
+type ListUserOrganizationAttachmentsParams struct {
+	TenantID string
+	UserID   string
+}
+
+func (q *Queries) ListUserOrganizationAttachments(ctx context.Context, arg ListUserOrganizationAttachmentsParams) ([]Organization, error) {
+	rows, err := q.db.QueryContext(ctx, listUserOrganizationAttachments, arg.TenantID, arg.UserID)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	items := []Organization{}
+	for rows.Next() {
+		var i Organization
+		if err := rows.Scan(
+			&i.ID,
+			&i.TenantID,
+			&i.Name,
+			&i.Code,
+			&i.Remark,
+			&i.ParentID,
+			&i.Status,
+			&i.SortOrder,
+			&i.CreatedAt,
+			&i.UpdatedAt,
+			&i.ManagerID,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Close(); err != nil {
+		return nil, err
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
+const setOrganizationManager = `-- name: SetOrganizationManager :exec
+UPDATE organizations
+SET manager_id = $1, updated_at = $2
+WHERE tenant_id = $3 AND id = $4
+`
+
+type SetOrganizationManagerParams struct {
+	ManagerID *string
+	UpdatedAt time.Time
+	TenantID  string
+	ID        string
+}
+
+func (q *Queries) SetOrganizationManager(ctx context.Context, arg SetOrganizationManagerParams) error {
+	_, err := q.db.ExecContext(ctx, setOrganizationManager,
+		arg.ManagerID,
+		arg.UpdatedAt,
+		arg.TenantID,
+		arg.ID,
+	)
+	return err
 }
 
 const updateOrganization = `-- name: UpdateOrganization :exec

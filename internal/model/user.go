@@ -115,6 +115,13 @@ type UserProfile struct {
 	ManagerName string `json:"managerName"`
 }
 
+// OrganizationRef names an organization without carrying the whole of it.
+type OrganizationRef struct {
+	ID   string `json:"id"`
+	Name string `json:"name"`
+	Code string `json:"code"`
+}
+
 // User is an account. It never carries the password hash outside the
 // service layer.
 type User struct {
@@ -140,6 +147,16 @@ type User struct {
 	// Every one is optional. An account with only a username and a display
 	// name is a complete account.
 	Profile UserProfile `json:"profile"`
+
+	// Attachments are additional organizations this person is involved with,
+	// beside the one they primarily belong to.
+	//
+	// Advisory. They grant nothing, synchronize nowhere, and do not change
+	// OrganizationID — which remains the one authoritative membership, the
+	// one SCIM and the directory sync write and the one an export names.
+	// Populated only where a caller asked for a single account; a page of
+	// users does not pay for them.
+	Attachments []OrganizationRef `json:"attachments,omitempty"`
 
 	// OrganizationID is empty when the user belongs to no organization,
 	// which is the default for self-registered accounts (§3.4.2).

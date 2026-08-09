@@ -88,6 +88,10 @@ export const errorsEnUS = {
   ORGANIZATION_NOT_FOUND: "No such organization.",
   ORGANIZATION_DISABLED: "That organization has been disabled.",
   ORGANIZATION_CODE_TAKEN: "That organization code is already in use.",
+  ORGANIZATION_MANAGER_NOT_FOUND:
+    "No such account to put in charge of this organization.",
+  ALREADY_PRIMARY_ORGANIZATION:
+    "That account already belongs to this organization. An attachment is for the ones it does not.",
   ORGANIZATION_CYCLE:
     "That would put the organization inside itself or one of its own descendants.",
   ORGANIZATION_TOO_DEEP: "Organizations may not be nested that deeply.",

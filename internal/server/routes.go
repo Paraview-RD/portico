@@ -160,6 +160,12 @@ func (s *Server) routes() http.Handler {
 			})
 
 			r.Post("/organizations", h.CreateOrganization)
+			// Whoever is responsible for an organization, and the people
+			// attached to it beside their primary membership. Neither
+			// grants anything; see the handlers.
+			r.Put("/organizations/{id}/manager", h.SetOrganizationManager)
+			r.Post("/organizations/{id}/attachments", h.AttachUserToOrganization)
+			r.Delete("/organizations/{id}/attachments/{userID}", h.DetachUserFromOrganization)
 			r.Put("/organizations/{id}", h.UpdateOrganization)
 			r.Post("/organizations/{id}/enable", h.EnableOrganization)
 			r.Post("/organizations/{id}/disable", h.DisableOrganization)

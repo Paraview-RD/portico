@@ -20,6 +20,16 @@ type Organization struct {
 	CreatedAt time.Time `json:"createdAt"`
 	UpdatedAt time.Time `json:"updatedAt"`
 
+	// ManagerID is whoever is responsible for this organization, and
+	// ManagerName is resolved for display. Empty for nobody nominated.
+	//
+	// It grants nothing. Being named here does not confer administration of
+	// the organization and is consulted by no authorization decision — this
+	// version has two fixed roles, and a field that quietly became a third
+	// would be the worst way to acquire one.
+	ManagerID   string `json:"managerId"`
+	ManagerName string `json:"managerName"`
+
 	// UserCount is populated by list endpoints so the UI can show how many
 	// accounts a disable would affect.
 	UserCount int64 `json:"userCount"`

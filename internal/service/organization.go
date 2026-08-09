@@ -63,7 +63,46 @@ func (s *OrganizationService) List(ctx context.Context, tenantID string, activeO
 	for _, row := range rows {
 		orgs = append(orgs, toOrganization(row, counts[row.ID]))
 	}
+	if err := s.attachManagerNames(ctx, q, orgs); err != nil {
+		return nil, err
+	}
 	return orgs, nil
+}
+
+// attachManagerNames resolves whoever is responsible for each organization
+// in one query for the whole list, so a tree of two hundred departments does
+// not cost two hundred lookups.
+func (s *OrganizationService) attachManagerNames(ctx context.Context, q *store.Scoped, orgs []model.Organization) error {
+	ids := make([]string, 0, len(orgs))
+	seen := make(map[string]struct{}, len(orgs))
+	for _, org := range orgs {
+		if org.ManagerID == "" {
+			continue
+		}
+		if _, dup := seen[org.ManagerID]; dup {
+			continue
+		}
+		seen[org.ManagerID] = struct{}{}
+		ids = append(ids, org.ManagerID)
+	}
+	if len(ids) == 0 {
+		return nil
+	}
+
+	found, err := q.ListUsersByIDs(ctx, ids)
+	if err != nil {
+		return fmt.Errorf("resolve manager names: %w", err)
+	}
+	names := make(map[string]string, len(found))
+	for _, user := range found {
+		names[user.ID] = user.DisplayName
+	}
+	for i := range orgs {
+		// Left empty rather than falling back to the id, so a client shows
+		// nothing instead of a UUID where a person's name belongs.
+		orgs[i].ManagerName = names[orgs[i].ManagerID]
+	}
+	return nil
 }
 
 // Get returns one organization.
@@ -82,7 +121,13 @@ func (s *OrganizationService) Get(ctx context.Context, tenantID, id string) (mod
 	if err != nil {
 		return model.Organization{}, fmt.Errorf("count members: %w", err)
 	}
-	return toOrganization(row, count), nil
+
+	org := toOrganization(row, count)
+	one := []model.Organization{org}
+	if err := s.attachManagerNames(ctx, q, one); err != nil {
+		return model.Organization{}, err
+	}
+	return one[0], nil
 }
 
 // OrganizationInput is the writable part of an organization.
@@ -354,6 +399,9 @@ func toOrganization(row sqlcgen.Organization, userCount int64) model.Organizatio
 	if row.ParentID != nil {
 		org.ParentID = *row.ParentID
 	}
+	if row.ManagerID != nil {
+		org.ManagerID = *row.ManagerID
+	}
 	return org
 }
 
@@ -374,4 +422,144 @@ func validateOrganizationCode(code string) error {
 		}
 	}
 	return nil
+}
+
+// ErrOrganizationManagerNotFound is returned when the nominee is not an
+// account in this tenant.
+var ErrOrganizationManagerNotFound = httpx.UnprocessableEntity("ORGANIZATION_MANAGER_NOT_FOUND",
+	"No such account to put in charge of this organization.")
+
+// SetManager nominates whoever is responsible for an organization, or clears
+// the nomination with an empty id.
+//
+// It grants nothing, which is worth restating at the point somebody might
+// expect otherwise: being named here does not let the person administer the
+// organization, edit its members, or do anything an ordinary account cannot.
+// This version has two fixed roles. A field that quietly became a third
+// would be a permission model nobody designed and nobody could audit.
+func (s *OrganizationService) SetManager(ctx context.Context, actor auth.Principal, organizationID, managerID string) (model.Organization, error) {
+	q := s.store.ForTenant(actor.TenantID)
+
+	current, err := q.GetOrganizationByID(ctx, organizationID)
+	if err != nil {
+		if store.IsNoRows(err) {
+			return model.Organization{}, ErrOrganizationNotFound
+		}
+		return model.Organization{}, fmt.Errorf("get organization: %w", err)
+	}
+
+	var manager *string
+	detail := "manager cleared"
+	if id := strings.TrimSpace(managerID); id != "" {
+		// Read through the tenant-scoped view, so naming an account in
+		// another tenant is a miss rather than a cross-tenant reference.
+		found, err := q.GetUserByID(ctx, id)
+		if err != nil {
+			if store.IsNoRows(err) {
+				return model.Organization{}, ErrOrganizationManagerNotFound
+			}
+			return model.Organization{}, fmt.Errorf("get manager: %w", err)
+		}
+		manager = &id
+		detail = "manager: " + found.Username
+	}
+
+	if err := q.SetOrganizationManager(ctx, organizationID, manager, store.Now()); err != nil {
+		return model.Organization{}, fmt.Errorf("set organization manager: %w", err)
+	}
+
+	s.audit.Log(ctx, actor.TenantID, AuditEntry{
+		Kind: model.LogOrganization, Action: model.ActionOrgUpdate,
+		ActorID: actor.UserID, ActorName: actor.Username,
+		TargetType: "ORGANIZATION", TargetID: organizationID, TargetName: current.Name,
+		Detail: detail,
+	})
+
+	return s.Get(ctx, actor.TenantID, organizationID)
+}
+
+// AttachUser adds an advisory attachment between a person and an
+// organization they are involved with but do not primarily belong to.
+//
+// It does not touch their primary membership, and it grants nothing — the
+// same as group membership, and for the same reason: there is no permission
+// model here for it to attach to.
+func (s *OrganizationService) AttachUser(ctx context.Context, actor auth.Principal, organizationID, userID string) error {
+	q := s.store.ForTenant(actor.TenantID)
+
+	org, err := q.GetOrganizationByID(ctx, organizationID)
+	if err != nil {
+		if store.IsNoRows(err) {
+			return ErrOrganizationNotFound
+		}
+		return fmt.Errorf("get organization: %w", err)
+	}
+	user, err := q.GetUserByID(ctx, userID)
+	if err != nil {
+		if store.IsNoRows(err) {
+			return ErrUserNotFound
+		}
+		return fmt.Errorf("get user: %w", err)
+	}
+
+	// Attaching somebody to the organization they already belong to would
+	// be a second, weaker record of the same fact — and the two could then
+	// disagree when the primary membership moves.
+	if user.OrganizationID != nil && *user.OrganizationID == organizationID {
+		return httpx.UnprocessableEntity("ALREADY_PRIMARY_ORGANIZATION",
+			"That account already belongs to this organization. An attachment is for the ones it does not.")
+	}
+
+	if err := q.AttachUserToOrganization(ctx, userID, organizationID, store.Now()); err != nil {
+		return fmt.Errorf("attach user: %w", err)
+	}
+
+	s.audit.Log(ctx, actor.TenantID, AuditEntry{
+		Kind: model.LogOrganization, Action: model.ActionOrgUpdate,
+		ActorID: actor.UserID, ActorName: actor.Username,
+		TargetType: "ORGANIZATION", TargetID: organizationID, TargetName: org.Name,
+		Detail: "attached " + user.Username,
+	})
+	return nil
+}
+
+// DetachUser removes an attachment. Idempotent: removing one that is not
+// there is not an error, because a caller reconciling a list should not have
+// to know what is already gone.
+func (s *OrganizationService) DetachUser(ctx context.Context, actor auth.Principal, organizationID, userID string) error {
+	q := s.store.ForTenant(actor.TenantID)
+
+	org, err := q.GetOrganizationByID(ctx, organizationID)
+	if err != nil {
+		if store.IsNoRows(err) {
+			return ErrOrganizationNotFound
+		}
+		return fmt.Errorf("get organization: %w", err)
+	}
+
+	if err := q.DetachUserFromOrganization(ctx, userID, organizationID); err != nil {
+		return fmt.Errorf("detach user: %w", err)
+	}
+
+	s.audit.Log(ctx, actor.TenantID, AuditEntry{
+		Kind: model.LogOrganization, Action: model.ActionOrgUpdate,
+		ActorID: actor.UserID, ActorName: actor.Username,
+		TargetType: "ORGANIZATION", TargetID: organizationID, TargetName: org.Name,
+		Detail: "detached an account",
+	})
+	return nil
+}
+
+// Attachments returns the organizations a person is attached to.
+func (s *OrganizationService) Attachments(ctx context.Context, tenantID, userID string) ([]model.OrganizationRef, error) {
+	rows, err := s.store.ForTenant(tenantID).ListUserOrganizationAttachments(ctx, userID)
+	if err != nil {
+		return nil, fmt.Errorf("list attachments: %w", err)
+	}
+
+	refs := make([]model.OrganizationRef, 0, len(rows))
+	for _, row := range rows {
+		refs = append(refs, model.OrganizationRef{ID: row.ID, Name: row.Name, Code: row.Code})
+	}
+	return refs, nil
 }

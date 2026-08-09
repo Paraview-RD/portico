@@ -27,7 +27,13 @@ audit trail stays intact. An organization is where somebody sits: one of
 them, arranged as a tree. A group is a set they belong to: any number of
 them, flat, and usually maintained by whatever directory pushes it. They are
 separate concepts because they have incompatible shapes, and group
-membership grants nothing.
+membership grants nothing. A person may also be *attached* to any number of
+further organizations — the platform engineer who also sits on a project —
+which is advisory: it grants nothing, synchronizes nowhere, and leaves the
+one authoritative membership alone. Each organization may name whoever is
+responsible for it, which likewise grants nothing: this version has two fixed
+roles, and a field that quietly became a third would be the worst way to
+acquire one.
 
 **Reading accounts out of a directory** — connect to an Active Directory or
 OpenLDAP and pull users in, reconciled on the directory's own stable
