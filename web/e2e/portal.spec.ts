@@ -146,4 +146,9 @@ test("an ordinary user gets the portal, not an administrative screen", async ({
   await expect(
     page.getByRole("heading", { level: 1, name: /Hello/ }),
   ).toBeVisible();
+
+  // The address is corrected as well. Showing one screen while the address
+  // names another means a reload, a bookmark, and a copied link all disagree
+  // with what the person is looking at.
+  await expect(page).toHaveURL(/\/$/);
 });

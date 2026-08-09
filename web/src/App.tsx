@@ -71,6 +71,17 @@ export function App() {
       navigate("/login");
     } else if (user && publicRoutes.includes(route)) {
       navigate("/");
+    } else if (
+      user &&
+      user.role !== "SUPER_ADMIN" &&
+      route !== "/" &&
+      route !== "/profile"
+    ) {
+      // An ordinary user who typed an administrative URL is shown the home
+      // screen, and the address bar is corrected to say so. Rendering one
+      // screen while the address names another means a reload, a bookmark,
+      // and a copied link all disagree with what the person is looking at.
+      navigate("/");
     }
   }, [user, loading, route, navigate, pending, casLogout]);
 
