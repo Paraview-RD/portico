@@ -12,6 +12,7 @@ import (
 	"github.com/Paraview-RD/portico/internal/model"
 	"github.com/Paraview-RD/portico/internal/store"
 	"github.com/Paraview-RD/portico/internal/store/sqlcgen"
+	"github.com/Paraview-RD/portico/internal/webhook"
 )
 
 // ErrOrganizationCodeTaken is returned when a code is already in use within
@@ -24,11 +25,26 @@ var ErrOrganizationCodeTaken = httpx.Conflict("ORGANIZATION_CODE_TAKEN",
 type OrganizationService struct {
 	store *store.Store
 	audit *AuditService
+	// events may be nil, on the same terms as UserService's.
+	events EventPublisher
 }
 
 // NewOrganizationService wires an OrganizationService.
 func NewOrganizationService(st *store.Store, audit *AuditService) *OrganizationService {
 	return &OrganizationService{store: st, audit: audit}
+}
+
+// WithEvents attaches a publisher, on the same terms as UserService's.
+func (s *OrganizationService) WithEvents(publisher EventPublisher) *OrganizationService {
+	s.events = publisher
+	return s
+}
+
+func (s *OrganizationService) publish(ctx context.Context, tenantID, eventType string, org model.Organization) {
+	if s.events == nil {
+		return
+	}
+	s.events.Publish(ctx, tenantID, eventType, org)
 }
 
 // List returns every organization in the tenant in display order, with
@@ -274,7 +290,12 @@ func (s *OrganizationService) Create(ctx context.Context, actor auth.Principal, 
 		TargetType: "ORGANIZATION", TargetID: id, TargetName: in.Name,
 	})
 
-	return s.Get(ctx, actor.TenantID, id)
+	created, err := s.Get(ctx, actor.TenantID, id)
+	if err != nil {
+		return model.Organization{}, err
+	}
+	s.publish(ctx, actor.TenantID, webhook.EventOrgCreated, created)
+	return created, nil
 }
 
 // Update changes an organization's name, remark, parent, and ordering.
@@ -321,7 +342,12 @@ func (s *OrganizationService) Update(ctx context.Context, actor auth.Principal, 
 		TargetType: "ORGANIZATION", TargetID: id, TargetName: in.Name,
 	})
 
-	return s.Get(ctx, actor.TenantID, id)
+	updated, err := s.Get(ctx, actor.TenantID, id)
+	if err != nil {
+		return model.Organization{}, err
+	}
+	s.publish(ctx, actor.TenantID, webhook.EventOrgUpdated, updated)
+	return updated, nil
 }
 
 // SetStatus enables or disables an organization.
@@ -363,7 +389,18 @@ func (s *OrganizationService) SetStatus(ctx context.Context, actor auth.Principa
 		TargetType: "ORGANIZATION", TargetID: id, TargetName: current.Name,
 	})
 
-	return s.Get(ctx, actor.TenantID, id)
+	// As organization.updated rather than a pair of its own, because there is
+	// no organization.enabled or .disabled to send and inventing them here
+	// would be adding an event type in a bug fix. The record changed and a
+	// subscriber mirroring the chart has to hear about it: a mirror that
+	// missed a disable would go on offering an organization nobody may be
+	// added to.
+	updated, err := s.Get(ctx, actor.TenantID, id)
+	if err != nil {
+		return model.Organization{}, err
+	}
+	s.publish(ctx, actor.TenantID, webhook.EventOrgUpdated, updated)
+	return updated, nil
 }
 
 // memberCounts returns the number of users in each organization, in one

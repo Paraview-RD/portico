@@ -142,6 +142,7 @@ func New(cfg *config.Config, opts ...Option) (*Server, error) {
 	// store and the account operations only need to know it exists.
 	users.WithEvents(webhooks)
 	groups.WithEvents(webhooks)
+	orgs.WithEvents(webhooks)
 
 	scimCredentials := service.NewSCIMCredentialService(st, audit)
 
