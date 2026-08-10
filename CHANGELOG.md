@@ -179,8 +179,59 @@ Working toward 0.2.0. See
   It is a real client rather than a stub, which is how the duplicate SAML
   attributes below were found: they are invisible from inside Portico and
   obvious from the far end.
+- **A dev stack and a walkthrough** — a directory with people in it, an inbox
+  that catches mail, and a script that takes an account through thirteen
+  steps: synchronize, a rename that must stay one account, an entry that
+  leaves and returns, an empty result that must change nothing, a SCIM push,
+  a registration confirmed out of a real inbox, an export, and a sign-in to
+  `examples/mock-sp` over all three protocols. It asserts at every hop and
+  exits non-zero at the first failure, because a script that printed progress
+  and always exited 0 would read as "the flow works" while proving nothing.
+  What it covers is the wiring between subsystems, which is where nothing
+  else looks: each hop has tests on both sides of it, and none of them can
+  see a connector that reaches the right directory and lands the wrong field.
+  It is how the skipped-entry blindness above was found, and how three
+  documents were caught claiming the export has no password column when it
+  has one and must. Contributor-facing, so it is documented in
+  [docs/dev-stack.md](docs/dev-stack.md) rather than in the shipped manual.
+- It runs in CI on main, on a tag, and on request — deliberately not on pull
+  requests, where two container images and a server would be spent protecting
+  something other than the change in front of the reviewer.
+- Webhook delivery is now tested against a server that actually receives it,
+  which was the one hop in that chain nothing covered. The rules for
+  registering a destination are tested where they live and everything up to
+  the queue was covered; what arrived at the far end — signed by the recipe
+  the documentation gives a subscriber, rather than by calling the signing
+  code and comparing it with itself — was not.
 
 ### Changed
+
+- **The module path and the container image moved to the address this project
+  is actually at.** `github.com/paraview/portico` was a name only the compiler
+  ever saw and a repository that does not exist for everybody else: `go
+  install github.com/paraview/portico/...` resolves to nothing, and the
+  release pipeline stamped that same dead path into every binary it built. It
+  is now `github.com/Paraview-RD/portico`. The image is
+  `ghcr.io/paraview-rd/portico` — lowercase, because GHCR takes its namespace
+  from the GitHub owner and an image reference may not carry capitals, so the
+  two differ in case and only here. Done before a release rather than after,
+  when it would have cost a v2 module path or a redirect nobody maintains.
+- **The settings screen has a second column**, and still one form and one save
+  button below both. It was a single 40rem card on a 1440px page, leaving two
+  thirds of the content area empty — and widening it was the wrong fix, and
+  had been rejected once already: this screen argues with the reader about why
+  each default is what it is, and prose set to the width of the page is prose
+  nobody finishes. What was wrong was not the width of the form but that there
+  was only one of them. Four save buttons would have turned one deliberate act
+  into four chances to leave half the screen unsaved.
+- **Three buttons that stood alone were given borders.** The ghost variant is
+  legible only in company: three of them in a table's action column are
+  obviously buttons, and one at the end of a list row is a caption. That is
+  what the control ending a session looked like — a label. Every other ghost
+  button in the tree is in a cluster and is unchanged, and the rule is written
+  down in [docs/design-principles.md](docs/design-principles.md), because
+  "borderless, but only in a group" is not something the next person will
+  infer from the variant's name.
 
 - **A dialog's title bar and buttons no longer scroll away.** `overflow-y-auto`
   sat on the dialog itself, so a form taller than the viewport took its own
