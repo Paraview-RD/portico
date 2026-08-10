@@ -75,7 +75,7 @@ Amazon SES、Postmark、Resend，或者一个本地 Postfix。
 
 **方向就是要点。** 这不是遥测——除非你网络内部有东西过来读，否则什么都不会出去；而
 如果你从不设那个地址，这个监听根本不存在。为什么它是一个独立端口，见
-[访问指南](access-guide.md#metrics)。
+[访问指南](access-guide.md#指标)。
 
 ## 别的没有了
 

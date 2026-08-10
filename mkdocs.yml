@@ -101,6 +101,12 @@ validation:
   links:
     unrecognized_links: warn
     absolute_links: warn
+    # Anchors too, and this one was earned. scim.zh.md linked into
+    # federation.md by its English anchor; that resolved while federation was
+    # untranslated and silently stopped resolving the moment it was, because
+    # a translated heading has a translated anchor. Without this the link
+    # keeps working as a link and scrolls nowhere.
+    anchors: warn
 
 markdown_extensions:
   - admonition
