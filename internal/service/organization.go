@@ -389,17 +389,19 @@ func (s *OrganizationService) SetStatus(ctx context.Context, actor auth.Principa
 		TargetType: "ORGANIZATION", TargetID: id, TargetName: current.Name,
 	})
 
-	// As organization.updated rather than a pair of its own, because there is
-	// no organization.enabled or .disabled to send and inventing them here
-	// would be adding an event type in a bug fix. The record changed and a
-	// subscriber mirroring the chart has to hear about it: a mirror that
-	// missed a disable would go on offering an organization nobody may be
-	// added to.
+	// Its own pair rather than organization.updated, matching how a user's
+	// status change is announced: a mirror has to act on a disable, and
+	// making it diff a payload to discover one is how a mirror goes on
+	// offering an organization nobody may be added to.
 	updated, err := s.Get(ctx, actor.TenantID, id)
 	if err != nil {
 		return model.Organization{}, err
 	}
-	s.publish(ctx, actor.TenantID, webhook.EventOrgUpdated, updated)
+	event := webhook.EventOrgEnabled
+	if status == model.StatusDisabled {
+		event = webhook.EventOrgDisabled
+	}
+	s.publish(ctx, actor.TenantID, event, updated)
 	return updated, nil
 }
 

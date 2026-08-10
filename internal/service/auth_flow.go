@@ -16,6 +16,7 @@ import (
 	"github.com/Paraview-RD/portico/internal/model"
 	"github.com/Paraview-RD/portico/internal/store"
 	"github.com/Paraview-RD/portico/internal/store/sqlcgen"
+	"github.com/Paraview-RD/portico/internal/webhook"
 )
 
 // Session is what a successful login returns.
@@ -338,6 +339,15 @@ func (s *UserService) countFailure(ctx context.Context, tenant model.Tenant, use
 		// times, and the two are different questions: how many accounts got
 		// locked, versus how hard somebody is pushing at one that already is.
 		s.metrics.RecordLockout()
+
+		// Announced here, alongside the counter, and for the same reason it
+		// is counted here rather than where a locked account is refused: a
+		// lock is applied once and refused many times. A subscriber feeding a
+		// security desk wants the moment it happened, not one event per
+		// subsequent attempt.
+		if user, err := s.Get(ctx, tenant.ID, userID); err == nil {
+			s.publish(ctx, tenant.ID, webhook.EventUserLocked, user)
+		}
 	}
 	s.logLoginFailure(ctx, tenant.ID, userID, username, ip, reason)
 }
@@ -563,7 +573,23 @@ func (s *UserService) setPassword(ctx context.Context, q *store.Scoped, tenantID
 
 	// Recorded last, so a password refused for any reason above never lands
 	// in the history and blocks itself from being set later.
-	return s.rememberPassword(ctx, q, userID, hash, policy)
+	if err := s.rememberPassword(ctx, q, userID, hash, policy); err != nil {
+		return err
+	}
+
+	// Announced from here for the same reason the lock is cleared from here:
+	// it is where all three paths meet, so a subscriber hears about a
+	// recovery exactly as it hears about an administrator's reset. Publishing
+	// at the call sites instead would have covered two of the three and left
+	// the one nobody thinks of — a password changed by somebody who had
+	// forgotten it, which is the one most worth hearing about.
+	//
+	// After everything above, so a receiver acting the instant this arrives
+	// cannot find a session that this change was supposed to have ended.
+	if user, err := s.Get(ctx, tenantID, userID); err == nil {
+		s.publish(ctx, tenantID, webhook.EventUserPasswordChanged, user)
+	}
+	return nil
 }
 
 // RegisterInput is a self-service sign-up.

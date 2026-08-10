@@ -7,6 +7,8 @@ import type {
   WebhookSubscription,
 } from "../api/types";
 import { useErrorMessage, useT } from "../i18n";
+import type { Translate } from "../i18n";
+import type { TranslationKey } from "../i18n/en-US";
 import {
   Alert,
   Badge,
@@ -39,6 +41,47 @@ import {
  * preference, and the delivery history is something an operator comes here
  * to read rather than something they set once.
  */
+
+/**
+ * The event's name in the reader's language, or the identifier itself.
+ *
+ * t falls back to the key it was given, which would put
+ * "webhooks.event.user.whatever" on screen. This console will meet event
+ * types it has no label for — the wildcard subscribes to the ones later
+ * versions add, and a server can be newer than the page talking to it — so
+ * the fallback has to be the identifier, which at least says what happened
+ * and is what the receiver matches on anyway.
+ */
+function labelFor(t: Translate, prefix: string, value: string): string {
+  const key = `${prefix}${value}` as TranslationKey;
+  const translated = t(key);
+  return translated === key ? value : translated;
+}
+
+/**
+ * Groups event types by the thing they happen to, in the order the server
+ * lists them.
+ *
+ * Fifteen checkboxes in one column is a list somebody scans rather than
+ * reads, and the subject is already the first half of every name — so the
+ * grouping is in the data and only the presentation was flattening it.
+ *
+ * Derived from the identifier rather than from a table kept here: a table
+ * would be a second place to remember when an event is added, and the
+ * failure would be a new event silently landing in the wrong group or in
+ * none.
+ */
+function groupEvents(events: string[]): [string, string[]][] {
+  const groups: [string, string[]][] = [];
+  for (const event of events) {
+    const subject = event.split(".")[0];
+    const existing = groups.find(([name]) => name === subject);
+    if (existing) existing[1].push(event);
+    else groups.push([subject, [event]]);
+  }
+  return groups;
+}
+
 export function WebhooksPage() {
   const t = useT();
   const describeError = useErrorMessage();
@@ -192,7 +235,9 @@ export function WebhooksPage() {
               <Td>
                 {subscription.events.includes("*")
                   ? t("webhooks.allEvents")
-                  : subscription.events.join(", ")}
+                  : subscription.events
+                      .map((event) => labelFor(t, "webhooks.event.", event))
+                      .join(", ")}
               </Td>
               <Td>
                 <Badge
@@ -289,24 +334,46 @@ export function WebhooksPage() {
               {t("webhooks.allEventsHint")}
             </label>
             {!selected.includes("*") &&
-              available.map((event) => (
-                <label
-                  key={event}
-                  className="flex items-center gap-2 text-[length:var(--font-size-sm)]"
-                >
-                  <input
-                    type="checkbox"
-                    checked={selected.includes(event)}
-                    onChange={(e) =>
-                      setSelected(
-                        e.target.checked
-                          ? [...selected, event]
-                          : selected.filter((s) => s !== event),
-                      )
-                    }
-                  />
-                  <code>{event}</code>
-                </label>
+              groupEvents(available).map(([subject, events]) => (
+                <div key={subject} className="mt-1">
+                  <div className="mb-1 text-[length:var(--font-size-xs)] font-[weight:var(--font-weight-medium)] text-[var(--color-fg-muted)]">
+                    {labelFor(t, "webhooks.subject.", subject)}
+                  </div>
+                  {events.map((event) => (
+                    <label
+                      key={event}
+                      className="flex items-baseline gap-2 py-0.5 text-[length:var(--font-size-sm)]"
+                    >
+                      <input
+                        type="checkbox"
+                        checked={selected.includes(event)}
+                        onChange={(e) =>
+                          setSelected(
+                            e.target.checked
+                              ? [...selected, event]
+                              : selected.filter((s) => s !== event),
+                          )
+                        }
+                      />
+                      {/* Both, and not one or the other. The reader choosing
+                          these is an administrator who needs to know what
+                          the event means; the person wiring up the receiver
+                          matches on the literal string, and a translated
+                          label alone would leave them guessing at it.
+
+                          Unless there is no label — an event this build has
+                          not been taught — in which case the identifier is
+                          already standing in as the label and printing it a
+                          second time beside itself says nothing. */}
+                      <span>{labelFor(t, "webhooks.event.", event)}</span>
+                      {labelFor(t, "webhooks.event.", event) !== event && (
+                        <code className="text-[length:var(--font-size-xs)] text-[var(--color-fg-subtle)]">
+                          {event}
+                        </code>
+                      )}
+                    </label>
+                  ))}
+                </div>
               ))}
           </fieldset>
         </form>

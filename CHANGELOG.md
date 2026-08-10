@@ -101,6 +101,32 @@ Working toward 0.2.0. See
   now answers with its whole branch — so the number beside a name would
   disagree with the number of rows that appear when you click it. A wrong
   number is worse than no number.
+- **Five more event types**, each with somewhere it is actually sent from:
+  `user.password_changed`, `user.locked`, `user.unlocked`,
+  `organization.enabled`, and `organization.disabled`. The first is published
+  from the one place all three password paths meet, so a subscriber hears
+  about a completed recovery exactly as it hears about an administrator's
+  reset — publishing at the call sites would have covered two of the three
+  and missed a password changed by somebody who had forgotten it, which is
+  the one most worth hearing about. `user.locked` is sent where the lock is
+  applied rather than on each later attempt against an already-locked
+  account: a lock happens once and is refused many times.
+- Organizations announce a status change as its own pair rather than as
+  `organization.updated`, matching how an account does. A mirror has to act
+  on a disable, and making it diff a payload to discover one is how a mirror
+  goes on offering an organization nobody may be added to.
+- **The event picker says what each event means**, in the reader's language,
+  with the wire identifier beside it rather than instead of it. It was a
+  column of bare dotted identifiers: an administrator deciding what to
+  subscribe to had to read the manual to find out what `group.members_changed`
+  was, and the console is where that decision is made. Both are shown because
+  they answer to different people — the identifier is what the receiver's
+  code matches on. Grouped by subject, which was already the first half of
+  every name.
+- An event this build has no label for falls back to its identifier rather
+  than to a translation key. The wildcard subscribes to event types later
+  versions add, and a server can be newer than the console talking to it, so
+  meeting an unknown event is expected rather than exceptional.
 - **Self-registration can require a confirmed address.** Off by default, per
   tenant. Registration used to create a usable account with whatever email
   was typed — and that address is both a sign-in identifier and where a

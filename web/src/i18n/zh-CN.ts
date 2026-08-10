@@ -430,6 +430,27 @@ export const zhCN: Record<keyof typeof enUS, string> = {
   "webhooks.urlHint":
     "必须是 https 且可公网解析。内网地址、回环地址、云元数据地址一律拒绝——否则本服务将代你向自己的内网发请求。",
   "webhooks.events": "事件",
+
+  // 每个事件是什么意思。线上标识符仍并排显示、而不是被这些替换掉：选订阅的
+  // 管理员要看懂含义，写接收端的人要按字面字符串匹配。
+  "webhooks.subject.user": "账号",
+  "webhooks.subject.organization": "机构",
+  "webhooks.subject.group": "用户组",
+  "webhooks.event.user.created": "账号创建",
+  "webhooks.event.user.updated": "账号信息变更",
+  "webhooks.event.user.enabled": "账号启用",
+  "webhooks.event.user.disabled": "账号停用",
+  "webhooks.event.user.password_changed": "密码变更",
+  "webhooks.event.user.locked": "连续登录失败被锁定",
+  "webhooks.event.user.unlocked": "账号解锁",
+  "webhooks.event.organization.created": "机构创建",
+  "webhooks.event.organization.updated": "机构信息变更",
+  "webhooks.event.organization.enabled": "机构启用",
+  "webhooks.event.organization.disabled": "机构停用",
+  "webhooks.event.group.created": "用户组创建",
+  "webhooks.event.group.updated": "用户组信息变更",
+  "webhooks.event.group.deleted": "用户组删除",
+  "webhooks.event.group.members_changed": "用户组成员变更",
   "webhooks.allEvents": "全部事件",
   "webhooks.allEventsHint": "全部，包括今后版本新增的事件类型",
   "webhooks.colName": "名称",

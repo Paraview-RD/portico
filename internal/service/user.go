@@ -551,7 +551,12 @@ func (s *UserService) Unlock(ctx context.Context, actor auth.Principal, userID s
 		TargetType: "USER", TargetID: target.ID, TargetName: target.Username,
 	})
 
-	return s.Get(ctx, actor.TenantID, userID)
+	unlocked, err := s.Get(ctx, actor.TenantID, userID)
+	if err != nil {
+		return model.User{}, err
+	}
+	s.publish(ctx, actor.TenantID, webhook.EventUserUnlocked, unlocked)
+	return unlocked, nil
 }
 
 // SetStatus enables or disables an account. Disabling also revokes any live

@@ -99,9 +99,23 @@ def verify(secret: str, headers, body: bytes) -> bool:
 
 ## 事件类型
 
-`user.created`、`user.updated`、`user.enabled`、`user.disabled`、
-`organization.created`、`organization.updated`、`group.created`、
-`group.updated`、`group.deleted`、`group.members_changed`。
+| 事件 | 何时发出 |
+|---|---|
+| `user.created` | 账号被创建，无论从哪条路进来——控制台、导入、自主注册、SCIM 或目录同步 |
+| `user.updated` | 账号信息变更 |
+| `user.enabled` | 账号启用 |
+| `user.disabled` | 账号停用，**包括本人注销**——两者靠载荷里的 `closedAt` 区分 |
+| `user.password_changed` | 密码被设置，无论是本人修改、管理员重置，还是走完找回流程。**每一次都会终结全部会话**。载荷中不含任何凭据 |
+| `user.locked` | 账号因连续登录失败被锁定。**只在加锁那一刻发一次**——对一个已锁定账号的后续尝试不再发 |
+| `user.unlocked` | 管理员解锁账号。改密码同样会清除锁定，但它以 `user.password_changed` 的名义上报 |
+| `organization.created` | 机构被创建 |
+| `organization.updated` | 机构的名称、编码、上级或排序变更 |
+| `organization.enabled` | 机构启用 |
+| `organization.disabled` | 机构停用。已有成员留在原处，只是不能再加新人 |
+| `group.created` | 用户组被创建 |
+| `group.updated` | 用户组信息变更 |
+| `group.deleted` | 用户组被删除 |
+| `group.members_changed` | 用户组成员变更 |
 
 `group.members_changed` 携带的是**当前完整的组**而不是差异——想知道谁在组里的订阅方
 会去读这个组，而**每个成员一个事件会把一次批量替换变成一阵没人要的洪水**。

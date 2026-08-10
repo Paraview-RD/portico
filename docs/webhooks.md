@@ -106,9 +106,23 @@ describing an account somebody has since re-enabled.
 
 ## Events
 
-`user.created`, `user.updated`, `user.enabled`, `user.disabled`,
-`organization.created`, `organization.updated`, `group.created`,
-`group.updated`, `group.deleted`, `group.members_changed`.
+| Event | Sent when |
+|---|---|
+| `user.created` | An account is created, however it arrived — console, import, registration, SCIM, or a directory synchronization |
+| `user.updated` | An account's details change |
+| `user.enabled` | An account is enabled |
+| `user.disabled` | An account is disabled, including when somebody closes their own — the payload's `closedAt` tells the two apart |
+| `user.password_changed` | A password is set, whether by its owner, by an administrator's reset, or by completing recovery. Every session ends with it. No credential is in the payload |
+| `user.locked` | An account is locked by consecutive failed sign-ins. Sent once, where the lock is applied — not on each later attempt against an account that is already locked |
+| `user.unlocked` | An administrator unlocks an account. A password change also clears a lock, and reports itself as `user.password_changed` |
+| `organization.created` | An organization is created |
+| `organization.updated` | An organization's name, code, parent, or order changes |
+| `organization.enabled` | An organization is enabled |
+| `organization.disabled` | An organization is disabled. Existing members stay where they are; no new ones can be added |
+| `group.created` | A group is created |
+| `group.updated` | A group's details change |
+| `group.deleted` | A group is deleted |
+| `group.members_changed` | A group's membership changes |
 
 `group.members_changed` carries the group as it now stands rather than the
 delta — a subscriber wanting to know who is in a group reads the group, and

@@ -16,8 +16,31 @@ const (
 	EventUserUpdated  = "user.updated"
 	EventUserEnabled  = "user.enabled"
 	EventUserDisabled = "user.disabled"
-	EventOrgCreated   = "organization.created"
-	EventOrgUpdated   = "organization.updated"
+
+	// EventUserPasswordChanged fires whether the account changed its own
+	// password or an administrator reset it. Both end every session, and a
+	// system holding one has to be told; which of the two it was is an audit
+	// question, and the audit trail is where it is answered.
+	//
+	// The payload is the account, which carries no credential — model.User
+	// has no password field at all, by construction rather than by omission
+	// here. An event named after a password must never be the thing that
+	// carries one out of the building.
+	EventUserPasswordChanged = "user.password_changed"
+	// EventUserLocked fires where the lock is applied, not where a locked
+	// account is turned away. A lock happens once and is refused many times;
+	// a subscriber watching for attacks wants the first.
+	EventUserLocked   = "user.locked"
+	EventUserUnlocked = "user.unlocked"
+
+	EventOrgCreated = "organization.created"
+	EventOrgUpdated = "organization.updated"
+	// EventOrgEnabled and EventOrgDisabled are separate from
+	// organization.updated for the same reason user.enabled is separate from
+	// user.updated: a status change is the one a downstream mirror must act
+	// on, and it should not have to diff a payload to find it.
+	EventOrgEnabled  = "organization.enabled"
+	EventOrgDisabled = "organization.disabled"
 
 	EventGroupCreated = "group.created"
 	EventGroupUpdated = "group.updated"
@@ -32,7 +55,8 @@ const (
 // AllEvents is what a subscription gets when it asks for everything.
 var AllEvents = []string{
 	EventUserCreated, EventUserUpdated, EventUserEnabled, EventUserDisabled,
-	EventOrgCreated, EventOrgUpdated,
+	EventUserPasswordChanged, EventUserLocked, EventUserUnlocked,
+	EventOrgCreated, EventOrgUpdated, EventOrgEnabled, EventOrgDisabled,
 	EventGroupCreated, EventGroupUpdated, EventGroupDeleted,
 	EventGroupMembersChanged,
 }

@@ -455,6 +455,29 @@ export const enUS = {
   "webhooks.urlHint":
     "Must be https and publicly resolvable. Internal, loopback, and cloud-metadata addresses are refused — otherwise this server would make requests inside its own network on your behalf.",
   "webhooks.events": "Events",
+
+  // What each event is, in words. The wire identifier is shown beside every
+  // one of these rather than replaced by it: an administrator choosing what
+  // to subscribe to needs the meaning, and whoever writes the receiver
+  // matches on the literal string.
+  "webhooks.subject.user": "Accounts",
+  "webhooks.subject.organization": "Organizations",
+  "webhooks.subject.group": "Groups",
+  "webhooks.event.user.created": "Account created",
+  "webhooks.event.user.updated": "Account details changed",
+  "webhooks.event.user.enabled": "Account enabled",
+  "webhooks.event.user.disabled": "Account disabled",
+  "webhooks.event.user.password_changed": "Password changed",
+  "webhooks.event.user.locked": "Account locked after failed sign-ins",
+  "webhooks.event.user.unlocked": "Account unlocked",
+  "webhooks.event.organization.created": "Organization created",
+  "webhooks.event.organization.updated": "Organization details changed",
+  "webhooks.event.organization.enabled": "Organization enabled",
+  "webhooks.event.organization.disabled": "Organization disabled",
+  "webhooks.event.group.created": "Group created",
+  "webhooks.event.group.updated": "Group details changed",
+  "webhooks.event.group.deleted": "Group deleted",
+  "webhooks.event.group.members_changed": "Group membership changed",
   "webhooks.allEvents": "All events",
   "webhooks.allEventsHint":
     "Everything, including event types added in future versions",
