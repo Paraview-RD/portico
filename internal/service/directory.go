@@ -326,6 +326,7 @@ func (s *DirectoryService) Runs(ctx context.Context, tenantID, sourceID string, 
 			UpdatedCount:     int(row.UpdatedCount),
 			DeactivatedCount: int(row.DeactivatedCount),
 			SkippedCount:     int(row.SkippedCount),
+			SkippedDetail:    row.SkippedDetail,
 			ErrorCode:        row.ErrorCode,
 			Error:            row.Error,
 		})
@@ -490,7 +491,8 @@ func (s *DirectoryService) SyncNow(ctx context.Context, actor auth.Principal, so
 		ID: runID, FinishedAt: &finishedAt, Outcome: outcome,
 		CreatedCount: narrow(counts.created), UpdatedCount: narrow(counts.updated),
 		DeactivatedCount: narrow(counts.deactivated), SkippedCount: narrow(counts.skipped),
-		ErrorCode: code, Error: message,
+		SkippedDetail: counts.skips.String(),
+		ErrorCode:     code, Error: message,
 	}); err != nil {
 		return model.LDAPSyncRun{}, fmt.Errorf("close sync run: %w", err)
 	}
@@ -515,11 +517,104 @@ func (s *DirectoryService) SyncNow(ctx context.Context, actor auth.Principal, so
 		StartedAt: startedAt, FinishedAt: &finishedAt, Outcome: outcome,
 		CreatedCount: counts.created, UpdatedCount: counts.updated,
 		DeactivatedCount: counts.deactivated, SkippedCount: counts.skipped,
-		ErrorCode: code, Error: message,
+		SkippedDetail: counts.skips.String(),
+		ErrorCode:     code, Error: message,
 	}, nil
 }
 
-type syncCounts struct{ created, updated, deactivated, skipped int }
+type syncCounts struct {
+	created, updated, deactivated, skipped int
+	skips                                  skipLog
+}
+
+// skipLog is why entries were skipped, grouped by reason.
+//
+// Grouped rather than listed: a source pointed at the wrong attribute skips
+// every entry for the same reason, and a line per entry would be a row per
+// account in the directory. What an operator needs is the shape — "5 ×
+// invalid phone number, 1 × username already taken" — and one example of
+// each to go and look at.
+type skipLog struct {
+	order    []string
+	byReason map[string]*skipGroup
+}
+
+type skipGroup struct {
+	count    int
+	examples []string
+}
+
+// maxSkipExamples bounds one reason's examples, and maxSkipReasons bounds how
+// many reasons are kept. A directory can be wrong in more ways than a column
+// can hold, and a run record is not a log.
+const (
+	maxSkipExamples = 3
+	maxSkipReasons  = 5
+)
+
+// record adds one skipped entry. The subject is whatever identifies it to
+// somebody about to go and look: a username where there is one, and nothing
+// where there is not — an entry skipped for having no username is precisely
+// the one that cannot be named by it.
+func (l *skipLog) record(subject string, err error) {
+	if l.byReason == nil {
+		l.byReason = map[string]*skipGroup{}
+	}
+
+	reason := skipReason(err)
+	group, known := l.byReason[reason]
+	if !known {
+		group = &skipGroup{}
+		l.byReason[reason] = group
+		l.order = append(l.order, reason)
+	}
+	group.count++
+	if len(group.examples) < maxSkipExamples && subject != "" {
+		group.examples = append(group.examples, subject)
+	}
+}
+
+// skipReason is the sentence an operator reads. An httpx error already
+// carries one written for a reader; anything else is reported as it is.
+func skipReason(err error) string {
+	var httpErr *httpx.Error
+	if errors.As(err, &httpErr) {
+		return httpErr.Message
+	}
+	return err.Error()
+}
+
+// String renders the groups for the run record, bounded at both ends.
+func (l skipLog) String() string {
+	if len(l.order) == 0 {
+		return ""
+	}
+
+	reasons := l.order
+	omitted := 0
+	if len(reasons) > maxSkipReasons {
+		omitted = len(reasons) - maxSkipReasons
+		reasons = reasons[:maxSkipReasons]
+	}
+
+	parts := make([]string, 0, len(reasons)+1)
+	for _, reason := range reasons {
+		group := l.byReason[reason]
+		part := fmt.Sprintf("%d × %s", group.count, reason)
+		if len(group.examples) > 0 {
+			part += " (" + strings.Join(group.examples, ", ")
+			if group.count > len(group.examples) {
+				part += ", …"
+			}
+			part += ")"
+		}
+		parts = append(parts, part)
+	}
+	if omitted > 0 {
+		parts = append(parts, fmt.Sprintf("and %d further reason(s)", omitted))
+	}
+	return strings.Join(parts, "; ")
+}
 
 func syncResult(err error) model.LogResult {
 	if err != nil {
@@ -603,6 +698,12 @@ func (s *DirectoryService) runSync(ctx context.Context, tenantID, sourceID strin
 		return counts, err
 	}
 	counts.skipped = len(skipped)
+	for _, err := range skipped {
+		// Entries the directory returned that could not be read as an account
+		// at all — no username, no external id. There is nothing to name them
+		// by beyond what the error carries.
+		counts.skips.record("", err)
+	}
 
 	owned, err := q.ListUsersFromLDAPSource(ctx, sourceID)
 	if err != nil {
@@ -631,6 +732,7 @@ func (s *DirectoryService) runSync(ctx context.Context, tenantID, sourceID strin
 			changed, err := s.updateFromDirectory(ctx, actor, existing, entry, row)
 			if err != nil {
 				counts.skipped++
+				counts.skips.record(entry.Username, err)
 				continue
 			}
 			if changed {
@@ -641,6 +743,7 @@ func (s *DirectoryService) runSync(ctx context.Context, tenantID, sourceID strin
 
 		created, err := s.createFromDirectory(ctx, tenantID, sourceID, entry, row)
 		if err != nil {
+			counts.skips.record(entry.Username, err)
 			// A username another account already holds, most often. Skipped
 			// rather than fatal, and never resolved by taking the name: an
 			// administrator's account must not be silently re-owned by a
@@ -659,6 +762,7 @@ func (s *DirectoryService) runSync(ctx context.Context, tenantID, sourceID strin
 		}
 		if _, err := s.users.SetStatus(ctx, actor, user.ID, model.StatusDisabled); err != nil {
 			counts.skipped++
+			counts.skips.record(user.Username, err)
 			continue
 		}
 		counts.deactivated++

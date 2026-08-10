@@ -67,11 +67,10 @@ not recreate it.
 
 **Phone numbers in the seed carry no spaces.** Portico accepts digits with an
 optional leading `+`, so a directory that formats them for humans has every
-one of its accounts refused. The run then reports six skipped, and **nothing
-records why** — the entry-level reason is not surfaced anywhere, and the
-documentation's "most often a username collision" points at the wrong thing.
-Worth fixing in the product; noted here because it is what the next person
-will hit.
+one of its accounts refused. Finding that took several rounds, because the
+run reported six skipped and nothing else — which is why the run now records
+the reason as well as the count, grouped with an example of each. The same
+mistake today reads `6 × That is not a valid phone number. (mei, arjun, …)`.
 
 **Deleting an entry and adding it back is not the same person.** slapd
 generates a new `entryUUID`, so what returns is a different entry sharing a

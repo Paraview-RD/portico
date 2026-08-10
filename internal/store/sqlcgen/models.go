@@ -107,6 +107,7 @@ type LdapSyncRun struct {
 	SkippedCount     int32
 	ErrorCode        string
 	Error            string
+	SkippedDetail    string
 }
 
 type OauthAuthRequest struct {

@@ -379,6 +379,12 @@ export interface LDAPSyncRun {
   /** Entries that could not become an account. Counted, not fatal. */
   skippedCount: number;
   /**
+   * Why they were skipped, grouped by reason with an example of each. Empty
+   * when nothing was. A count on its own tells an operator that something is
+   * wrong and nothing about what.
+   */
+  skippedDetail: string;
+  /**
    * Set when Portico refused, empty when the directory reported the failure.
    * A known code is rendered in the reader's language; anything else is the
    * LDAP server's own wording and is shown verbatim, because that is the

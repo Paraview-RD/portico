@@ -3638,6 +3638,21 @@ components:
             Entries the directory returned that could not become an account —
             no username, no external id, or a username an account this source
             does not own already holds. Counted rather than fatal.
+        skippedDetail:
+          type: string
+          description: |
+            Why they were skipped, grouped by reason with an example of each —
+            "5 × That is not a valid phone number. (mei, arjun, …); 1 ×
+            That username is already taken. (admin)". Empty when nothing was
+            skipped.
+
+            The count alone is not usable: it sends an operator to the
+            documentation, which says a skip is most often a username
+            collision, and that is a wrong lead whenever it is not one.
+
+            Bounded on purpose — three examples per reason, five reasons — so
+            that a source pointed at the wrong attribute produces a sentence
+            rather than a row per account in the directory.
         errorCode:
           type: string
           description: |

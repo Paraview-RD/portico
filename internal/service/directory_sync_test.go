@@ -10,6 +10,8 @@ package service
 
 import (
 	"context"
+	"fmt"
+	"strings"
 	"testing"
 
 	"github.com/paraview/portico/internal/auth"
@@ -313,5 +315,82 @@ func TestFailedSyncLeavesARunToRead(t *testing.T) {
 	}
 	if len(runs) != 1 || runs[0].Outcome != model.SyncFailed {
 		t.Errorf("run history = %+v, want one failed run", runs)
+	}
+}
+
+// A skipped entry has to say why.
+//
+// The count alone was what the run carried, and the documentation's "most
+// often a username collision" is a wrong lead whenever it is not one. It cost
+// a walkthrough several rounds to discover that every account was being
+// refused for a phone number formatted with spaces — a thing the run knew and
+// did not record.
+func TestASkippedEntryRecordsTheReasonAndAnExample(t *testing.T) {
+	f := newSyncFixture(t)
+
+	f.directory.entries = []directory.Entry{
+		{ExternalID: "ext-ok", Username: "keiko", DisplayName: "Keiko Tanaka"},
+		// Formatted the way a person writes one, which the account rules
+		// refuse. This is the case that started all of it.
+		{ExternalID: "ext-phone", Username: "rafael", DisplayName: "Rafael Costa",
+			Phone: "+44 20 7946 0100"},
+	}
+
+	run := f.sync()
+
+	if run.SkippedCount != 1 {
+		t.Fatalf("skipped = %d, want 1", run.SkippedCount)
+	}
+	if run.SkippedDetail == "" {
+		t.Fatal("the run records how many were skipped and not why, which is " +
+			"the state this test exists to prevent")
+	}
+	if !strings.Contains(run.SkippedDetail, "rafael") {
+		t.Errorf("skippedDetail = %q, want it to name the entry an operator "+
+			"has to go and look at", run.SkippedDetail)
+	}
+	if !strings.Contains(strings.ToLower(run.SkippedDetail), "phone") {
+		t.Errorf("skippedDetail = %q, want it to say what was wrong rather "+
+			"than that something was", run.SkippedDetail)
+	}
+
+	// The one that was fine is still there: a skip is per entry, not a run.
+	if got := f.user("keiko").Username; got != "keiko" {
+		t.Errorf("keiko did not arrive alongside the skipped entry")
+	}
+}
+
+// Grouped, not listed. A source pointed at the wrong attribute skips every
+// entry for the same reason, and a line per entry would be a row per account
+// in the directory.
+func TestManyEntriesFailingTheSameWayAreOneLine(t *testing.T) {
+	f := newSyncFixture(t)
+
+	for i := range 6 {
+		f.directory.entries = append(f.directory.entries, directory.Entry{
+			ExternalID:  fmt.Sprintf("ext-%d", i),
+			Username:    fmt.Sprintf("person%d", i),
+			DisplayName: "Person",
+			Phone:       "+44 20 7946 010" + fmt.Sprint(i),
+		})
+	}
+
+	run := f.sync()
+
+	if run.SkippedCount != 6 {
+		t.Fatalf("skipped = %d, want 6", run.SkippedCount)
+	}
+	if !strings.HasPrefix(run.SkippedDetail, "6 × ") {
+		t.Errorf("skippedDetail = %q, want it to lead with the count for one "+
+			"reason rather than repeating the reason six times", run.SkippedDetail)
+	}
+	// Bounded: three examples and an ellipsis, not six names.
+	if strings.Contains(run.SkippedDetail, "person3") {
+		t.Errorf("skippedDetail = %q lists more than the examples it promised",
+			run.SkippedDetail)
+	}
+	if !strings.Contains(run.SkippedDetail, "…") {
+		t.Errorf("skippedDetail = %q does not say it is showing only some",
+			run.SkippedDetail)
 	}
 }

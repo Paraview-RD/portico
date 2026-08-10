@@ -147,7 +147,11 @@ are updated in place.
 **A rename created a second account** — the external id attribute is pointing
 at something that changes. Stop synchronizing before it happens again.
 
-**Skipped count is not zero** — entries with no username, no external id, or
-a username some other account already holds. The last is the common one, and
-it is a collision with an account Portico owns rather than a fault in the
-directory.
+**Skipped count is not zero** — the run says why, grouped by reason with an
+example of each: `5 × That is not a valid phone number. (mei, arjun, …);
+1 × That username is already in use. (admin)`. Read that before assuming.
+
+The common one is a username collision with an account Portico owns rather
+than a fault in the directory. The others are entries with no username or no
+external id, and values the account rules refuse — a phone number formatted
+for humans, with spaces, is the one that catches people.

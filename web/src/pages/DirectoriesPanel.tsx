@@ -277,6 +277,15 @@ export function DirectoriesPanel() {
                     String(run.skippedCount),
                   )}
                 </div>
+                {/* Shown whatever the outcome. A run that skipped entries
+                    succeeded — that is the point of counting rather than
+                    failing — so the reason has to appear next to a success
+                    or nobody sees it. */}
+                {run.skippedDetail && (
+                  <p className="mt-1 text-[length:var(--font-size-sm)] text-[var(--color-fg-muted)]">
+                    {run.skippedDetail}
+                  </p>
+                )}
                 {run.outcome === "FAILED" && (
                   <p className="mt-1 text-[length:var(--font-size-sm)] text-[var(--color-danger-text)]">
                     {failureText(t, run)}

@@ -78,6 +78,12 @@ type LDAPSyncRun struct {
 	// an account. Counted rather than fatal: one malformed entry in ten
 	// thousand must not stop the rest.
 	SkippedCount int `json:"skippedCount"`
+	// SkippedDetail is why, grouped by reason with an example of each.
+	//
+	// A count alone sends an operator to the documentation, which says a
+	// skip is most often a username collision — and when it is not, that is
+	// a wrong lead rather than no lead. Empty when nothing was skipped.
+	SkippedDetail string `json:"skippedDetail"`
 
 	// ErrorCode is set when Portico itself refused, and empty when the
 	// directory reported the failure. The console renders a known code in

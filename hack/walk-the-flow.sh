@@ -204,6 +204,15 @@ equals "$(jq -r '.skippedCount' <<<"$RUN")" "1" \
 # assert against a settled starting point rather than against leftovers.
 ok "created $(jq -r '.createdCount' <<<"$RUN"), updated $(jq -r '.updatedCount' <<<"$RUN"), deactivated $(jq -r '.deactivatedCount' <<<"$RUN")"
 
+# And the run says why, not only how many. A count on its own sent this
+# walkthrough looking in the wrong place for several rounds — the reason was
+# known to the code and recorded nowhere.
+SKIP_DETAIL=$(jq -r '.skippedDetail // ""' <<<"$RUN")
+[[ -n "$SKIP_DETAIL" ]] || die "the run records how many entries were skipped and not why"
+grep -q "admin" <<<"$SKIP_DETAIL" \
+  || die "the reason does not name the entry to go and look at: $SKIP_DETAIL"
+ok "and says why: $SKIP_DETAIL"
+
 [[ -n "$(users_named mei)" ]] || die "mei did not arrive"
 ADMIN_SOURCE=$(users_named admin | jq -r '.source')
 # ADMIN is what the bootstrap administrator carries. Whatever it is, it must
