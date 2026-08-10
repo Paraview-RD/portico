@@ -3,7 +3,7 @@ import userEvent from "@testing-library/user-event";
 import { describe, expect, it, vi } from "vitest";
 
 import { LanguageProvider } from "../i18n";
-import { AppIcon, Field, Input, Modal } from "./ui";
+import { AppIcon, Field, GuidePanel, Input, Modal } from "./ui";
 
 /**
  * Field's accessible name and description.
@@ -171,5 +171,64 @@ describe("AppIcon", () => {
     const first = render(<AppIcon name="Helpdesk" />).container.innerHTML;
     const second = render(<AppIcon name="Helpdesk" />).container.innerHTML;
     expect(first).toBe(second);
+  });
+});
+
+/**
+ * A guide panel's text is one string with a shape: the first line is the
+ * lead, every line after it is "label::text". The shape is what makes the
+ * panel scannable — a paragraph cut into three bullets is still three
+ * things to read before finding out whether any is the one you came for.
+ *
+ * Pinned because both failures are silent. A missing "::" renders the whole
+ * line as unlabelled body, which looks like prose somebody wrote that way;
+ * and a body with no lines after the first has to keep working, or a panel
+ * with nothing worth itemizing is forced to invent points.
+ */
+describe("a guide panel's structure", () => {
+  it("gives every point a label that can be scanned", () => {
+    render(
+      <LanguageProvider>
+        <GuidePanel id="test-guide" title="Guide">
+          {
+            "The lead sentence.\nFirst label::what it means\nSecond label::and this"
+          }
+        </GuidePanel>
+      </LanguageProvider>,
+    );
+
+    expect(screen.getByText("The lead sentence.")).toBeTruthy();
+    // The label is its own element, which is what carries the weight that
+    // makes it skippable. Text alone would pass with the label inlined.
+    expect(screen.getByText("First label").tagName).toBe("STRONG");
+    expect(screen.getByText("Second label").tagName).toBe("STRONG");
+    // Each point's text sits beside its label, one list item per point.
+    expect(screen.getByText(/what it means/)).toBeTruthy();
+    expect(screen.getAllByRole("listitem")).toHaveLength(2);
+  });
+
+  it("keeps a line that has no label rather than dropping it", () => {
+    render(
+      <LanguageProvider>
+        <GuidePanel id="test-guide-2" title="Guide">
+          {"Lead.\nA line somebody forgot to label"}
+        </GuidePanel>
+      </LanguageProvider>,
+    );
+
+    expect(screen.getByText("A line somebody forgot to label")).toBeTruthy();
+  });
+
+  it("still renders a body that is only a lead", () => {
+    render(
+      <LanguageProvider>
+        <GuidePanel id="test-guide-3" title="Guide">
+          {"Just one sentence, no points."}
+        </GuidePanel>
+      </LanguageProvider>,
+    );
+
+    expect(screen.getByText("Just one sentence, no points.")).toBeTruthy();
+    expect(screen.queryByRole("list")).toBeNull();
   });
 });

@@ -197,7 +197,7 @@ export const enUS = {
   "organizations.subtitle": "A single flat tier of groupings for users.",
   "organizations.guideTitle": "Organizations and groups divide the work",
   "organizations.guideBody":
-    'An organization answers where somebody sits: one of them each, arranged as a tree, usually matching the real reporting structure. It settles belonging, not permission — putting somebody in any organization grants them nothing, because this version has two roles and they are set on the account itself. When accounts are synchronized from AD or LDAP, this tree is usually maintained by the directory as well, and editing it by hand here is overwritten on the next run. For "this person belongs to several sets at once", the answer is a group, not this page.',
+    "An organization answers where somebody sits: one each, arranged as a tree.\nGrants nothing::Putting somebody in one gives them no permission. This version has two roles and they are set on the account.\nOften the directory's::Where accounts synchronize from AD or LDAP, hand edits here are overwritten on the next run.\nNot for overlapping sets::Belonging to several at once is what a group is for, not this page.",
   "organizations.create": "New organization",
   "organizations.colName": "Name",
   "organizations.colCode": "Code",
@@ -225,7 +225,7 @@ export const enUS = {
   "auditLogs.subtitle": "Sign-ins, changes, and registrations.",
   "auditLogs.guideTitle": "What these records can answer",
   "auditLogs.guideBody":
-    'What is recorded here has already happened — who signed in when, who changed whom, what was touched — so this is for finding out afterwards rather than watching in real time. Entries are written and never edited, and there is no delete in the interface, which is what makes them worth anything as evidence. How long they stay is set by "Audit log retention" in Settings; expired entries are removed permanently with no copy kept, so anything needed long-term should be exported elsewhere on a schedule. A disabled account keeps its history, which is why this system disables accounts instead of deleting them.',
+    "What is recorded here has already happened, so this is for finding out afterwards rather than watching in real time.\nWritten and never edited::There is no delete in the interface, which is what makes these worth anything as evidence.\nKept for a set period::Audit log retention, in Settings, decides how long. Expired entries go permanently with no copy kept, so export anything needed long-term.\nA disabled account keeps its history::Which is why this system disables accounts instead of deleting them.",
   "auditLogs.filterKind": "Type",
   "auditLogs.filterFrom": "From",
   "auditLogs.filterTo": "To",
@@ -256,7 +256,7 @@ export const enUS = {
   "applications.subtitle": "The systems that sign in through Portico.",
   "applications.guideTitle": "When something needs registering here",
   "applications.guideBody":
-    'Every system you want people to reach with their Portico account is registered here once, which is what lets the two recognize each other. Which tab you use is not a preference — it is whatever the other side speaks: something you wrote yourself or a modern SaaS takes OAuth 2.1 / OIDC, purchased commercial software usually hands you a SAML metadata document, and some long-lived internal systems only know CAS. Once it is registered, give the other side the addresses under "Endpoints" at the top right and the integration is done.',
+    "Every system people reach with their Portico account is registered here once.\nPick what the other side speaks::Not a preference. Your own software and modern SaaS take OAuth 2.1 / OIDC, commercial software usually hands you SAML metadata, and some long-lived internal systems only know CAS.\nThen hand over the addresses::Endpoints, at the top right, is everything the other side needs.",
   "applications.protocol": "Protocol",
   "applications.tab.oauth": "OAuth 2.1 / OIDC",
   "applications.tab.saml": "SAML 2.0",
@@ -362,7 +362,7 @@ export const enUS = {
   "settings.subtitle": "System-wide behavior.",
   "settings.guideTitle": "Who a change here reaches",
   "settings.guideBody":
-    "Every item on this page is a tenant-wide default that takes effect for everybody the moment it is saved — there is no staged rollout and no dry run. The password policy and lockout thresholds set how strict signing in is; tightening them does not invalidate existing passwords, but the next change has to satisfy the new rules. The session lifetime governs how often this console asks you to sign in again, and has nothing to do with the OIDC tokens issued to applications, whose lifetimes are fixed. Audit retention is the only setting here that deletes data: lowering it permanently removes entries past the new limit.",
+    "Everything here is a tenant-wide default that takes effect for everybody the moment it is saved. There is no staged rollout.\nTwo different things are called a session::Console session lifetime governs this interface only. What registered applications receive is the single sign-on tokens group.\nTightening does not invalidate::Existing passwords keep working; the next change has to satisfy the new rules.\nTwo of these cannot be undone::Lowering audit retention permanently removes entries past the new limit, and raising the maximum session age above zero pushes working integrations out when they reach it.",
   "settings.systemName": "System name",
   "settings.tokenTtl": "Console session lifetime (minutes)",
   "settings.tokenTtlHelp":
@@ -417,7 +417,7 @@ export const enUS = {
     "Sets of people. Separate from organizations, which are the org chart — somebody sits in one organization and belongs to any number of groups. Membership grants no permissions.",
   "groups.guideTitle": "What groups are for",
   "groups.guideBody":
-    'A group is an overlapping label: project members, approvers, the people who use a particular system — somebody belongs to as many as apply, and groups have no hierarchy between them. Membership grants nothing on its own; the meaning belongs to whatever downstream system reads it. An application may decide that "anyone in finance can see the reports", but that rule lives in that application, not in Portico. In most deployments these are pushed and maintained by an upstream directory; creating them by hand suits the case where Portico is itself the only source. To say which department somebody is in, use an organization instead.',
+    "A group is an overlapping label: somebody belongs to as many as apply, and groups have no hierarchy.\nGrants nothing::The meaning lives in whatever downstream system reads it. An application may act on membership; that rule is theirs, not Portico's.\nUsually pushed in::Most deployments have an upstream directory maintain these. Creating them by hand suits Portico being the only source.\nNot a department::Where somebody sits is an organization.",
   "groups.new": "New group",
   "groups.edit": "Edit group",
   "groups.name": "Name",
@@ -448,7 +448,7 @@ export const enUS = {
     "Where to send a signed notification when something changes here. Https only, and never an address inside your network.",
   "webhooks.guideTitle": "When to subscribe to events",
   "webhooks.guideBody":
-    'Subscribe when one of your own systems needs to know the moment an account is created, disabled, or changed, rather than asking every few minutes. Every delivery is signed, and a receiver should verify that signature before acting on it — otherwise anybody can post "so-and-so has been disabled". This is notification, not synchronization: a failed delivery is retried, so the same event can arrive twice and order is not guaranteed, which means the receiving end has to be idempotent. When what you need is the whole roster rather than a change alert, the page for that is Provisioning.',
+    "Subscribe when one of your own systems has to know the moment something changes, rather than asking every few minutes.\nVerify the signature::Every delivery is signed. A receiver that does not check it will act on anything anybody posts, including a forged account disabled.\nNotification, not synchronization::Retries mean the same event can arrive twice and order is not guaranteed, so the receiving end has to be idempotent.\nFor the whole roster::That is Directory integration, not this page.",
   "webhooks.new": "New subscription",
   "webhooks.name": "Name",
   "webhooks.url": "Endpoint URL",
@@ -508,7 +508,7 @@ export const enUS = {
     "Accounts arriving from somewhere else, in either direction.",
   "provisioning.guideTitle": "Two ways in, and how to choose",
   "provisioning.guideBody":
-    "If the list of people is already maintained somewhere else, it does not need typing in again — this page connects to it. The two ways in differ only in who acts: Portico connects out to Active Directory or OpenLDAP and reads, or a directory such as Okta or Entra ID pushes to Portico over SCIM. Use whichever the other side supports; a traditional AD is usually the first, a cloud identity platform usually the second. Accounts that arrive either way are indistinguishable afterwards, but where you look when somebody fails to arrive depends on which one it was.",
+    "If the roster is maintained somewhere else already, connect to it rather than typing it in again.\nTwo directions::Portico reaches out to Active Directory or OpenLDAP and reads, or a directory such as Okta or Entra ID pushes in over SCIM.\nPick what the other side supports::A traditional AD is usually the first, a cloud identity platform usually the second.\nThe direction decides where you look::Accounts are indistinguishable once they arrive, but chasing one that did not arrive starts in a different place.",
   // Named for the direction rather than the protocol, because that is the
   // thing people get wrong: one has Portico reach out, the other has a
   // directory reach in, and the difference decides where you look when

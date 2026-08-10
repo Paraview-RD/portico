@@ -718,6 +718,80 @@ export function PageHeader({
  * cannot be dismissed becomes furniture for the administrator who reads it
  * every day for a year.
  */
+/**
+ * Splits a guide's text into a lead sentence and its labelled points.
+ *
+ * The first line is the lead; every line after it is `label::text`. One
+ * translation key per panel rather than seven, for two reasons: a
+ * translator handed a fragment cannot see whether the fragments around it
+ * still read as one explanation, and seven panels at seven keys apiece is
+ * fifty entries to keep in step across two bundles — which is fifty chances
+ * for one to go missing and render as a raw key.
+ *
+ * A body with no separator is still valid and renders as it always did, so
+ * a panel that has nothing worth breaking into points is not forced to
+ * invent some.
+ */
+function parseGuide(body: string): {
+  lead: string;
+  points: { label: string; text: string }[];
+} {
+  const [lead, ...rest] = body.split("\n").filter((line) => line.trim() !== "");
+  return {
+    lead: lead ?? "",
+    points: rest.map((line) => {
+      const at = line.indexOf("::");
+      // A line without a separator is all text and no label rather than a
+      // dropped line: losing a sentence to a missing "::" would be a
+      // silent hole in an explanation.
+      return at === -1
+        ? { label: "", text: line.trim() }
+        : { label: line.slice(0, at).trim(), text: line.slice(at + 2).trim() };
+    }),
+  };
+}
+
+/**
+ * A guide's text: one sentence saying what the screen is for, then the
+ * handful of facts somebody needs before using it.
+ *
+ * The labels carry the scanning. A paragraph broken into three bullets is
+ * still three things you have to read in order to find out whether any of
+ * them is the one you came for; a bold label on each is what lets somebody
+ * skip the two that are not.
+ */
+function GuideBody({ body }: { body: string }) {
+  const { lead, points } = parseGuide(body);
+  return (
+    <>
+      <p>{lead}</p>
+      {points.length > 0 && (
+        <ul className="mt-2 flex flex-col gap-1">
+          {points.map((point) => (
+            <li key={point.label + point.text} className="flex gap-2">
+              <span
+                aria-hidden="true"
+                className="text-[var(--color-fg-subtle)]"
+              >
+                ·
+              </span>
+              <span>
+                {point.label && (
+                  <strong className="font-[weight:var(--font-weight-medium)] text-[var(--color-fg)]">
+                    {point.label}
+                  </strong>
+                )}
+                {point.label && " — "}
+                {point.text}
+              </span>
+            </li>
+          ))}
+        </ul>
+      )}
+    </>
+  );
+}
+
 export function GuidePanel({
   id,
   title,
@@ -797,7 +871,11 @@ export function GuidePanel({
             "leading-[var(--leading-normal)] text-[var(--color-fg-muted)]",
           )}
         >
-          {children}
+          {typeof children === "string" ? (
+            <GuideBody body={children} />
+          ) : (
+            children
+          )}
           {docsPage && (
             <p className="mt-2">
               <a
