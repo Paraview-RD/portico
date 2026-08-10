@@ -27,6 +27,13 @@ jobs:
         env:
           BASE: ${{ github.event.pull_request.base.sha }}
           HEAD: ${{ github.event.pull_request.head.sha }}
+          # Who opened the pull request, according to GitHub rather than
+          # according to the commits. That distinction is the whole security of
+          # the exception below: commit metadata is chosen by whoever runs
+          # `git commit`, so a check keyed on an author address could be
+          # cleared by anybody willing to type dependabot's address into
+          # user.email. This value cannot be set by the branch's contents.
+          PR_AUTHOR: ${{ github.event.pull_request.user.login }}
         run: |
           set -euo pipefail
 
@@ -48,6 +55,33 @@ jobs:
             fi
 
             author="$(git log -1 --format='%an <%ae>' "$sha")"
+
+            # Dependabot signs off, and this used to fail it anyway. Its
+            # commits are authored as
+            #   dependabot[bot] <49699333+dependabot[bot]@users.noreply.github.com>
+            # and carry
+            #   Signed-off-by: dependabot[bot] <support@github.com>
+            # — the same identity, two addresses GitHub uses for it, which the
+            # exact-match rule below reads as a mismatch. So every dependency
+            # bump arrived with a red merge gate, and a gate that is red on
+            # things nobody intends to fix is a gate people learn to ignore.
+            #
+            # This is not a bypass: the trailer is still required, and it still
+            # has to name dependabot. What is relaxed is only the requirement
+            # that the address in it equal the address in the author field.
+            # Both conditions have to hold — the pull request was opened by the
+            # bot (per GitHub, unforgeable from the branch) and this particular
+            # commit was authored by it — so a human commit pushed onto a
+            # dependabot branch is still checked normally.
+            if [ "$PR_AUTHOR" = "dependabot[bot]" ] &&
+               [ "$(git log -1 --format='%an' "$sha")" = "dependabot[bot]" ]; then
+              if git log -1 --format='%B' "$sha" \
+                   | grep -qiE '^Signed-off-by: dependabot\[bot\] <[^>]+>$'; then
+                echo "ok     $(git rev-parse --short "$sha")  $subject  (dependabot)"
+                continue
+              fi
+            fi
+
             # Compare case-insensitively on the trailer name only; the value
             # must match the commit author exactly.
             if git log -1 --format='%B' "$sha" \
