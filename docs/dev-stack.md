@@ -1,0 +1,92 @@
+# The dev stack and the walkthrough
+
+A directory with people in it, an inbox that catches mail, and a script that
+walks an account through every hop and asserts at each one.
+
+This is for contributors. It is not in the manual the binary ships — an
+operator has no dev stack — which is why this page is excluded from the site.
+
+## Running it
+
+```bash
+docker compose -f deploy/dev-stack/compose.yml up -d --wait
+
+go build -o portico ./cmd/server
+PORTICO_DB_DSN=… PORTICO_ENCRYPTION_KEY=… ./portico      # in another terminal
+
+./hack/walk-the-flow.sh
+```
+
+Everything binds to `127.0.0.1`. A directory with a published bind password
+and an inbox with no authentication are both fine on a laptop and neither is
+fine on a network.
+
+| | Where | |
+|---|---|---|
+| Directory | `ldap://127.0.0.1:3890` | `cn=admin,dc=example,dc=org` / `portico-dev` |
+| Inbox | <http://127.0.0.1:8426> | SMTP on 1026 |
+
+Portico itself is deliberately **not** in the compose file. You run the
+binary you just built against the database you already have; a compose file
+that also owned the server would mean demonstrating a released image rather
+than the change in front of you.
+
+## What the walkthrough proves
+
+Seven steps, twenty assertions, non-zero exit on the first failure. A
+walkthrough that printed progress and always exited 0 would read as "the flow
+works" while proving nothing.
+
+| Step | What would otherwise regress silently |
+|---|---|
+| Synchronize | Accounts arrive; `uid=admin` is **skipped**, because a directory listing the same username as your administrator is not a claim on that account |
+| Rename | One account stays one account. Get the external id wrong and every rename in the directory quietly becomes a second account here |
+| Leave and return | Deactivated when the entry stops appearing, active again when it comes back |
+| Empty result | The run **fails and changes nothing**. A wrong base DN looks exactly like an organisation everybody has left, and acting on it would deactivate every account the source owns |
+
+It runs in a scratch tenant (`walkthrough` by default, `WALK_TENANT` to
+override), so it cannot touch the accounts of the deployment it is pointed
+at. The tenant is reused between runs; there is no tenant delete, and
+inventing one for a walkthrough would be the wrong reason to have it.
+
+It is repeatable: the third step puts the directory back to its starting
+state, because a walkthrough that only passes on a fresh fixture is one
+nobody runs twice.
+
+## Things that cost time once
+
+**Rebuilding the LDAP container invalidates every reconciliation key.**
+`compose down -v` makes slapd generate new `entryUUID`s, so a tenant that has
+already synchronised is holding external ids that no longer exist: the next
+run deactivates everybody and then skips the "new" entries as username
+collisions. Use a fresh `WALK_TENANT` after recreating the container, or do
+not recreate it.
+
+**Phone numbers in the seed carry no spaces.** Portico accepts digits with an
+optional leading `+`, so a directory that formats them for humans has every
+one of its accounts refused. The run then reports six skipped, and **nothing
+records why** — the entry-level reason is not surfaced anywhere, and the
+documentation's "most often a username collision" points at the wrong thing.
+Worth fixing in the product; noted here because it is what the next person
+will hit.
+
+**Deleting an entry and adding it back is not the same person.** slapd
+generates a new `entryUUID`, so what returns is a different entry sharing a
+username, correctly skipped rather than reactivated. To make somebody leave
+and return, move the entry out of the base DN and back — which is what
+`ou=archive` in the seed is for.
+
+**A failed run still answers 200.** The sync endpoint returns the run record,
+and a run that failed is a run that was successfully recorded. The outcome is
+in `data.outcome`, the reason in `data.errorCode`. Reading only the envelope
+reports a working refusal as missing — and, worse, lets a broken source
+return a record full of zeros that every later assertion passes on.
+
+## What this does not cover
+
+The hops with no step yet: SCIM push, self-registration through the inbox,
+the OpenID Connect flow, and the export. The protocols each have tests, and
+[examples/mock-sp](https://github.com/paraview/portico/blob/main/examples/mock-sp)
+demonstrates a sign-in in a browser; what is missing here is the assertion
+that they fit together on a running deployment, in the same script as the
+rest.

@@ -12,19 +12,26 @@ cd "$(dirname "$0")/.."
 # The languages the manual is built in, minus the one it is written in.
 languages=(zh)
 
-# Pages that ship. Kept as the same list mkdocs nav uses; a page excluded
-# from the site does not need translating.
+# Which pages ship is decided in mkdocs.yml, so the exclusions are read from
+# there rather than listed again here. A second copy of that list is a second
+# thing to update, and it drifts the first time a page is excluded — which it
+# did, the day dev-stack.md was added and this script went on counting it as
+# untranslated.
+excludes=()
+while IFS= read -r pattern; do
+  excludes+=(! -name "$pattern")
+done < <(
+  awk '/^exclude_docs:/ {inside=1; next}
+       inside && /^[^[:space:]]/ {inside=0}
+       inside && NF {gsub(/^[[:space:]]+/, ""); gsub(/\/$/, ""); print}' mkdocs.yml
+)
+
 # read into an array without mapfile, which macOS's bash 3.2 does not have
 pages=()
 while IFS= read -r page; do
   pages+=("$page")
 done < <(
-  find docs -maxdepth 1 -name '*.md' \
-    ! -name 'README.md' \
-    ! -name '*-conventions.md' \
-    ! -name 'design-principles.md' \
-    ! -name '*.*.md' \
-    | sort
+  find docs -maxdepth 1 -name '*.md' "${excludes[@]}" ! -name '*.*.md' | sort
 )
 
 status=0

@@ -28,6 +28,7 @@ exclude_docs: |
   README.md
   *-conventions.md
   design-principles.md
+  dev-stack.md
   requirements/
 
 theme:
