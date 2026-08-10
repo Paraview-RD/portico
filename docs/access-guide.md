@@ -222,10 +222,12 @@ Typical journey — hand over a copy of the directory:
    filters that are on screen, so what you are looking at is what you get.
 2. **Export** → an .xlsx in the same columns the import template uses, so a
    file taken out can be corrected and fed back in.
-3. **It carries no passwords and has no column for one.** The import
-   template has that column because creating an account needs an initial
-   password; an export is a report, and a report carrying credentials is a
-   credential-distribution mechanism nobody meant to build.
+3. **It carries no passwords.** The password column is there and every cell
+   in it is empty, which is not an oversight: the importer reads columns by
+   position, so that a translated header still works — and an export missing
+   that column would put every field one place to the left on the way back
+   in, silently. So the heading stays and the values do not. What must never
+   appear in a report is a credential; a heading is not one.
 4. **It is recorded.** Every export appears in **Audit logs** as
    `USER_EXPORT`, with who ran it and how many accounts left. This is every
    attribute of every matching account leaving through one request — nothing

@@ -33,7 +33,7 @@ than the change in front of you.
 
 ## What the walkthrough proves
 
-Seven steps, twenty assertions, non-zero exit on the first failure. A
+Ten steps, thirty-four assertions, non-zero exit on the first failure. A
 walkthrough that printed progress and always exited 0 would read as "the flow
 works" while proving nothing.
 
@@ -43,6 +43,9 @@ works" while proving nothing.
 | Rename | One account stays one account. Get the external id wrong and every rename in the directory quietly becomes a second account here |
 | Leave and return | Deactivated when the entry stops appearing, active again when it comes back |
 | Empty result | The run **fails and changes nothing**. A wrong base DN looks exactly like an organisation everybody has left, and acting on it would deactivate every account the source owns |
+| SCIM push | A directory renaming somebody lands on the account that already exists, matched on `externalId` |
+| Registration | An unverified account is **refused at sign-in with a reason**, and the link that fixes it comes out of a real inbox |
+| Export | A workbook with the password column present and empty, and the export recorded as `USER_EXPORT` |
 
 It runs in a scratch tenant (`walkthrough` by default, `WALK_TENANT` to
 override), so it cannot touch the accounts of the deployment it is pointed
@@ -82,11 +85,18 @@ in `data.outcome`, the reason in `data.errorCode`. Reading only the envelope
 reports a working refusal as missing — and, worse, lets a broken source
 return a record full of zeros that every later assertion passes on.
 
+**The export has a password column, and it is empty.** Three documents said
+it had no such column, which was wrong and would have been the wrong thing to
+"fix": the importer reads columns by position so a translated header still
+works, so an export missing that column shifts every field one place to the
+left on the way back in — silently. The heading stays; the values do not. The
+walkthrough asserts both halves.
+
 ## What this does not cover
 
-The hops with no step yet: SCIM push, self-registration through the inbox,
-the OpenID Connect flow, and the export. The protocols each have tests, and
+Nothing in the hops themselves any more — the ten steps reach the directory,
+SCIM, registration through a real inbox, and the export. What is still
+missing is a step that drives a **browser** through OpenID Connect;
 [examples/mock-sp](https://github.com/paraview/portico/blob/main/examples/mock-sp)
-demonstrates a sign-in in a browser; what is missing here is the assertion
-that they fit together on a running deployment, in the same script as the
-rest.
+does that by hand, and the protocol itself is asserted in
+`internal/server/federation_test.go`.
