@@ -191,6 +191,13 @@ func (s *Server) routes() http.Handler {
 			// retyped into a screen.
 			r.Get("/applications/integration-endpoints", h.IntegrationEndpoints)
 
+			// Uploading the picture for a tile. Not nested under a protocol,
+			// because one picture is one picture whichever of the three the
+			// application speaks — and the upload has to happen before the
+			// registration form is saved, so it cannot belong to a client
+			// that does not exist yet.
+			r.Post("/applications/logos", h.UploadApplicationLogo)
+
 			r.Route("/applications/oauth-clients", func(r chi.Router) {
 				r.Get("/", h.ListClients)
 				r.Post("/", h.CreateClient)
@@ -368,6 +375,14 @@ func (s *Server) mountFederation(r chi.Router) {
 		for _, path := range casp.Paths() {
 			r.Handle(path, casByTenant)
 		}
+
+		// An uploaded tile picture, served without credentials because a tile
+		// is drawn on the sign-in screen before anybody has any. It is under
+		// this prefix rather than at the root for the reason the federation
+		// endpoints are: the row belongs to a tenant, and a request with no
+		// principal has nowhere else to learn which one. The lookup filters on
+		// it — see store.Scoped.GetApplicationLogo.
+		r.Get("/logos/{logoID}", s.handler.ApplicationLogo)
 	})
 }
 

@@ -480,6 +480,20 @@ export const applicationApi = {
   integrationEndpoints: () =>
     request<IntegrationEndpoints>("/applications/integration-endpoints"),
 
+  /**
+   * Stores a picture for a tile and returns the path to reference it by.
+   *
+   * Not nested under a protocol: one picture is one picture whichever of the
+   * three an application speaks, and the upload happens before the form is
+   * saved — so it cannot belong to a client that does not exist yet.
+   *
+   * The response is a path rather than an id because the path is what goes into
+   * the logoUri field. Which means the console never has to know how the
+   * address is spelled; the server decides and says.
+   */
+  uploadLogo: (file: File) =>
+    upload<{ path: string }>("/applications/logos", file),
+
   oauth: {
     list: () => request<OAuthClient[]>("/applications/oauth-clients"),
 

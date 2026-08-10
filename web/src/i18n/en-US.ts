@@ -81,7 +81,9 @@ export const enUS = {
   "portal.manageDevices": "Signed-in devices",
   "applications.logoUri": "Icon",
   "applications.logoUriHelp":
-    "The picture on this application's tile. Either an address on this server, such as /icons/wiki.svg, or an absolute https URL. Without one the tile carries the first character of the name.",
+    "The picture on this application's tile. Upload a PNG or JPEG, or type an address: a path on this server, such as /icons/wiki.svg, or an absolute https URL. Without one the tile carries the first character of the name.",
+  "applications.logoUpload": "Upload",
+  "applications.logoUploading": "Uploading…",
   "applications.launchUrl": "Launch address",
   "applications.launchUrlHelp":
     "Where a person opens this application from the home screen. Optional, and not a redirect address — opening one of those directly produces an error.",

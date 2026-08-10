@@ -9,6 +9,17 @@ import (
 	"time"
 )
 
+// Uploaded pictures for application tiles. Referenced by path from the logo_uri columns.
+type ApplicationLogo struct {
+	ID          string
+	TenantID    string
+	ContentType string
+	Bytes       []byte
+	Sha256      string
+	ByteSize    int32
+	CreatedAt   time.Time
+}
+
 type AuditLog struct {
 	ID string
 	// The tenant the event happened in. A sign-in naming a tenant that does not exist has no tenant to belong to and so is reported to the process log instead; see SECURITY.md.

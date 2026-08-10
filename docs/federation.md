@@ -154,6 +154,42 @@ wildcards, fragments, and non-loopback `http://` are all refused. Loopback
 `http://` is allowed because a native application's redirect has nowhere else
 to go.
 
+### The picture on the tile
+
+Optional, and the tile falls back to the first character of the name — which
+is legible, needs no network, and cannot break. What a logo buys is
+recognition: people find an application on a portal by its mark long before
+they finish reading six names.
+
+Three ways to supply one, and they end up in the same field:
+
+| | |
+|---|---|
+| Upload | **PNG or JPEG**, at most 512 KiB and 1024 pixels a side. Stored in the database and served from `/t/<tenant>/logos/<id>` |
+| A path on this server | Anything you have put there yourself, such as `/icons/wiki.svg` |
+| An absolute `https` address | Fetched by the browser from wherever it points |
+
+**An SVG cannot be uploaded**, and the refusal is not about the format being
+unusual. An SVG is a document that can carry script, and an uploaded file is
+served back from this server's own address — the address the administrative
+console is on. Rendered through `<img>` a browser will not run that script,
+which is why an SVG *path* is still accepted: a file an operator put under
+`/icons` is one they chose. But a file that arrived through a web form can also
+be opened directly, in a tab, where it is a page with this origin's cookies.
+The safety of the `<img>` case is a property of one component's rendering, and a
+stored blob that is only safe because of how something happens to render it is a
+trap for whoever changes that component.
+
+The third form has a consequence worth knowing before you use it: the
+`Content-Security-Policy` this server sends allows images from itself and from
+`data:` only, so **an absolute address on another host will not render in a
+browser** even though it is accepted on registration. The first two forms are
+same-origin and unaffected.
+
+Uploads that no application ends up referencing are removed a day later. The
+upload has to happen before the form is saved, so a cancelled form leaves a
+file behind, and replacing a logo leaves the one it replaced.
+
 ## Claims
 
 Beyond the standard ones, every token carries what a downstream system needs

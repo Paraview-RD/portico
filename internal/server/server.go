@@ -34,6 +34,7 @@ type Server struct {
 	middleware *auth.Middleware
 	metrics    *metrics.Registry
 	webhooks   *service.WebhookService
+	logos      *service.ApplicationLogoService
 	// The client webhook deliveries go out through. One per server: its
 	// transport pools connections, and its dialer is what refuses a
 	// destination that has started resolving somewhere local.
@@ -137,6 +138,7 @@ func New(cfg *config.Config, opts ...Option) (*Server, error) {
 	casServer := casp.New(cfg.PublicURL, tenants, casServices, audit)
 
 	groups := service.NewGroupService(st, audit)
+	logos := service.NewApplicationLogoService(st)
 	webhooks := service.NewWebhookService(st, audit)
 	// Attached after construction: the webhook service is built from the same
 	// store and the account operations only need to know it exists.
@@ -165,11 +167,12 @@ func New(cfg *config.Config, opts ...Option) (*Server, error) {
 		store: st,
 		handler: handler.New(users, orgs, audit, settings, tenants, recovery, verification, sessions,
 			clients, serviceProviders, samlKeys, casServices, scimCredentials,
-			directories, webhooks, groups, providers, samlProviders, casServer),
+			directories, webhooks, groups, logos, providers, samlProviders, casServer),
 		middleware:    auth.NewMiddleware(tokens, users, sessions),
 		metrics:       registry,
 		scim:          scimHandler,
 		webhooks:      webhooks,
+		logos:         logos,
 		webhookClient: webhook.NewClient(webhook.RequestTimeout),
 		users:         users,
 		tenants:       tenants,
@@ -312,6 +315,12 @@ func (s *Server) sweepCredentialRemnants(ctx context.Context) error {
 		}
 		if err := s.webhooks.SweepDeliveries(ctx, tenant.ID, now); err != nil {
 			return fmt.Errorf("sweep webhook deliveries for tenant %s: %w", tenant.Code, err)
+		}
+		// Uploaded tile pictures nothing points at. A logo has to be stored
+		// before the registration form naming it is saved, so cancelling that
+		// form strands one, and replacing a logo strands the one it replaced.
+		if _, err := s.logos.SweepOrphans(ctx, tenant.ID, now); err != nil {
+			return fmt.Errorf("sweep orphaned logos for tenant %s: %w", tenant.Code, err)
 		}
 
 		settings, err := s.settings.Get(ctx, tenant.ID)

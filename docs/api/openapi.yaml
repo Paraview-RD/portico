@@ -1740,6 +1740,60 @@ paths:
         "403":
           $ref: "#/components/responses/Forbidden"
 
+  /api/v1/applications/logos:
+    post:
+      tags: [Applications]
+      operationId: uploadApplicationLogo
+      summary: Store a picture for an application's tile.
+      description: |
+        Returns the path to reference the stored file by, which goes into the
+        `logoUri` of whichever application is being registered. Not nested
+        under a protocol: one picture is one picture whichever of the three an
+        application speaks, and the upload has to happen before the
+        registration is saved — so it cannot belong to a client that does not
+        exist yet.
+
+        **PNG and JPEG only, and the format is decided by the file's own
+        bytes** rather than by its name or its declared type, both of which are
+        chosen by whoever sends the request. An SVG is refused: it is a
+        document that can carry script, and an uploaded file is served back
+        from this server's own address. Rendered through `<img>` a browser will
+        not run that script, which is why an SVG *path* remains acceptable —
+        but a file that arrived through a form can also be opened directly, in
+        a tab, where it is a page with this origin's cookies.
+
+        An upload that no application ends up referencing is removed a day
+        later.
+      requestBody:
+        required: true
+        content:
+          multipart/form-data:
+            schema:
+              type: object
+              required: [file]
+              properties:
+                file:
+                  type: string
+                  format: binary
+                  description: |
+                    A PNG or JPEG, at most 512 KiB and 1024 pixels a side.
+      responses:
+        "200":
+          description: The path the picture is served from.
+          content:
+            application/json:
+              schema:
+                { $ref: "#/components/schemas/ApplicationLogoEnvelope" }
+        "400":
+          description: |
+            The file is not a PNG or JPEG (`UNSUPPORTED_IMAGE`), or is past the
+            size or pixel bound (`LOGO_TOO_LARGE`).
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Envelope" }
+        "403":
+          $ref: "#/components/responses/Forbidden"
+
   /api/v1/applications/oauth-clients:
     get:
       tags: [Applications]
@@ -3852,6 +3906,26 @@ components:
         - type: object
           properties:
             data: { $ref: "#/components/schemas/IntegrationEndpoints" }
+
+    ApplicationLogo:
+      type: object
+      properties:
+        path:
+          type: string
+          description: |
+            Where the picture is served from, and what to put in an
+            application's `logoUri`. Tenant-prefixed, because the row belongs to
+            a tenant and the request that reads it has no principal to take one
+            from — the picture is served without credentials, since a tile is
+            drawn on the sign-in screen.
+          example: /t/default/logos/6f9a1f2e-0c4b-4f13-9a3e-7d2b8c5e1a04
+
+    ApplicationLogoEnvelope:
+      allOf:
+        - $ref: "#/components/schemas/Envelope"
+        - type: object
+          properties:
+            data: { $ref: "#/components/schemas/ApplicationLogo" }
 
     OAuthClientEnvelope:
       allOf:

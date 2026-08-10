@@ -23,6 +23,7 @@ import type {
   RegisteredClient,
   SAMLServiceProvider,
 } from "../api/types";
+import { LogoField } from "../components/LogoField";
 import {
   Alert,
   AppIcon,
@@ -816,21 +817,11 @@ function ClientFormDialog({
           />
         </Field>
 
-        <Field
-          label={`${t("applications.logoUri")} (${t("common.optional")})`}
-          hint={t("applications.logoUriHelp")}
-        >
-          <div className="flex items-center gap-3">
-            <AppIcon name={form.name || "?"} src={form.logoUri} size={36} />
-            <Input
-              value={form.logoUri}
-              onChange={(e) =>
-                setForm((f) => ({ ...f, logoUri: e.target.value }))
-              }
-              placeholder="/icons/wiki.svg"
-            />
-          </div>
-        </Field>
+        <LogoField
+          name={form.name}
+          value={form.logoUri}
+          onChange={(logoUri) => setForm((f) => ({ ...f, logoUri }))}
+        />
 
         {error && <Alert tone="danger">{error}</Alert>}
       </form>
@@ -997,21 +988,11 @@ function ServiceProviderFormDialog({
           />
         </Field>
 
-        <Field
-          label={`${t("applications.logoUri")} (${t("common.optional")})`}
-          hint={t("applications.logoUriHelp")}
-        >
-          <div className="flex items-center gap-3">
-            <AppIcon name={form.name || "?"} src={form.logoUri} size={36} />
-            <Input
-              value={form.logoUri}
-              onChange={(e) =>
-                setForm((f) => ({ ...f, logoUri: e.target.value }))
-              }
-              placeholder="/icons/wiki.svg"
-            />
-          </div>
-        </Field>
+        <LogoField
+          name={form.name}
+          value={form.logoUri}
+          onChange={(logoUri) => setForm((f) => ({ ...f, logoUri }))}
+        />
 
         {error && <Alert tone="danger">{error}</Alert>}
       </form>
@@ -1140,21 +1121,11 @@ function CASFormDialog({
           />
         </Field>
 
-        <Field
-          label={`${t("applications.logoUri")} (${t("common.optional")})`}
-          hint={t("applications.logoUriHelp")}
-        >
-          <div className="flex items-center gap-3">
-            <AppIcon name={form.name || "?"} src={form.logoUri} size={36} />
-            <Input
-              value={form.logoUri}
-              onChange={(e) =>
-                setForm((f) => ({ ...f, logoUri: e.target.value }))
-              }
-              placeholder="/icons/wiki.svg"
-            />
-          </div>
-        </Field>
+        <LogoField
+          name={form.name}
+          value={form.logoUri}
+          onChange={(logoUri) => setForm((f) => ({ ...f, logoUri }))}
+        />
 
         {error && <Alert tone="danger">{error}</Alert>}
       </form>

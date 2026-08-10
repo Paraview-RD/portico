@@ -106,6 +106,17 @@ export const errorsEnUS = {
   TOO_MANY_USERS:
     "Too many accounts in one request. Select fewer and try again.",
   TOO_MANY_ROWS: "That workbook has too many rows for one import.",
+
+  // --- Application logos ---
+  //
+  // One code for every rejection about the file itself. Saying which format it
+  // turned out to be would be telling somebody what they already know about the
+  // file they just chose; what they need is what to choose instead.
+  UNSUPPORTED_IMAGE:
+    "That file is not a PNG or JPEG image. An SVG cannot be uploaded — it is a document that can carry script, and it would be served from this server's own address.",
+  LOGO_TOO_LARGE:
+    "That image is too large. A tile needs at most 512 KiB and 1024 pixels on a side.",
+  LOGO_NOT_FOUND: "That image is no longer stored here.",
   IMPORT_FAILED: "The import could not be completed.",
 
   // --- OAuth clients ---

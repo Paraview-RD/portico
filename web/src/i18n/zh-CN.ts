@@ -72,7 +72,9 @@ export const zhCN: Record<keyof typeof enUS, string> = {
   "portal.manageDevices": "已登录的设备",
   "applications.logoUri": "图标",
   "applications.logoUriHelp":
-    "应用磁贴上的图片。可以填本服务器上的路径（如 /icons/wiki.svg），也可以填完整的 https 网址。不填则磁贴显示名称首字。",
+    "应用磁贴上的图片。可以上传 PNG 或 JPEG，也可以直接填地址：本服务器上的路径（如 /icons/wiki.svg）或完整的 https 网址。不填则磁贴显示名称首字。",
+  "applications.logoUpload": "上传",
+  "applications.logoUploading": "上传中…",
   "applications.launchUrl": "访问地址",
   "applications.launchUrlHelp":
     "用户从首页打开该应用的地址。选填，且不是回调地址——直接打开回调地址只会报错。",

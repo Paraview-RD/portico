@@ -43,6 +43,8 @@ type Handler struct {
 	webhooks *service.WebhookService
 	// Groups: sets of people, as distinct from the organization chart.
 	groups *service.GroupService
+	// Uploaded pictures for application tiles.
+	logos *service.ApplicationLogoService
 	// oidc is here for one endpoint: the seam where Portico's own sign-in
 	// hands a person back to the OpenID Provider. The provider's own
 	// endpoints do not go through this layer at all.
@@ -71,6 +73,7 @@ func New(
 	directories *service.DirectoryService,
 	webhooks *service.WebhookService,
 	groups *service.GroupService,
+	logos *service.ApplicationLogoService,
 	oidc *oidcp.Providers,
 	samlProviders *samlp.Providers,
 	casServer *casp.Server,
@@ -83,7 +86,7 @@ func New(
 		clients:      clients, serviceProviders: serviceProviders,
 		samlKeys: samlKeys, casServices: casServices,
 		scimCredentials: scimCredentials, directories: directories,
-		webhooks: webhooks, groups: groups,
+		webhooks: webhooks, groups: groups, logos: logos,
 		oidc: oidc, saml: samlProviders, cas: casServer,
 	}
 }

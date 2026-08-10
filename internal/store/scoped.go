@@ -1139,3 +1139,32 @@ func (s *Scoped) ListOrganizationAttachedUsers(ctx context.Context, organization
 		TenantID: s.tenantID, OrganizationID: organizationID,
 	})
 }
+
+// --- application logos -----------------------------------------------
+
+// CreateApplicationLogo stores an uploaded picture.
+func (s *Scoped) CreateApplicationLogo(ctx context.Context, arg sqlcgen.CreateApplicationLogoParams) error {
+	arg.TenantID = s.tenantID
+	return s.q.CreateApplicationLogo(ctx, arg)
+}
+
+// GetApplicationLogo returns one of this tenant's logos.
+//
+// Scoped like everything else here, which is what the tenant in the request
+// path is for: the picture is served without credentials — a tile is drawn on
+// the sign-in screen, before anybody has any — so the tenant cannot come from a
+// principal, and an unscoped lookup by id would be a query that could have
+// taken a tenant and did not. The path supplies it and this filters on it.
+func (s *Scoped) GetApplicationLogo(ctx context.Context, id string) (sqlcgen.ApplicationLogo, error) {
+	return s.q.GetApplicationLogo(ctx,
+		sqlcgen.GetApplicationLogoParams{TenantID: s.tenantID, ID: id})
+}
+
+// DeleteOrphanedApplicationLogos removes uploads that nothing references and
+// that are older than the cutoff. It reports how many went.
+func (s *Scoped) DeleteOrphanedApplicationLogos(ctx context.Context, uploadedBefore time.Time) (int64, error) {
+	return s.q.DeleteOrphanedApplicationLogos(ctx,
+		sqlcgen.DeleteOrphanedApplicationLogosParams{
+			TenantID: s.tenantID, CreatedAt: uploadedBefore,
+		})
+}

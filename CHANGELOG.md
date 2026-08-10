@@ -255,6 +255,43 @@ Working toward 0.2.0. See
   the queue was covered; what arrived at the far end — signed by the recipe
   the documentation gives a subscriber, rather than by calling the signing
   code and comparing it with itself — was not.
+- **An application's tile picture can be uploaded**, PNG or JPEG, rather than
+  only named. The column has accepted a path on this server since 00003 and
+  that is still the form an upload takes — it writes one — but until now
+  putting a file at such a path meant shell access to the container. That is a
+  fair ask of somebody running one and an unfair one of somebody registering an
+  application in a web form.
+- **The format is decided by the file's bytes**, never by its name or its
+  declared type: both are chosen by whoever sends the request, so an SVG called
+  `.png` would otherwise be stored and later served as an image.
+- **An SVG cannot be uploaded, and an SVG path still can.** An SVG is a
+  document that can carry script, and an uploaded file is served back from this
+  server's own address — the one the console is on. Through `<img>` a browser
+  will not run that script, which is why a path an operator put under `/icons`
+  themselves remains acceptable; a file that arrived through a form can also be
+  opened directly in a tab, where it is a page with this origin's cookies. The
+  safety of the `<img>` case belongs to one component's rendering, and a stored
+  blob that is only safe because of how something happens to render it is a trap
+  for whoever changes that component — the same argument `normalizeLogoURI`
+  already makes about `data:` URIs.
+- In PostgreSQL rather than on disk, because docs/backup-and-restore.md says
+  the state of this system is in two places and a directory of blobs would make
+  that document wrong. It would also need sharing between replicas and mounting
+  into a container whose selling point is being one static binary.
+- Served from `/t/<tenant>/logos/<id>`, without credentials — a tile is drawn on
+  the sign-in screen, before anybody has any — with the tenant in the path
+  because the row belongs to one and a request with no principal has nowhere
+  else to learn which. The lookup filters on it, so a logo is unreachable
+  through a tenant that does not own it. Not under `/api`: that prefix is sent
+  `Cache-Control: no-store`, which is right for account data and wrong for an
+  immutable image fetched on every page load.
+- Uploads nothing references are swept after a day. The upload precedes the form
+  that would name it, so cancelling leaves a file and replacing a logo leaves
+  the one it replaced. Reference counting across three application tables would
+  be more machinery than a few kilobytes deserves.
+- The field behind all three registration forms is one component now. It was
+  copied into each, which is how three copies drift the first time somebody
+  improves one.
 - **The lifetimes of the tokens issued to applications are settings now**, per
   tenant, adjustable while the server runs: access token 1–60 minutes
   (default 15), refresh token 1–90 days (default 30). The ID token follows the

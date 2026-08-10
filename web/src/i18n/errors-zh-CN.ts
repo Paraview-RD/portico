@@ -83,6 +83,11 @@ export const errorsZhCN: Record<keyof typeof errorsEnUS, string> = {
   EMPTY_SPREADSHEET: "该工作簿没有数据行。",
   TOO_MANY_USERS: "一次选中的账号太多了，请分批操作。",
   TOO_MANY_ROWS: "该工作簿行数超出单次导入上限。",
+
+  UNSUPPORTED_IMAGE:
+    "该文件不是 PNG 或 JPEG 图片。SVG 不能上传——它是可以携带脚本的文档，而且会由本服务器自己的地址提供。",
+  LOGO_TOO_LARGE: "图片太大。磁贴图片最多 512 KiB，且边长不超过 1024 像素。",
+  LOGO_NOT_FOUND: "该图片已不在此处存储。",
   IMPORT_FAILED: "导入未能完成。",
 
   // --- OAuth 客户端 ---
