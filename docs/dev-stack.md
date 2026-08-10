@@ -6,10 +6,17 @@ walks an account through every hop and asserts at each one.
 This is for contributors. It is not in the manual the binary ships — an
 operator has no dev stack — which is why this page is excluded from the site.
 
-It runs in CI as its own job — see the `walkthrough` job in
-`.github/workflows/ci.yml`, which starts the same compose file. The three
-federation steps are skipped there until `examples/mock-sp` is committed, and
-the run says so rather than passing quietly for having found nothing to do.
+It runs in CI as its own workflow — `.github/workflows/walkthrough.yml`,
+which starts this same compose file. **Not on pull requests**: it costs two
+container images and a server, and what it protects is the wiring between
+subsystems rather than the change in front of a reviewer. On main after every
+merge, on a tag because a release should not be the first time anybody asked,
+and on `workflow_dispatch` so a branch touching the directory connector,
+SCIM, or federation can be asked for it without waiting for a merge.
+
+The three federation steps are skipped there until `examples/mock-sp` is
+committed, and the run says so rather than passing quietly for having found
+nothing to do.
 
 ## Running it
 
