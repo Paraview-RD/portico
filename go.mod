@@ -1,6 +1,20 @@
 module github.com/Paraview-RD/portico
 
-go 1.25.7
+// The language version, and separately the toolchain CI and a local build
+// pick up. Both matter here for a reason that is not obvious: every workflow
+// resolves its Go through `go-version-file: go.mod`, so this line is what
+// decides which standard library the vulnerability scan reads. Left at
+// 1.25.7 it reported seventeen findings in crypto/tls, crypto/x509,
+// net/textproto, net/mail and html/template — none of them in this code, and
+// none of them in the published container either, since deploy/Dockerfile
+// has been building on golang:1.26-alpine all along. The scan was right
+// about the toolchain it was handed and that toolchain was nobody's.
+go 1.26.0
+
+// Keep this at or below the Go in deploy/Dockerfile's build stage. The
+// official golang images set GOTOOLCHAIN=local, so a toolchain line newer
+// than the image does not quietly download one — it fails the build.
+toolchain go1.26.5
 
 require (
 	github.com/crewjam/saml v0.5.1
