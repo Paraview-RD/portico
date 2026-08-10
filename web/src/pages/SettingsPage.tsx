@@ -108,6 +108,99 @@ export function SettingsPage() {
           half the screen unsaved. */}
       <form onSubmit={handleSubmit} className="flex flex-col gap-4">
         <div className={settingsColumns}>
+          {/* Spanning both columns, which is not decoration.
+
+              The four cards below pair up — basics beside the password policy,
+              lockout beside audit — each pair starting on the same line. Five
+              cards cannot pair, and the odd one out lands alone on a row half
+              the width of every other row, which the browser suite reads as a
+              mistake. Correctly: that is exactly what putting this card in the
+              left column did. Spanning keeps the count even. */}
+          <div className="lg:col-span-2">
+            {/* Its own card rather than three more fields under "basics",
+                  because the distinction these three need to carry is that they
+                  are not the console's session — which sits in that card above,
+                  and which everybody conflates with them. Two headings say it
+                  where a hint under a fourth field would not. */}
+            <Card title={t("settings.oidcTokensLegend")}>
+              <fieldset className="flex flex-col gap-4">
+                <legend className="sr-only">
+                  {t("settings.oidcTokensLegend")}
+                </legend>
+
+                <p className="text-[length:var(--font-size-sm)] text-[var(--color-fg-muted)]">
+                  {t("settings.oidcTokensHelp")}
+                </p>
+
+                {/* Three numbers side by side rather than stacked. Stacked,
+                      each input would be 1296px wide for a two-digit value; in a
+                      row they read as what they are — one set of related
+                      durations — and the card stays short. */}
+                <div className="grid gap-4 lg:grid-cols-3">
+                  <Field
+                    label={t("settings.oidcAccessTokenTtl")}
+                    hint={t("settings.oidcAccessTokenTtlHelp")}
+                    required
+                  >
+                    <Input
+                      type="number"
+                      min={1}
+                      max={60}
+                      value={settings.oidcAccessTokenTtlMinutes}
+                      onChange={(e) =>
+                        setSettings({
+                          ...settings,
+                          oidcAccessTokenTtlMinutes: Number(e.target.value),
+                        })
+                      }
+                      required
+                    />
+                  </Field>
+
+                  <Field
+                    label={t("settings.oidcRefreshTokenTtl")}
+                    hint={t("settings.oidcRefreshTokenTtlHelp")}
+                    required
+                  >
+                    <Input
+                      type="number"
+                      min={1}
+                      max={90}
+                      value={settings.oidcRefreshTokenTtlDays}
+                      onChange={(e) =>
+                        setSettings({
+                          ...settings,
+                          oidcRefreshTokenTtlDays: Number(e.target.value),
+                        })
+                      }
+                      required
+                    />
+                  </Field>
+
+                  {/* min is 0, not 1: zero is the off switch, and the only
+                        value below the floor that is not a mistake. */}
+                  <Field
+                    label={t("settings.oidcSessionMaxAge")}
+                    hint={t("settings.oidcSessionMaxAgeHelp")}
+                  >
+                    <Input
+                      type="number"
+                      min={0}
+                      max={365}
+                      value={settings.oidcSessionMaxAgeDays}
+                      onChange={(e) =>
+                        setSettings({
+                          ...settings,
+                          oidcSessionMaxAgeDays: Number(e.target.value),
+                        })
+                      }
+                    />
+                  </Field>
+                </div>
+              </fieldset>
+            </Card>
+          </div>
+
           <div className="flex flex-col gap-4">
             <Card title={t("settings.basicsLegend")}>
               <div className="flex flex-col gap-4">
@@ -219,83 +312,6 @@ export function SettingsPage() {
                   </span>
                 </label>
               </div>
-            </Card>
-
-            {/* Its own card rather than three more fields under "basics",
-                because the distinction these three need to carry is that they
-                are not the console's session — which sits in that card above,
-                and which everybody conflates with them. Two headings say it
-                where a hint under a fourth field would not. */}
-            <Card title={t("settings.oidcTokensLegend")}>
-              <fieldset className="flex flex-col gap-4">
-                <legend className="sr-only">
-                  {t("settings.oidcTokensLegend")}
-                </legend>
-
-                <p className="text-[length:var(--font-size-sm)] text-[var(--color-fg-muted)]">
-                  {t("settings.oidcTokensHelp")}
-                </p>
-
-                <Field
-                  label={t("settings.oidcAccessTokenTtl")}
-                  hint={t("settings.oidcAccessTokenTtlHelp")}
-                  required
-                >
-                  <Input
-                    type="number"
-                    min={1}
-                    max={60}
-                    value={settings.oidcAccessTokenTtlMinutes}
-                    onChange={(e) =>
-                      setSettings({
-                        ...settings,
-                        oidcAccessTokenTtlMinutes: Number(e.target.value),
-                      })
-                    }
-                    required
-                  />
-                </Field>
-
-                <Field
-                  label={t("settings.oidcRefreshTokenTtl")}
-                  hint={t("settings.oidcRefreshTokenTtlHelp")}
-                  required
-                >
-                  <Input
-                    type="number"
-                    min={1}
-                    max={90}
-                    value={settings.oidcRefreshTokenTtlDays}
-                    onChange={(e) =>
-                      setSettings({
-                        ...settings,
-                        oidcRefreshTokenTtlDays: Number(e.target.value),
-                      })
-                    }
-                    required
-                  />
-                </Field>
-
-                {/* min is 0, not 1: zero is the off switch, and the only
-                    value below the floor that is not a mistake. */}
-                <Field
-                  label={t("settings.oidcSessionMaxAge")}
-                  hint={t("settings.oidcSessionMaxAgeHelp")}
-                >
-                  <Input
-                    type="number"
-                    min={0}
-                    max={365}
-                    value={settings.oidcSessionMaxAgeDays}
-                    onChange={(e) =>
-                      setSettings({
-                        ...settings,
-                        oidcSessionMaxAgeDays: Number(e.target.value),
-                      })
-                    }
-                  />
-                </Field>
-              </fieldset>
             </Card>
 
             {/* The card carries the heading; the fieldset stays because it
