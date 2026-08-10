@@ -69,6 +69,14 @@ func (h *Handler) patchUser(w http.ResponseWriter, r *http.Request) {
 		Phone:       current.Phone,
 		ExternalID:  current.ExternalID,
 		Active:      current.Status == model.StatusActive,
+		// Carried over, because the write below replaces every descriptive
+		// column rather than merging. Without this a PATCH naming one
+		// attribute cleared the other twenty-two — and PATCH is what the
+		// documentation tells a directory to use precisely when it does not
+		// want the attributes it is not sending to be touched. PUT builds
+		// this from the request instead, which is the difference between the
+		// two verbs.
+		Profile: current.Profile,
 	}
 
 	for _, op := range body.Operations {

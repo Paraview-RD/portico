@@ -293,6 +293,11 @@ func (s *UserService) SetProvisionedUserActive(ctx context.Context, tenantID, us
 		Phone:       current.Phone,
 		ExternalID:  current.ExternalID,
 		Active:      active,
+		// Deactivating says nothing about who somebody is. Omitting this
+		// cleared every descriptive attribute on the way out, which is the
+		// opposite of "the account stays readable afterwards" — the reason
+		// this deactivates instead of deleting.
+		Profile: current.Profile,
 	})
 }
 

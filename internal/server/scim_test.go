@@ -366,6 +366,89 @@ func TestDeleteDisablesRatherThanRemoving(t *testing.T) {
 	}
 }
 
+// A PATCH changes what it names and leaves the rest alone.
+//
+// That is the whole difference between PATCH and PUT, and the documentation
+// tells a directory to use PATCH precisely when it does not want the
+// attributes it is not sending to be cleared. The round-trip test above goes
+// POST → GET and never patches, so nothing until now has looked at what a
+// PATCH does to the attributes it says nothing about.
+func TestSCIMPatchLeavesTheAttributesItDoesNotName(t *testing.T) {
+	api := newAPITest(t)
+	client := newSCIMClient(t, api, "patch-preserves")
+
+	created := client.do(t, http.MethodPost, "/Users", map[string]any{
+		"schemas": []string{
+			"urn:ietf:params:scim:schemas:core:2.0:User",
+			"urn:ietf:params:scim:schemas:extension:enterprise:2.0:User",
+		},
+		"userName":    "patch-preserve",
+		"displayName": "Wang Wu",
+		"title":       "Architect",
+		"userType":    "Employee",
+		"locale":      "zh-CN",
+		"active":      true,
+		"urn:ietf:params:scim:schemas:extension:enterprise:2.0:User": map[string]any{
+			"employeeNumber": "E-9100", "department": "Platform",
+		},
+	})
+	if created.Status != http.StatusCreated {
+		t.Fatalf("create: %d %s", created.Status, created.Body)
+	}
+	var user struct {
+		ID string `json:"id"`
+	}
+	created.decode(t, &user)
+
+	// One operation, naming one attribute. Everything else must survive it.
+	patched := client.do(t, http.MethodPatch, "/Users/"+user.ID,
+		patchOp("replace", "displayName", "Wang Wu the Second"))
+	if patched.Status != http.StatusOK {
+		t.Fatalf("patch: %d %s", patched.Status, patched.Body)
+	}
+
+	got := client.do(t, http.MethodGet, "/Users/"+user.ID, nil)
+	if got.Status != http.StatusOK {
+		t.Fatalf("get: %d %s", got.Status, got.Body)
+	}
+	var after struct {
+		DisplayName string `json:"displayName"`
+		Title       string `json:"title"`
+		UserType    string `json:"userType"`
+		Locale      string `json:"locale"`
+		Enterprise  *struct {
+			EmployeeNumber string `json:"employeeNumber"`
+			Department     string `json:"department"`
+		} `json:"urn:ietf:params:scim:schemas:extension:enterprise:2.0:User"`
+	}
+	got.decode(t, &after)
+
+	if after.DisplayName != "Wang Wu the Second" {
+		t.Errorf("displayName = %q, want the patched value", after.DisplayName)
+	}
+	for _, field := range []struct{ name, got, want string }{
+		{"title", after.Title, "Architect"},
+		{"userType", after.UserType, "Employee"},
+		{"locale", after.Locale, "zh-CN"},
+	} {
+		if field.got != field.want {
+			t.Errorf("%s = %q after patching displayName, want %q — a PATCH "+
+				"cleared an attribute it never named", field.name, field.got, field.want)
+		}
+	}
+	if after.Enterprise == nil {
+		t.Fatal("the enterprise extension is gone after a PATCH that never named it")
+	}
+	if after.Enterprise.EmployeeNumber != "E-9100" {
+		t.Errorf("employeeNumber = %q after patching displayName, want %q",
+			after.Enterprise.EmployeeNumber, "E-9100")
+	}
+	if after.Enterprise.Department != "Platform" {
+		t.Errorf("department = %q after patching displayName, want %q",
+			after.Enterprise.Department, "Platform")
+	}
+}
+
 func TestUnsupportedPatchPathIsInvalidPathNot501(t *testing.T) {
 	api := newAPITest(t)
 	client := newSCIMClient(t, api, "patch-paths")
