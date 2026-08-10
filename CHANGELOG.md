@@ -84,6 +84,23 @@ Working toward 0.2.0. See
   the parser reads by position so that a translated header still works, which
   also means a column in the middle would silently remap every spreadsheet
   anybody has already prepared.
+- **The user list is filtered from the organization chart**, in a column
+  beside it, instead of from a dropdown of names. A dropdown could name every
+  organization and could not say how any of them relate — which is most of
+  what somebody knows about their own company. "Everybody in Engineering" is
+  a question about a branch, and a list of names cannot express a branch.
+  Picking a node selects it and everything under it, so the shape on screen
+  and the shape of the answer are the same shape. It also asks the question a
+  dropdown had no way to put: who is in no organization at all.
+- The chart sits inside the page's own column rather than as a second sidebar
+  next to the navigation. Every screen is laid out in the same column and a
+  browser test holds that; widening one screen for one control would have
+  meant either breaking the rule or making this screen an exception to it.
+- No member counts beside the names, though the endpoint reports them. They
+  count the people filed directly against each organization, and picking one
+  now answers with its whole branch — so the number beside a name would
+  disagree with the number of rows that appear when you click it. A wrong
+  number is worse than no number.
 - **Self-registration can require a confirmed address.** Off by default, per
   tenant. Registration used to create a usable account with whatever email
   was typed — and that address is both a sign-in identifier and where a

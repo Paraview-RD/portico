@@ -136,6 +136,8 @@ export const enUS = {
   "users.filterRole": "Role",
   "users.filterStatus": "Status",
   "users.filterOrganization": "Organization",
+  "users.filterOrganizationHint": "Includes everything below",
+  "users.filterNoOrganization": "Not in one",
   "users.create": "New user",
   "users.profileSection": "Further details",
   "users.profileHint":

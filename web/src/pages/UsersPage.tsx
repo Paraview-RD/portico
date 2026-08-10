@@ -1,6 +1,11 @@
 import { useCallback, useEffect, useState } from "react";
 
-import { groupsApi, organizationApi, userApi } from "../api/endpoints";
+import {
+  UNASSIGNED_ORGANIZATION,
+  groupsApi,
+  organizationApi,
+  userApi,
+} from "../api/endpoints";
 import type {
   BulkResult,
   GroupRef,
@@ -29,8 +34,108 @@ import {
 } from "../components/ui";
 import { useErrorMessage, useT } from "../i18n";
 import { ImportDialog } from "./ImportDialog";
+// Borrowed rather than reimplemented. Two functions turning a flat list into
+// a chart would drift, and the subtle half — a row whose parent is not in the
+// list still has to appear — is the half that would be got wrong the second
+// time. It is exported, and OrganizationsPage.test.ts holds it.
+import { arrangeAsTree } from "./OrganizationsPage";
 
 const PAGE_SIZE = 20;
+
+/**
+ * The organization filter, as the chart rather than as a list of names.
+ *
+ * A flat dropdown could name every organization and could not say how any of
+ * them relate, which is most of what somebody knows about their own company:
+ * "everybody in Engineering" is a question about a branch, and a list of
+ * names cannot express a branch. Picking a node here selects it and
+ * everything under it — the server walks the subtree — so the shape on
+ * screen and the shape of the answer are the same shape.
+ *
+ * Always expanded. Collapsing would be state to keep, and a filter somebody
+ * has to open three times before finding the department they are standing in
+ * is worse than one they scroll. The server bounds the chart at ten deep.
+ *
+ * Deliberately no member counts. The list endpoint reports the members filed
+ * directly against each organization, and selecting one now answers with its
+ * whole branch — so a count beside the name would disagree with the number
+ * of rows that appear when you click it. A wrong number is worse than none.
+ */
+function OrganizationTree({
+  organizations,
+  value,
+  onChange,
+}: {
+  organizations: Organization[];
+  value: string;
+  onChange: (organizationId: string) => void;
+}) {
+  const t = useT();
+  const rows = arrangeAsTree(organizations);
+
+  function item(key: string, id: string, depth: number, label: string) {
+    const selected = value === id;
+    return (
+      <li key={key}>
+        <button
+          type="button"
+          aria-current={selected ? "true" : undefined}
+          onClick={() => onChange(id)}
+          style={{ paddingLeft: `${0.5 + depth * 1.25}rem` }}
+          className={`w-full truncate rounded-[var(--radius-sm)] py-1.5 pr-2 text-left text-[length:var(--font-size-sm)] ${
+            selected
+              ? "bg-[var(--color-primary-soft)] font-[weight:var(--font-weight-medium)] text-[var(--color-fg)]"
+              : "text-[var(--color-fg-muted)] hover:bg-[var(--color-bg-soft)] hover:text-[var(--color-fg)]"
+          }`}
+        >
+          {depth > 0 && (
+            <span
+              aria-hidden="true"
+              className="mr-1.5 text-[var(--color-fg-subtle)]"
+            >
+              └
+            </span>
+          )}
+          {label}
+        </button>
+      </li>
+    );
+  }
+
+  return (
+    <nav
+      aria-label={t("users.filterOrganization")}
+      className="rounded-[var(--radius-sm)] border border-[var(--color-border)] bg-[var(--color-bg)] p-2"
+    >
+      <div className="px-2 pt-1 pb-2">
+        <div className="text-[length:var(--font-size-sm)] font-[weight:var(--font-weight-medium)]">
+          {t("users.filterOrganization")}
+        </div>
+        {/* The one thing about this control that cannot be seen by looking
+            at it: a parent means the parent and everything under it. */}
+        <div className="text-[length:var(--font-size-xs)] text-[var(--color-fg-muted)]">
+          {t("users.filterOrganizationHint")}
+        </div>
+      </div>
+      {/* Bounded and scrollable rather than as tall as the chart. On a narrow
+          screen this sits above the table, and a deep chart would otherwise
+          push every account below the fold. */}
+      <ul className="max-h-72 overflow-y-auto lg:max-h-[32rem]">
+        {item("all", "", 0, t("common.all"))}
+        {rows.map(({ org, depth }) => item(org.id, org.id, depth, org.name))}
+        {/* Kept whatever the chart looks like: the accounts nobody has filed
+            are the ones somebody comes here to find, and they are in no
+            branch, so there is nowhere else this could sit. */}
+        {item(
+          "unassigned",
+          UNASSIGNED_ORGANIZATION,
+          0,
+          t("users.filterNoOrganization"),
+        )}
+      </ul>
+    </nav>
+  );
+}
 
 export function UsersPage() {
   const t = useT();
@@ -185,305 +290,317 @@ export function UsersPage() {
         }
       />
 
-      <div className="mb-4 flex flex-wrap items-end gap-3">
-        <div className="w-64">
-          <Input
-            placeholder={t("users.searchPlaceholder")}
-            value={keyword}
-            onChange={(e) => {
-              setKeyword(e.target.value);
+      {/* Two columns inside the page's own column, rather than a second
+          sidebar beside the navigation. The chart is a filter for this
+          screen, not a place of its own — and every screen is laid out in
+          the same column, which web/e2e/layout.spec.ts holds to. Widening
+          one screen for one control would either break that or make it an
+          exception, and the table has 1440px to give 240 of. */}
+      <div className="flex flex-col gap-4 lg:flex-row lg:items-start">
+        <aside className="lg:w-60 lg:shrink-0">
+          <OrganizationTree
+            organizations={organizations}
+            value={organizationFilter}
+            onChange={(organizationId) => {
+              setOrganizationFilter(organizationId);
               setPage(1);
             }}
           />
-        </div>
-        <div className="w-44">
-          <Select
-            value={roleFilter}
-            onChange={(e) => {
-              setRoleFilter(e.target.value as Role | "");
-              setPage(1);
-            }}
-          >
-            <option value="">
-              {t("users.filterRole")}: {t("common.all")}
-            </option>
-            <option value="SUPER_ADMIN">{t("role.SUPER_ADMIN")}</option>
-            <option value="USER">{t("role.USER")}</option>
-          </Select>
-        </div>
-        <div className="w-44">
-          <Select
-            value={statusFilter}
-            onChange={(e) => {
-              setStatusFilter(e.target.value as Status | "");
-              setPage(1);
-            }}
-          >
-            <option value="">
-              {t("users.filterStatus")}: {t("common.all")}
-            </option>
-            <option value="ACTIVE">{t("status.ACTIVE")}</option>
-            <option value="DISABLED">{t("status.DISABLED")}</option>
-          </Select>
-        </div>
-        <div className="w-56">
-          {/* The list endpoint has taken an organizationId since it was
-              written, and the label for this control has been in the
-              translations just as long. Only the control was missing, so
-              the one filter an administrator most often wants — everyone in
-              this department — was the one they could not apply. */}
-          <Select
-            value={organizationFilter}
-            onChange={(e) => {
-              setOrganizationFilter(e.target.value);
-              setPage(1);
-            }}
-          >
-            <option value="">
-              {t("users.filterOrganization")}: {t("common.all")}
-            </option>
-            {organizations.map((organization) => (
-              <option key={organization.id} value={organization.id}>
-                {organization.name}
-              </option>
-            ))}
-          </Select>
-        </div>
-      </div>
+        </aside>
 
-      {error && (
-        <div className="mb-4">
-          <Alert tone="danger">{error}</Alert>
-        </div>
-      )}
-      {notice && (
-        <div className="mb-4">
-          <Alert tone="success">{notice}</Alert>
-        </div>
-      )}
-
-      {selected.length > 0 && (
-        <div className="mb-3 flex flex-wrap items-center gap-3 rounded-[var(--radius-sm)] border border-[var(--color-border)] bg-[var(--color-bg)] p-3">
-          <span className="font-[weight:var(--font-weight-medium)]">
-            {t("users.selectedCount", String(selected.length))}
-          </span>
-          <Button
-            size="sm"
-            variant="secondary"
-            onClick={() =>
-              void runBulk(() => userApi.bulkSetStatus(selected, "ACTIVE"))
-            }
-          >
-            {t("common.enable")}
-          </Button>
-          <Button
-            size="sm"
-            variant="secondary"
-            onClick={() =>
-              void runBulk(() => userApi.bulkSetStatus(selected, "DISABLED"))
-            }
-          >
-            {t("common.disable")}
-          </Button>
-          <div className="w-56">
-            <Select
-              value=""
-              onChange={(e) => {
-                const organizationId = e.target.value;
-                if (organizationId === "") return;
-                void runBulk(() =>
-                  userApi.bulkSetOrganization(
-                    selected,
-                    organizationId === "__none__" ? "" : organizationId,
-                  ),
-                );
-              }}
-            >
-              <option value="">{t("users.bulkMoveTo")}</option>
-              <option value="__none__">{t("users.bulkNoOrganization")}</option>
-              {organizations.map((org) => (
-                <option key={org.id} value={org.id}>
-                  {org.name}
-                </option>
-              ))}
-            </Select>
-          </div>
-          <Button size="sm" variant="ghost" onClick={() => setSelected([])}>
-            {t("common.cancel")}
-          </Button>
-        </div>
-      )}
-
-      {bulkResult && (
-        <div className="mb-3">
-          <Alert tone={bulkResult.failed === 0 ? "success" : "warning"}>
-            <div>
-              {t(
-                "users.bulkSummary",
-                String(bulkResult.succeeded),
-                String(bulkResult.failed),
-              )}
+        <div className="min-w-0 flex-1">
+          <div className="mb-4 flex flex-wrap items-end gap-3">
+            <div className="w-64">
+              <Input
+                placeholder={t("users.searchPlaceholder")}
+                value={keyword}
+                onChange={(e) => {
+                  setKeyword(e.target.value);
+                  setPage(1);
+                }}
+              />
             </div>
-            {/* Which ones, not just how many. Somebody who selected forty
+            <div className="w-44">
+              <Select
+                value={roleFilter}
+                onChange={(e) => {
+                  setRoleFilter(e.target.value as Role | "");
+                  setPage(1);
+                }}
+              >
+                <option value="">
+                  {t("users.filterRole")}: {t("common.all")}
+                </option>
+                <option value="SUPER_ADMIN">{t("role.SUPER_ADMIN")}</option>
+                <option value="USER">{t("role.USER")}</option>
+              </Select>
+            </div>
+            <div className="w-44">
+              <Select
+                value={statusFilter}
+                onChange={(e) => {
+                  setStatusFilter(e.target.value as Status | "");
+                  setPage(1);
+                }}
+              >
+                <option value="">
+                  {t("users.filterStatus")}: {t("common.all")}
+                </option>
+                <option value="ACTIVE">{t("status.ACTIVE")}</option>
+                <option value="DISABLED">{t("status.DISABLED")}</option>
+              </Select>
+            </div>
+          </div>
+
+          {error && (
+            <div className="mb-4">
+              <Alert tone="danger">{error}</Alert>
+            </div>
+          )}
+          {notice && (
+            <div className="mb-4">
+              <Alert tone="success">{notice}</Alert>
+            </div>
+          )}
+
+          {selected.length > 0 && (
+            <div className="mb-3 flex flex-wrap items-center gap-3 rounded-[var(--radius-sm)] border border-[var(--color-border)] bg-[var(--color-bg)] p-3">
+              <span className="font-[weight:var(--font-weight-medium)]">
+                {t("users.selectedCount", String(selected.length))}
+              </span>
+              <Button
+                size="sm"
+                variant="secondary"
+                onClick={() =>
+                  void runBulk(() => userApi.bulkSetStatus(selected, "ACTIVE"))
+                }
+              >
+                {t("common.enable")}
+              </Button>
+              <Button
+                size="sm"
+                variant="secondary"
+                onClick={() =>
+                  void runBulk(() =>
+                    userApi.bulkSetStatus(selected, "DISABLED"),
+                  )
+                }
+              >
+                {t("common.disable")}
+              </Button>
+              <div className="w-56">
+                <Select
+                  value=""
+                  onChange={(e) => {
+                    const organizationId = e.target.value;
+                    if (organizationId === "") return;
+                    void runBulk(() =>
+                      userApi.bulkSetOrganization(
+                        selected,
+                        organizationId === "__none__" ? "" : organizationId,
+                      ),
+                    );
+                  }}
+                >
+                  <option value="">{t("users.bulkMoveTo")}</option>
+                  <option value="__none__">
+                    {t("users.bulkNoOrganization")}
+                  </option>
+                  {organizations.map((org) => (
+                    <option key={org.id} value={org.id}>
+                      {org.name}
+                    </option>
+                  ))}
+                </Select>
+              </div>
+              <Button size="sm" variant="ghost" onClick={() => setSelected([])}>
+                {t("common.cancel")}
+              </Button>
+            </div>
+          )}
+
+          {bulkResult && (
+            <div className="mb-3">
+              <Alert tone={bulkResult.failed === 0 ? "success" : "warning"}>
+                <div>
+                  {t(
+                    "users.bulkSummary",
+                    String(bulkResult.succeeded),
+                    String(bulkResult.failed),
+                  )}
+                </div>
+                {/* Which ones, not just how many. Somebody who selected forty
                 people and had one refused needs to know it was the last
                 administrator, and which account that was. */}
-            {bulkResult.outcomes
-              .filter((outcome) => outcome.code)
-              .map((outcome) => (
-                <div
-                  key={outcome.userId}
-                  className="mt-1 text-[length:var(--font-size-sm)]"
-                >
-                  {users.find((u) => u.id === outcome.userId)?.username ??
-                    outcome.userId}
-                  : {outcome.message}
-                </div>
-              ))}
-          </Alert>
-        </div>
-      )}
+                {bulkResult.outcomes
+                  .filter((outcome) => outcome.code)
+                  .map((outcome) => (
+                    <div
+                      key={outcome.userId}
+                      className="mt-1 text-[length:var(--font-size-sm)]"
+                    >
+                      {users.find((u) => u.id === outcome.userId)?.username ??
+                        outcome.userId}
+                      : {outcome.message}
+                    </div>
+                  ))}
+              </Alert>
+            </div>
+          )}
 
-      <Table>
-        <thead>
-          <tr>
-            <Th>
-              {/* Selects what is on this page, not every account matching the
+          <Table>
+            <thead>
+              <tr>
+                <Th>
+                  {/* Selects what is on this page, not every account matching the
                   filter. A control that silently reached beyond what somebody
                   can see is how a bulk disable becomes an incident. */}
-              <input
-                type="checkbox"
-                aria-label={t("users.selectAll")}
-                checked={users.length > 0 && selected.length === users.length}
-                onChange={(e) =>
-                  setSelected(e.target.checked ? users.map((u) => u.id) : [])
-                }
-              />
-            </Th>
-            <Th>{t("users.colUsername")}</Th>
-            <Th>{t("users.colDisplayName")}</Th>
-            <Th>{t("users.colRole")}</Th>
-            <Th>{t("users.colOrganization")}</Th>
-            <Th>{t("users.colStatus")}</Th>
-            <Th>{t("common.actions")}</Th>
-          </tr>
-        </thead>
-        <tbody>
-          {loading ? (
-            <LoadingRow colSpan={7} />
-          ) : users.length === 0 ? (
-            <EmptyRow colSpan={7} />
-          ) : (
-            users.map((user) => (
-              <tr key={user.id}>
-                <Td>
                   <input
                     type="checkbox"
-                    aria-label={user.username}
-                    checked={selected.includes(user.id)}
+                    aria-label={t("users.selectAll")}
+                    checked={
+                      users.length > 0 && selected.length === users.length
+                    }
                     onChange={(e) =>
-                      setSelected((current) =>
-                        e.target.checked
-                          ? [...current, user.id]
-                          : current.filter((id) => id !== user.id),
+                      setSelected(
+                        e.target.checked ? users.map((u) => u.id) : [],
                       )
                     }
                   />
-                </Td>
-                <Td>
-                  <div className="flex flex-wrap items-center gap-1">
-                    {user.username}
-                    {/* Only the directory-managed case gets a mark. The
+                </Th>
+                <Th>{t("users.colUsername")}</Th>
+                <Th>{t("users.colDisplayName")}</Th>
+                <Th>{t("users.colRole")}</Th>
+                <Th>{t("users.colOrganization")}</Th>
+                <Th>{t("users.colStatus")}</Th>
+                <Th>{t("common.actions")}</Th>
+              </tr>
+            </thead>
+            <tbody>
+              {loading ? (
+                <LoadingRow colSpan={7} />
+              ) : users.length === 0 ? (
+                <EmptyRow colSpan={7} />
+              ) : (
+                users.map((user) => (
+                  <tr key={user.id}>
+                    <Td>
+                      <input
+                        type="checkbox"
+                        aria-label={user.username}
+                        checked={selected.includes(user.id)}
+                        onChange={(e) =>
+                          setSelected((current) =>
+                            e.target.checked
+                              ? [...current, user.id]
+                              : current.filter((id) => id !== user.id),
+                          )
+                        }
+                      />
+                    </Td>
+                    <Td>
+                      <div className="flex flex-wrap items-center gap-1">
+                        {user.username}
+                        {/* Only the directory-managed case gets a mark. The
                         other three sources say how the account was born,
                         which is history; this one says who owns it now,
                         which changes what an edit here will do. A column
                         showing all four would give them equal weight. */}
-                    {(user.source === "SCIM" || user.source === "LDAP") && (
-                      <Badge tone="warning">{t(`source.${user.source}`)}</Badge>
-                    )}
-                  </div>
-                </Td>
-                <Td>{user.displayName}</Td>
-                <Td>
-                  <Badge
-                    tone={user.role === "SUPER_ADMIN" ? "warning" : "neutral"}
-                  >
-                    {t(`role.${user.role}`)}
-                  </Badge>
-                </Td>
-                <Td>{user.organizationName || t("users.noOrganization")}</Td>
-                <Td>
-                  <div className="flex flex-wrap items-center gap-1">
-                    <Badge
-                      tone={user.status === "ACTIVE" ? "success" : "danger"}
-                    >
-                      {t(`status.${user.status}`)}
-                    </Badge>
-                    {/* Shown next to the status rather than instead of it:
+                        {(user.source === "SCIM" || user.source === "LDAP") && (
+                          <Badge tone="warning">
+                            {t(`source.${user.source}`)}
+                          </Badge>
+                        )}
+                      </div>
+                    </Td>
+                    <Td>{user.displayName}</Td>
+                    <Td>
+                      <Badge
+                        tone={
+                          user.role === "SUPER_ADMIN" ? "warning" : "neutral"
+                        }
+                      >
+                        {t(`role.${user.role}`)}
+                      </Badge>
+                    </Td>
+                    <Td>
+                      {user.organizationName || t("users.noOrganization")}
+                    </Td>
+                    <Td>
+                      <div className="flex flex-wrap items-center gap-1">
+                        <Badge
+                          tone={user.status === "ACTIVE" ? "success" : "danger"}
+                        >
+                          {t(`status.${user.status}`)}
+                        </Badge>
+                        {/* Shown next to the status rather than instead of it:
                         locked and disabled are different situations with
                         different remedies, and an account can be both. */}
-                    {user.lockedUntil && (
-                      <Badge tone="warning">
-                        {t(
-                          "users.lockedUntil",
-                          new Date(user.lockedUntil).toLocaleString(),
+                        {user.lockedUntil && (
+                          <Badge tone="warning">
+                            {t(
+                              "users.lockedUntil",
+                              new Date(user.lockedUntil).toLocaleString(),
+                            )}
+                          </Badge>
                         )}
-                      </Badge>
-                    )}
-                  </div>
-                </Td>
-                <Td>
-                  <div className="flex gap-1">
-                    <Button
-                      size="sm"
-                      variant="ghost"
-                      onClick={() => setEditing(user)}
-                    >
-                      {t("common.edit")}
-                    </Button>
-                    <Button
-                      size="sm"
-                      variant="ghost"
-                      onClick={() => setResettingFor(user)}
-                    >
-                      {t("users.resetPassword")}
-                    </Button>
-                    {user.lockedUntil && (
-                      <Button
-                        size="sm"
-                        variant="ghost"
-                        onClick={() => void unlock(user)}
-                      >
-                        {t("users.unlock")}
-                      </Button>
-                    )}
-                    <Button
-                      size="sm"
-                      variant="ghost"
-                      onClick={() =>
-                        setConfirming({
-                          user,
-                          enable: user.status !== "ACTIVE",
-                        })
-                      }
-                    >
-                      {user.status === "ACTIVE"
-                        ? t("common.disable")
-                        : t("common.enable")}
-                    </Button>
-                  </div>
-                </Td>
-              </tr>
-            ))
-          )}
-        </tbody>
-      </Table>
+                      </div>
+                    </Td>
+                    <Td>
+                      <div className="flex gap-1">
+                        <Button
+                          size="sm"
+                          variant="ghost"
+                          onClick={() => setEditing(user)}
+                        >
+                          {t("common.edit")}
+                        </Button>
+                        <Button
+                          size="sm"
+                          variant="ghost"
+                          onClick={() => setResettingFor(user)}
+                        >
+                          {t("users.resetPassword")}
+                        </Button>
+                        {user.lockedUntil && (
+                          <Button
+                            size="sm"
+                            variant="ghost"
+                            onClick={() => void unlock(user)}
+                          >
+                            {t("users.unlock")}
+                          </Button>
+                        )}
+                        <Button
+                          size="sm"
+                          variant="ghost"
+                          onClick={() =>
+                            setConfirming({
+                              user,
+                              enable: user.status !== "ACTIVE",
+                            })
+                          }
+                        >
+                          {user.status === "ACTIVE"
+                            ? t("common.disable")
+                            : t("common.enable")}
+                        </Button>
+                      </div>
+                    </Td>
+                  </tr>
+                ))
+              )}
+            </tbody>
+          </Table>
 
-      <Pagination
-        page={page}
-        pageSize={PAGE_SIZE}
-        total={total}
-        onChange={setPage}
-      />
+          <Pagination
+            page={page}
+            pageSize={PAGE_SIZE}
+            total={total}
+            onChange={setPage}
+          />
+        </div>
+      </div>
 
       <UserFormDialog
         open={creating || editing !== null}

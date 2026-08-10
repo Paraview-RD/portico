@@ -161,38 +161,39 @@ async function adminToken(page: {
   return token as string;
 }
 
-test("users can be filtered to one organization", async ({ page, signIn }) => {
+test("picking an organization filters to its whole branch", async ({
+  page,
+  signIn,
+}) => {
   await signIn();
   const auth = { Authorization: `Bearer ${await adminToken(page)}` };
 
-  // Two organizations, because a filter that returns everyone passes against
-  // one just as happily as a filter that works.
-  const departments = ["E2E Filter Alpha", "E2E Filter Beta"];
-  const members: Record<string, string> = {};
-  for (const [index, name] of departments.entries()) {
-    const code = `e2e-filter-${index}`;
+  /** Gets an organization by code, creating it under `parentId` if absent. */
+  async function organization(name: string, code: string, parentId: string) {
     const existing = await data<{ id: string; code: string }[]>(
       await page.request.get("/api/v1/organizations", { headers: auth }),
     );
-    const organization =
-      existing.find((o) => o.code === code) ??
-      (await data<{ id: string }>(
-        await page.request.post("/api/v1/organizations", {
-          headers: auth,
-          data: { name, code },
-        }),
-      ));
+    const found = existing.find((o) => o.code === code);
+    if (found) return found.id;
 
-    const username = `e2e-filter-member-${index}`;
-    members[name] = username;
+    const created = await data<{ id: string }>(
+      await page.request.post("/api/v1/organizations", {
+        headers: auth,
+        data: { name, code, parentId },
+      }),
+    );
+    return created.id;
+  }
+
+  async function member(username: string, organizationId: string) {
     const created = await page.request.post("/api/v1/users", {
       headers: auth,
       data: {
         username,
-        displayName: `Filter Member ${index}`,
-        password: "e2e-Filter-Member-1",
+        displayName: username,
+        password: "e2e-Subtree-Member-1",
         role: "USER",
-        organizationId: organization.id,
+        organizationId,
       },
     });
     expect(
@@ -201,26 +202,57 @@ test("users can be filtered to one organization", async ({ page, signIn }) => {
     ).toBe(true);
   }
 
+  // A branch two deep and a sibling root. The sibling is what stops a filter
+  // that returns everybody from passing, and the child is the whole point:
+  // against a flat chart, an exact match and a subtree are indistinguishable.
+  const parent = await organization("E2E Subtree Parent", "e2e-subtree-p", "");
+  const child = await organization(
+    "E2E Subtree Child",
+    "e2e-subtree-c",
+    parent,
+  );
+  const other = await organization("E2E Subtree Other", "e2e-subtree-o", "");
+
+  await member("e2e-subtree-in-parent", parent);
+  await member("e2e-subtree-in-child", child);
+  await member("e2e-subtree-in-other", other);
+
   await page.goto("/users");
+  const chart = page.getByRole("navigation", { name: "Organization" });
   await expect(
-    page.getByRole("row", { name: members[departments[0]] }),
+    chart.getByRole("button", { name: "E2E Subtree Parent" }),
   ).toBeVisible();
 
-  await page
-    .getByRole("combobox")
-    .filter({ hasText: "Organization" })
-    .selectOption({ label: departments[0] });
+  await chart.getByRole("button", { name: "E2E Subtree Parent" }).click();
 
   await expect(
-    page.getByRole("row", { name: members[departments[0]] }),
-    "the filtered organization's member is missing",
+    page.getByRole("row", { name: "e2e-subtree-in-parent" }),
+    "the chosen organization's own member is missing",
   ).toBeVisible();
   await expect(
-    page.getByRole("row", { name: members[departments[1]] }),
-    "a member of another organization survived the filter",
+    page.getByRole("row", { name: "e2e-subtree-in-child" }),
+    "somebody in a department below the chosen one was left out, which is " +
+      "the whole reason this filter is a chart rather than a list",
+  ).toBeVisible();
+  await expect(
+    page.getByRole("row", { name: "e2e-subtree-in-other" }),
+    "a member of another branch survived the filter",
   ).toHaveCount(0);
   // And the administrator, who belongs to no organization at all.
   await expect(page.getByRole("row", { name: "admin" })).toHaveCount(0);
+
+  // The other question the control has to be able to ask, and the one a
+  // dropdown could not: who is in no organization at all.
+  await chart.getByRole("button", { name: "Not in one" }).click();
+
+  await expect(
+    page.getByRole("row", { name: "admin" }),
+    "the unfiled administrator is missing from the unfiled",
+  ).toBeVisible();
+  await expect(
+    page.getByRole("row", { name: "e2e-subtree-in-child" }),
+    "somebody with an organization appeared among those without one",
+  ).toHaveCount(0);
 });
 
 test("an account says which groups it is in", async ({ page, signIn }) => {

@@ -122,6 +122,8 @@ export const zhCN: Record<keyof typeof enUS, string> = {
   "users.filterRole": "角色",
   "users.filterStatus": "状态",
   "users.filterOrganization": "所属机构",
+  "users.filterOrganizationHint": "含其下级",
+  "users.filterNoOrganization": "未归属机构",
   "users.create": "新建用户",
   "users.profileSection": "更多信息",
   "users.profileHint":

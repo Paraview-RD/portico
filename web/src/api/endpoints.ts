@@ -168,6 +168,16 @@ export const authApi = {
     ),
 };
 
+/**
+ * The value the organization filter takes to mean "the accounts in no
+ * organization at all".
+ *
+ * An empty string cannot say it, because an empty string already means every
+ * organization. Reserved on the server for the same reason it is safe here:
+ * a real organization's id is a UUID and can never be this.
+ */
+export const UNASSIGNED_ORGANIZATION = "none";
+
 export const userApi = {
   me: () => request<User>("/users/me"),
 
@@ -210,6 +220,12 @@ export const userApi = {
       body: { currentPassword, newPassword },
     }),
 
+  /**
+   * `organizationId` selects an organization **and everything under it**,
+   * not that organization on its own — the server walks the chart. Omit it
+   * for all of them, or pass {@link UNASSIGNED_ORGANIZATION} for the
+   * accounts in none.
+   */
   list: (params: {
     page?: number;
     pageSize?: number;
