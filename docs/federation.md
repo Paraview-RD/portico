@@ -70,9 +70,10 @@ from, and verifies against that one.
 | Grant | Authorization code, with PKCE required |
 | PKCE method | `S256` only |
 | Signing | RS256, with the public keys at the issuer's `/keys` |
-| Access token | JWT, 15 minutes |
-| ID token | 15 minutes |
-| Refresh token | 30 days, rotated on every use |
+| Access token | JWT. 15 minutes by default, settable 1–60 in **Settings** |
+| ID token | Follows the access token |
+| Refresh token | 30 days by default, settable 1–90; rotated on every use |
+| Maximum session age | Off by default. Set it and a refresh chain ends that many days after the sign-in that began it, however diligently it is refreshed |
 | Client authentication | `client_secret_basic`, `client_secret_post`, or none (public clients) |
 | Scopes | `openid`, `profile`, `email`, `phone`, `offline_access` |
 | Endpoints | discovery, authorize, token, userinfo, introspect, revoke, end_session, keys |
@@ -187,7 +188,9 @@ token means. A resource server checks the signature and the expiry and never
 calls back, which is the entire reason to federate rather than to proxy every
 request. Two things bound it:
 
-- access tokens live fifteen minutes, and
+- an access token's lifetime, fifteen minutes by default and never more than
+  an hour — the ceiling exists because this expiry is the only thing bounding
+  a permission that has been withdrawn; see SECURITY.md — and
 - the issuer's `/oauth/introspect` endpoint answers `active: false` for a
   disabled account straight away, for a resource server that needs the answer
   sooner than expiry.
@@ -229,7 +232,7 @@ until they have all expired, and is then deleted.
 |---|---|
 | Portico's own session | Ends immediately |
 | OIDC refresh tokens | Revoked |
-| OIDC access tokens | Cannot be withdrawn; 15 minutes, or introspect |
+| OIDC access tokens | Cannot be withdrawn; expiry (15 minutes by default, at most an hour) or introspect |
 | SAML | Nothing to revoke — no server-side session exists, because there is no single logout. A service provider's own session outlives this entirely and ends on its own terms. |
 | CAS | Nothing to revoke — a ticket lives a minute and is single use, and there is no ticket-granting ticket. A service's own session, like SAML's, is its own affair. |
 

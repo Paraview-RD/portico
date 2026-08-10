@@ -160,7 +160,27 @@ export interface AuditLog {
 }
 
 export interface Settings {
+  /** How long a sign-in to this console lasts. Not the OIDC tokens below. */
   tokenTtlMinutes: number;
+
+  /**
+   * The lifetimes of the tokens Portico issues to registered applications.
+   *
+   * The access token's ceiling is an hour and that is the load-bearing limit:
+   * it is verified without calling back here, so it cannot be revoked, and how
+   * soon it expires is the only thing bounding a permission that has been
+   * withdrawn. The ID token follows this same value.
+   */
+  oidcAccessTokenTtlMinutes: number;
+  /** How long a refresh token may go unused before it stops working. */
+  oidcRefreshTokenTtlDays: number;
+  /**
+   * The absolute age a session may reach, measured from the sign-in rather
+   * than from the last refresh. Zero switches it off, which is the default:
+   * this is the one setting here that ends sessions which are working.
+   */
+  oidcSessionMaxAgeDays: number;
+
   registrationEnabled: boolean;
   /**
    * Requires a self-registered account to confirm its address before it can

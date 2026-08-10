@@ -57,9 +57,10 @@ https://id.example.com
 | Grant | 授权码，**强制 PKCE** |
 | PKCE 方法 | 仅 `S256` |
 | 签名 | RS256，公钥在 issuer 的 `/keys` |
-| 访问令牌 | JWT，15 分钟 |
-| ID token | 15 分钟 |
-| Refresh token | 30 天，**每次使用都轮换** |
+| 访问令牌 | JWT。默认 15 分钟，可在**系统设置**里改，取值 1–60 |
+| ID token | 跟随访问令牌 |
+| Refresh token | 默认 30 天，可改，取值 1–90；**每次使用都轮换** |
+| 最长会话时长 | 默认关闭。开启后，一条刷新链从最初那次登录起算满这么多天即终止，无论中间刷新得多勤 |
 | 客户端认证 | `client_secret_basic`、`client_secret_post`，或无（公共客户端） |
 | Scope | `openid`、`profile`、`email`、`phone`、`offline_access` |
 | 端点 | discovery、authorize、token、userinfo、introspect、revoke、end_session、keys |
@@ -153,7 +154,8 @@ portico client register --id grafana --name Grafana \
 自校验令牌"这件事本身的含义**。资源服务器校验签名和过期时间，从不回调——而这正是选择
 联邦而不是代理每一个请求的全部理由。有两件事给它划了边界：
 
-- 访问令牌只活十五分钟，
+- 访问令牌的有效期，默认十五分钟、最长不超过一小时——上限的存在是因为这个到期时间是
+  约束一份已被收回的权限的唯一手段，见 SECURITY.md，以及
 - issuer 的 `/oauth/introspect` 端点对一个已停用账号**立刻**回 `active: false`，供那
   些需要比过期更早拿到答案的资源服务器使用。
 
@@ -188,7 +190,7 @@ portico client rotate-key --tenant acme
 |---|---|
 | Portico 自己的会话 | 立即结束 |
 | OIDC refresh token | 被撤销 |
-| OIDC 访问令牌 | **无法收回**；十五分钟，或者用 introspect |
+| OIDC 访问令牌 | **无法收回**；等它到期（默认十五分钟，最长一小时），或者用 introspect |
 | SAML | **没有东西可撤销**——不存在服务端会话，因为没有单点登出。服务提供方自己的会话完全不受影响，按它自己的规则结束。 |
 | CAS | **没有东西可撤销**——一张票只活一分钟且一次性，而且没有 ticket-granting ticket。某个服务自己的会话与 SAML 一样，是它自己的事。 |
 

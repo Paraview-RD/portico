@@ -30,21 +30,22 @@ const (
 	AuthMethodPost = "client_secret_post"
 )
 
-// Lifetimes for the tokens this server issues as an OpenID Provider.
+// AuthRequestLifetime bounds how long a sign-in may take, and with it how
+// long an authorization code is worth intercepting.
 //
-// The access token is deliberately short. It is verified offline by a
-// resource server that never calls back here, so revoking it is not possible
-// — the only control over how long a withdrawn permission keeps working is
-// how soon the token expires and the refresh has to come back. Fifteen
-// minutes is the usual answer and the one documented in SECURITY.md.
-const (
-	AccessTokenLifetime  = 15 * time.Minute
-	IDTokenLifetime      = 15 * time.Minute
-	RefreshTokenLifetime = 30 * 24 * time.Hour
-	// AuthRequestLifetime bounds how long a sign-in may take, and with it
-	// how long an authorization code is worth intercepting.
-	AuthRequestLifetime = 15 * time.Minute
-)
+// A constant, unlike the token lifetimes that used to sit beside it. Those
+// are per-tenant settings now — service.SettingOIDCAccessTokenTTLMinutes and
+// the two with it, with the ceilings that make them safe to expose, and
+// SECURITY.md states what they are. This one is not a token lifetime at all:
+// it bounds an unfinished sign-in, where the only thing a longer window buys
+// is a wider gap for somebody to redeem a code they intercepted.
+//
+// The comment this replaces claimed fifteen minutes was "documented in
+// SECURITY.md". It was not — SECURITY.md said nothing about token lifetimes
+// until they became configurable, and the sentence had been pointing at a
+// promise that did not exist. Worth naming, because a citation nobody checks
+// is worse than no citation: it stops the next reader from checking too.
+const AuthRequestLifetime = 15 * time.Minute
 
 // OAuthClient is a registered relying party.
 type OAuthClient struct {

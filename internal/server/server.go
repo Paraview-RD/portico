@@ -126,7 +126,7 @@ func New(cfg *config.Config, opts ...Option) (*Server, error) {
 	clients := service.NewOAuthClientService(st, audit)
 	keys := service.NewSigningKeyService(st)
 	providers := oidcp.NewProviders(cfg.PublicURL, federationCryptoKey(cfg.JWTSecret),
-		st, tenants, users, clients, keys, audit)
+		st, tenants, users, clients, keys, settings, audit)
 
 	serviceProviders := service.NewSAMLServiceProviderService(st, audit)
 	samlKeys := service.NewSAMLKeyService(st)

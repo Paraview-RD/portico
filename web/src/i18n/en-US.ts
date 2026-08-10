@@ -366,7 +366,20 @@ export const enUS = {
   "settings.systemName": "System name",
   "settings.tokenTtl": "Console session lifetime (minutes)",
   "settings.tokenTtlHelp":
-    "How long one sign-in to this console lasts before it expires, between 5 and 43200. This governs this interface only, not the OIDC tokens Portico issues to registered applications — those lifetimes are not configured here.",
+    'How long one sign-in to this console lasts before it expires, between 5 and 43200. This governs this interface only; what registered applications receive is the "single sign-on tokens" group below.',
+
+  "settings.oidcTokensLegend": "Single sign-on tokens",
+  "settings.oidcTokensHelp":
+    "How long the tokens Portico issues to connected applications remain valid. Separate from the console session above.",
+  "settings.oidcAccessTokenTtl": "Access token lifetime (minutes)",
+  "settings.oidcAccessTokenTtlHelp":
+    "Between 1 and 60, and 15 by default. The ceiling is an hour because an access token is verified offline by the application holding it and never checked back here, so it cannot be revoked — how long a disabled account's token keeps working is exactly this number. The ID token follows the same value.",
+  "settings.oidcRefreshTokenTtl": "Refresh token lifetime (days)",
+  "settings.oidcRefreshTokenTtlHelp":
+    "Between 1 and 90, and 30 by default. Each refresh issues a replacement and restarts the clock, so this bounds how long the holder may go without using it — not how long the session lasts.",
+  "settings.oidcSessionMaxAge": "Maximum session age (days)",
+  "settings.oidcSessionMaxAgeHelp":
+    "How long a refresh chain may continue, counted from the original sign-in rather than the last refresh; past it, signing in again is required. Zero switches it off and is the default — because refreshing renews itself, no limit means an integration that keeps calling never has to sign in again. Raising it above zero will end sessions that are working when they reach the limit, so turn it on deliberately.",
   "settings.registrationEnabled": "Allow self-service registration",
   "settings.registrationHelp":
     "When off, only administrators can create accounts. New accounts always get the User role.",

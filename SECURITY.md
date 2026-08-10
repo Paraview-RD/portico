@@ -232,6 +232,63 @@ Two consequences worth stating:
   hand-rolled SAML have produced a long series of authentication bypasses,
   and it is not a place to be original.
 
+### Token lifetimes, and why there is a ceiling on one of them
+
+| | Default | Range | What it bounds |
+|---|---|---|---|
+| Access token | 15 minutes | 1–60 minutes | How long a withdrawn permission keeps working |
+| ID token | follows the access token | — | — |
+| Refresh token | 30 days | 1–90 days | How long the holder may go without exchanging it |
+| Maximum session age | off | 0, or 1–365 days | How long a refresh chain may continue at all |
+
+All four are per-tenant settings, adjustable in **Settings** while the server
+runs. A change applies to the next token issued; tokens already out live out
+the lifetime they were given.
+
+**The access token cannot be revoked, and that is what the one-hour ceiling
+is for.** It is a signed JWT that a resource server verifies offline and
+never checks back here, so between the moment an account is disabled and the
+moment its last access token expires, that account is still being served —
+and nothing on this side can shorten the gap. Its expiry is not one control
+among several; it is the only one. An administrator reaching for "make
+re-authentication less frequent" would naturally pick a day, which would mean
+a disabled account still admitted for a day, with no signal anywhere that it
+was happening. The ceiling refuses that value rather than accepting it
+quietly.
+
+**Refreshing renews itself, so a refresh lifetime is not a session limit.**
+Every exchange issues a replacement with a fresh window: thirty days means
+thirty days of *silence*, not thirty days of access. A client that refreshes
+on a timer stays signed in indefinitely, which is usually what an integration
+wants and is exactly what a compliance regime asking "how often must a person
+re-authenticate" does not.
+
+That is what maximum session age answers. It is measured from the sign-in
+that began the chain — `auth_time`, carried forward across every rotation —
+rather than from the last refresh, so reaching it requires signing in again.
+
+**It ships switched off**, and that is deliberate rather than an oversight.
+It is the only setting here that ends sessions which are working, so a
+default would sign every long-lived integration out that many days after an
+upgrade, on a schedule nobody chose and for a reason nothing logged. Turning
+it on is a decision with a blast radius, and it belongs to whoever runs the
+deployment.
+
+One detail that makes the numbers above approximate rather than exact:
+Portico reports a **one-minute clock skew** to relying parties, so that one
+whose clock is slightly behind does not reject a token it should accept. The
+protocol library applies that at both ends of a token's life. A fifteen-minute
+access token therefore arrives with `expires_in` of sixteen minutes, and the
+ceiling of sixty is sixty-one on the wire. It is a minute either way and does
+not change any argument here, but a resource server comparing what it received
+against what this page says should know where the extra minute comes from.
+
+Ageing out is **not** treated as a leak. Presenting a refresh token that has
+already been spent revokes the whole chain, because it means a copy got
+loose; a session that merely reached its limit is refused and nothing is
+revoked. Keeping those apart is what leaves chain revocation meaning
+something specific in an audit trail.
+
 ## What is covered
 
 In scope: authentication bypass, privilege escalation, session-handling

@@ -46,6 +46,14 @@ type Storage struct {
 	users   *service.UserService
 	clients *service.OAuthClientService
 	keys    *service.SigningKeyService
+	// settings supplies the token lifetimes, which are per-tenant and
+	// changeable while the server runs. Read on each request that needs one
+	// rather than captured here: a Storage lives as long as its provider,
+	// which is cached for the process's lifetime, so a value read once would
+	// mean a settings change appearing to do nothing until a restart. Reads
+	// are served from the service's own cache, so this is not a query per
+	// token.
+	settings *service.SettingsService
 
 	// loginURL builds where a browser is sent to sign in, given an
 	// authorization request id. The provider hands this to the client, which
@@ -61,16 +69,33 @@ func NewStorage(
 	users *service.UserService,
 	clients *service.OAuthClientService,
 	keys *service.SigningKeyService,
+	settings *service.SettingsService,
 	loginURL func(string) string,
 ) *Storage {
 	return &Storage{
 		tenant: tenant, issuer: issuer, store: st,
 		users: users, clients: clients, keys: keys,
+		settings: settings,
 		loginURL: loginURL,
 	}
 }
 
 func (s *Storage) scoped() *store.Scoped { return s.store.ForTenant(s.tenant.ID) }
+
+// lifetimes reads this tenant's current token lifetimes.
+//
+// Falling back to the defaults rather than failing the request, because the
+// alternative is worse than a slightly wrong expiry: a settings row that
+// cannot be read would otherwise take sign-in down for the whole tenant. The
+// defaults are the values these settings shipped as, so a deployment that has
+// never changed them cannot tell the difference.
+func (s *Storage) lifetimes(ctx context.Context) service.Settings {
+	settings, err := s.settings.Get(ctx, s.tenant.ID)
+	if err != nil {
+		return s.settings.Defaults()
+	}
+	return settings
+}
 
 // --- authorization requests ----------------------------------------------
 
@@ -179,15 +204,20 @@ func (s *Storage) CompleteAuthRequest(ctx context.Context, id, subject string) e
 // verifies offline, so there is no row anybody would ever read. What bounds
 // its usefulness after a permission is withdrawn is its lifetime, which is
 // why that lifetime is short.
-func (s *Storage) CreateAccessToken(_ context.Context, _ op.TokenRequest) (string, time.Time, error) {
-	return uuid.NewString(), store.Now().Add(model.AccessTokenLifetime), nil
+func (s *Storage) CreateAccessToken(ctx context.Context, _ op.TokenRequest) (string, time.Time, error) {
+	return uuid.NewString(),
+		store.Now().Add(s.lifetimes(ctx).OIDCAccessTokenLifetime()), nil
 }
 
 // CreateAccessAndRefreshTokens issues both, rotating the refresh token when
 // one was presented.
 func (s *Storage) CreateAccessAndRefreshTokens(ctx context.Context, request op.TokenRequest, currentRefreshToken string) (string, string, time.Time, error) {
 	accessTokenID := uuid.NewString()
-	expiry := store.Now().Add(model.AccessTokenLifetime)
+	// The same lifetime CreateAccessToken uses. Two call sites, one setting:
+	// these are the authorization-code path and the refresh path, and an
+	// access token whose validity depended on which of the two minted it
+	// would be a difference nobody could see and no document could state.
+	expiry := store.Now().Add(s.lifetimes(ctx).OIDCAccessTokenLifetime())
 
 	refresh, err := s.issueRefreshToken(ctx, request, currentRefreshToken)
 	if err != nil {
@@ -237,7 +267,12 @@ func (s *Storage) issueRefreshToken(ctx context.Context, request op.TokenRequest
 		Amr:       nonNil(amr),
 		AuthTime:  authTime,
 		CreatedAt: now,
-		ExpiresAt: now.Add(model.RefreshTokenLifetime),
+		// From now, not from authTime: this bounds how long the holder may go
+		// without exchanging it. How long the session itself may last is a
+		// separate question, answered by the absolute cap in
+		// TokenRequestByRefreshToken — which is why authTime is carried
+		// forward across rotations rather than refreshed here.
+		ExpiresAt: now.Add(s.lifetimes(ctx).OIDCRefreshTokenLifetime()),
 	})
 	if err != nil {
 		return "", fmt.Errorf("store refresh token: %w", err)
@@ -284,6 +319,30 @@ func (s *Storage) TokenRequestByRefreshToken(ctx context.Context, refreshToken s
 	}
 	if row.RevokedAt != nil || row.ExpiresAt.Before(now) {
 		return nil, op.ErrInvalidRefreshToken
+	}
+
+	// The absolute age of the session, which is a different question from the
+	// age of the token in hand.
+	//
+	// Rotation gives each replacement a fresh expiry, so a chain that is
+	// exchanged diligently never reaches one: "thirty days" bounds how long
+	// the holder may go quiet, not how long the access lasts. auth_time is
+	// carried forward across every rotation — it is the moment the person
+	// actually signed in — so measuring from it is what makes this a cap on
+	// the session rather than on the token.
+	//
+	// Deliberately not RevokeRefreshTokenChain. Revoking the chain is this
+	// server's statement that a copy leaked, and it is worth reading that way
+	// precisely because it is not said about anything else. A session that
+	// reached its age limit is the system working as configured; filing it
+	// under the same response would make the one signal that means "somebody
+	// has your token" ambiguous. The refusal is enough — the client starts a
+	// fresh authorization and the person signs in again, which is the entire
+	// point of having a cap.
+	if settings := s.lifetimes(ctx); settings.OIDCSessionCapped() {
+		if now.Sub(row.AuthTime) > settings.OIDCSessionMaxAge() {
+			return nil, op.ErrInvalidRefreshToken
+		}
 	}
 
 	// The account must still be usable. Without this a refresh would keep
@@ -383,7 +442,16 @@ func (s *Storage) GetClientByClientID(ctx context.Context, clientID string) (op.
 	if found.Status != model.StatusActive {
 		return nil, oidc.ErrInvalidClient().WithDescription("this client is disabled")
 	}
-	return &client{model: found, loginURL: s.loginURL}, nil
+	// The ID token's lifetime is read here rather than inside the client,
+	// because op.Client's IDTokenLifetime() takes no context and cannot fail.
+	// This method is called on every request the protocol library serves, so
+	// reading it here is still per-request — a settings change takes effect on
+	// the next token, not on the next restart.
+	return &client{
+		model:           found,
+		loginURL:        s.loginURL,
+		idTokenLifetime: s.lifetimes(ctx).OIDCAccessTokenLifetime(),
+	}, nil
 }
 
 // AuthorizeClientIDSecret authenticates a confidential client.

@@ -221,6 +221,83 @@ export function SettingsPage() {
               </div>
             </Card>
 
+            {/* Its own card rather than three more fields under "basics",
+                because the distinction these three need to carry is that they
+                are not the console's session — which sits in that card above,
+                and which everybody conflates with them. Two headings say it
+                where a hint under a fourth field would not. */}
+            <Card title={t("settings.oidcTokensLegend")}>
+              <fieldset className="flex flex-col gap-4">
+                <legend className="sr-only">
+                  {t("settings.oidcTokensLegend")}
+                </legend>
+
+                <p className="text-[length:var(--font-size-sm)] text-[var(--color-fg-muted)]">
+                  {t("settings.oidcTokensHelp")}
+                </p>
+
+                <Field
+                  label={t("settings.oidcAccessTokenTtl")}
+                  hint={t("settings.oidcAccessTokenTtlHelp")}
+                  required
+                >
+                  <Input
+                    type="number"
+                    min={1}
+                    max={60}
+                    value={settings.oidcAccessTokenTtlMinutes}
+                    onChange={(e) =>
+                      setSettings({
+                        ...settings,
+                        oidcAccessTokenTtlMinutes: Number(e.target.value),
+                      })
+                    }
+                    required
+                  />
+                </Field>
+
+                <Field
+                  label={t("settings.oidcRefreshTokenTtl")}
+                  hint={t("settings.oidcRefreshTokenTtlHelp")}
+                  required
+                >
+                  <Input
+                    type="number"
+                    min={1}
+                    max={90}
+                    value={settings.oidcRefreshTokenTtlDays}
+                    onChange={(e) =>
+                      setSettings({
+                        ...settings,
+                        oidcRefreshTokenTtlDays: Number(e.target.value),
+                      })
+                    }
+                    required
+                  />
+                </Field>
+
+                {/* min is 0, not 1: zero is the off switch, and the only
+                    value below the floor that is not a mistake. */}
+                <Field
+                  label={t("settings.oidcSessionMaxAge")}
+                  hint={t("settings.oidcSessionMaxAgeHelp")}
+                >
+                  <Input
+                    type="number"
+                    min={0}
+                    max={365}
+                    value={settings.oidcSessionMaxAgeDays}
+                    onChange={(e) =>
+                      setSettings({
+                        ...settings,
+                        oidcSessionMaxAgeDays: Number(e.target.value),
+                      })
+                    }
+                  />
+                </Field>
+              </fieldset>
+            </Card>
+
             {/* The card carries the heading; the fieldset stays because it
                 is what tells a screen reader these controls are one group,
                 and a card is a box, not a grouping. Hence the legend, read

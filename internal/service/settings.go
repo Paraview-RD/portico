@@ -19,8 +19,47 @@ import (
 
 // Setting keys. These are the runtime-tunable values from §3.10.
 const (
-	// SettingTokenTTLMinutes is how long an issued token stays valid.
+	// SettingTokenTTLMinutes is how long a sign-in to Portico's own console
+	// lasts. Not the OIDC tokens issued to registered applications — those
+	// are the three keys below, and conflating the two is easy enough that
+	// the console labels this one "console session".
 	SettingTokenTTLMinutes = "token_ttl_minutes"
+
+	// The lifetimes of the tokens Portico issues as an OpenID Provider.
+	//
+	// These were constants until it became clear what that cost: the only
+	// answer to "how long is an access token valid on this deployment" was to
+	// read the source, and the only way to change it was to fork. What makes
+	// them safe to expose is that each has a ceiling it cannot be set past —
+	// see MaxOIDCAccessTokenTTLMinutes and the two beside it.
+	//
+	// SettingOIDCAccessTokenTTLMinutes governs the ID token as well. They are
+	// the same duration, they were the same constant, and a second control
+	// would be a second thing to get wrong for no gain: an ID token outliving
+	// the access token it arrived with describes an authentication that may
+	// already have been withdrawn.
+	// #nosec G101 -- a settings key, not a credential. gosec pattern-matches
+	// "token" in the name of a string constant; the value is a column key that
+	// appears verbatim in the settings table.
+	SettingOIDCAccessTokenTTLMinutes = "oidc_access_token_ttl_minutes"
+	// SettingOIDCRefreshTokenTTLDays is how long a refresh token stays
+	// usable. Each use rotates it and the replacement gets a fresh window, so
+	// this bounds inactivity rather than the session — SettingOIDCSessionMaxAgeDays
+	// is what bounds the session.
+	// #nosec G101 -- a settings key, not a credential; same as above.
+	SettingOIDCRefreshTokenTTLDays = "oidc_refresh_token_ttl_days"
+	// SettingOIDCSessionMaxAgeDays is the absolute age of a refresh chain,
+	// measured from the sign-in that started it rather than from the last
+	// refresh. Without it a chain that is refreshed diligently never ends:
+	// every rotation extends the window, so "thirty days" means thirty days
+	// of silence, not thirty days of access.
+	//
+	// Zero switches it off and is the default, for the reason audit retention
+	// keeps everything by default. This is the one setting here that ends
+	// sessions which are working: shipping a cap would sign every long-lived
+	// integration out that many days after an upgrade, on a schedule nobody
+	// chose.
+	SettingOIDCSessionMaxAgeDays = "oidc_session_max_age_days"
 	// SettingRegistrationEnabled gates self-service registration, letting
 	// the same build serve a closed intranet and an open internet
 	// deployment (§3.10).
@@ -71,7 +110,17 @@ const (
 
 // Settings is the full set of runtime settings for one tenant.
 type Settings struct {
-	TokenTTLMinutes     int  `json:"tokenTtlMinutes"`
+	// TokenTTLMinutes is the console's own session, not the OIDC tokens.
+	TokenTTLMinutes int `json:"tokenTtlMinutes"`
+
+	// The three OIDC lifetimes. Days rather than minutes for the second and
+	// third because minutes for a thirty-day value is a field nobody can read
+	// at a glance — 43200 and 432000 differ by a digit and by a factor of ten.
+	OIDCAccessTokenTTLMinutes int `json:"oidcAccessTokenTtlMinutes"`
+	OIDCRefreshTokenTTLDays   int `json:"oidcRefreshTokenTtlDays"`
+	// OIDCSessionMaxAgeDays caps the whole refresh chain. Zero means no cap.
+	OIDCSessionMaxAgeDays int `json:"oidcSessionMaxAgeDays"`
+
 	RegistrationEnabled bool `json:"registrationEnabled"`
 	// RegistrationVerification requires a self-registered account to prove
 	// its email address or phone number before it can sign in. Without it
@@ -140,7 +189,7 @@ func (s Settings) LockoutEnabled() bool {
 	return s.LockoutThreshold > 0 && s.LockoutDurationMinutes > 0
 }
 
-// TokenTTL is the token lifetime as a duration.
+// TokenTTL is the console session's lifetime as a duration.
 func (s Settings) TokenTTL() time.Duration {
 	return time.Duration(s.TokenTTLMinutes) * time.Minute
 }
@@ -151,6 +200,61 @@ func (s Settings) TokenTTL() time.Duration {
 const (
 	MinTokenTTLMinutes = 5
 	MaxTokenTTLMinutes = 60 * 24 * 30 // 30 days
+)
+
+// OIDCAccessTokenLifetime is how long an access token this server issues
+// stays valid. The ID token gets the same, deliberately; see
+// SettingOIDCAccessTokenTTLMinutes.
+func (s Settings) OIDCAccessTokenLifetime() time.Duration {
+	return time.Duration(s.OIDCAccessTokenTTLMinutes) * time.Minute
+}
+
+// OIDCRefreshTokenLifetime is how long a refresh token stays usable before it
+// has to be exchanged. Rotation resets it.
+func (s Settings) OIDCRefreshTokenLifetime() time.Duration {
+	return time.Duration(s.OIDCRefreshTokenTTLDays) * 24 * time.Hour
+}
+
+// OIDCSessionMaxAge is the absolute age a refresh chain may reach, counted
+// from the sign-in that began it. Zero means no cap, which is what a caller
+// has to check for: passing it to a comparison unchecked would expire every
+// session immediately.
+func (s Settings) OIDCSessionMaxAge() time.Duration {
+	return time.Duration(s.OIDCSessionMaxAgeDays) * 24 * time.Hour
+}
+
+// OIDCSessionCapped reports whether this tenant ends refresh chains by age at
+// all. Named rather than left as a `> 0` at each use, because the two places
+// that ask are a signing path and a UI hint and they must agree.
+func (s Settings) OIDCSessionCapped() bool {
+	return s.OIDCSessionMaxAgeDays > 0
+}
+
+// Bounds on the OIDC token lifetimes.
+//
+// The access token's ceiling is the load-bearing one. That token is verified
+// offline by a resource server that never calls back here, so it cannot be
+// revoked: how soon it expires is the only thing that limits how long a
+// withdrawn permission keeps working. An hour is already generous. A day —
+// which is what somebody reaching for "make this less annoying" would
+// pick — would mean a disabled account still being served for a day, and the
+// administrator who disabled it would have no way to tell.
+//
+// The refresh ceiling is ninety days because a refresh token that lives a
+// year is a password that never rotates, held by a client that was never
+// designed to protect one that long.
+//
+// The session cap's ceiling is a year, and its floor is not 1 but 0: zero is
+// the off switch and has to stay reachable, since turning a control off is a
+// decision an operator is entitled to make deliberately.
+const (
+	MinOIDCAccessTokenTTLMinutes = 1
+	MaxOIDCAccessTokenTTLMinutes = 60
+
+	MinOIDCRefreshTokenTTLDays = 1
+	MaxOIDCRefreshTokenTTLDays = 90
+
+	MaxOIDCSessionMaxAgeDays = 365
 )
 
 // Bounds on lockout.
@@ -275,6 +379,16 @@ func NewSettingsService(st *store.Store, defaultTokenTTL time.Duration) *Setting
 		cache: map[string]Settings{},
 		defaults: Settings{
 			TokenTTLMinutes: ttlMinutes,
+			// Fifteen minutes and thirty days, which is what the constants
+			// these replaced held. A default that shifted on the way to
+			// being configurable would change every deployment that upgrades
+			// without anybody asking for it.
+			OIDCAccessTokenTTLMinutes: 15,
+			OIDCRefreshTokenTTLDays:   30,
+			// No cap. This is the only setting on this page that ends
+			// sessions which are working, so it has to be asked for — see
+			// SettingOIDCSessionMaxAgeDays.
+			OIDCSessionMaxAgeDays: 0,
 			// Registration is off by default: an instance that is exposed
 			// before anyone configures it should not accept sign-ups.
 			RegistrationEnabled: false,
@@ -297,6 +411,17 @@ func NewSettingsService(st *store.Store, defaultTokenTTL time.Duration) *Setting
 			AuditRetentionDays: 0,
 		},
 	}
+}
+
+// Defaults returns the settings a tenant has before anybody changes any of
+// them.
+//
+// Exposed for one purpose: a caller that needs a lifetime on a path where
+// failing is worse than being slightly wrong. Signing would otherwise have to
+// take a whole tenant's sign-in down over an unreadable settings row, when the
+// values it wanted are constants that most deployments never touch.
+func (s *SettingsService) Defaults() Settings {
+	return s.defaults
 }
 
 // Get returns a tenant's current settings, reading from the database on
@@ -326,6 +451,18 @@ func (s *SettingsService) Get(ctx context.Context, tenantID string) (Settings, e
 		case SettingTokenTTLMinutes:
 			if n, err := strconv.Atoi(row.Value); err == nil {
 				loaded.TokenTTLMinutes = n
+			}
+		case SettingOIDCAccessTokenTTLMinutes:
+			if n, err := strconv.Atoi(row.Value); err == nil {
+				loaded.OIDCAccessTokenTTLMinutes = n
+			}
+		case SettingOIDCRefreshTokenTTLDays:
+			if n, err := strconv.Atoi(row.Value); err == nil {
+				loaded.OIDCRefreshTokenTTLDays = n
+			}
+		case SettingOIDCSessionMaxAgeDays:
+			if n, err := strconv.Atoi(row.Value); err == nil {
+				loaded.OIDCSessionMaxAgeDays = n
 			}
 		case SettingRegistrationEnabled:
 			loaded.RegistrationEnabled = row.Value == "true"
@@ -378,8 +515,34 @@ func (s *SettingsService) Get(ctx context.Context, tenantID string) (Settings, e
 func (s *SettingsService) Update(ctx context.Context, tenantID string, next Settings) (Settings, error) {
 	if next.TokenTTLMinutes < MinTokenTTLMinutes || next.TokenTTLMinutes > MaxTokenTTLMinutes {
 		return Settings{}, httpx.BadRequest("INVALID_SETTINGS",
-			fmt.Sprintf("Session lifetime must be between %d and %d minutes.",
+			fmt.Sprintf("Console session lifetime must be between %d and %d minutes.",
 				MinTokenTTLMinutes, MaxTokenTTLMinutes))
+	}
+	// Refused rather than clamped, like everything else on this endpoint. An
+	// administrator who asked for a day and silently got an hour would
+	// believe they had set something they had not, and would find out from a
+	// support ticket about tokens expiring.
+	if next.OIDCAccessTokenTTLMinutes < MinOIDCAccessTokenTTLMinutes ||
+		next.OIDCAccessTokenTTLMinutes > MaxOIDCAccessTokenTTLMinutes {
+		return Settings{}, httpx.BadRequest("INVALID_SETTINGS",
+			fmt.Sprintf("Access token lifetime must be between %d and %d minutes. "+
+				"An access token is verified without calling back here, so it cannot be "+
+				"revoked — how soon it expires is the only limit on a permission that has "+
+				"been withdrawn.",
+				MinOIDCAccessTokenTTLMinutes, MaxOIDCAccessTokenTTLMinutes))
+	}
+	if next.OIDCRefreshTokenTTLDays < MinOIDCRefreshTokenTTLDays ||
+		next.OIDCRefreshTokenTTLDays > MaxOIDCRefreshTokenTTLDays {
+		return Settings{}, httpx.BadRequest("INVALID_SETTINGS",
+			fmt.Sprintf("Refresh token lifetime must be between %d and %d days.",
+				MinOIDCRefreshTokenTTLDays, MaxOIDCRefreshTokenTTLDays))
+	}
+	// Zero is the off switch and is allowed; anything between there and the
+	// ceiling is a cap. Negative is neither.
+	if next.OIDCSessionMaxAgeDays < 0 || next.OIDCSessionMaxAgeDays > MaxOIDCSessionMaxAgeDays {
+		return Settings{}, httpx.BadRequest("INVALID_SETTINGS",
+			fmt.Sprintf("Maximum session age must be 0 to switch it off, or between 1 and %d days.",
+				MaxOIDCSessionMaxAgeDays))
 	}
 	if next.SystemName == "" {
 		next.SystemName = s.defaults.SystemName
@@ -445,10 +608,13 @@ func (s *SettingsService) Update(ctx context.Context, tenantID string, next Sett
 	}
 
 	values := map[string]string{
-		SettingTokenTTLMinutes:          strconv.Itoa(next.TokenTTLMinutes),
-		SettingRegistrationEnabled:      strconv.FormatBool(next.RegistrationEnabled),
-		SettingRegistrationVerification: strconv.FormatBool(next.RegistrationVerification),
-		SettingSystemName:               next.SystemName,
+		SettingTokenTTLMinutes:           strconv.Itoa(next.TokenTTLMinutes),
+		SettingOIDCAccessTokenTTLMinutes: strconv.Itoa(next.OIDCAccessTokenTTLMinutes),
+		SettingOIDCRefreshTokenTTLDays:   strconv.Itoa(next.OIDCRefreshTokenTTLDays),
+		SettingOIDCSessionMaxAgeDays:     strconv.Itoa(next.OIDCSessionMaxAgeDays),
+		SettingRegistrationEnabled:       strconv.FormatBool(next.RegistrationEnabled),
+		SettingRegistrationVerification:  strconv.FormatBool(next.RegistrationVerification),
+		SettingSystemName:                next.SystemName,
 
 		SettingLockoutThreshold:       strconv.Itoa(next.LockoutThreshold),
 		SettingLockoutDurationMinutes: strconv.Itoa(next.LockoutDurationMinutes),

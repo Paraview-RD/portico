@@ -73,7 +73,20 @@ func (h *Handler) GetSettings(w http.ResponseWriter, r *http.Request) {
 // name. Absent has to mean "leave it alone", and only a pointer can say
 // that.
 type updateSettingsRequest struct {
-	TokenTTLMinutes     *int  `json:"tokenTtlMinutes"`
+	// The console's own session. Named apart from the three below because the
+	// two were conflated for a whole version: this one governs how often
+	// somebody signing in here is asked again, and has nothing to do with
+	// what registered applications receive.
+	TokenTTLMinutes *int `json:"tokenTtlMinutes"`
+
+	// The OIDC lifetimes. Pointers like everything else here, and for the
+	// session cap that is not a formality — a plain value would arrive as 0
+	// on every save from an unrelated part of the page, and 0 switches the
+	// cap off. Renaming the system would quietly disable it.
+	OIDCAccessTokenTTLMinutes *int `json:"oidcAccessTokenTtlMinutes"`
+	OIDCRefreshTokenTTLDays   *int `json:"oidcRefreshTokenTtlDays"`
+	OIDCSessionMaxAgeDays     *int `json:"oidcSessionMaxAgeDays"`
+
 	RegistrationEnabled *bool `json:"registrationEnabled"`
 	// Requiring a self-registered account to prove its address. Refused
 	// where this deployment has no way to send one, rather than accepted and
@@ -111,6 +124,9 @@ type updateSettingsRequest struct {
 // as they stand.
 func (req updateSettingsRequest) applyTo(current service.Settings) service.Settings {
 	overlayInt(&current.TokenTTLMinutes, req.TokenTTLMinutes)
+	overlayInt(&current.OIDCAccessTokenTTLMinutes, req.OIDCAccessTokenTTLMinutes)
+	overlayInt(&current.OIDCRefreshTokenTTLDays, req.OIDCRefreshTokenTTLDays)
+	overlayInt(&current.OIDCSessionMaxAgeDays, req.OIDCSessionMaxAgeDays)
 	overlayBool(&current.RegistrationEnabled, req.RegistrationEnabled)
 	overlayBool(&current.RegistrationVerification, req.RegistrationVerification)
 	if req.SystemName != nil {

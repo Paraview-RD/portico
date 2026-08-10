@@ -48,6 +48,7 @@ type Providers struct {
 	users     *service.UserService
 	clients   *service.OAuthClientService
 	keys      *service.SigningKeyService
+	settings  *service.SettingsService
 	audit     *service.AuditService
 	// cryptoKey encrypts the codes the library hands to clients. It is
 	// derived from the deployment's signing secret so it survives restarts —
@@ -68,6 +69,7 @@ func NewProviders(
 	users *service.UserService,
 	clients *service.OAuthClientService,
 	keys *service.SigningKeyService,
+	settings *service.SettingsService,
 	audit *service.AuditService,
 ) *Providers {
 	return &Providers{
@@ -78,6 +80,7 @@ func NewProviders(
 		users:     users,
 		clients:   clients,
 		keys:      keys,
+		settings:  settings,
 		audit:     audit,
 		cache:     map[string]*op.Provider{},
 	}
@@ -141,7 +144,7 @@ func (p *Providers) For(ctx context.Context, mount string) (*op.Provider, error)
 
 // storage returns the adapter for a tenant at a mount.
 func (p *Providers) storage(tenant model.Tenant, mount string) *Storage {
-	return NewStorage(tenant, p.Issuer(mount), p.store, p.users, p.clients, p.keys,
+	return NewStorage(tenant, p.Issuer(mount), p.store, p.users, p.clients, p.keys, p.settings,
 		func(authRequestID string) string { return p.LoginURL(tenant.Code, authRequestID) })
 }
 
@@ -346,12 +349,19 @@ func (p *Providers) existsElsewhere(ctx context.Context, authRequestID string) b
 	return false
 }
 
-// SweepExpired deletes authorization requests nobody completed.
+// SweepExpired deletes authorization requests nobody completed, and drops
+// signing keys retired long enough that nothing they signed is alive.
 //
 // Every arrival at /authorize writes a row, and most deployments will have
 // far more abandoned sign-ins than finished ones, so this is the fastest
 // growing table Portico has. The sweep is per tenant because the query is —
 // there is deliberately no way to write across tenants.
+//
+// The keys are here because rotation was the only thing that pruned them,
+// which leaves a tenant that rotated once holding the retired row for good.
+// The key set does not depend on this having run — it applies the same
+// cutoff when it reads — so this is housekeeping rather than the thing that
+// makes an old key stop being trusted.
 func (p *Providers) SweepExpired(ctx context.Context) error {
 	tenants, err := p.tenants.List(ctx)
 	if err != nil {
@@ -360,8 +370,13 @@ func (p *Providers) SweepExpired(ctx context.Context) error {
 
 	now := store.Now()
 	for _, tenant := range tenants {
-		if err := p.store.ForTenant(tenant.ID).DeleteExpiredAuthRequests(ctx, now); err != nil {
+		scoped := p.store.ForTenant(tenant.ID)
+		if err := scoped.DeleteExpiredAuthRequests(ctx, now); err != nil {
 			return fmt.Errorf("sweep tenant %s: %w", tenant.Code, err)
+		}
+		if err := scoped.DeleteExpiredSigningKeys(ctx,
+			now.Add(-service.SigningKeyRetention)); err != nil {
+			return fmt.Errorf("sweep signing keys for tenant %s: %w", tenant.Code, err)
 		}
 	}
 	return nil

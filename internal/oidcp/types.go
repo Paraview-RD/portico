@@ -102,6 +102,11 @@ func (r *refreshRequest) SetCurrentScopes(scopes []string) { r.row.Scopes = scop
 type client struct {
 	model    model.OAuthClient
 	loginURL func(authRequestID string) string
+	// idTokenLifetime is the tenant's setting as it stood when this client was
+	// looked up. Held as a value because op.Client's accessor takes no context
+	// and returns no error; a fresh client is built for every request, so this
+	// is a per-request read rather than a snapshot taken at startup.
+	idTokenLifetime time.Duration
 }
 
 func (c *client) GetID() string          { return c.model.ClientID }
@@ -155,7 +160,10 @@ func (c *client) LoginURL(authRequestID string) string { return c.loginURL(authR
 // an opaque token forecloses.
 func (c *client) AccessTokenType() op.AccessTokenType { return op.AccessTokenTypeJWT }
 
-func (c *client) IDTokenLifetime() time.Duration { return model.IDTokenLifetime }
+// IDTokenLifetime matches the access token's, deliberately: an ID token that
+// outlived the access token it arrived with would describe an authentication
+// that may already have been withdrawn.
+func (c *client) IDTokenLifetime() time.Duration { return c.idTokenLifetime }
 
 // DevMode is never on. It relaxes redirect-URI checking, and there is no
 // deployment where that is worth a flag somebody can leave set.

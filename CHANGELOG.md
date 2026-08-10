@@ -255,9 +255,52 @@ Working toward 0.2.0. See
   the queue was covered; what arrived at the far end — signed by the recipe
   the documentation gives a subscriber, rather than by calling the signing
   code and comparing it with itself — was not.
+- **The lifetimes of the tokens issued to applications are settings now**, per
+  tenant, adjustable while the server runs: access token 1–60 minutes
+  (default 15), refresh token 1–90 days (default 30). The ID token follows the
+  access token, deliberately — one outliving the other describes an
+  authentication that may already have been withdrawn. They were constants, so
+  the only answer to "how long is an access token valid here" was to read the
+  source and the only way to change it was to fork.
+- **The ceiling is the part that makes them safe to expose.** An access token
+  is verified offline and cannot be revoked, so its expiry is not one control
+  among several over a withdrawn permission — it is the only one. An
+  administrator reaching for "ask people to sign in less often" would pick a
+  day, which means a disabled account still being served for a day with
+  nothing anywhere saying so. Values past the ceiling are refused rather than
+  quietly clamped: somebody who asked for a day and silently got an hour would
+  believe they had set something they had not.
+- **A session can be given an absolute age**, ending a refresh chain that many
+  days after the sign-in which began it however diligently it is refreshed.
+  Refreshing renews its own expiry, so a refresh lifetime bounds *silence*
+  rather than access: thirty days means thirty days of not being used, and a
+  client refreshing on a timer never has to sign in again. This is the setting
+  that answers "how often must a person re-authenticate", which no combination
+  of the other two could.
+- It ships switched off. It is the only setting here that ends sessions which
+  are working, so a default would sign every long-lived integration out that
+  many days after an upgrade, on a schedule nobody chose. The same argument
+  audit retention makes for keeping everything.
+- Ageing out is not treated as a leak. A refresh token presented after being
+  spent revokes the whole chain, because that means a copy got loose; a
+  session that merely reached its limit is refused and nothing is revoked.
+  Keeping them apart is what leaves chain revocation meaning something
+  specific in an audit trail.
+- No schema change was needed. `auth_time` was already carried forward across
+  every rotation — it is the moment the person signed in — so the cap measures
+  from a column that was already there and already correct.
 
 ### Changed
 
+- **The settings page names which session it means.** "Session lifetime"
+  governed Portico's own console and read as though it governed the tokens
+  applications receive — a wording that was merely ambiguous until those became
+  configurable and would then have been pointing at the wrong control. Both now
+  sit on that page under headings that say which is which.
+- SECURITY.md gained a token-lifetime section, and a comment in
+  `internal/model/oidc.go` that cited it for a promise it had never made is
+  gone. The citation was wrong before this change; making the lifetimes
+  configurable is what turned it from untidy into misleading.
 - **Filtering the user list by organization now means that organization and
   everything under it.** It was an exact match, which is defensible on its
   own and wrong the moment the filter is reached from a chart: picking a
@@ -325,6 +368,61 @@ Working toward 0.2.0. See
   service providers map it. What
   [docs/federation.md](docs/federation.md) lists is now what an assertion
   carries, which it was not before.
+
+### Fixed
+
+- **A failed delivery now waits as long as the documentation says.** The
+  delay is chosen from a table indexed by the attempt that just failed, and
+  the count being read was the one from before the increment — so every
+  failure waited the previous attempt's delay, the last entry in the table
+  was unreachable, and five attempts spanned eight minutes rather than the
+  half hour a subscriber was promised. A receiver that was restarting had
+  lost its window before it came back.
+- **A retired signing key leaves the published key set.** It was meant to
+  stay for twenty-four hours, long enough that a token signed just before a
+  rotation still verifies, and then go. Nothing applied that bound: the key
+  set advertised every row it had, and the only thing that removed one was
+  the *next* rotation — so a tenant that rotated once kept offering the key
+  it had rotated away from, indefinitely. The cutoff is now applied where the
+  key set is read, so it does not depend on a background job having run, and
+  the periodic sweep drops the rows as well.
+- **Portico's SAML metadata advertises the name identifier format it
+  actually sends.** The library defaults that field to `transient` and the
+  document was published as it came — while every assertion carries a
+  persistent identifier, the account id, chosen so that a rename cannot split
+  somebody into two local records. A service provider configured from the
+  document was being told the opposite: that the identifier is a throwaway it
+  must not store. Corrected before publication, as three fields of the
+  OpenID Connect discovery document already were.
+- **A directory rename now renames the account.** Reconciling on the external
+  id was only half of it: the identifier matched, so no second account was
+  created, but the username was never written and the two sides stayed
+  permanently out of step, with every later run attempting the same change.
+  It goes through a statement of its own — the console's edit path
+  deliberately does not write a username, because there a rename is an
+  administrator's decision about somebody else's account. A name the
+  directory has moved onto an account that already exists here is reported as
+  the collision it is and skipped with a reason, rather than failing the run.
+- **A SCIM `PATCH` no longer clears the attributes it does not name.** The
+  descriptive columns are written as a block, and the patch path was building
+  that block from scratch — so an operation naming one attribute emptied the
+  other twenty-two: title, department, employee number, locale, the name
+  parts, the address. `DELETE` did the same on the way out, which contradicts
+  the reason it deactivates rather than deletes. `PUT` is unaffected and
+  still replaces, which is the difference between the two verbs.
+
+### Security
+
+- **The webhook destination check now runs on the resolved address.** A
+  destination is checked twice, and the second check — the one that exists to
+  defeat DNS rebinding — was reading the host out of the URL, where it is
+  still a name. `net.ParseIP` returns nil for a name, so the check was
+  skipped for every destination that was not already an IP literal, which is
+  every destination rebinding can apply to. It now runs in the dialer's
+  `Control` hook, which is called once per candidate address after
+  resolution. Exploiting it needed a tenant administrator to register a
+  domain they control and then repoint it; the registration-time check, which
+  resolves and inspects every address, was never affected.
 
 ## [0.1.0] - 2026-08-09
 

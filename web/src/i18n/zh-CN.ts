@@ -343,7 +343,20 @@ export const zhCN: Record<keyof typeof enUS, string> = {
   "settings.systemName": "系统名称",
   "settings.tokenTtl": "控制台会话有效期（分钟）",
   "settings.tokenTtlHelp":
-    "在本控制台登录一次能保持多久，取值 5 到 43200。管的是这个界面自己，与 Portico 发给各应用的 OIDC 令牌无关——那些的有效期不在这里配置。",
+    "在本控制台登录一次能保持多久，取值 5 到 43200。管的是这个界面自己；发给各接入应用的令牌是下面“单点登录令牌”那一组。",
+
+  "settings.oidcTokensLegend": "单点登录令牌",
+  "settings.oidcTokensHelp":
+    "Portico 作为身份提供方，发给各个已接入应用的令牌能用多久。与上面的控制台会话是两件事。",
+  "settings.oidcAccessTokenTtl": "访问令牌有效期（分钟）",
+  "settings.oidcAccessTokenTtlHelp":
+    "取值 1 到 60，默认 15。上限之所以是 1 小时：访问令牌由对方应用离线验签、从不回头问 Portico，因此无法撤销——一个已经被停用的账号，其令牌还能用多久，完全取决于这个数字。ID 令牌跟随同一个值。",
+  "settings.oidcRefreshTokenTtl": "刷新令牌有效期（天）",
+  "settings.oidcRefreshTokenTtlHelp":
+    "取值 1 到 90，默认 30。每次刷新都会换发新的并重新计时，所以它限制的是“多久不用就失效”，不是会话总长。",
+  "settings.oidcSessionMaxAge": "最长会话时长（天）",
+  "settings.oidcSessionMaxAgeHelp":
+    "从最初那次登录算起，整条刷新链最长能延续多久，到点必须重新登录。填 0 表示不限制，也是默认值——因为刷新会不断续期，不限制意味着一个持续调用的集成可以永不重新登录。改成非 0 值会在到期时把正在正常工作的会话挤下线，请按需开启。",
   "settings.registrationEnabled": "开放用户自主注册",
   "settings.registrationHelp":
     "关闭后只能由管理员创建账号。自主注册的账号一律为普通用户。",
