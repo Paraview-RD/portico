@@ -20,6 +20,7 @@ import {
   CopyField,
   EmptyRow,
   Field,
+  GuidePanel,
   Input,
   LoadingRow,
   Modal,
@@ -64,6 +65,15 @@ export function ProvisioningPage() {
         subtitle={t("provisioning.subtitle")}
         actions={<DocsLink page="scim/" />}
       />
+
+      {/* No docs link of its own, unlike the other screens' guides. This
+          page is two directions, documented in two places — ldap.md and
+          scim.md — and a single link here would send half the readers to
+          the wrong one while sitting inches from the header's link to the
+          other. The tab they pick is the better disambiguator. */}
+      <GuidePanel id="provisioning" title={t("provisioning.guideTitle")}>
+        {t("provisioning.guideBody")}
+      </GuidePanel>
 
       <div
         role="tablist"

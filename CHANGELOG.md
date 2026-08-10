@@ -36,6 +36,18 @@ Working toward 0.2.0. See
 - Every run is kept — created, updated, deactivated and skipped counts, and
   the reason when it failed — because the question afterwards is "when did
   this start", which one overwritten result cannot answer.
+- **A run says why entries were skipped, not only how many.** "6 skipped" and
+  nothing else sends an operator to the documentation, which says a skip is
+  most often a username collision — so when it is not one, that sentence is a
+  wrong lead rather than no lead. It cost a walkthrough several rounds to
+  find that every account was being refused for a phone number written with
+  spaces, which the code knew as it refused each one and recorded nowhere.
+  Grouped by reason with an example of each, and bounded — a source pointed
+  at the wrong attribute skips everything for the same reason, and a line per
+  entry would be a line per account in the directory. It is on the run record
+  itself, and beside the counts in the console, whatever the outcome — a run
+  that skipped entries still succeeded, and a reason that only appeared on a
+  failure would be one nobody read.
 - **An account has the attributes a directory actually has for it** — 24 of
   them, named after SCIM 2.0's core User schema and its enterprise extension
   rather than invented, so a directory's fields land where they belong. They
@@ -116,6 +128,47 @@ Working toward 0.2.0. See
   store and later use rather than merely verify. Today that is a directory
   bind password. Without it, saving one is refused rather than written in the
   clear. It must differ from `PORTICO_JWT_SECRET`.
+- **Every administrative screen says what it is for**, in three or four
+  sentences above the content: when the screen is the one you want, what has
+  to be in hand before starting, and which neighbouring screen does the
+  opposite thing. Collapsible and remembered, so it stops being furniture for
+  whoever reads it daily. Deliberately short — the manual is compiled into
+  the same binary and linked from each panel, and a second copy of an
+  explanation is a guarantee that the two will disagree.
+- The same explanation inside the registration dialogs, where the jargon
+  actually is. A dialog covers the page that would have explained its own
+  title, which is why "register a service provider" kept being asked about:
+  the sentence defining the term was on the list behind it.
+
+### Changed
+
+- **A dialog's title bar and buttons no longer scroll away.** `overflow-y-auto`
+  sat on the dialog itself, so a form taller than the viewport took its own
+  heading off the top and its own Save button off the bottom — leaving a
+  stack of fields with nothing saying what was being registered. Only the
+  body scrolls now, and the header carries a close button, which is worth
+  having only because that header stays put.
+- Registration is named for what it does rather than for the protocol's
+  vocabulary: "Connect a SAML application" instead of "Register a service
+  provider", and likewise for OIDC and CAS.
+- The settings page calls its session lifetime what it is — the console's
+  own — and says outright that it is not the lifetime of the OIDC tokens
+  issued to applications. Those are fixed, and the field's old wording read
+  as though it governed them.
+- **A SAML assertion states each attribute once.** `uid` and `mail` were each
+  sent twice: the assertion library derives attributes from the session it is
+  handed, and Portico both filled those fields and supplied the same facts
+  itself. A service provider mapping on the attribute name got whichever of
+  the pair its parser kept — and which one that was is a property of the
+  parser, not a choice either side made.
+- Following from that, an assertion no longer carries
+  `eduPersonPrincipalName`. It held a second copy of the email address, was
+  never documented, and comes from a federation this product has nothing to
+  do with — the library emitted it merely because an email was set. `cn` is
+  unaffected and still sent: it was in every 0.1.0 assertion, and a good many
+  service providers map it. What
+  [docs/federation.md](docs/federation.md) lists is now what an assertion
+  carries, which it was not before.
 
 ## [0.1.0] - 2026-08-09
 

@@ -193,6 +193,9 @@ export const enUS = {
 
   "organizations.title": "Organizations",
   "organizations.subtitle": "A single flat tier of groupings for users.",
+  "organizations.guideTitle": "Organizations and groups divide the work",
+  "organizations.guideBody":
+    'An organization answers where somebody sits: one of them each, arranged as a tree, usually matching the real reporting structure. It settles belonging, not permission — putting somebody in any organization grants them nothing, because this version has two roles and they are set on the account itself. When accounts are synchronized from AD or LDAP, this tree is usually maintained by the directory as well, and editing it by hand here is overwritten on the next run. For "this person belongs to several sets at once", the answer is a group, not this page.',
   "organizations.create": "New organization",
   "organizations.colName": "Name",
   "organizations.colCode": "Code",
@@ -218,6 +221,9 @@ export const enUS = {
 
   "auditLogs.title": "Audit logs",
   "auditLogs.subtitle": "Sign-ins, changes, and registrations.",
+  "auditLogs.guideTitle": "What these records can answer",
+  "auditLogs.guideBody":
+    'What is recorded here has already happened — who signed in when, who changed whom, what was touched — so this is for finding out afterwards rather than watching in real time. Entries are written and never edited, and there is no delete in the interface, which is what makes them worth anything as evidence. How long they stay is set by "Audit log retention" in Settings; expired entries are removed permanently with no copy kept, so anything needed long-term should be exported elsewhere on a schedule. A disabled account keeps its history, which is why this system disables accounts instead of deleting them.',
   "auditLogs.filterKind": "Type",
   "auditLogs.filterFrom": "From",
   "auditLogs.filterTo": "To",
@@ -246,22 +252,41 @@ export const enUS = {
 
   "applications.title": "Applications",
   "applications.subtitle": "The systems that sign in through Portico.",
+  "applications.guideTitle": "When something needs registering here",
+  "applications.guideBody":
+    'Every system you want people to reach with their Portico account is registered here once, which is what lets the two recognize each other. Which tab you use is not a preference — it is whatever the other side speaks: something you wrote yourself or a modern SaaS takes OAuth 2.1 / OIDC, purchased commercial software usually hands you a SAML metadata document, and some long-lived internal systems only know CAS. Once it is registered, give the other side the addresses under "Endpoints" at the top right and the integration is done.',
   "applications.protocol": "Protocol",
   "applications.tab.oauth": "OAuth 2.1 / OIDC",
   "applications.tab.saml": "SAML 2.0",
   "applications.tab.cas": "CAS",
   "applications.hint.oauth":
     "Relying parties that obtain tokens through the authorization code flow with PKCE.",
+  // The term is defined here rather than avoided: the button now says
+  // "connect an application", but "service provider" is what the other
+  // side's own documentation and metadata call it, so a reader meets it
+  // sooner or later.
   "applications.hint.saml":
-    "Service providers that receive signed assertions. A registration is the service provider's own metadata document.",
+    "Service providers that receive signed assertions — the application being connected. A registration is the service provider's own metadata document.",
   "applications.hint.cas":
     "Services identified by a URL prefix. There are no wildcards: anything beginning with the registered prefix matches.",
-  "applications.create.oauth": "Register a client",
-  "applications.create.saml": "Register a service provider",
-  "applications.create.cas": "Register a service",
-  "applications.editOauth": "Edit client",
-  "applications.editSaml": "Edit service provider",
-  "applications.editCas": "Edit service",
+  // Named for the action rather than the protocol role. "Register a service
+  // provider" is plain language only to somebody who already knows SAML,
+  // which is exactly not the person who needs to read it — and the same
+  // string is both the button and the dialog title, so opening the dialog
+  // covers up the one sentence on the page that explains the term.
+  "applications.create.oauth": "Connect an OIDC application",
+  "applications.create.saml": "Connect a SAML application",
+  "applications.create.cas": "Connect a CAS service",
+  "applications.editOauth": "Edit OIDC application",
+  "applications.editSaml": "Edit SAML application",
+  "applications.formGuideTitle": "What this step does",
+  "applications.formGuide.oauth":
+    "This is for applications that speak OAuth 2.1 / OpenID Connect, which covers most things written in-house and most modern SaaS. Two things are needed from the other side before starting: the redirect address the authorization code is delivered to, and which shape it is — something running on its own server can hold a secret and is issued one on registration, while an application running in a browser or on a phone cannot and authenticates with PKCE alone. Getting that wrong hands the other side a secret it has nowhere to hide. Once saved, give them the client ID, and the secret if there is one.",
+  "applications.formGuide.saml":
+    "A service provider is the application receiving the assertion — a purchased CRM or HR system, say. In SAML, Portico is the identity provider and the other side is the SP. So the work here is not filling in configuration but pasting in the metadata XML they gave you: Portico reads their entity ID, assertion consumer address, and signing certificate out of it, none of which you have to copy by hand. That file is usually downloadable from the other system's single sign-on settings, or available from whoever administers it. Portico's own metadata, which they will ask for in return, is under \"Endpoints\" at the top right of this page.",
+  "applications.formGuide.cas":
+    "CAS identifies a service by URL prefix: anything beginning with what you enter counts as this service, and there are no wildcards. So make the prefix as specific as you can — https://wiki.example.com/ rather than https://example.com/, or every other system on that domain is treated as this one.",
+  "applications.editCas": "Edit CAS service",
   "applications.colName": "Name",
   "applications.colClientId": "Client ID",
   "applications.colType": "Kind",
@@ -295,7 +320,7 @@ export const enUS = {
     "Fixed once registered. Metadata declaring a different entity describes a different service provider.",
   "applications.metadata": "Metadata document",
   "applications.metadataHelp":
-    "Upload or paste the service provider's own metadata XML. Portico never fetches it from a URL.",
+    "Upload or paste the service provider's own metadata XML — usually downloadable from that system's single sign-on settings, or available from whoever administers it. Portico never fetches it from a URL.",
   "applications.metadataReplaceHelp":
     "Replacing this is how a service provider's certificate is rotated. Leave it alone to keep the current document.",
   "applications.metadataReadFailed": "That file could not be read.",
@@ -333,10 +358,13 @@ export const enUS = {
 
   "settings.title": "Settings",
   "settings.subtitle": "System-wide behavior.",
+  "settings.guideTitle": "Who a change here reaches",
+  "settings.guideBody":
+    "Every item on this page is a tenant-wide default that takes effect for everybody the moment it is saved — there is no staged rollout and no dry run. The password policy and lockout thresholds set how strict signing in is; tightening them does not invalidate existing passwords, but the next change has to satisfy the new rules. The session lifetime governs how often this console asks you to sign in again, and has nothing to do with the OIDC tokens issued to applications, whose lifetimes are fixed. Audit retention is the only setting here that deletes data: lowering it permanently removes entries past the new limit.",
   "settings.systemName": "System name",
-  "settings.tokenTtl": "Session lifetime (minutes)",
+  "settings.tokenTtl": "Console session lifetime (minutes)",
   "settings.tokenTtlHelp":
-    "How long a sign-in lasts before it expires. Between 5 and 43200.",
+    "How long one sign-in to this console lasts before it expires, between 5 and 43200. This governs this interface only, not the OIDC tokens Portico issues to registered applications — those lifetimes are not configured here.",
   "settings.registrationEnabled": "Allow self-service registration",
   "settings.registrationHelp":
     "When off, only administrators can create accounts. New accounts always get the User role.",
@@ -385,6 +413,9 @@ export const enUS = {
   "groups.title": "Groups",
   "groups.subtitle":
     "Sets of people. Separate from organizations, which are the org chart — somebody sits in one organization and belongs to any number of groups. Membership grants no permissions.",
+  "groups.guideTitle": "What groups are for",
+  "groups.guideBody":
+    'A group is an overlapping label: project members, approvers, the people who use a particular system — somebody belongs to as many as apply, and groups have no hierarchy between them. Membership grants nothing on its own; the meaning belongs to whatever downstream system reads it. An application may decide that "anyone in finance can see the reports", but that rule lives in that application, not in Portico. In most deployments these are pushed and maintained by an upstream directory; creating them by hand suits the case where Portico is itself the only source. To say which department somebody is in, use an organization instead.',
   "groups.new": "New group",
   "groups.edit": "Edit group",
   "groups.name": "Name",
@@ -413,6 +444,9 @@ export const enUS = {
   "webhooks.title": "Event subscriptions (webhooks)",
   "webhooks.subtitle":
     "Where to send a signed notification when something changes here. Https only, and never an address inside your network.",
+  "webhooks.guideTitle": "When to subscribe to events",
+  "webhooks.guideBody":
+    'Subscribe when one of your own systems needs to know the moment an account is created, disabled, or changed, rather than asking every few minutes. Every delivery is signed, and a receiver should verify that signature before acting on it — otherwise anybody can post "so-and-so has been disabled". This is notification, not synchronization: a failed delivery is retried, so the same event can arrive twice and order is not guaranteed, which means the receiving end has to be idempotent. When what you need is the whole roster rather than a change alert, the page for that is Provisioning.',
   "webhooks.new": "New subscription",
   "webhooks.name": "Name",
   "webhooks.url": "Endpoint URL",
@@ -447,6 +481,9 @@ export const enUS = {
   "provisioning.title": "Directory integration",
   "provisioning.subtitle":
     "Accounts arriving from somewhere else, in either direction.",
+  "provisioning.guideTitle": "Two ways in, and how to choose",
+  "provisioning.guideBody":
+    "If the list of people is already maintained somewhere else, it does not need typing in again — this page connects to it. The two ways in differ only in who acts: Portico connects out to Active Directory or OpenLDAP and reads, or a directory such as Okta or Entra ID pushes to Portico over SCIM. Use whichever the other side supports; a traditional AD is usually the first, a cloud identity platform usually the second. Accounts that arrive either way are indistinguishable afterwards, but where you look when somebody fails to arrive depends on which one it was.",
   // Named for the direction rather than the protocol, because that is the
   // thing people get wrong: one has Portico reach out, the other has a
   // directory reach in, and the difference decides where you look when

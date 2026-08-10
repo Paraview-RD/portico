@@ -32,6 +32,7 @@ import {
 } from "react";
 
 import { docsUrl, useLanguage, useT } from "../i18n";
+import { ChevronRightIcon, CloseIcon, GuideIcon } from "./icons";
 
 function cx(...classes: (string | false | undefined | null)[]): string {
   return classes.filter(Boolean).join(" ");
@@ -337,7 +338,27 @@ interface ModalProps {
   footer?: ReactNode;
 }
 
+/**
+ * A modal dialog whose chrome stays put.
+ *
+ * The layout is deliberate and was once wrong: `overflow-y-auto` sat on the
+ * dialog itself, so a form taller than the viewport scrolled its own title
+ * off the top and its own Save button off the bottom. What the person filling
+ * in a long registration form could see was a stack of fields with no
+ * indication of what they were registering and no way to submit it.
+ *
+ * So the dialog is a column with a fixed height budget, and only the middle
+ * of it scrolls. The header and footer are `shrink-0` rather than merely
+ * outside the scrolling region: without that, flex would compress them to fit
+ * rather than letting the middle take the overflow, and the title would be
+ * squashed instead of pinned.
+ *
+ * The close button belongs to that pinned header for the same reason. A way
+ * out that is only reachable before anyone has scrolled is not a way out.
+ */
 export function Modal({ open, title, onClose, children, footer }: ModalProps) {
+  const t = useT();
+
   // Escape closes the dialog, which users expect and which also gives
   // keyboard users a way out without reaching for the mouse.
   useEffect(() => {
@@ -362,19 +383,33 @@ export function Modal({ open, title, onClose, children, footer }: ModalProps) {
         aria-modal="true"
         aria-label={title}
         className={cx(
-          "w-full max-w-lg rounded-[var(--radius-lg)] bg-[var(--color-bg)]",
-          "shadow-[var(--shadow-md)] max-h-[90vh] overflow-y-auto",
+          "flex w-full max-w-lg flex-col rounded-[var(--radius-lg)]",
+          "bg-[var(--color-bg)] shadow-[var(--shadow-md)] max-h-[90vh]",
         )}
         onClick={(event) => event.stopPropagation()}
       >
-        <header className="border-b border-[var(--color-border)] px-5 py-4">
+        <header className="flex shrink-0 items-start justify-between gap-3 border-b border-[var(--color-border)] px-5 py-4">
           <h2 className="text-[length:var(--font-size-lg)] font-[weight:var(--font-weight-bold)] text-[var(--color-fg)]">
             {title}
           </h2>
+          <button
+            type="button"
+            onClick={onClose}
+            aria-label={t("common.close")}
+            className={cx(
+              "-mr-1 -mt-1 inline-flex h-8 w-8 shrink-0 items-center justify-center",
+              "rounded-[var(--radius-sm)] text-[var(--color-fg-muted)]",
+              "hover:bg-[var(--color-bg-hover)] hover:text-[var(--color-fg)]",
+              "focus-visible:outline-2 focus-visible:outline-offset-2",
+              "focus-visible:outline-[var(--color-primary)]",
+            )}
+          >
+            <CloseIcon size={18} />
+          </button>
         </header>
-        <div className="px-5 py-4">{children}</div>
+        <div className="overflow-y-auto px-5 py-4">{children}</div>
         {footer && (
-          <footer className="flex justify-end gap-2 border-t border-[var(--color-border)] px-5 py-4">
+          <footer className="flex shrink-0 justify-end gap-2 border-t border-[var(--color-border)] px-5 py-4">
             {footer}
           </footer>
         )}
@@ -656,6 +691,128 @@ export function PageHeader({
       </div>
       {actions && <div className="flex gap-2">{actions}</div>}
     </div>
+  );
+}
+
+/* ----------------------------------------------------------- Guide panel */
+
+/**
+ * The three or four sentences that say what a screen is for.
+ *
+ * Every screen in this console already has a one-line subtitle, and that line
+ * answers "what is this" without answering "when would I need it" or "what do
+ * I have to have ready first". Somebody landing on Provisioning for the first
+ * time can read "push accounts to downstream systems" and still not know that
+ * it is the opposite direction from Directories, which is the thing they
+ * actually needed to know.
+ *
+ * **Length is capped by convention, not by the component.** The manual is
+ * compiled into the same binary and `DocsLink` already routes to it in the
+ * reader's language, so anything beyond a short paragraph belongs there and
+ * not in the translation bundles. Two copies of the same explanation, one in
+ * `zh-CN.ts` and one in `docs/*.zh.md`, is a guarantee that they will
+ * disagree; which one is wrong is then anybody's guess.
+ *
+ * Open on arrival and collapsible, remembered per panel. An explanation that
+ * has to be found is not read by the person who needed it, and one that
+ * cannot be dismissed becomes furniture for the administrator who reads it
+ * every day for a year.
+ */
+export function GuidePanel({
+  id,
+  title,
+  children,
+  docsPage,
+}: {
+  /** Distinguishes this panel's collapsed state from every other panel's. */
+  id: string;
+  title: string;
+  children: ReactNode;
+  docsPage?: string;
+}) {
+  const { language, t } = useLanguage();
+  const storageKey = `portico.guide.${id}`;
+
+  // Read during initialization rather than in an effect: an effect would
+  // render the panel open and then shut it, which flashes the explanation at
+  // the reader who already dismissed it.
+  const [open, setOpen] = useState(() => {
+    try {
+      return localStorage.getItem(storageKey) !== "collapsed";
+    } catch {
+      // Storage can be unavailable — a locked-down browser, private mode in
+      // some versions. Defaulting to open is the harmless direction.
+      return true;
+    }
+  });
+
+  const toggle = () => {
+    const next = !open;
+    setOpen(next);
+    try {
+      localStorage.setItem(storageKey, next ? "expanded" : "collapsed");
+    } catch {
+      // The panel still works for this visit; only the memory is lost.
+    }
+  };
+
+  const bodyId = `${storageKey}.body`;
+
+  return (
+    <section
+      className={cx(
+        "mb-5 rounded-[var(--radius-md)] border border-[var(--color-border)]",
+        "bg-[var(--color-bg-soft)]",
+      )}
+    >
+      <button
+        type="button"
+        onClick={toggle}
+        aria-expanded={open}
+        aria-controls={bodyId}
+        className={cx(
+          "flex w-full items-center gap-2 px-4 py-3 text-left",
+          "text-[length:var(--font-size-sm)] font-[weight:var(--font-weight-medium)]",
+          "text-[var(--color-fg)] hover:text-[var(--color-primary)]",
+        )}
+      >
+        <GuideIcon
+          size={16}
+          className="shrink-0 text-[var(--color-fg-muted)]"
+        />
+        <span className="flex-1">{title}</span>
+        <ChevronRightIcon
+          size={16}
+          className={cx(
+            "shrink-0 text-[var(--color-fg-muted)] transition-transform",
+            open && "rotate-90",
+          )}
+        />
+      </button>
+      {open && (
+        <div
+          id={bodyId}
+          className={cx(
+            "px-4 pb-3 text-[length:var(--font-size-sm)]",
+            "leading-[var(--leading-normal)] text-[var(--color-fg-muted)]",
+          )}
+        >
+          {children}
+          {docsPage && (
+            <p className="mt-2">
+              <a
+                href={docsUrl(language, docsPage)}
+                target="_blank"
+                rel="noreferrer"
+                className="text-[var(--color-primary)] hover:underline"
+              >
+                {t("common.docs")}
+              </a>
+            </p>
+          )}
+        </div>
+      )}
+    </section>
   );
 }
 

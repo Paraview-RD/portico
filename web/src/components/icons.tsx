@@ -174,6 +174,41 @@ export function ChevronDownIcon(props: IconProps) {
   );
 }
 
+export function CloseIcon(props: IconProps) {
+  return (
+    <Svg {...props}>
+      <path d="M18 6 6 18" />
+      <path d="m6 6 12 12" />
+    </Svg>
+  );
+}
+
+// The disclosure marker on a guide panel. A right-pointing chevron rather
+// than the downward one above, because that one already means "a menu opens
+// here" in the header and a reader should not have to work out which of two
+// meanings applies from context.
+export function ChevronRightIcon(props: IconProps) {
+  return (
+    <Svg {...props}>
+      <path d="m9 6 6 6-6 6" />
+    </Svg>
+  );
+}
+
+// The guide panel's own mark. A lamp rather than the more usual "i" in a
+// circle: this is an explanation offered before anything has gone wrong,
+// where an "i" in this console means a notice attached to something that
+// has.
+export function GuideIcon(props: IconProps) {
+  return (
+    <Svg {...props}>
+      <path d="M9 18h6" />
+      <path d="M10 22h4" />
+      <path d="M12 2a7 7 0 0 0-4 12.7V18h8v-3.3A7 7 0 0 0 12 2Z" />
+    </Svg>
+  );
+}
+
 export function TenantIcon(props: IconProps) {
   return (
     <Svg {...props}>

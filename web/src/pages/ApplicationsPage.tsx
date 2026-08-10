@@ -33,6 +33,7 @@ import {
   CopyField,
   EmptyRow,
   Field,
+  GuidePanel,
   Input,
   Modal,
   PageHeader,
@@ -151,6 +152,14 @@ export function ApplicationsPage() {
           </>
         }
       />
+
+      <GuidePanel
+        id="applications"
+        title={t("applications.guideTitle")}
+        docsPage="federation/"
+      >
+        {t("applications.guideBody")}
+      </GuidePanel>
 
       {error && (
         <div className="mb-4">
@@ -676,6 +685,18 @@ function ClientFormDialog({
         </>
       }
     >
+      {/* Shown while registering, not while editing: somebody who
+          registered this last month does not need telling what a
+          service provider is every time they fix a typo. */}
+      {!isEdit && (
+        <GuidePanel
+          id="applications.form.oauth"
+          title={t("applications.formGuideTitle")}
+        >
+          {t("applications.formGuide.oauth")}
+        </GuidePanel>
+      )}
+
       <form
         id="client-form"
         onSubmit={handleSubmit}
@@ -901,6 +922,18 @@ function ServiceProviderFormDialog({
         </>
       }
     >
+      {/* Shown while registering, not while editing: somebody who
+          registered this last month does not need telling what a
+          service provider is every time they fix a typo. */}
+      {!isEdit && (
+        <GuidePanel
+          id="applications.form.saml"
+          title={t("applications.formGuideTitle")}
+        >
+          {t("applications.formGuide.saml")}
+        </GuidePanel>
+      )}
+
       <form
         id="sp-form"
         onSubmit={handleSubmit}
@@ -1055,6 +1088,18 @@ function CASFormDialog({
         </>
       }
     >
+      {/* Shown while registering, not while editing: somebody who
+          registered this last month does not need telling what a
+          service provider is every time they fix a typo. */}
+      {!isEdit && (
+        <GuidePanel
+          id="applications.form.cas"
+          title={t("applications.formGuideTitle")}
+        >
+          {t("applications.formGuide.cas")}
+        </GuidePanel>
+      )}
+
       <form
         id="cas-form"
         onSubmit={handleSubmit}

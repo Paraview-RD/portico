@@ -7,11 +7,20 @@ import {
   Button,
   Card,
   Field,
+  GuidePanel,
   Input,
   PageHeader,
   Select,
 } from "../components/ui";
 import { locales, useErrorMessage, useT } from "../i18n";
+
+/**
+ * The grid this screen's content sits in, named because two things have to
+ * agree on it: the cards, and the guide above them. Written out twice, they
+ * drift, and the way that shows up is one row ending short of another.
+ */
+const settingsColumns =
+  "grid items-start gap-4 lg:grid-cols-[repeat(2,minmax(0,var(--prose-form-width)))]";
 
 export function SettingsPage() {
   const t = useT();
@@ -68,6 +77,21 @@ export function SettingsPage() {
         subtitle={t("settings.subtitle")}
       />
 
+      {/* Laid out in the same grid as the cards below, spanning both columns.
+
+          Not decoration. This screen's content column is narrower than the
+          page's — two prose widths rather than the full 1440px — so a guide
+          that simply filled the page would end 144px to the right of every
+          other row on the screen, which is exactly the raggedness the layout
+          suite exists to catch. It caught this. */}
+      <div className={settingsColumns}>
+        <div className="lg:col-span-2">
+          <GuidePanel id="settings" title={t("settings.guideTitle")}>
+            {t("settings.guideBody")}
+          </GuidePanel>
+        </div>
+      </div>
+
       {/* Two columns of cards, not one column of fieldsets.
 
           Each group keeps the wider of the two form widths: this screen
@@ -83,7 +107,7 @@ export function SettingsPage() {
           buttons would turn one deliberate act into four chances to leave
           half the screen unsaved. */}
       <form onSubmit={handleSubmit} className="flex flex-col gap-4">
-        <div className="grid items-start gap-4 lg:grid-cols-[repeat(2,minmax(0,var(--prose-form-width)))]">
+        <div className={settingsColumns}>
           <div className="flex flex-col gap-4">
             <Card title={t("settings.basicsLegend")}>
               <div className="flex flex-col gap-4">

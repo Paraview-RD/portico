@@ -10,6 +10,7 @@ import {
   EmptyRow,
   LoadingRow,
   Field,
+  GuidePanel,
   Input,
   Modal,
   PageHeader,
@@ -97,6 +98,10 @@ export function OrganizationsPage() {
           </Button>
         }
       />
+
+      <GuidePanel id="organizations" title={t("organizations.guideTitle")}>
+        {t("organizations.guideBody")}
+      </GuidePanel>
 
       <div className="mb-4 w-72">
         <Input

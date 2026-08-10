@@ -10,6 +10,7 @@ import {
   ConfirmDialog,
   EmptyRow,
   Field,
+  GuidePanel,
   Input,
   LoadingRow,
   Modal,
@@ -154,6 +155,10 @@ export function GroupsPage() {
         subtitle={t("groups.subtitle")}
         actions={<Button onClick={openCreate}>{t("groups.new")}</Button>}
       />
+
+      <GuidePanel id="groups" title={t("groups.guideTitle")}>
+        {t("groups.guideBody")}
+      </GuidePanel>
 
       {error && <Alert tone="danger">{error}</Alert>}
 

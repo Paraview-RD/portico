@@ -6,6 +6,7 @@ import {
   Alert,
   Badge,
   EmptyRow,
+  GuidePanel,
   LoadingRow,
   Input,
   PageHeader,
@@ -92,6 +93,10 @@ export function AuditLogsPage() {
         title={t("auditLogs.title")}
         subtitle={t("auditLogs.subtitle")}
       />
+
+      <GuidePanel id="auditLogs" title={t("auditLogs.guideTitle")}>
+        {t("auditLogs.guideBody")}
+      </GuidePanel>
 
       <div className="mb-4 flex flex-wrap items-end gap-3">
         <div className="w-64">

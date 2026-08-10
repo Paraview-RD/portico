@@ -177,6 +177,9 @@ export const zhCN: Record<keyof typeof enUS, string> = {
 
   "organizations.title": "机构管理",
   "organizations.subtitle": "单层级的用户分组。",
+  "organizations.guideTitle": "机构与用户组的分工",
+  "organizations.guideBody":
+    "机构回答的是“这个人在哪儿”，一人一个，排成一棵树，通常对应真实的部门结构。它决定归属，不决定权限——把人放进任何一个机构都不会多给他任何能力，本版本的角色只有两种，且在账号自己身上设置。若账号是从 AD / LDAP 同步进来的，这棵树往往也由目录维护，在这里手工改动会在下次同步时被覆盖。需要“一个人同时属于多个集合”时，用的是用户组而不是这里。",
   "organizations.create": "新建机构",
   "organizations.colName": "机构名称",
   "organizations.colCode": "机构编码",
@@ -201,6 +204,9 @@ export const zhCN: Record<keyof typeof enUS, string> = {
 
   "auditLogs.title": "日志审计",
   "auditLogs.subtitle": "登录、变更与注册记录。",
+  "auditLogs.guideTitle": "这些记录能回答什么",
+  "auditLogs.guideBody":
+    "这里记的是已经发生的事——谁在什么时候登录、改了谁、动了什么，用于事后追查而不是实时监控。记录只写不改，界面上没有删除，这正是它作为证据的前提。留多久由设置页的“审计日志保留天数”决定，超期条目会被清理任务永久删除、不留副本，因此需要长期留存的应当定期导出到别处。账号被停用后其历史记录仍然保留，这也是本系统停用账号而不删除账号的原因。",
   "auditLogs.filterKind": "日志类型",
   "auditLogs.filterFrom": "开始时间",
   "auditLogs.filterTo": "结束时间",
@@ -229,21 +235,36 @@ export const zhCN: Record<keyof typeof enUS, string> = {
 
   "applications.title": "应用管理",
   "applications.subtitle": "通过 Portico 完成单点登录的各个系统。",
+  "applications.guideTitle": "什么时候需要在这里注册",
+  "applications.guideBody":
+    "每一个想让员工用 Portico 账号登录的系统，都要先在这里注册一次，双方才认得彼此。选哪个标签页不取决于你的偏好，而取决于对方支持什么协议：自研的新系统和现代 SaaS 用 OAuth 2.1 / OIDC，采购来的商业软件通常给你一份 SAML 元数据，一些年头较久的内部系统只会 CAS。注册完成后，把右上角“对接地址”里的地址交给对方去填，对接就完成了。",
   "applications.protocol": "协议",
   "applications.tab.oauth": "OAuth 2.1 / OIDC",
   "applications.tab.saml": "SAML 2.0",
   "applications.tab.cas": "CAS",
   "applications.hint.oauth": "通过带 PKCE 的授权码流程获取令牌的依赖方。",
+  // 术语在这里给出定义而不是被回避：按钮已经改说“接入 SAML 应用”，但
+  // “服务提供方 / SP”仍然是对方的文档和元数据里的叫法，读者迟早要撞上。
   "applications.hint.saml":
-    "接收签名断言的服务提供方。注册内容就是对方自己的元数据文档。",
+    "接收签名断言的服务提供方（SP）——也就是要接入的那个应用。注册内容就是对方自己的元数据文档。",
   "applications.hint.cas":
     "以 URL 前缀标识的服务。不支持通配符：凡以该前缀开头的地址即匹配。",
-  "applications.create.oauth": "注册客户端",
-  "applications.create.saml": "注册服务提供方",
-  "applications.create.cas": "注册服务",
-  "applications.editOauth": "编辑客户端",
-  "applications.editSaml": "编辑服务提供方",
-  "applications.editCas": "编辑服务",
+  // 按动作命名而不是按协议角色命名。“注册服务提供方”只对已经懂 SAML 的人
+  // 是一句人话，而正需要读它的人恰恰还不懂；何况这串字同时是按钮和弹框标题，
+  // 弹框一开，页面上那句解释就被自己盖住了。
+  "applications.create.oauth": "接入 OIDC 应用",
+  "applications.create.saml": "接入 SAML 应用",
+  "applications.create.cas": "接入 CAS 服务",
+  "applications.editOauth": "编辑 OIDC 应用",
+  "applications.editSaml": "编辑 SAML 应用",
+  "applications.editCas": "编辑 CAS 服务",
+  "applications.formGuideTitle": "这一步在做什么",
+  "applications.formGuide.oauth":
+    "这一项给会说 OAuth 2.1 / OpenID Connect 的应用用，多数自研系统和现代 SaaS 都属于此类。动手前需要从对方拿到两样东西：授权码投递到哪个回调地址，以及它是哪种形态——跑在自己服务器上、能保管密钥的应用注册后会拿到一份客户端密钥；浏览器或手机上的应用保管不住密钥，只靠 PKCE 认证，选错会让对方拿到一份它根本藏不住的密钥。保存后把客户端 ID（有密钥的话连同密钥）交给对方填进它的配置。",
+  "applications.formGuide.saml":
+    "服务提供方（SP）指的就是接收断言的那个应用本身——采购来的 CRM、HR 系统之类；在 SAML 里 Portico 是身份提供方（IdP），对方是 SP。所以这里要做的不是填配置，而是把对方给你的元数据 XML 原样贴进来：Portico 从中读出它的实体 ID、断言接收地址和验签证书，三样都不用手工抄。这份文件通常能在对方系统的单点登录设置页里下载，或者向它的管理员索取。反过来对方需要的那份 Portico 元数据，在页面右上角的“对接地址”里。",
+  "applications.formGuide.cas":
+    "CAS 靠 URL 前缀识别一个服务：凡是以你填的前缀开头的地址都算作它，没有通配符可用。因此前缀要尽量写准——写 https://wiki.example.com/ 而不是 https://example.com/，否则同一个域名下的其它系统都会被当成这一个。",
   "applications.colName": "名称",
   "applications.colClientId": "客户端 ID",
   "applications.colType": "类型",
@@ -277,7 +298,7 @@ export const zhCN: Record<keyof typeof enUS, string> = {
     "注册后不可更改。声明了其它实体 ID 的元数据描述的是另一个服务提供方。",
   "applications.metadata": "元数据文档",
   "applications.metadataHelp":
-    "上传或粘贴对方自己的元数据 XML。Portico 不会去拉取 URL。",
+    "上传或粘贴对方自己的元数据 XML —— 通常能在对方系统的单点登录设置页下载，或向其管理员索取。Portico 不会去拉取 URL。",
   "applications.metadataReplaceHelp":
     "更换证书就是替换这份文档。不改动则保留当前文档。",
   "applications.metadataReadFailed": "该文件无法读取。",
@@ -314,9 +335,13 @@ export const zhCN: Record<keyof typeof enUS, string> = {
 
   "settings.title": "系统设置",
   "settings.subtitle": "全局行为配置。",
+  "settings.guideTitle": "改这里会影响谁",
+  "settings.guideBody":
+    "这一页的每一项都是本租户的全局默认，保存后立刻对所有人生效，没有灰度也没有预演。密码策略与锁定阈值调的是登录安全的松紧——收紧后现有密码不会立刻作废，但下次改密码时按新规矩来。会话有效期管的是本控制台自己多久要求重新登录，与发给各应用的 OIDC 令牌无关，那些的有效期是固定的。审计保留天数是唯一一个会删数据的设置，改小它会永久删除超期记录。",
   "settings.systemName": "系统名称",
-  "settings.tokenTtl": "登录有效期（分钟）",
-  "settings.tokenTtlHelp": "一次登录多久后过期，取值 5 到 43200。",
+  "settings.tokenTtl": "控制台会话有效期（分钟）",
+  "settings.tokenTtlHelp":
+    "在本控制台登录一次能保持多久，取值 5 到 43200。管的是这个界面自己，与 Portico 发给各应用的 OIDC 令牌无关——那些的有效期不在这里配置。",
   "settings.registrationEnabled": "开放用户自主注册",
   "settings.registrationHelp":
     "关闭后只能由管理员创建账号。自主注册的账号一律为普通用户。",
@@ -364,6 +389,9 @@ export const zhCN: Record<keyof typeof enUS, string> = {
   "groups.title": "用户组",
   "groups.subtitle":
     "人员的集合。与机构（组织架构）是两回事——一个人只归属一个机构，却可以属于任意多个组。组成员身份不授予任何权限。",
+  "groups.guideTitle": "用户组用来做什么",
+  "groups.guideBody":
+    "用户组是可以重叠的标签：项目成员、审批人、某个系统的使用者，一个人想属于几个就属于几个，组与组之间不分层级。它本身不授予任何权限，含义由读取它的下游系统自己解释——某个应用可以约定“在 finance 组里的人能看报表”，但那条规则在那个应用里，不在 Portico。多数部署中这些组由上游目录推送维护，手工建组适合 Portico 本身就是唯一来源的场合。要表达“这个人在哪个部门”，用的是机构而不是这里。",
   "groups.new": "新建用户组",
   "groups.edit": "编辑用户组",
   "groups.name": "名称",
@@ -391,6 +419,9 @@ export const zhCN: Record<keyof typeof enUS, string> = {
   "webhooks.title": "事件订阅（Webhook）",
   "webhooks.subtitle":
     "此处发生变更时，向哪里发送带签名的通知。仅限 https，且不得指向内网地址。",
+  "webhooks.guideTitle": "什么时候需要订阅事件",
+  "webhooks.guideBody":
+    "当你自己的系统需要在账号被创建、停用或改动时立刻知道，而不想每隔几分钟来查一次时，就在这里订阅。每次投递都带签名，接收方应当先验签再处理，否则任何人都能伪造一条“某某已停用”。这是通知，不是同步机制：投递失败会重试，因此同一件事可能到达两次，顺序也不保证，下游要按幂等来写。需要的是完整名单而不是变更提醒时，该用的是目录对接而不是这里。",
   "webhooks.new": "新建订阅",
   "webhooks.name": "名称",
   "webhooks.url": "接收地址",
@@ -423,6 +454,9 @@ export const zhCN: Record<keyof typeof enUS, string> = {
   // --- 目录对接：两个方向 ---
   "provisioning.title": "目录对接",
   "provisioning.subtitle": "账号从别处来，两个方向都在这里。",
+  "provisioning.guideTitle": "两种接法，怎么选",
+  "provisioning.guideBody":
+    "如果人员名单已经维护在别处，就不必在 Portico 再录一遍——这一页把它接过来。两种接法的差别只在于谁主动：Portico 定时连到 Active Directory 或 OpenLDAP 去读，或者由 Okta、Entra ID 这类目录用 SCIM 协议主动推过来。对方支持哪种就用哪种，传统 AD 多是前者，云端身份平台多是后者。两种方式进来的账号在 Portico 里没有区别，但某个账号没进来时该去哪儿排查，取决于当初是哪一种。",
   // 用方向命名而不是协议名，因为容易搞混的正是这一点：一个是 Portico 主动去取，
   // 一个是目录主动推过来，而账号不再进来时该去哪儿查，取决于是哪一种。
   "provisioning.tab.directories": "Portico 去读（LDAP / AD）",

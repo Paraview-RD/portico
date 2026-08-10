@@ -1,7 +1,9 @@
 import { render, screen } from "@testing-library/react";
-import { describe, expect, it } from "vitest";
+import userEvent from "@testing-library/user-event";
+import { describe, expect, it, vi } from "vitest";
 
-import { AppIcon, Field, Input } from "./ui";
+import { LanguageProvider } from "../i18n";
+import { AppIcon, Field, Input, Modal } from "./ui";
 
 /**
  * Field's accessible name and description.
@@ -62,6 +64,69 @@ describe("Field", () => {
     // would point assistive technology at an element that is not on the page
     // — which is announced as nothing at all, losing the error too.
     expect(input).toHaveAccessibleDescription("That address is not valid.");
+  });
+});
+
+/**
+ * The dialog's chrome.
+ *
+ * Both assertions below describe the same defect seen from two sides. The
+ * dialog used to carry `overflow-y-auto` on its outermost element, so a form
+ * longer than the viewport scrolled its own title bar and its own footer off
+ * the top and bottom: the person filling in a long registration form could
+ * see neither what they were filling in nor the button that saves it.
+ *
+ * That is also why the close button is tested for by role rather than merely
+ * rendered. A close button that lives in a header which scrolls away is not a
+ * way out of the dialog; it is a way out only while nobody has scrolled.
+ */
+describe("Modal", () => {
+  function renderModal(onClose = vi.fn()) {
+    const result = render(
+      <LanguageProvider>
+        <Modal
+          open
+          title="Register client"
+          onClose={onClose}
+          footer={<button>Save</button>}
+        >
+          <p>Body</p>
+        </Modal>
+      </LanguageProvider>,
+    );
+    return { ...result, onClose };
+  }
+
+  it("closes when the close button is pressed", async () => {
+    const { onClose } = renderModal();
+
+    // Matched in either language: which one the provider picks depends on the
+    // environment's locale, and this test is about the button, not the wording.
+    await userEvent.click(screen.getByRole("button", { name: /关闭|Close/ }));
+
+    expect(onClose).toHaveBeenCalledTimes(1);
+  });
+
+  it("scrolls the body, not the whole dialog", () => {
+    renderModal();
+
+    const dialog = screen.getByRole("dialog");
+    // The outermost element scrolling is what took the header with it.
+    expect(
+      dialog.className,
+      "the dialog itself scrolls, so its header and footer scroll away with the content",
+    ).not.toContain("overflow-y-auto");
+
+    const scroller = dialog.querySelector(".overflow-y-auto");
+    expect(
+      scroller,
+      "nothing in the dialog scrolls, so long forms are unreachable",
+    ).not.toBeNull();
+    // The scrolling region holds the content and nothing else: if it also
+    // contained the header, the header would still scroll away.
+    expect(scroller).toHaveTextContent("Body");
+    expect(scroller).not.toHaveTextContent("Register client");
+    expect(scroller).not.toHaveTextContent("Save");
   });
 });
 

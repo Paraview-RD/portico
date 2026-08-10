@@ -15,6 +15,7 @@ import {
   CopyField,
   EmptyRow,
   Field,
+  GuidePanel,
   Input,
   LoadingRow,
   Modal,
@@ -152,6 +153,14 @@ export function WebhooksPage() {
           </>
         }
       />
+
+      <GuidePanel
+        id="webhooks"
+        title={t("webhooks.guideTitle")}
+        docsPage="webhooks/"
+      >
+        {t("webhooks.guideBody")}
+      </GuidePanel>
 
       {error && (
         <div className="mb-4">
