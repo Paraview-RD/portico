@@ -304,9 +304,14 @@ record on one would quietly create a second account for the same person the
 day it was. The username is in the `uid` attribute for display.
 
 Attributes use the OASIS X.500 names where such an agreement exists — `uid`,
-`mail`, `displayName`, `telephoneNumber` — and Portico's own, unprefixed,
-where it does not: `tenant_id`, `tenant_code`, `role`, `organization_id`,
-`organization_name`.
+`cn`, `mail`, `displayName`, `telephoneNumber` — and Portico's own,
+unprefixed, where it does not: `tenant_id`, `tenant_code`, `role`,
+`organization_id`, `organization_name`.
+
+That list is the whole of it, and each name appears exactly once. `cn` and
+`displayName` carry the same value, which is not an accident: they are the
+two names service providers actually map for a person's name, and they
+disagree about which.
 
 Signature construction and verification are entirely
 [crewjam/saml](https://github.com/crewjam/saml) and

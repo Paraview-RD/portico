@@ -275,6 +275,72 @@ func TestSAMLSignOnWithARealServiceProvider(t *testing.T) {
 	}
 }
 
+// An assertion states each fact once.
+//
+// crewjam's assertion maker adds attributes of its own from the session's
+// UserName, UserEmail, and UserCommonName fields, and Portico supplies the
+// same facts again in CustomAttributes. Setting both sends `uid` and `mail`
+// twice, and a service provider that keeps the first wins over one that
+// keeps the last for no reason either of them chose.
+//
+// Counted by Name rather than FriendlyName, and asserted as a property
+// rather than about `uid` in particular. The attribute Name is the OID a
+// service provider maps on; and attributeValues above collapses into a map,
+// which is why every existing test passed while this shipped — a second
+// value for a name it already had simply overwrote the first.
+func TestASAMLAssertionStatesEachAttributeOnce(t *testing.T) {
+	f := newFederationTest(t)
+
+	// An account with an email address, because the duplicate on `mail` only
+	// appears when there is one to state — which is why looking at an
+	// assertion for the bootstrap administrator shows half the defect.
+	adminToken := f.api.adminToken()
+	if res := f.api.do(http.MethodPost, "/api/v1/users", adminToken, map[string]string{
+		"username":    "saml.duplicate",
+		"displayName": "Attribute Duplicate",
+		"email":       "saml.duplicate@example.com",
+		"password":    "duplicate-password-1",
+		"role":        "USER",
+	}); res.Status != http.StatusOK {
+		t.Fatalf("create the account: %d %s %s", res.Status, res.Code, res.Message)
+	}
+
+	sp := newTestSP(t, "https://once.example.com/saml")
+	f.registerSP(model.DefaultTenantCode, sp.metadata())
+	sp.configure(f, samlp.TenantMount(model.DefaultTenantCode))
+
+	request, err := sp.sp.MakeAuthenticationRequest(
+		sp.sp.GetSSOBindingLocation(saml.HTTPRedirectBinding),
+		saml.HTTPRedirectBinding, saml.HTTPPostBinding)
+	if err != nil {
+		t.Fatalf("build authentication request: %v", err)
+	}
+	authURL, err := request.Redirect("", sp.sp)
+	if err != nil {
+		t.Fatalf("build redirect: %v", err)
+	}
+
+	encoded := f.samlSignIn(authURL, model.DefaultTenantCode,
+		"saml.duplicate", "duplicate-password-1")
+
+	assertion, err := sp.parse(encoded, request.ID)
+	if err != nil {
+		t.Fatalf("the service provider rejected the assertion: %v", err)
+	}
+
+	seen := map[string]int{}
+	for _, statement := range assertion.AttributeStatements {
+		for _, attribute := range statement.Attributes {
+			seen[attribute.Name]++
+		}
+	}
+	for name, count := range seen {
+		if count > 1 {
+			t.Errorf("the assertion carries %s %d times, want once", name, count)
+		}
+	}
+}
+
 // The signature has to be the thing that is checked, not the shape of the
 // XML. Two ways of saying so, because "the assertion was accepted" is also
 // what an implementation that signed nothing would produce.

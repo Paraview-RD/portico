@@ -179,13 +179,23 @@ func (p *Providers) session(user model.User, tenant model.Tenant) (*saml.Session
 		NameIDFormat: string(saml.PersistentNameIDFormat),
 		SubjectID:    user.ID,
 
-		UserName:       user.Username,
-		UserEmail:      user.Email,
-		UserCommonName: user.DisplayName,
-
-		// Portico's own attributes, matching the claims the OpenID Provider
-		// puts in a token, so a service provider integrated over one
-		// protocol sees the same facts over the other.
+		// UserName, UserEmail, and UserCommonName are deliberately left
+		// unset, and it is not that Portico does not state those facts.
+		//
+		// crewjam's assertion maker turns each of those fields into an
+		// attribute of its own, using the same OASIS names the list below
+		// uses. Setting both sent `uid` and `mail` twice — and, because
+		// UserEmail alone is enough to trigger it, a copy of the address as
+		// `eduPersonPrincipalName`, a name from a federation this product
+		// has nothing to do with. A service provider that maps on the
+		// attribute name got whichever of the pair its parser happened to
+		// keep.
+		//
+		// So there is one source, and it is the list below.
+		//
+		// Portico's own attributes match the claims the OpenID Provider puts
+		// in a token, so a service provider integrated over one protocol
+		// sees the same facts over the other.
 		CustomAttributes: attributes(user, tenant),
 	}, nil
 }
@@ -222,6 +232,12 @@ func attributes(user model.User, tenant model.Tenant) []saml.Attribute {
 	attrs := []saml.Attribute{
 		stringAttribute("urn:oid:0.9.2342.19200300.100.1.1", "uid", user.Username),
 		stringAttribute("urn:oid:2.16.840.1.113730.3.1.241", "displayName", user.DisplayName),
+		// cn carries the same value as displayName, which looks redundant
+		// and is kept on purpose: it was in every assertion 0.1 issued —
+		// crewjam derived it from the session — and it is the name a good
+		// many service providers map by default. Dropping it while removing
+		// the duplicates would have been a silent break for them.
+		stringAttribute("urn:oid:2.5.4.3", "cn", user.DisplayName),
 		stringAttribute("tenant_id", "tenantId", tenant.ID),
 		stringAttribute("tenant_code", "tenantCode", tenant.Code),
 		stringAttribute("role", "role", string(user.Role)),

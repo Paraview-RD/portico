@@ -250,9 +250,12 @@ portico sp disable --entity-id https://confluence.example.com/saml
 记录键的服务提供方，会在改名的那一天悄悄为同一个人再建一个账号**。用户名放在 `uid`
 属性里供显示。
 
-有既定约定的属性用 OASIS X.500 的名字——`uid`、`mail`、`displayName`、
+有既定约定的属性用 OASIS X.500 的名字——`uid`、`cn`、`mail`、`displayName`、
 `telephoneNumber`——没有约定的用 Portico 自己的、不带前缀的名字：`tenant_id`、
 `tenant_code`、`role`、`organization_id`、`organization_name`。
+
+**这份清单就是全部，而且每个名字只出现一次。** `cn` 与 `displayName` 携带同一个值，这不
+是疏忽：**它们是服务提供方真正会拿来映射「人名」的那两个名字，而它们彼此并不一致。**
 
 签名的构造与校验**完全**交给 [crewjam/saml](https://github.com/crewjam/saml) 和
 [goxmldsig](https://github.com/russellhaering/goxmldsig)，后者被钉在比 crewjam 解析出
