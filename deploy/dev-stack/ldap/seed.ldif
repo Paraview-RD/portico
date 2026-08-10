@@ -15,10 +15,27 @@
 #
 # entryUUID is not written here. slapd generates it, which is the whole
 # reason it is the reconciliation key — nothing in this file can change it.
+#
+# Phone numbers carry no spaces. Portico accepts digits with an optional
+# leading +, so a directory that formats them for humans has every one of
+# its accounts refused — which is worth knowing, and is why this file holds
+# them the way the API wants rather than the way a person would write them.
 
 dn: ou=people,dc=example,dc=org
 objectClass: organizationalUnit
 ou: people
+
+# Outside the base DN on purpose. The walkthrough moves somebody here to make
+# them stop appearing in the search, which is what "left the organisation"
+# looks like to a connector — and moves them back to prove they come back.
+#
+# Deleting and re-adding the entry would not do: slapd generates a new
+# entryUUID, so what returns is a different entry that happens to share a
+# username, and it is correctly skipped rather than reactivated. Same lesson
+# an operator learns the hard way when they rebuild a directory.
+dn: ou=archive,dc=example,dc=org
+objectClass: organizationalUnit
+ou: archive
 
 dn: ou=engineering,ou=people,dc=example,dc=org
 objectClass: organizationalUnit
@@ -39,7 +56,7 @@ cn: Mei Chen
 sn: Chen
 displayName: Mei Chen
 mail: mei@example.org
-telephoneNumber: +44 20 7946 0001
+telephoneNumber: +442079460001
 
 dn: uid=arjun,ou=engineering,ou=people,dc=example,dc=org
 objectClass: inetOrgPerson
@@ -48,7 +65,7 @@ cn: Arjun Patel
 sn: Patel
 displayName: Arjun Patel
 mail: arjun@example.org
-telephoneNumber: +44 20 7946 0002
+telephoneNumber: +442079460002
 
 dn: uid=sofia,ou=sales,ou=people,dc=example,dc=org
 objectClass: inetOrgPerson
@@ -57,7 +74,7 @@ cn: Sofia Rossi
 sn: Rossi
 displayName: Sofia Rossi
 mail: sofia@example.org
-telephoneNumber: +44 20 7946 0003
+telephoneNumber: +442079460003
 
 dn: uid=tomas,ou=sales,ou=people,dc=example,dc=org
 objectClass: inetOrgPerson
@@ -66,7 +83,7 @@ cn: Tomas Novak
 sn: Novak
 displayName: Tomas Novak
 mail: tomas@example.org
-telephoneNumber: +44 20 7946 0004
+telephoneNumber: +442079460004
 
 dn: uid=grace,ou=support,ou=people,dc=example,dc=org
 objectClass: inetOrgPerson
@@ -75,7 +92,7 @@ cn: Grace Okafor
 sn: Okafor
 displayName: Grace Okafor
 mail: grace@example.org
-telephoneNumber: +44 20 7946 0005
+telephoneNumber: +442079460005
 
 # The collision. Same username as the tenant's own administrator, a different
 # person, and not this directory's to touch.
