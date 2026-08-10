@@ -353,10 +353,13 @@ func ImportTemplate() (*excelize.File, error) {
 // can be edited and fed back in — which is what "bulk operations" means in
 // practice for most of the people who ask for it.
 //
-// Passwords are not exported, and there is no column for them. The import
-// template has one because creating an account needs an initial password;
-// an export is a report, and a report that carries credentials is a
-// credential-distribution mechanism nobody meant to build.
+// No password is exported. The column is there and empty, which is not an
+// oversight to tidy up: the parser reads columns by position, so that a
+// translated header still works, and an export missing this one would shift
+// every field after it one place to the left on the way back in — silently.
+// The heading stays; the values do not. An export is a report, and a report
+// that carries credentials is a credential-distribution mechanism nobody
+// meant to build.
 func (s *UserService) ExportUsers(ctx context.Context, actor auth.Principal, q UserQuery) (*excelize.File, int, error) {
 	// Everything matching the filter, in pages, rather than one unbounded
 	// query: a tenant with fifty thousand accounts should produce a large

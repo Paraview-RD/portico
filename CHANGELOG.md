@@ -67,10 +67,13 @@ Working toward 0.2.0. See
   so a later change cannot quietly introduce a single-root assumption.
 - **The directory can be exported as a spreadsheet**, in the same columns the
   import template uses, so a file taken out can be edited and fed back in.
-  No passwords and no column for one: an export is a report, and a report
-  carrying credentials is a credential-distribution mechanism nobody meant to
-  build. Audited, because "who took a copy of the directory, and when" is
-  asked after an incident rather than before one.
+  No password is ever written into it, and the column for one is present and
+  empty rather than absent: the parser reads columns by position so that a
+  translated header still works, so an export missing it would shift every
+  later field one place to the left on the way back in, silently. An export
+  is a report, and a report carrying credentials is a credential-distribution
+  mechanism nobody meant to build. Audited, because "who took a copy of the
+  directory, and when" is asked after an incident rather than before one.
 - **Accounts can be enabled, disabled, or moved between organizations in
   bulk.** Each one goes through the path a single account takes, so the rule
   that protects the last active administrator is not bypassed by selecting
