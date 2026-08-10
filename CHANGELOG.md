@@ -371,6 +371,26 @@ Working toward 0.2.0. See
 
 ### Fixed
 
+- **A synchronization no longer moves somebody an administrator moved.** A
+  source may name an organization, and the accounts it creates are filed
+  there — but it was reasserted on every run, so a move made in the console
+  survived until the next time anything else about that person changed, and
+  then silently did not. It is applied at creation now and not again. The
+  directory says who somebody is; where they belong is decided here.
+- **`email_verified` and `phone_number_verified` are stated rather than
+  omitted.** Both are documented as always false and both are advertised in
+  `claims_supported`, but false is the zero value of a field tagged
+  `omitempty` — so assigning it removed the claim from the ID token and the
+  userinfo response altogether. A relying party that distinguishes absent
+  from false was told nothing while discovery said it would be told
+  something.
+- **A delivery pending against a disabled subscription is no longer kept for
+  ever.** The sweep skipped anything still pending, on the reasoning that it
+  had work left; a subscription disabled while something was queued leaves
+  rows that the worker will never attempt again, so nothing finished them and
+  nothing removed them. Five attempts span under half an hour, so a row still
+  pending after thirty days is not waiting for anything, and the retention
+  window now applies to it like everything else.
 - **A failed delivery now waits as long as the documentation says.** The
   delay is chosen from a table indexed by the attempt that just failed, and
   the count being read was the one from before the increment — so every
