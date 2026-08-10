@@ -140,6 +140,46 @@ Working toward 0.2.0. See
   title, which is why "register a service provider" kept being asked about:
   the sentence defining the term was on the list behind it.
 
+- **Messages are written in the reader's language.** A password-reset link
+  and a registration confirmation are the only text Portico sends where
+  nobody had a chance to pick a language from a menu — and they were English
+  format strings. The language is chosen in one place and one order: the
+  account's own `preferredLanguage`, then the tenant's default, then the
+  deployment's `PORTICO_DEFAULT_LOCALE`, then English. Each step is somebody's
+  stated preference, and a later one applies only because the earlier said
+  nothing.
+- Choosing it from the account is safe here in a way it would not be a few
+  lines earlier: a recovery request for an address nobody holds never reaches
+  delivery, so the language of a message is only ever seen by the person
+  whose account it is. If one were sent either way, the language itself would
+  disclose that the address is registered.
+- `PORTICO_DEFAULT_LOCALE`, and a per-tenant default beside it in settings.
+  Empty at the tenant means "follow the deployment" rather than "English", so
+  a tenant that has said nothing follows a deployment that changes its mind
+  later instead of being frozen at whatever it was the day it was created. A
+  tag this build has no messages for is refused at both levels rather than
+  stored — the server will not start with one, and the settings endpoint
+  answers `INVALID_SETTINGS`.
+- **The manual is compiled into the binary and served at `/docs`**, in English
+  and 简体中文. Documentation hosted elsewhere drifts from the releases people
+  actually run, and the failure mode is somebody following instructions for a
+  version they do not have — which reads as the product being wrong rather
+  than the page being old. Public, because most of what it explains is how to
+  configure a deployment nobody has signed into yet, and it names where
+  credentials come from rather than what any of them are. The console links
+  into it from the screen you are on: the directory page to the LDAP chapter,
+  provisioning to SCIM, applications to federation, subscriptions to
+  webhooks.
+- A page with no translation falls back to English **and says so**, in the
+  language the reader asked for. Falling back silently would let somebody
+  take stale English for current Chinese.
+- **`examples/mock-sp`**: a relying party you can sign in to, in a browser,
+  over all three protocols — so a deployment can be demonstrated and checked
+  before its details are handed to somebody who has to integrate against it.
+  It is a real client rather than a stub, which is how the duplicate SAML
+  attributes below were found: they are invisible from inside Portico and
+  obvious from the far end.
+
 ### Changed
 
 - **A dialog's title bar and buttons no longer scroll away.** `overflow-y-auto`
