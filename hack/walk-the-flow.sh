@@ -506,7 +506,13 @@ else
     --scope openid --scope profile --scope email >/dev/null 2>&1 || true
   ok "registered $SP_CLIENT in $TENANT"
 
-  SP_STATE=$(mktemp -d)
+  # A stable state directory, outside the repository. mock-sp generates its
+  # SAML key there, and its metadata — entity id, certificate — is what gets
+  # registered with Portico. A fresh directory on every run would mean a new
+  # certificate against a registration holding the old one, which fails on the
+  # second run only. Delete it to start clean.
+  SP_STATE="${WALK_SP_STATE:-$HOME/.cache/portico-walkthrough-sp}"
+  mkdir -p "$SP_STATE"
 
   # Built and run, not `go run`. `go run` compiles to a cache and executes a
   # child, so the process this script holds is the compiler's wrapper: killing
@@ -527,7 +533,7 @@ else
     # walkthrough's output.
     wait "$SP_PID" 2>/dev/null || true
   }
-  trap 'stop_sp; rm -rf "$SP_STATE"' EXIT
+  trap 'stop_sp' EXIT
 
   for _ in $(seq 1 40); do
     "${CURL[@]}" --max-time 2 -o /dev/null "$SP_BASE/" 2>/dev/null && break
@@ -542,6 +548,14 @@ else
   # library checks both on the way back. A flow driven without them looks
   # like a stolen code.
   location_of() { awk 'tolower($1) == "location:" {print $2}' | tr -d '\r' | tail -1; }
+
+  # What a page says, rather than the first 300 bytes of it. Every one of
+  # these pages opens with the same stylesheet, so quoting the head of the
+  # HTML in a failure message shows CSS and no reason — which is the defect
+  # this walkthrough keeps finding elsewhere.
+  page_text() {
+    sed -n '/<\/style>/,$p' | sed 's/<[^>]*>//g' | grep -vE '^[[:space:]]*$' | head -6
+  }
 
   AUTH_URL=$("${CURL[@]}" -c "$JAR" -b "$JAR" -o /dev/null -D - "$SP_BASE/oidc" | location_of)
   grep -q "$PORTICO_URL" <<<"$AUTH_URL" \
@@ -575,7 +589,8 @@ else
   # was told. Everything asserted below came out of a token this client
   # verified — not out of an API call this script made.
   PAGE=$("${CURL[@]}" -c "$JAR" -b "$JAR" "$CALLBACK")
-  grep -q "admin" <<<"$PAGE" || die "the client did not learn who signed in: $(head -c 300 <<<"$PAGE")"
+  grep -q "admin" <<<"$PAGE" || die "the client did not learn who signed in:
+$(page_text <<<"$PAGE")"
   ok "the client verified the ID token and knows who signed in"
   grep -q "$TENANT" <<<"$PAGE" \
     || die "the tenant claim did not reach the client, so a downstream system \
@@ -584,10 +599,122 @@ serving more than one tenant could not tell them apart"
   grep -qi "SUPER_ADMIN" <<<"$PAGE" || die "the role claim did not reach the client"
   ok "the role claim reached it"
 
+  # ------------------------------------------------------------ SAML 2.0
+
+  say "Sign in to the same client over SAML 2.0"
+
+  # The service provider is registered from its own metadata, fetched from
+  # the running client rather than written out here — the document is what
+  # the two sides actually exchange, and a hand-made copy is a third version
+  # of the truth.
+  "${CURL[@]}" "$SP_BASE/saml/metadata" -o "$SP_STATE/sp-metadata.xml"
+  grep -q "EntityDescriptor" "$SP_STATE/sp-metadata.xml" \
+    || die "the client did not serve SAML metadata"
+  # Pushed every run, updating the registration where one exists rather than
+  # skipping it. The metadata carries the client's encryption certificate,
+  # and Portico encrypts the assertion with whatever it was registered with —
+  # so a registration left over from a client that has since regenerated its
+  # key produces "certificate does not match provided key" at the far end,
+  # which reads as a broken assertion rather than as a stale registration.
+  SP_ENTITY="$SP_BASE/saml/metadata"
+  SP_BODY=$(jq -n --rawfile xml "$SP_STATE/sp-metadata.xml" \
+    '{metadataXml: $xml, name: "Walk mock-sp"}')
+  SP_EXISTING=$(data "$(api GET /api/v1/applications/saml-service-providers "$TOKEN")" \
+    "list service providers" \
+    | jq -r --arg e "$SP_ENTITY" '(.items? // .)[] | select(.entityId == $e) | .id' | head -1)
+  if [[ -n "$SP_EXISTING" ]]; then
+    data "$(api PUT "/api/v1/applications/saml-service-providers/$SP_EXISTING" \
+      "$TOKEN" "$SP_BODY")" "update the service provider" >/dev/null
+    ok "updated the service provider with the metadata it is serving now"
+  else
+    data "$(api POST /api/v1/applications/saml-service-providers "$TOKEN" "$SP_BODY")" \
+      "register the service provider" >/dev/null
+    ok "registered the service provider from its own metadata"
+  fi
+
+  SAML_JAR=$(mktemp)
+  SSO_URL=$("${CURL[@]}" -c "$SAML_JAR" -b "$SAML_JAR" -o /dev/null -D - "$SP_BASE/saml" | location_of)
+  grep -q "SAMLRequest=" <<<"$SSO_URL" || die "the client sent no SAMLRequest: $SSO_URL"
+  ok "it sent an authentication request over the redirect binding"
+
+  SAML_LOGIN=$("${CURL[@]}" -o /dev/null -D - "$SSO_URL" | location_of)
+  SAML_REQUEST=$(sed -n 's/.*saml_request=\([^&]*\).*/\1/p' <<<"$SAML_LOGIN")
+  [[ -n "$SAML_REQUEST" ]] || die "Portico did not park the request: $SAML_LOGIN"
+
+  SAML_RETURN=$(data "$(api POST /api/v1/saml/authenticate "$TOKEN" \
+    "$(jq -nc --arg r "$SAML_REQUEST" '{samlRequestId:$r}')")" "authenticate" \
+    | jq -r '.redirectTo')
+
+  # The assertion comes back as a form the browser posts. There is no browser,
+  # so the form is read and posted here — which is also the only way to see
+  # that it is a POST binding at all.
+  "${CURL[@]}" "$SAML_RETURN" -o "$SP_STATE/post.html"
+  ACS=$(grep -o 'action="[^"]*"' "$SP_STATE/post.html" | head -1 | sed 's/action="//;s/"//')
+  # Entities decoded, because a browser does that before submitting and curl
+  # does not. The form escapes + as &#43;, which is not a base64 character —
+  # the client refuses the assertion with "illegal base64 data at input byte
+  # 491", which reads like a broken assertion rather than like an unescaped
+  # form field.
+  SAML_RESPONSE=$(grep -o 'name="SAMLResponse"[^>]*value="[^"]*"' "$SP_STATE/post.html" \
+    | sed 's/.*value="//; s/"$//; s/&#43;/+/g; s/&#47;/\//g; s/&#61;/=/g; s/&amp;/\&/g')
+
+  # And a guard against that fix being too narrow: base64 is exactly this
+  # alphabet, so anything left over is an entity nobody decoded, and it must
+  # fail here rather than three lines later as a parse error.
+  if printf '%s' "$SAML_RESPONSE" | tr -d 'A-Za-z0-9+/=' | grep -q .; then
+    die "the assertion still contains something that is not base64 after \
+decoding entities: $(printf '%s' "$SAML_RESPONSE" | tr -d 'A-Za-z0-9+/=' | head -c 40)"
+  fi
+  [[ -n "$ACS" && -n "$SAML_RESPONSE" ]] \
+    || die "no SAMLResponse form came back: $(head -c 200 "$SP_STATE/post.html")"
+  ok "Portico returned a signed assertion for $ACS"
+
+  SAML_PAGE=$("${CURL[@]}" -c "$SAML_JAR" -b "$SAML_JAR" -X POST "$ACS" \
+    --data-urlencode "SAMLResponse=$SAML_RESPONSE")
+  grep -q "admin" <<<"$SAML_PAGE" \
+    || die "the client did not accept the assertion:
+$(page_text <<<"$SAML_PAGE")"
+  ok "the client validated the assertion and knows who signed in"
+  grep -q "$TENANT" <<<"$SAML_PAGE" || die "the tenant attribute did not arrive"
+  ok "the tenant attribute arrived"
+  rm -f "$SAML_JAR"
+
+  # ----------------------------------------------------------------- CAS
+
+  say "Sign in to the same client over CAS"
+
+  # A prefix, not a pattern. Registering the base means every path under it
+  # may receive a ticket, which is what a CAS client expects.
+  ./portico cas register --tenant "$TENANT" --url "$SP_BASE/" \
+    --name "Walk mock-sp" >/dev/null 2>&1 || true
+  ok "registered the CAS service prefix"
+
+  CAS_JAR=$(mktemp)
+  CAS_LOGIN=$("${CURL[@]}" -c "$CAS_JAR" -b "$CAS_JAR" -o /dev/null -D - "$SP_BASE/cas" | location_of)
+  CAS_SERVICE=$(sed -n 's/.*[?&]service=\([^&]*\).*/\1/p' <<<"$CAS_LOGIN")
+  [[ -n "$CAS_SERVICE" ]] || die "the client named no service: $CAS_LOGIN"
+
+  # Portico parks nothing for CAS — the service URL is the whole request —
+  # so it is checked against the registrations rather than trusted, and a
+  # sign-in screen carrying it in a query parameter cannot become a ticket
+  # for somewhere else.
+  CAS_SERVICE=$(printf '%b' "${CAS_SERVICE//%/\\x}")
+  CAS_RETURN=$(data "$(api POST /api/v1/cas/authorize "$TOKEN" \
+    "$(jq -nc --arg s "$CAS_SERVICE" '{service:$s}')")" "authorize a CAS ticket" \
+    | jq -r '.redirectTo')
+  grep -q "ticket=ST-" <<<"$CAS_RETURN" || die "no service ticket: $CAS_RETURN"
+  ok "Portico issued a service ticket"
+
+  CAS_PAGE=$("${CURL[@]}" -c "$CAS_JAR" -b "$CAS_JAR" "$CAS_RETURN")
+  grep -q "admin" <<<"$CAS_PAGE" \
+    || die "the client did not validate the ticket:
+$(page_text <<<"$CAS_PAGE")"
+  ok "the client validated the ticket and knows who signed in"
+  rm -f "$CAS_JAR"
+
   rm -f "$JAR"
   stop_sp
   trap - EXIT
-  rm -rf "$SP_STATE"
 
   # The port has to be free afterwards, or the next run inherits this one.
   if lsof -nP -iTCP:"$SP_PORT" -sTCP:LISTEN >/dev/null 2>&1; then

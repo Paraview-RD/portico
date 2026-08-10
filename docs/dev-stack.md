@@ -33,7 +33,7 @@ than the change in front of you.
 
 ## What the walkthrough proves
 
-Eleven steps, forty-three assertions, non-zero exit on the first failure. A
+Thirteen steps, fifty-one assertions, non-zero exit on the first failure. A
 walkthrough that printed progress and always exited 0 would read as "the flow
 works" while proving nothing.
 
@@ -46,7 +46,7 @@ works" while proving nothing.
 | SCIM push | A directory renaming somebody lands on the account that already exists, matched on `externalId` |
 | Registration | An unverified account is **refused at sign-in with a reason**, and the link that fixes it comes out of a real inbox |
 | Export | A workbook with the password column present and empty, and the export recorded as `USER_EXPORT` |
-| Sign-in through a client | `examples/mock-sp` runs discovery, sends a PKCE request, exchanges the code, and **verifies the ID token against the key set the discovery document named** — so the tenant and role claims asserted at the end came out of a token a client verified, not out of an API call this script made |
+| Sign-in through a client | `examples/mock-sp` signs in over **all three protocols**. OpenID Connect: discovery, a PKCE request, a code exchange, and an ID token **verified against the key set the discovery document named**. SAML: an authentication request over the redirect binding, and an **encrypted assertion the client decrypts and validates**. CAS: a service ticket the client validates back against `/serviceValidate`. Everything asserted at the end came out of something a client verified, not out of an API call this script made |
 
 It runs in a scratch tenant (`walkthrough` by default, `WALK_TENANT` to
 override), so it cannot touch the accounts of the deployment it is pointed
@@ -98,14 +98,31 @@ Nothing in the hops themselves — the eleven steps reach the directory, SCIM,
 registration through a real inbox, the export, and a sign-in through a real
 relying party.
 
-The OpenID Connect step is skipped, out loud, when `examples/mock-sp` is not
-in the checkout. SAML and CAS have no step: mock-sp speaks both and could be
-driven the same way, but neither is asserted here yet.
+The three federation steps are skipped, out loud, when `examples/mock-sp` is
+not in the checkout.
 
-Two things about that step worth knowing before changing it. The client is
-**built and then run** rather than started with `go run` — `go run` executes
-a child, so killing the process the script holds leaves the server listening,
-and the next run either collides on the port or talks to a stale instance
-still configured for the previous run and passes. And the flow is driven with
-a cookie jar, because the state and the PKCE verifier live in cookies: a run
-without them looks to the client exactly like a stolen code.
+Four things about those steps worth knowing before changing them.
+
+The client is **built and then run** rather than started with `go run` — `go
+run` executes a child, so killing the process the script holds leaves the
+server listening, and the next run either collides on the port or talks to a
+stale instance still configured for the previous run and passes.
+
+The flows are driven with a cookie jar, because state and the PKCE verifier
+live in cookies: a run without them looks to the client exactly like a stolen
+code.
+
+The SAML registration is **pushed every run**, updating an existing one
+rather than skipping it. Metadata carries the client's encryption
+certificate, and Portico encrypts the assertion with whatever it was
+registered with — so a registration left over from a client that has since
+regenerated its key fails at the far end with "certificate does not match
+provided key", which reads as a broken assertion rather than a stale
+registration. The client keeps its state in `~/.cache/portico-walkthrough-sp`
+for the same reason; delete it to start clean.
+
+The assertion form's `+` characters are HTML-escaped as `&#43;`. A browser
+decodes entities before submitting and curl does not, so the value has to be
+decoded here — and is checked afterwards for anything outside base64's
+alphabet, so that the next entity nobody thought of fails loudly instead of
+arriving as "illegal base64 data at input byte 491".
