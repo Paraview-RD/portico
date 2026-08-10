@@ -33,7 +33,7 @@ than the change in front of you.
 
 ## What the walkthrough proves
 
-Ten steps, thirty-four assertions, non-zero exit on the first failure. A
+Eleven steps, forty-three assertions, non-zero exit on the first failure. A
 walkthrough that printed progress and always exited 0 would read as "the flow
 works" while proving nothing.
 
@@ -46,6 +46,7 @@ works" while proving nothing.
 | SCIM push | A directory renaming somebody lands on the account that already exists, matched on `externalId` |
 | Registration | An unverified account is **refused at sign-in with a reason**, and the link that fixes it comes out of a real inbox |
 | Export | A workbook with the password column present and empty, and the export recorded as `USER_EXPORT` |
+| Sign-in through a client | `examples/mock-sp` runs discovery, sends a PKCE request, exchanges the code, and **verifies the ID token against the key set the discovery document named** — so the tenant and role claims asserted at the end came out of a token a client verified, not out of an API call this script made |
 
 It runs in a scratch tenant (`walkthrough` by default, `WALK_TENANT` to
 override), so it cannot touch the accounts of the deployment it is pointed
@@ -93,9 +94,18 @@ walkthrough asserts both halves.
 
 ## What this does not cover
 
-Nothing in the hops themselves any more — the ten steps reach the directory,
-SCIM, registration through a real inbox, and the export. What is still
-missing is a step that drives a **browser** through OpenID Connect;
-[examples/mock-sp](https://github.com/paraview/portico/blob/main/examples/mock-sp)
-does that by hand, and the protocol itself is asserted in
-`internal/server/federation_test.go`.
+Nothing in the hops themselves — the eleven steps reach the directory, SCIM,
+registration through a real inbox, the export, and a sign-in through a real
+relying party.
+
+The OpenID Connect step is skipped, out loud, when `examples/mock-sp` is not
+in the checkout. SAML and CAS have no step: mock-sp speaks both and could be
+driven the same way, but neither is asserted here yet.
+
+Two things about that step worth knowing before changing it. The client is
+**built and then run** rather than started with `go run` — `go run` executes
+a child, so killing the process the script holds leaves the server listening,
+and the next run either collides on the port or talks to a stale instance
+still configured for the previous run and passes. And the flow is driven with
+a cookie jar, because the state and the PKCE verifier live in cookies: a run
+without them looks to the client exactly like a stolen code.

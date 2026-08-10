@@ -480,4 +480,120 @@ EXPORTS=$(data "$(api GET "/api/v1/audit-logs?action=USER_EXPORT&pageSize=5" "$T
 \"who took a copy, and when\" is asked after an incident, not before one"
 ok "recorded in the audit log as USER_EXPORT"
 
+# ----------------------------------------------------- through a real client
+
+say "Sign in to a relying party over OpenID Connect"
+
+# examples/mock-sp is a real client: it runs discovery, builds the
+# authorization request with PKCE, verifies the ID token against the key set
+# the discovery document named, and calls userinfo. Driving it proves the
+# whole exchange rather than the endpoints one at a time.
+#
+# Skipped rather than assumed when it is absent — it is not part of every
+# checkout — and said out loud, because a step that quietly passes when it did
+# not run is the failure this script exists to avoid.
+if [[ ! -d examples/mock-sp ]]; then
+  printf '   – skipped: examples/mock-sp is not in this checkout\n'
+else
+  SP_PORT="${WALK_SP_PORT:-8414}"
+  SP_BASE="http://localhost:$SP_PORT"
+  SP_CLIENT="walk-mock-sp"
+
+  # Registered exactly as the client will send it. Portico matches redirect
+  # URIs as strings, so localhost and 127.0.0.1 are two different URIs.
+  ./portico client register --tenant "$TENANT" --id "$SP_CLIENT" --name "Walk mock-sp" \
+    --public --redirect-uri "$SP_BASE/oidc/callback" \
+    --scope openid --scope profile --scope email >/dev/null 2>&1 || true
+  ok "registered $SP_CLIENT in $TENANT"
+
+  SP_STATE=$(mktemp -d)
+
+  # Built and run, not `go run`. `go run` compiles to a cache and executes a
+  # child, so the process this script holds is the compiler's wrapper: killing
+  # it leaves the server listening. The next run then either collides on the
+  # port or, worse, talks to a stale instance still configured for whatever
+  # the previous run set up — and passes.
+  go build -o "$SP_STATE/mock-sp" ./examples/mock-sp \
+    || die "examples/mock-sp does not build"
+  "$SP_STATE/mock-sp" \
+    -addr "127.0.0.1:$SP_PORT" \
+    -issuer "$PORTICO_URL/t/$TENANT" \
+    -client-id "$SP_CLIENT" \
+    -state-dir "$SP_STATE" >"$SP_STATE/log" 2>&1 &
+  SP_PID=$!
+  stop_sp() {
+    kill "$SP_PID" 2>/dev/null || true
+    # Waited on so bash does not print its own "Terminated" line over the
+    # walkthrough's output.
+    wait "$SP_PID" 2>/dev/null || true
+  }
+  trap 'stop_sp; rm -rf "$SP_STATE"' EXIT
+
+  for _ in $(seq 1 40); do
+    "${CURL[@]}" --max-time 2 -o /dev/null "$SP_BASE/" 2>/dev/null && break
+    sleep 0.5
+  done
+  "${CURL[@]}" --max-time 2 -o /dev/null "$SP_BASE/" \
+    || die "mock-sp did not come up on $SP_PORT: $(tail -3 "$SP_STATE/log")"
+  ok "mock-sp is up on $SP_PORT and discovered $PORTICO_URL/t/$TENANT"
+
+  JAR=$(mktemp)
+  # Its cookies matter: state and the PKCE verifier live in them, and the
+  # library checks both on the way back. A flow driven without them looks
+  # like a stolen code.
+  location_of() { awk 'tolower($1) == "location:" {print $2}' | tr -d '\r' | tail -1; }
+
+  AUTH_URL=$("${CURL[@]}" -c "$JAR" -b "$JAR" -o /dev/null -D - "$SP_BASE/oidc" | location_of)
+  grep -q "$PORTICO_URL" <<<"$AUTH_URL" \
+    || die "mock-sp did not send us to Portico: $AUTH_URL"
+  grep -q "code_challenge" <<<"$AUTH_URL" \
+    || die "the authorization request carries no PKCE challenge: $AUTH_URL"
+  ok "it sent a PKCE authorization request to Portico"
+
+  AUTH_RESPONSE=$("${CURL[@]}" -D - -o /dev/null -w '%{http_code}' "$AUTH_URL")
+  LOGIN_URL=$(location_of <<<"$AUTH_RESPONSE")
+  AUTH_REQUEST=$(sed -n 's/.*auth_request=\([^&]*\).*/\1/p' <<<"$LOGIN_URL")
+  # With what Portico actually answered. An empty location and no explanation
+  # is the same failure this project just finished fixing in the directory
+  # connector: a symptom with the cause withheld. The usual cause here is a
+  # redirect URI that does not match the registered one to the character.
+  [[ -n "$AUTH_REQUEST" ]] || die "Portico did not send us to the sign-in screen.
+   It answered: $(tr -d '\r' <<<"$AUTH_RESPONSE" | grep -Ei '^(HTTP/|location:)' | tr '\n' ' ')
+   The usual cause is a redirect URI registered differently from the one the
+   client sends — they are matched as strings, so localhost and 127.0.0.1 are
+   two different URIs."
+
+  # The sign-in screen's own call, made here because there is no browser.
+  RETURN_TO=$(data "$(api POST /api/v1/oauth/authorize "$TOKEN" \
+    "$(jq -nc --arg r "$AUTH_REQUEST" '{authRequestId:$r}')")" "authorize" | jq -r '.redirectTo')
+  CALLBACK=$("${CURL[@]}" -o /dev/null -D - "$RETURN_TO" | location_of)
+  grep -q "$SP_BASE/oidc/callback" <<<"$CALLBACK" \
+    || die "Portico did not send the browser back to the client: $CALLBACK"
+  ok "Portico issued a code and sent it back to the client"
+
+  # The client exchanges the code, verifies the ID token, and renders what it
+  # was told. Everything asserted below came out of a token this client
+  # verified — not out of an API call this script made.
+  PAGE=$("${CURL[@]}" -c "$JAR" -b "$JAR" "$CALLBACK")
+  grep -q "admin" <<<"$PAGE" || die "the client did not learn who signed in: $(head -c 300 <<<"$PAGE")"
+  ok "the client verified the ID token and knows who signed in"
+  grep -q "$TENANT" <<<"$PAGE" \
+    || die "the tenant claim did not reach the client, so a downstream system \
+serving more than one tenant could not tell them apart"
+  ok "the tenant claim reached it"
+  grep -qi "SUPER_ADMIN" <<<"$PAGE" || die "the role claim did not reach the client"
+  ok "the role claim reached it"
+
+  rm -f "$JAR"
+  stop_sp
+  trap - EXIT
+  rm -rf "$SP_STATE"
+
+  # The port has to be free afterwards, or the next run inherits this one.
+  if lsof -nP -iTCP:"$SP_PORT" -sTCP:LISTEN >/dev/null 2>&1; then
+    die "something is still listening on $SP_PORT after the client was stopped"
+  fi
+  ok "the client stopped and released $SP_PORT"
+fi
+
 printf '\n\033[1mWalked %d steps, all asserted.\033[0m\n' "$step"
