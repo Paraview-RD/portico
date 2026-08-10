@@ -14,9 +14,9 @@ merge, on a tag because a release should not be the first time anybody asked,
 and on `workflow_dispatch` so a branch touching the directory connector,
 SCIM, or federation can be asked for it without waiting for a merge.
 
-The three federation steps are skipped there until `examples/mock-sp` is
-committed, and the run says so rather than passing quietly for having found
-nothing to do.
+All thirteen steps run there. `examples/mock-sp` is in the repository now, so
+the three federation steps are no longer skipped — see below for the guard
+that still covers a checkout without it.
 
 ## Running it
 
@@ -45,7 +45,7 @@ than the change in front of you.
 
 ## What the walkthrough proves
 
-Thirteen steps, fifty-one assertions, non-zero exit on the first failure. A
+Thirteen steps, fifty-five assertions, non-zero exit on the first failure. A
 walkthrough that printed progress and always exited 0 would read as "the flow
 works" while proving nothing.
 
@@ -114,9 +114,9 @@ walkthrough asserts both halves.
 
 ## What this does not cover
 
-Nothing in the hops themselves — the eleven steps reach the directory, SCIM,
-registration through a real inbox, the export, and a sign-in through a real
-relying party.
+Nothing in the hops themselves — the thirteen steps reach the directory,
+SCIM, registration through a real inbox, the export, and a sign-in through a
+real relying party over each of the three protocols.
 
 The three federation steps are skipped, out loud, when `examples/mock-sp` is
 not in the checkout.
