@@ -118,6 +118,25 @@ test("every row of content spans the same column", async ({ page, signIn }) => {
       page.getByRole("main").locator("table, form, section").first(),
     ).toBeVisible();
 
+    // And then wait for the screen to stop moving, which is a different
+    // thing from waiting for it to appear.
+    //
+    // This measures a settled layout, and a screen mid-fetch is not one. The
+    // profile screen found it: while the device list is loading, the card
+    // holding it is a single line — too short to reach the card below it on
+    // the left, so the left column stops chaining into the same row and
+    // reports 346–826 against the full-width section beneath it. The layout
+    // is fine; the measurement happened in the moment before the list
+    // arrived. One run in fifteen, which is often enough to erode trust in
+    // the suite and rare enough to be dismissed as noise.
+    //
+    // Waiting on the placeholder rather than on the network. `networkidle`
+    // was tried first and made it worse — five in thirty — because there is
+    // no navigation on a client-side route change, so it has nothing to wait
+    // for and returns at once. Every screen here says "Loading…" while it
+    // fetches, so the absence of that is the screen saying it is done.
+    await expect(page.getByRole("main").getByText("Loading…")).toHaveCount(0);
+
     // The property is about rows, not about blocks.
     //
     // The first version of this test required every surface on a screen to
@@ -220,6 +239,14 @@ test("every screen puts its content in the same chrome", async ({
     // Wait for the content itself rather than for the heading: a screen
     // still fetching shows its header over a loading row, and asking about
     // the chrome then measures the wrong thing.
+    //
+    // The same wait as the test above, and here it does something slightly
+    // different: a list screen whose table has not arrived yet has neither a
+    // table nor a form, so the skip below would pass over it in silence.
+    // That is worse than a failure — the screen reports as checked and was
+    // not.
+    await expect(page.getByRole("main").getByText("Loading…")).toHaveCount(0);
+
     // The home screen has neither a table nor a form — it is a column of
     // cards — so there is nothing here for this property to be about. It is
     // covered by the two tests above.
