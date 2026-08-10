@@ -1,0 +1,69 @@
+# The world around Portico, for a walkthrough that touches every hop.
+#
+# Portico itself is not in here on purpose: you run the binary you just
+# built, against the database you already have, and this supplies the things
+# it talks to. A compose file that also owned the server would mean testing
+# a released image rather than the change in front of you.
+#
+#   docker compose -f deploy/dev-stack/compose.yml up -d
+#   ./hack/walk-the-flow.sh
+#
+# Ports are bound to 127.0.0.1. A directory with a known bind password and an
+# inbox with no authentication are both fine on a laptop and neither is fine
+# on a network.
+name: portico-dev-stack
+
+services:
+  # Pinned, and the image is no longer developed upstream — which for a
+  # fixture is a feature: it will not change under the walkthrough. The same
+  # image the container test in internal/directory uses, so what passes there
+  # and what you see here are the same server.
+  ldap:
+    image: osixia/openldap:1.5.0
+    container_name: portico-dev-ldap
+    command: ["--copy-service"]
+    environment:
+      LDAP_ORGANISATION: "Portico Dev"
+      LDAP_DOMAIN: "example.org"
+      LDAP_ADMIN_PASSWORD: "portico-dev"
+    ports:
+      - "127.0.0.1:3890:389"
+    volumes:
+      - ./ldap/seed.ldif:/container/service/slapd/assets/config/bootstrap/ldif/custom/seed.ldif:ro
+    healthcheck:
+      # Bound, not anonymous. The image denies anonymous reads, and LDAP
+      # reports what you may not read as "No such object" — so an anonymous
+      # probe never goes healthy against a perfectly working directory, and
+      # `compose up --wait` waits forever for it.
+      test:
+        - CMD
+        - ldapsearch
+        - "-x"
+        - "-H"
+        - "ldap://localhost"
+        - "-D"
+        - "cn=admin,dc=example,dc=org"
+        - "-w"
+        - "portico-dev"
+        - "-b"
+        - "ou=people,dc=example,dc=org"
+        - "-s"
+        - "base"
+      interval: 2s
+      timeout: 5s
+      retries: 30
+
+  # 1026 and 8426 rather than the usual 1025/8025: those are taken on this
+  # machine by another project, and a walkthrough that fights for a port is a
+  # walkthrough nobody runs twice.
+  mailpit:
+    image: axllent/mailpit:v1.21
+    container_name: portico-dev-mailpit
+    ports:
+      - "127.0.0.1:1026:1025"
+      - "127.0.0.1:8426:8025"
+    healthcheck:
+      test: ["CMD", "/mailpit", "readyz"]
+      interval: 2s
+      timeout: 5s
+      retries: 30

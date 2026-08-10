@@ -1,0 +1,88 @@
+# The directory the walkthrough reads.
+#
+# Two things here are deliberate and both are the point of the exercise.
+#
+# The tree is nested — people sit under a department, not in one flat ou —
+# so the base DN and the user filter have to be right rather than merely
+# plausible. A flat directory lets a wrong base DN pass.
+#
+# uid=admin is a collision with the administrator Portico creates for the
+# tenant, and it is here on purpose. A synchronisation must skip it: it is
+# an account this directory does not own, and renaming or deactivating it
+# because a directory happens to list the same username is how a sync locks
+# an operator out of their own console. The walkthrough asserts on the
+# skipped count, so removing this entry would quietly weaken the check.
+#
+# entryUUID is not written here. slapd generates it, which is the whole
+# reason it is the reconciliation key — nothing in this file can change it.
+
+dn: ou=people,dc=example,dc=org
+objectClass: organizationalUnit
+ou: people
+
+dn: ou=engineering,ou=people,dc=example,dc=org
+objectClass: organizationalUnit
+ou: engineering
+
+dn: ou=sales,ou=people,dc=example,dc=org
+objectClass: organizationalUnit
+ou: sales
+
+dn: ou=support,ou=people,dc=example,dc=org
+objectClass: organizationalUnit
+ou: support
+
+dn: uid=mei,ou=engineering,ou=people,dc=example,dc=org
+objectClass: inetOrgPerson
+uid: mei
+cn: Mei Chen
+sn: Chen
+displayName: Mei Chen
+mail: mei@example.org
+telephoneNumber: +44 20 7946 0001
+
+dn: uid=arjun,ou=engineering,ou=people,dc=example,dc=org
+objectClass: inetOrgPerson
+uid: arjun
+cn: Arjun Patel
+sn: Patel
+displayName: Arjun Patel
+mail: arjun@example.org
+telephoneNumber: +44 20 7946 0002
+
+dn: uid=sofia,ou=sales,ou=people,dc=example,dc=org
+objectClass: inetOrgPerson
+uid: sofia
+cn: Sofia Rossi
+sn: Rossi
+displayName: Sofia Rossi
+mail: sofia@example.org
+telephoneNumber: +44 20 7946 0003
+
+dn: uid=tomas,ou=sales,ou=people,dc=example,dc=org
+objectClass: inetOrgPerson
+uid: tomas
+cn: Tomas Novak
+sn: Novak
+displayName: Tomas Novak
+mail: tomas@example.org
+telephoneNumber: +44 20 7946 0004
+
+dn: uid=grace,ou=support,ou=people,dc=example,dc=org
+objectClass: inetOrgPerson
+uid: grace
+cn: Grace Okafor
+sn: Okafor
+displayName: Grace Okafor
+mail: grace@example.org
+telephoneNumber: +44 20 7946 0005
+
+# The collision. Same username as the tenant's own administrator, a different
+# person, and not this directory's to touch.
+dn: uid=admin,ou=support,ou=people,dc=example,dc=org
+objectClass: inetOrgPerson
+uid: admin
+cn: Adam Minshull
+sn: Minshull
+displayName: Adam Minshull
+mail: adam.minshull@example.org
