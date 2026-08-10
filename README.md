@@ -308,7 +308,7 @@ Participation is governed by our
 [Code of Conduct](CODE_OF_CONDUCT.md).
 
 **Found a security problem?** Do not open an issue — report it privately
-through [Security → Report a vulnerability](https://github.com/paraview/portico/security/advisories/new).
+through [Security → Report a vulnerability](https://github.com/Paraview-RD/portico/security/advisories/new).
 See [SECURITY.md](SECURITY.md).
 
 ## License

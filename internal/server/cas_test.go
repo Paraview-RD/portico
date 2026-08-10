@@ -8,10 +8,10 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/paraview/portico/internal/casp"
-	"github.com/paraview/portico/internal/model"
-	"github.com/paraview/portico/internal/provision"
-	"github.com/paraview/portico/internal/service"
+	"github.com/Paraview-RD/portico/internal/casp"
+	"github.com/Paraview-RD/portico/internal/model"
+	"github.com/Paraview-RD/portico/internal/provision"
+	"github.com/Paraview-RD/portico/internal/service"
 )
 
 // CAS has no cryptography, so these tests are about the two things it does

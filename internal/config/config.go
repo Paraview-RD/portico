@@ -18,9 +18,9 @@ import (
 	"strings"
 	"time"
 
-	"github.com/paraview/portico/internal/i18n"
-	"github.com/paraview/portico/internal/notify"
-	"github.com/paraview/portico/internal/secrets"
+	"github.com/Paraview-RD/portico/internal/i18n"
+	"github.com/Paraview-RD/portico/internal/notify"
+	"github.com/Paraview-RD/portico/internal/secrets"
 )
 
 // MinJWTSecretLength is the shortest signing secret the server will accept.

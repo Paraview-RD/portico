@@ -7,7 +7,7 @@ import (
 
 	"github.com/golang-jwt/jwt/v5"
 
-	"github.com/paraview/portico/internal/model"
+	"github.com/Paraview-RD/portico/internal/model"
 )
 
 // Issuer is the iss claim on every token this system mints.

@@ -21,10 +21,10 @@ import (
 
 	"github.com/crewjam/saml"
 
-	"github.com/paraview/portico/internal/model"
-	"github.com/paraview/portico/internal/provision"
-	"github.com/paraview/portico/internal/samlp"
-	"github.com/paraview/portico/internal/service"
+	"github.com/Paraview-RD/portico/internal/model"
+	"github.com/Paraview-RD/portico/internal/provision"
+	"github.com/Paraview-RD/portico/internal/samlp"
+	"github.com/Paraview-RD/portico/internal/service"
 )
 
 // The SAML tests drive Portico with the same library's service-provider

@@ -11,8 +11,8 @@ import (
 	_ "github.com/jackc/pgx/v5/stdlib" // registers the "pgx" driver
 	"github.com/pressly/goose/v3"
 
-	"github.com/paraview/portico/internal/store/sqlcgen"
-	"github.com/paraview/portico/migrations"
+	"github.com/Paraview-RD/portico/internal/store/sqlcgen"
+	"github.com/Paraview-RD/portico/migrations"
 )
 
 // Store holds the database handle and the generated query set.

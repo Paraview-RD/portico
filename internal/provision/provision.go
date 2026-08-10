@@ -15,11 +15,11 @@ import (
 	"context"
 	"fmt"
 
-	"github.com/paraview/portico/internal/auth"
-	"github.com/paraview/portico/internal/config"
-	"github.com/paraview/portico/internal/model"
-	"github.com/paraview/portico/internal/service"
-	"github.com/paraview/portico/internal/store"
+	"github.com/Paraview-RD/portico/internal/auth"
+	"github.com/Paraview-RD/portico/internal/config"
+	"github.com/Paraview-RD/portico/internal/model"
+	"github.com/Paraview-RD/portico/internal/service"
+	"github.com/Paraview-RD/portico/internal/store"
 )
 
 // Provisioner holds the services the command-line operations need. It opens

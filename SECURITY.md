@@ -10,7 +10,7 @@ Portico for your situation.
 **Do not open a public issue for a security problem.**
 
 Report privately through GitHub's
-[private vulnerability reporting](https://github.com/paraview/portico/security/advisories/new)
+[private vulnerability reporting](https://github.com/Paraview-RD/portico/security/advisories/new)
 on this repository.
 
 What to expect:

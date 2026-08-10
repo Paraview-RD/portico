@@ -9,18 +9,18 @@ import (
 
 	"github.com/go-chi/chi/v5"
 
-	"github.com/paraview/portico/internal/casp"
-	"github.com/paraview/portico/internal/docs"
-	"github.com/paraview/portico/internal/httpx"
-	"github.com/paraview/portico/internal/oidcp"
-	"github.com/paraview/portico/internal/samlp"
-	"github.com/paraview/portico/internal/scim"
-	"github.com/paraview/portico/internal/web"
+	"github.com/Paraview-RD/portico/internal/casp"
+	"github.com/Paraview-RD/portico/internal/docs"
+	"github.com/Paraview-RD/portico/internal/httpx"
+	"github.com/Paraview-RD/portico/internal/oidcp"
+	"github.com/Paraview-RD/portico/internal/samlp"
+	"github.com/Paraview-RD/portico/internal/scim"
+	"github.com/Paraview-RD/portico/internal/web"
 )
 
 // Version is the running build's version, overridden at link time:
 //
-//	go build -ldflags "-X github.com/paraview/portico/internal/server.Version=v0.1.0"
+//	go build -ldflags "-X github.com/Paraview-RD/portico/internal/server.Version=v0.1.0"
 var Version = "dev"
 
 func (s *Server) routes() http.Handler {

@@ -6,7 +6,7 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/paraview/portico/internal/secrets"
+	"github.com/Paraview-RD/portico/internal/secrets"
 )
 
 func newKey(t *testing.T) []byte {

@@ -8,8 +8,8 @@ import (
 	"strings"
 	"text/tabwriter"
 
-	"github.com/paraview/portico/internal/model"
-	"github.com/paraview/portico/internal/service"
+	"github.com/Paraview-RD/portico/internal/model"
+	"github.com/Paraview-RD/portico/internal/service"
 )
 
 // runClient dispatches `portico client <subcommand>`.

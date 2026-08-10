@@ -6,10 +6,10 @@ import (
 	"net/http/httptest"
 	"testing"
 
-	"github.com/paraview/portico/internal/config"
-	"github.com/paraview/portico/internal/httpx"
-	"github.com/paraview/portico/internal/server"
-	"github.com/paraview/portico/internal/testdb"
+	"github.com/Paraview-RD/portico/internal/config"
+	"github.com/Paraview-RD/portico/internal/httpx"
+	"github.com/Paraview-RD/portico/internal/server"
+	"github.com/Paraview-RD/portico/internal/testdb"
 )
 
 func newTestServer(t *testing.T) *server.Server {

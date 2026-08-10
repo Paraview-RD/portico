@@ -26,11 +26,11 @@ import (
 
 	"github.com/crewjam/saml"
 
-	"github.com/paraview/portico/internal/auth"
-	"github.com/paraview/portico/internal/model"
-	"github.com/paraview/portico/internal/service"
-	"github.com/paraview/portico/internal/store"
-	"github.com/paraview/portico/internal/store/sqlcgen"
+	"github.com/Paraview-RD/portico/internal/auth"
+	"github.com/Paraview-RD/portico/internal/model"
+	"github.com/Paraview-RD/portico/internal/service"
+	"github.com/Paraview-RD/portico/internal/store"
+	"github.com/Paraview-RD/portico/internal/store/sqlcgen"
 )
 
 // Paths a tenant's SAML endpoints hang off, relative to its issuer.

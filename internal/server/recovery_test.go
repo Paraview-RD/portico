@@ -9,10 +9,10 @@ import (
 	"testing"
 	"time"
 
-	"github.com/paraview/portico/internal/config"
-	"github.com/paraview/portico/internal/notify"
-	"github.com/paraview/portico/internal/server"
-	"github.com/paraview/portico/internal/testdb"
+	"github.com/Paraview-RD/portico/internal/config"
+	"github.com/Paraview-RD/portico/internal/notify"
+	"github.com/Paraview-RD/portico/internal/server"
+	"github.com/Paraview-RD/portico/internal/testdb"
 )
 
 // recordingMailer captures what would have been sent, which is the only way

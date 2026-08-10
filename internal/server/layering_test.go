@@ -13,7 +13,7 @@ import (
 // rules end up duplicated across endpoints and enforced in only some of
 // them.
 func TestLayeringRules(t *testing.T) {
-	const module = "github.com/paraview/portico/"
+	const module = "github.com/Paraview-RD/portico/"
 
 	forbidden := map[string][]string{
 		// Handlers go through a service. Always.

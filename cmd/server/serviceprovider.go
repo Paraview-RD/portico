@@ -11,8 +11,8 @@ import (
 	"text/tabwriter"
 	"time"
 
-	"github.com/paraview/portico/internal/model"
-	"github.com/paraview/portico/internal/service"
+	"github.com/Paraview-RD/portico/internal/model"
+	"github.com/Paraview-RD/portico/internal/service"
 )
 
 // runSP dispatches `portico sp <subcommand>`.

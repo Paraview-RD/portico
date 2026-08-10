@@ -340,5 +340,5 @@ curl -s http://localhost:8410/.well-known/openid-configuration | jq
 ```
 
 由一个真实的依赖方库驱动的完整流程在
-[internal/server/federation_test.go](https://github.com/paraview/portico/blob/main/internal/server/federation_test.go)
+[internal/server/federation_test.go](https://github.com/Paraview-RD/portico/blob/main/internal/server/federation_test.go)
 ——**它是这个仓库里最有用的实例，因为它是那个必须一直通过的实例。**

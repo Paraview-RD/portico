@@ -10,9 +10,9 @@ import (
 
 	"github.com/go-chi/chi/v5"
 
-	"github.com/paraview/portico/internal/httpx"
-	"github.com/paraview/portico/internal/model"
-	"github.com/paraview/portico/internal/service"
+	"github.com/Paraview-RD/portico/internal/httpx"
+	"github.com/Paraview-RD/portico/internal/model"
+	"github.com/Paraview-RD/portico/internal/service"
 )
 
 // Provisioner is the slice of the user service SCIM needs.
@@ -45,7 +45,7 @@ func NewHandler(users Provisioner, groups GroupProvisioner, credentials *service
 		groups:      groups,
 		credentials: credentials,
 		publicURL:   strings.TrimSuffix(publicURL, "/"),
-		docsURL:     "https://github.com/paraview/portico/blob/main/docs/scim.md",
+		docsURL:     "https://github.com/Paraview-RD/portico/blob/main/docs/scim.md",
 	}
 }
 

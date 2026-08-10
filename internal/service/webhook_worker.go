@@ -6,10 +6,10 @@ import (
 	"net/http"
 	"time"
 
-	"github.com/paraview/portico/internal/model"
-	"github.com/paraview/portico/internal/store"
-	"github.com/paraview/portico/internal/store/sqlcgen"
-	"github.com/paraview/portico/internal/webhook"
+	"github.com/Paraview-RD/portico/internal/model"
+	"github.com/Paraview-RD/portico/internal/store"
+	"github.com/Paraview-RD/portico/internal/store/sqlcgen"
+	"github.com/Paraview-RD/portico/internal/webhook"
 )
 
 // DispatchDue delivers whatever is due for one tenant, and reports how many

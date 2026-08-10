@@ -5,9 +5,9 @@ import (
 
 	"github.com/go-chi/chi/v5"
 
-	"github.com/paraview/portico/internal/auth"
-	"github.com/paraview/portico/internal/httpx"
-	"github.com/paraview/portico/internal/model"
+	"github.com/Paraview-RD/portico/internal/auth"
+	"github.com/Paraview-RD/portico/internal/httpx"
+	"github.com/Paraview-RD/portico/internal/model"
 )
 
 // The administrative side of SCIM: issuing and revoking the credentials a

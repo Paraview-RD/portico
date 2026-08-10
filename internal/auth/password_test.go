@@ -4,7 +4,7 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/paraview/portico/internal/auth"
+	"github.com/Paraview-RD/portico/internal/auth"
 )
 
 func TestHashPasswordThenCheck(t *testing.T) {

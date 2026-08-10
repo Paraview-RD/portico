@@ -13,10 +13,10 @@ import (
 
 	_ "github.com/jackc/pgx/v5/stdlib"
 
-	"github.com/paraview/portico/internal/config"
-	"github.com/paraview/portico/internal/notify"
-	"github.com/paraview/portico/internal/server"
-	"github.com/paraview/portico/internal/testdb"
+	"github.com/Paraview-RD/portico/internal/config"
+	"github.com/Paraview-RD/portico/internal/notify"
+	"github.com/Paraview-RD/portico/internal/server"
+	"github.com/Paraview-RD/portico/internal/testdb"
 )
 
 // apiTest drives the whole stack — router, middleware, services, database —

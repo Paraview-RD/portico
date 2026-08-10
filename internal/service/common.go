@@ -5,9 +5,9 @@ import (
 	"net/url"
 	"strings"
 
-	"github.com/paraview/portico/internal/auth"
-	"github.com/paraview/portico/internal/httpx"
-	"github.com/paraview/portico/internal/model"
+	"github.com/Paraview-RD/portico/internal/auth"
+	"github.com/Paraview-RD/portico/internal/httpx"
+	"github.com/Paraview-RD/portico/internal/model"
 )
 
 // CommandLineActor is who an administrative act is attributed to when it was

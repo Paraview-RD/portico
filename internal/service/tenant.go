@@ -8,10 +8,10 @@ import (
 
 	"github.com/google/uuid"
 
-	"github.com/paraview/portico/internal/httpx"
-	"github.com/paraview/portico/internal/model"
-	"github.com/paraview/portico/internal/store"
-	"github.com/paraview/portico/internal/store/sqlcgen"
+	"github.com/Paraview-RD/portico/internal/httpx"
+	"github.com/Paraview-RD/portico/internal/model"
+	"github.com/Paraview-RD/portico/internal/store"
+	"github.com/Paraview-RD/portico/internal/store/sqlcgen"
 )
 
 // Errors from tenant resolution.

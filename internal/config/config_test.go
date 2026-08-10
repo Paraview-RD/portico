@@ -5,7 +5,7 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/paraview/portico/internal/config"
+	"github.com/Paraview-RD/portico/internal/config"
 )
 
 // A weak signing secret is the difference between "signed" and "forgeable":

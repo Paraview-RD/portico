@@ -11,8 +11,8 @@ import (
 	"github.com/crewjam/saml"
 	dsig "github.com/russellhaering/goxmldsig"
 
-	"github.com/paraview/portico/internal/model"
-	"github.com/paraview/portico/internal/store"
+	"github.com/Paraview-RD/portico/internal/model"
+	"github.com/Paraview-RD/portico/internal/store"
 )
 
 // signatureMethodRSASHA256 is what assertions are signed with. SHA-1 is

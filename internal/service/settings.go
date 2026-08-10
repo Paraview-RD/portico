@@ -10,11 +10,11 @@ import (
 	"sync"
 	"time"
 
-	"github.com/paraview/portico/internal/auth"
-	"github.com/paraview/portico/internal/httpx"
-	"github.com/paraview/portico/internal/i18n"
-	"github.com/paraview/portico/internal/model"
-	"github.com/paraview/portico/internal/store"
+	"github.com/Paraview-RD/portico/internal/auth"
+	"github.com/Paraview-RD/portico/internal/httpx"
+	"github.com/Paraview-RD/portico/internal/i18n"
+	"github.com/Paraview-RD/portico/internal/model"
+	"github.com/Paraview-RD/portico/internal/store"
 )
 
 // Setting keys. These are the runtime-tunable values from §3.10.

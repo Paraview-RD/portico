@@ -8,7 +8,7 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/paraview/portico/internal/service"
+	"github.com/Paraview-RD/portico/internal/service"
 )
 
 // Every error code the server can return has something for a reader.

@@ -8,8 +8,8 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/paraview/portico/internal/casp"
-	"github.com/paraview/portico/internal/samlp"
+	"github.com/Paraview-RD/portico/internal/casp"
+	"github.com/Paraview-RD/portico/internal/samlp"
 )
 
 // Application management over the API: registering the systems that sign in

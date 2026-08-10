@@ -3,10 +3,10 @@ package handler
 import (
 	"net/http"
 
-	"github.com/paraview/portico/internal/auth"
-	"github.com/paraview/portico/internal/httpx"
-	"github.com/paraview/portico/internal/model"
-	"github.com/paraview/portico/internal/service"
+	"github.com/Paraview-RD/portico/internal/auth"
+	"github.com/Paraview-RD/portico/internal/httpx"
+	"github.com/Paraview-RD/portico/internal/model"
+	"github.com/Paraview-RD/portico/internal/service"
 )
 
 // maxUploadBytes caps an import upload. Large enough for the row limit the

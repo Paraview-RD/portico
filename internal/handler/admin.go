@@ -4,10 +4,10 @@ import (
 	"net/http"
 	"time"
 
-	"github.com/paraview/portico/internal/auth"
-	"github.com/paraview/portico/internal/httpx"
-	"github.com/paraview/portico/internal/model"
-	"github.com/paraview/portico/internal/service"
+	"github.com/Paraview-RD/portico/internal/auth"
+	"github.com/Paraview-RD/portico/internal/httpx"
+	"github.com/Paraview-RD/portico/internal/model"
+	"github.com/Paraview-RD/portico/internal/service"
 )
 
 // ListAuditLogs returns a filtered page of the audit trail.

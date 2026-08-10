@@ -8,7 +8,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/paraview/portico/internal/webhook"
+	"github.com/Paraview-RD/portico/internal/webhook"
 )
 
 // The destination rules, which are the security of this feature.

@@ -8,7 +8,7 @@ what each role can actually do.
 | What | URL | Notes |
 |---|---|---|
 | Web UI | `http://<host>:8410/` | Served by the same process as the API |
-| API | `http://<host>:8410/api/v1/` | See [api-conventions.md](https://github.com/paraview/portico/blob/main/docs/api-conventions.md) |
+| API | `http://<host>:8410/api/v1/` | See [api-conventions.md](https://github.com/Paraview-RD/portico/blob/main/docs/api-conventions.md) |
 | Liveness | `http://<host>:8410/api/v1/health` | No authentication. Answers as long as the process is up, deliberately without touching the database — see below |
 | Readiness | `http://<host>:8410/api/v1/ready` | No authentication. 200 when this instance can reach its database, 503 when it cannot |
 | OpenID discovery | `http://<host>:8410/.well-known/openid-configuration` | The default tenant. Others at `/t/<code>/…` |
@@ -343,7 +343,7 @@ responses, and the user list shows which happened.
 Portico serves plain HTTP and does not rate-limit requests. Both are
 deliberate — it delegates them to the reverse proxy rather than
 reimplementing them — but that makes the proxy mandatory, not optional, for
-anything reachable beyond localhost. See [SECURITY.md](https://github.com/paraview/portico/blob/main/SECURITY.md) for
+anything reachable beyond localhost. See [SECURITY.md](https://github.com/Paraview-RD/portico/blob/main/SECURITY.md) for
 why.
 
 The bundled compose file binds to `127.0.0.1` so the default configuration

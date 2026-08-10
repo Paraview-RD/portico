@@ -3,10 +3,10 @@
 blank_issues_enabled: false
 contact_links:
   - name: Report a security vulnerability
-    url: https://github.com/paraview/portico/security/advisories/new
+    url: https://github.com/Paraview-RD/portico/security/advisories/new
     about: >
       Never report a vulnerability in a public issue. This opens a private
       advisory visible only to the maintainers.
   - name: Question or idea
-    url: https://github.com/paraview/portico/discussions
+    url: https://github.com/Paraview-RD/portico/discussions
     about: For usage questions and open-ended discussion, rather than a bug.

@@ -11,7 +11,7 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/paraview/portico/internal/docs"
+	"github.com/Paraview-RD/portico/internal/docs"
 )
 
 func get(t *testing.T, target string) *httptest.ResponseRecorder {

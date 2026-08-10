@@ -4,8 +4,8 @@ import (
 	"context"
 	"testing"
 
-	"github.com/paraview/portico/internal/store"
-	"github.com/paraview/portico/internal/store/sqlcgen"
+	"github.com/Paraview-RD/portico/internal/store"
+	"github.com/Paraview-RD/portico/internal/store/sqlcgen"
 )
 
 // A nil slice is encoded by the driver as SQL NULL rather than as an empty

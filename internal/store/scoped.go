@@ -5,7 +5,7 @@ import (
 	"database/sql"
 	"time"
 
-	"github.com/paraview/portico/internal/store/sqlcgen"
+	"github.com/Paraview-RD/portico/internal/store/sqlcgen"
 )
 
 // Scoped is the query layer bound to a single tenant.

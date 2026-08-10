@@ -20,7 +20,7 @@ ARG VERSION=dev
 # CGO is off because the sqlite driver is pure Go; that is what allows a
 # scratch image with no libc.
 RUN CGO_ENABLED=0 go build \
-    -ldflags "-s -w -X github.com/paraview/portico/internal/server.Version=${VERSION}" \
+    -ldflags "-s -w -X github.com/Paraview-RD/portico/internal/server.Version=${VERSION}" \
     -o /portico ./cmd/server
 
 FROM scratch

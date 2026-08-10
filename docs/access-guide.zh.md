@@ -7,7 +7,7 @@
 | 是什么 | 地址 | 说明 |
 |---|---|---|
 | Web 界面 | `http://<host>:8410/` | 与 API 由同一个进程提供 |
-| API | `http://<host>:8410/api/v1/` | 见 [api-conventions.md](https://github.com/paraview/portico/blob/main/docs/api-conventions.md) |
+| API | `http://<host>:8410/api/v1/` | 见 [api-conventions.md](https://github.com/Paraview-RD/portico/blob/main/docs/api-conventions.md) |
 | 存活探针 | `http://<host>:8410/api/v1/health` | 无需认证。只要进程活着就应答，**刻意不碰数据库**——原因见下 |
 | 就绪探针 | `http://<host>:8410/api/v1/ready` | 无需认证。本实例能连上数据库时 200，连不上时 503 |
 | OpenID 发现 | `http://<host>:8410/.well-known/openid-configuration` | 默认租户。其它租户在 `/t/<code>/…` |
@@ -267,7 +267,7 @@ MVP 里**恰好两个角色**，并且没有办法定义更多（需求 §3.3）
 Portico 提供的是明文 HTTP，并且**不做请求限流**。两者都是刻意的——它把这些交给反向
 代理而不是自己再实现一遍——但这也意味着，**对任何 localhost 之外可达的部署，代理是
 必需的而不是可选的**。原因见
-[SECURITY.md](https://github.com/paraview/portico/blob/main/SECURITY.md)。
+[SECURITY.md](https://github.com/Paraview-RD/portico/blob/main/SECURITY.md)。
 
 随附的 compose 文件绑定在 `127.0.0.1` 上，所以默认配置不会被直接访问到。
 

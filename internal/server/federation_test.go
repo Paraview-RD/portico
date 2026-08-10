@@ -16,12 +16,12 @@ import (
 	"github.com/zitadel/oidc/v3/pkg/client/rs"
 	"github.com/zitadel/oidc/v3/pkg/oidc"
 
-	"github.com/paraview/portico/internal/config"
-	"github.com/paraview/portico/internal/model"
-	"github.com/paraview/portico/internal/oidcp"
-	"github.com/paraview/portico/internal/provision"
-	"github.com/paraview/portico/internal/service"
-	"github.com/paraview/portico/internal/store"
+	"github.com/Paraview-RD/portico/internal/config"
+	"github.com/Paraview-RD/portico/internal/model"
+	"github.com/Paraview-RD/portico/internal/oidcp"
+	"github.com/Paraview-RD/portico/internal/provision"
+	"github.com/Paraview-RD/portico/internal/service"
+	"github.com/Paraview-RD/portico/internal/store"
 )
 
 // The federation tests drive Portico with the same library an integrator

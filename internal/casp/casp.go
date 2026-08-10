@@ -22,9 +22,9 @@ import (
 	"net/url"
 	"strings"
 
-	"github.com/paraview/portico/internal/auth"
-	"github.com/paraview/portico/internal/model"
-	"github.com/paraview/portico/internal/service"
+	"github.com/Paraview-RD/portico/internal/auth"
+	"github.com/Paraview-RD/portico/internal/model"
+	"github.com/Paraview-RD/portico/internal/service"
 )
 
 // Paths, relative to an issuer. The shapes are the specification's.

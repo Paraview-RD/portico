@@ -8,10 +8,10 @@
 package handler
 
 import (
-	"github.com/paraview/portico/internal/casp"
-	"github.com/paraview/portico/internal/oidcp"
-	"github.com/paraview/portico/internal/samlp"
-	"github.com/paraview/portico/internal/service"
+	"github.com/Paraview-RD/portico/internal/casp"
+	"github.com/Paraview-RD/portico/internal/oidcp"
+	"github.com/Paraview-RD/portico/internal/samlp"
+	"github.com/Paraview-RD/portico/internal/service"
 )
 
 // Handler holds the services the HTTP layer delegates to.

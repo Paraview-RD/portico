@@ -3,7 +3,7 @@ package scim
 import (
 	"strings"
 
-	"github.com/paraview/portico/internal/model"
+	"github.com/Paraview-RD/portico/internal/model"
 )
 
 // Group is the SCIM representation of a group.

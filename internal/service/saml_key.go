@@ -14,8 +14,8 @@ import (
 
 	"github.com/google/uuid"
 
-	"github.com/paraview/portico/internal/store"
-	"github.com/paraview/portico/internal/store/sqlcgen"
+	"github.com/Paraview-RD/portico/internal/store"
+	"github.com/Paraview-RD/portico/internal/store/sqlcgen"
 )
 
 const (

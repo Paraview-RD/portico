@@ -7,9 +7,9 @@ import (
 	"os"
 	"text/tabwriter"
 
-	"github.com/paraview/portico/internal/config"
-	"github.com/paraview/portico/internal/model"
-	"github.com/paraview/portico/internal/provision"
+	"github.com/Paraview-RD/portico/internal/config"
+	"github.com/Paraview-RD/portico/internal/model"
+	"github.com/Paraview-RD/portico/internal/provision"
 )
 
 // runTenant dispatches `portico tenant <subcommand>`.

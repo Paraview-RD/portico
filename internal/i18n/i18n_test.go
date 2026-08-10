@@ -13,7 +13,7 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/paraview/portico/internal/i18n"
+	"github.com/Paraview-RD/portico/internal/i18n"
 )
 
 // sampleFor returns data of the type a key is rendered with in production.

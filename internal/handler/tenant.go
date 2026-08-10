@@ -4,7 +4,7 @@ import (
 	"net/http"
 	"strings"
 
-	"github.com/paraview/portico/internal/model"
+	"github.com/Paraview-RD/portico/internal/model"
 )
 
 // TenantHeader names the tenant on requests that have no authenticated

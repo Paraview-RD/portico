@@ -4,7 +4,7 @@ import (
 	"strings"
 	"time"
 
-	"github.com/paraview/portico/internal/model"
+	"github.com/Paraview-RD/portico/internal/model"
 )
 
 // User is the SCIM representation of an account.

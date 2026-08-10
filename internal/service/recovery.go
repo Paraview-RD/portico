@@ -14,12 +14,12 @@ import (
 
 	"github.com/google/uuid"
 
-	"github.com/paraview/portico/internal/httpx"
-	"github.com/paraview/portico/internal/i18n"
-	"github.com/paraview/portico/internal/model"
-	"github.com/paraview/portico/internal/notify"
-	"github.com/paraview/portico/internal/store"
-	"github.com/paraview/portico/internal/store/sqlcgen"
+	"github.com/Paraview-RD/portico/internal/httpx"
+	"github.com/Paraview-RD/portico/internal/i18n"
+	"github.com/Paraview-RD/portico/internal/model"
+	"github.com/Paraview-RD/portico/internal/notify"
+	"github.com/Paraview-RD/portico/internal/store"
+	"github.com/Paraview-RD/portico/internal/store/sqlcgen"
 )
 
 // recoveryDeliveryTimeout bounds the work that continues after the response.

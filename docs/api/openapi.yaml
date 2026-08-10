@@ -39,7 +39,7 @@ info:
     url: https://www.apache.org/licenses/LICENSE-2.0
   contact:
     name: Portico
-    url: https://github.com/paraview/portico
+    url: https://github.com/Paraview-RD/portico
 
 servers:
   - url: /

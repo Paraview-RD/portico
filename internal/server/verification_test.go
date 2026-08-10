@@ -7,10 +7,10 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/paraview/portico/internal/config"
-	"github.com/paraview/portico/internal/notify"
-	"github.com/paraview/portico/internal/server"
-	"github.com/paraview/portico/internal/testdb"
+	"github.com/Paraview-RD/portico/internal/config"
+	"github.com/Paraview-RD/portico/internal/notify"
+	"github.com/Paraview-RD/portico/internal/server"
+	"github.com/Paraview-RD/portico/internal/testdb"
 )
 
 // Registration that has to prove the address it gave.

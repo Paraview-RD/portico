@@ -1,4 +1,4 @@
-module github.com/paraview/portico
+module github.com/Paraview-RD/portico
 
 go 1.25.7
 

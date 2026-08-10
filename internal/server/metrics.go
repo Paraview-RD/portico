@@ -6,7 +6,7 @@ import (
 	"github.com/prometheus/client_golang/prometheus"
 	"github.com/prometheus/client_golang/prometheus/promhttp"
 
-	"github.com/paraview/portico/internal/store"
+	"github.com/Paraview-RD/portico/internal/store"
 )
 
 // MetricsHandler serves the Prometheus endpoint.

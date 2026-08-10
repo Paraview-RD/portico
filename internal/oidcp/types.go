@@ -7,8 +7,8 @@ import (
 	"github.com/zitadel/oidc/v3/pkg/oidc"
 	"github.com/zitadel/oidc/v3/pkg/op"
 
-	"github.com/paraview/portico/internal/model"
-	"github.com/paraview/portico/internal/store/sqlcgen"
+	"github.com/Paraview-RD/portico/internal/model"
+	"github.com/Paraview-RD/portico/internal/store/sqlcgen"
 )
 
 // cryptoRead is crypto/rand.Read, named so the token helper reads clearly.

@@ -12,8 +12,8 @@ import (
 	"syscall"
 	"time"
 
-	"github.com/paraview/portico/internal/config"
-	"github.com/paraview/portico/internal/server"
+	"github.com/Paraview-RD/portico/internal/config"
+	"github.com/Paraview-RD/portico/internal/server"
 )
 
 func main() {
@@ -136,7 +136,7 @@ Configuration is entirely environment variables:
 Portico serves plain HTTP and does not rate-limit sign-in attempts. Run it
 behind a reverse proxy that terminates TLS and throttles /api/v1/auth/*.
 
-Documentation: https://github.com/paraview/portico
+Documentation: https://github.com/Paraview-RD/portico
 `, server.Version, config.MinJWTSecretLength)
 }
 

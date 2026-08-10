@@ -34,11 +34,11 @@ import (
 	"testing"
 	"time"
 
-	"github.com/paraview/portico/internal/model"
-	"github.com/paraview/portico/internal/store"
-	"github.com/paraview/portico/internal/store/sqlcgen"
-	"github.com/paraview/portico/internal/testdb"
-	"github.com/paraview/portico/internal/webhook"
+	"github.com/Paraview-RD/portico/internal/model"
+	"github.com/Paraview-RD/portico/internal/store"
+	"github.com/Paraview-RD/portico/internal/store/sqlcgen"
+	"github.com/Paraview-RD/portico/internal/testdb"
+	"github.com/Paraview-RD/portico/internal/webhook"
 )
 
 // received is one request as the subscriber saw it.

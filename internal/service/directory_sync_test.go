@@ -14,14 +14,14 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/paraview/portico/internal/auth"
-	"github.com/paraview/portico/internal/directory"
-	"github.com/paraview/portico/internal/metrics"
-	"github.com/paraview/portico/internal/model"
-	"github.com/paraview/portico/internal/secrets"
-	"github.com/paraview/portico/internal/store"
-	"github.com/paraview/portico/internal/store/sqlcgen"
-	"github.com/paraview/portico/internal/testdb"
+	"github.com/Paraview-RD/portico/internal/auth"
+	"github.com/Paraview-RD/portico/internal/directory"
+	"github.com/Paraview-RD/portico/internal/metrics"
+	"github.com/Paraview-RD/portico/internal/model"
+	"github.com/Paraview-RD/portico/internal/secrets"
+	"github.com/Paraview-RD/portico/internal/store"
+	"github.com/Paraview-RD/portico/internal/store/sqlcgen"
+	"github.com/Paraview-RD/portico/internal/testdb"
 )
 
 type fakeDirectory struct {

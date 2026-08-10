@@ -7,9 +7,9 @@ import (
 	"testing"
 	"time"
 
-	"github.com/paraview/portico/internal/store"
-	"github.com/paraview/portico/internal/store/sqlcgen"
-	"github.com/paraview/portico/internal/testdb"
+	"github.com/Paraview-RD/portico/internal/store"
+	"github.com/Paraview-RD/portico/internal/store/sqlcgen"
+	"github.com/Paraview-RD/portico/internal/testdb"
 )
 
 // newTestStore opens a throwaway database with the migrations applied.

@@ -31,7 +31,7 @@ builds:
       - arm64
     ldflags:
       - -s -w
-      - -X github.com/paraview/portico/internal/server.Version={{ .Version }}
+      - -X github.com/Paraview-RD/portico/internal/server.Version={{ .Version }}
     mod_timestamp: "{{ .CommitTimestamp }}"
 
 archives:
@@ -65,7 +65,7 @@ signs:
   # rotate, and the signature is tied to the GitHub Actions identity that
   # produced it. Verify with:
   #   cosign verify-blob --certificate <file>.pem --signature <file>.sig \
-  #     --certificate-identity-regexp 'https://github.com/paraview/portico' \
+  #     --certificate-identity-regexp 'https://github.com/Paraview-RD/portico' \
   #     --certificate-oidc-issuer https://token.actions.githubusercontent.com <file>
   - cmd: cosign
     signature: "${artifact}.sig"
@@ -86,7 +86,7 @@ dockers_v2:
   - id: portico
     dockerfile: deploy/Dockerfile.release
     images:
-      - "ghcr.io/paraview/portico"
+      - "ghcr.io/paraview-rd/portico"
     tags:
       - "{{ .Version }}"
       - "{{ if not .Prerelease }}latest{{ end }}"
@@ -99,7 +99,7 @@ dockers_v2:
       org.opencontainers.image.version: "{{ .Version }}"
       org.opencontainers.image.revision: "{{ .FullCommit }}"
       org.opencontainers.image.created: "{{ .Date }}"
-      org.opencontainers.image.source: "https://github.com/paraview/portico"
+      org.opencontainers.image.source: "https://github.com/Paraview-RD/portico"
       org.opencontainers.image.licenses: "Apache-2.0"
 
 changelog:
@@ -128,7 +128,7 @@ release:
     cosign verify-blob \
       --certificate checksums.txt.pem \
       --signature checksums.txt.sig \
-      --certificate-identity-regexp 'https://github.com/paraview/portico' \
+      --certificate-identity-regexp 'https://github.com/Paraview-RD/portico' \
       --certificate-oidc-issuer https://token.actions.githubusercontent.com \
       checksums.txt
     ```
@@ -136,4 +136,4 @@ release:
     **Before you deploy:** Portico serves plain HTTP and does not rate-limit
     sign-in attempts. It must sit behind a reverse proxy that terminates TLS
     and throttles `/api/v1/auth/*` — see
-    [SECURITY.md](https://github.com/paraview/portico/blob/main/SECURITY.md).
+    [SECURITY.md](https://github.com/Paraview-RD/portico/blob/main/SECURITY.md).

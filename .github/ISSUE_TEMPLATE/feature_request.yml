@@ -9,7 +9,7 @@ body:
         custom roles and permissions, third-party and social sign-in, SCIM,
         webhooks, MFA, and rate limiting. Several are already scheduled; see
         the roadmap in
-        [the requirements document](https://github.com/paraview/portico/blob/main/docs/requirements/v0.1-requirements.md).
+        [the requirements document](https://github.com/Paraview-RD/portico/blob/main/docs/requirements/v0.1-requirements.md).
 
         That does not make anything permanently off the table, but a request
         for something already on the roadmap is more useful as a comment on

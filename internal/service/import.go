@@ -9,9 +9,9 @@ import (
 
 	"github.com/xuri/excelize/v2"
 
-	"github.com/paraview/portico/internal/auth"
-	"github.com/paraview/portico/internal/httpx"
-	"github.com/paraview/portico/internal/model"
+	"github.com/Paraview-RD/portico/internal/auth"
+	"github.com/Paraview-RD/portico/internal/httpx"
+	"github.com/Paraview-RD/portico/internal/model"
 )
 
 // Import column order. The template writes these headers, and the parser

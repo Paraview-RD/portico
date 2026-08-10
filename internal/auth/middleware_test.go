@@ -8,9 +8,9 @@ import (
 	"testing"
 	"time"
 
-	"github.com/paraview/portico/internal/auth"
-	"github.com/paraview/portico/internal/httpx"
-	"github.com/paraview/portico/internal/model"
+	"github.com/Paraview-RD/portico/internal/auth"
+	"github.com/Paraview-RD/portico/internal/httpx"
+	"github.com/Paraview-RD/portico/internal/model"
 )
 
 // stubLookup returns a fixed account, or ErrUserNotFound when absent.

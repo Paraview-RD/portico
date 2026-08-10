@@ -4,10 +4,10 @@ import (
 	"errors"
 	"net/http"
 
-	"github.com/paraview/portico/internal/auth"
-	"github.com/paraview/portico/internal/httpx"
-	"github.com/paraview/portico/internal/oidcp"
-	"github.com/paraview/portico/internal/samlp"
+	"github.com/Paraview-RD/portico/internal/auth"
+	"github.com/Paraview-RD/portico/internal/httpx"
+	"github.com/Paraview-RD/portico/internal/oidcp"
+	"github.com/Paraview-RD/portico/internal/samlp"
 )
 
 type authorizeRequest struct {

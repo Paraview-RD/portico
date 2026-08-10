@@ -63,7 +63,7 @@ Prerequisites: **Go 1.25.7+** (a dependency sets that floor), **Node 22+**,
 and — only if you change a SQL query — [`sqlc`](https://sqlc.dev).
 
 ```bash
-git clone https://github.com/paraview/portico.git
+git clone https://github.com/Paraview-RD/portico.git
 cd portico
 
 # The frontend compiles into the binary, so build it first. A Go-only build

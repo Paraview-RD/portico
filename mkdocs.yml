@@ -14,7 +14,7 @@
 # is noise in the one place they are looking for an answer.
 site_name: Portico
 site_description: A self-hostable identity platform — single sign-on, multi-tenant, SCIM and LDAP.
-repo_url: https://github.com/paraview/portico
+repo_url: https://github.com/Paraview-RD/portico
 edit_uri: ""
 
 docs_dir: docs

@@ -25,7 +25,7 @@ import (
 	"github.com/testcontainers/testcontainers-go"
 	"github.com/testcontainers/testcontainers-go/wait"
 
-	"github.com/paraview/portico/internal/directory"
+	"github.com/Paraview-RD/portico/internal/directory"
 )
 
 const (

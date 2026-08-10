@@ -5,13 +5,13 @@ import (
 
 	"github.com/go-chi/chi/v5"
 
-	"github.com/paraview/portico/internal/auth"
-	"github.com/paraview/portico/internal/casp"
-	"github.com/paraview/portico/internal/httpx"
-	"github.com/paraview/portico/internal/model"
-	"github.com/paraview/portico/internal/oidcp"
-	"github.com/paraview/portico/internal/samlp"
-	"github.com/paraview/portico/internal/service"
+	"github.com/Paraview-RD/portico/internal/auth"
+	"github.com/Paraview-RD/portico/internal/casp"
+	"github.com/Paraview-RD/portico/internal/httpx"
+	"github.com/Paraview-RD/portico/internal/model"
+	"github.com/Paraview-RD/portico/internal/oidcp"
+	"github.com/Paraview-RD/portico/internal/samlp"
+	"github.com/Paraview-RD/portico/internal/service"
 )
 
 // Application management: the console's half of registering the systems that
