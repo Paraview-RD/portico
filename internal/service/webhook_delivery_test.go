@@ -312,6 +312,122 @@ func TestAServerErrorIsTriedAgainLaterRatherThanImmediately(t *testing.T) {
 	}
 }
 
+// dueNow drags a pending delivery's next attempt into the past, so the next
+// pass picks it up. Nothing in a test waits for real time.
+func (f *deliveryFixture) dueNow() {
+	f.t.Helper()
+	if _, err := f.store.DB().ExecContext(context.Background(),
+		`UPDATE webhook_deliveries SET next_attempt_at = now() - interval '1 hour' WHERE id = $1`,
+		f.delivery().ID); err != nil {
+		f.t.Fatalf("bring the next attempt forward: %v", err)
+	}
+}
+
+// The gap between attempts grows the way the documentation says it does.
+//
+// Backoff is indexed by the attempt that just failed — its own comment says
+// so — and the delay is chosen one line after the count is incremented. Using
+// the count from before the increment gives every failure the delay belonging
+// to the previous one: the second waits the first's thirty seconds rather
+// than two minutes, and the twenty-minute arm is unreachable, because the
+// largest value that can arrive is three.
+//
+// The visible consequence is the whole schedule. Five attempts over roughly
+// half an hour is what docs/webhooks.md promises a subscriber; off by one it
+// is eight minutes, and a receiver that was restarting has lost its window.
+func TestTheDelayBetweenAttemptsGrowsAsDocumented(t *testing.T) {
+	f := newDeliveryFixture(t)
+	f.receiver.answer(http.StatusInternalServerError)
+	f.queue(webhook.EventUserDisabled)
+
+	for attempt, want := range []time.Duration{
+		30 * time.Second,
+		2 * time.Minute,
+		5 * time.Minute,
+		20 * time.Minute,
+	} {
+		before := store.Now()
+		f.dispatch()
+
+		row := f.delivery()
+		if row.NextAttemptAt == nil {
+			t.Fatalf("attempt %d: next_attempt_at is null, so it will never "+
+				"be retried", attempt+1)
+		}
+		got := row.NextAttemptAt.Sub(before)
+		// Generous either way: what is being asserted is which arm of the
+		// switch was chosen, and the arms are far enough apart that no
+		// plausible delay confuses two of them.
+		if got < want-5*time.Second || got > want+30*time.Second {
+			t.Errorf("after failure %d the next attempt is %s away, want about %s",
+				attempt+1, got.Round(time.Second), want)
+		}
+		f.dueNow()
+	}
+
+	// The fifth is the last. Spent, not scheduled.
+	f.dispatch()
+	row := f.delivery()
+	if row.Status != string(model.WebhookFailed) {
+		t.Errorf("status after the fifth attempt = %q, want FAILED", row.Status)
+	}
+	if row.NextAttemptAt != nil {
+		t.Error("a delivery that has spent its attempts is still scheduled")
+	}
+}
+
+// Nothing outlives the retention window, including a delivery that never
+// finished.
+//
+// A subscription paused while something was queued for it leaves those rows
+// pending: the worker skips a paused subscription without recording an
+// attempt, so they are never marked failed, and the sweep only removed rows
+// that were not pending. A subscription paused and forgotten therefore grew
+// this table for as long as the deployment lived, while the documentation
+// said deliveries are kept for thirty days.
+//
+// Thirty days is far past any retry — five attempts span under half an hour
+// — so a row still pending at that age is not waiting for anything.
+func TestAPausedSubscriptionsBacklogDoesNotOutliveRetention(t *testing.T) {
+	f := newDeliveryFixture(t)
+	f.receiver.answer(http.StatusInternalServerError)
+	f.queue(webhook.EventUserDisabled)
+
+	// Failed once, so it is pending a retry, and then the subscription is
+	// paused — which is what stops it ever being attempted again.
+	f.dispatch()
+	if row := f.delivery(); row.Status != string(model.WebhookPending) {
+		t.Fatalf("status = %q, want PENDING before pausing", row.Status)
+	}
+	if _, err := f.store.DB().ExecContext(context.Background(),
+		`UPDATE webhook_subscriptions SET status = 'DISABLED' WHERE id = $1`,
+		f.subID); err != nil {
+		t.Fatalf("pause the subscription: %v", err)
+	}
+
+	// Older than the retention window.
+	if _, err := f.store.DB().ExecContext(context.Background(),
+		`UPDATE webhook_deliveries SET created_at = now() - interval '31 days'
+		 WHERE subscription_id = $1`, f.subID); err != nil {
+		t.Fatalf("age the delivery: %v", err)
+	}
+
+	if err := f.svc.SweepDeliveries(context.Background(), f.tenantID, store.Now()); err != nil {
+		t.Fatalf("sweep: %v", err)
+	}
+
+	rows, err := f.store.ForTenant(f.tenantID).ListWebhookDeliveries(
+		context.Background(), f.subID, 10)
+	if err != nil {
+		t.Fatalf("list deliveries: %v", err)
+	}
+	if len(rows) != 0 {
+		t.Errorf("a delivery from 31 days ago survived the sweep (%d left) — "+
+			"it is pending against a paused subscription, so nothing will ever "+
+			"finish it and nothing was removing it", len(rows))
+	}
+}
+
 func TestARefusalIsNotTriedAgain(t *testing.T) {
 	f := newDeliveryFixture(t)
 	f.receiver.answer(http.StatusBadRequest)

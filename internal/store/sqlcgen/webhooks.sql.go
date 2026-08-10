@@ -103,7 +103,7 @@ func (q *Queries) CreateWebhookSubscription(ctx context.Context, arg CreateWebho
 
 const deleteOldWebhookDeliveries = `-- name: DeleteOldWebhookDeliveries :exec
 DELETE FROM webhook_deliveries
-WHERE tenant_id = $1 AND created_at < $2 AND status <> 'PENDING'
+WHERE tenant_id = $1 AND created_at < $2
 `
 
 type DeleteOldWebhookDeliveriesParams struct {
@@ -111,6 +111,15 @@ type DeleteOldWebhookDeliveriesParams struct {
 	CreatedAt time.Time
 }
 
+// Past the retention window, whatever state it reached.
+//
+// Pending used to be excluded, on the reasoning that a row still waiting is
+// a row with work left. At this age it is not: five attempts span under half
+// an hour, so anything pending thirty days later is pending against a
+// subscription that was disabled while it was queued — the worker skips
+// those without recording an attempt, so they are never marked failed and
+// nothing else would ever remove them. Excluding them meant one forgotten
+// subscription grew this table for the life of the deployment.
 func (q *Queries) DeleteOldWebhookDeliveries(ctx context.Context, arg DeleteOldWebhookDeliveriesParams) error {
 	_, err := q.db.ExecContext(ctx, deleteOldWebhookDeliveries, arg.TenantID, arg.CreatedAt)
 	return err

@@ -95,7 +95,13 @@ func (s *WebhookService) recordAttempt(ctx context.Context, q *store.Scoped, del
 		Status:     string(model.WebhookFailed),
 	}
 	if !giveUp {
-		next := now.Add(webhook.Backoff(delivery.Attempts))
+		// attempts, not delivery.Attempts: Backoff is indexed by the attempt
+		// that just failed, and that is the incremented one. The line above
+		// already uses it to decide whether there is a next attempt at all,
+		// so reading the pre-increment count here gave every failure the
+		// previous one's delay — and left the last arm of the switch
+		// unreachable, since the largest value that could arrive was three.
+		next := now.Add(webhook.Backoff(attempts))
 		params.Status = string(model.WebhookPending)
 		params.NextAttemptAt = &next
 	}
