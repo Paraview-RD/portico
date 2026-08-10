@@ -18,13 +18,13 @@
 package webhook
 
 import (
-	"context"
 	"errors"
 	"fmt"
 	"net"
 	"net/http"
 	"net/url"
 	"strings"
+	"syscall"
 	"time"
 )
 
@@ -126,23 +126,38 @@ func isSharedAddressSpace(ip net.IP) bool {
 // address being connected to is the address being checked, and there is no
 // window between the two.
 func NewClient(timeout time.Duration) *http.Client {
-	dialer := &net.Dialer{Timeout: 10 * time.Second, KeepAlive: 30 * time.Second}
-
-	transport := &http.Transport{
-		DialContext: func(ctx context.Context, network, address string) (net.Conn, error) {
+	dialer := &net.Dialer{
+		Timeout:   10 * time.Second,
+		KeepAlive: 30 * time.Second,
+		// Control, not Transport.DialContext.
+		//
+		// The two look interchangeable and are not. DialContext is handed the
+		// address out of the URL, with the host still a name; Control is
+		// called once per candidate address after resolution, with the
+		// address the socket is about to be connected to. Checking in
+		// DialContext meant net.ParseIP returned nil for every destination
+		// that was not already an IP literal, and the check was skipped —
+		// which is every destination this check exists for, since a URL
+		// holding a loopback literal is refused at registration and a name is
+		// the only thing that can resolve somewhere else afterwards.
+		Control: func(_, address string, _ syscall.RawConn) error {
 			host, _, err := net.SplitHostPort(address)
 			if err != nil {
-				return nil, err
+				return err
 			}
-			// Already resolved by the time the dialer is called: this is the
-			// literal address the connection is about to be made to.
-			if ip := net.ParseIP(host); ip != nil {
-				if err := checkIP(ip); err != nil {
-					return nil, err
-				}
+			ip := net.ParseIP(host)
+			if ip == nil {
+				// Unreachable: Control is called with a resolved address. If
+				// it ever is not, refusing is the safe direction.
+				return fmt.Errorf("%w: %s did not resolve to an address",
+					ErrDestinationNotAllowed, host)
 			}
-			return dialer.DialContext(ctx, network, address)
+			return checkIP(ip)
 		},
+	}
+
+	transport := &http.Transport{
+		DialContext:           dialer.DialContext,
 		TLSHandshakeTimeout:   10 * time.Second,
 		ResponseHeaderTimeout: 15 * time.Second,
 		// One connection per destination is plenty, and an idle pool of

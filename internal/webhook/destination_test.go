@@ -2,6 +2,7 @@ package webhook_test
 
 import (
 	"errors"
+	"net"
 	"net/http"
 	"net/http/httptest"
 	"strings"
@@ -130,6 +131,54 @@ func TestTheClientRefusesToConnectToALocalAddressWhateverTheNameSaid(t *testing.
 		t.Fatal("the client connected to a loopback address. A destination " +
 			"validated at registration can resolve somewhere else by the time " +
 			"anything is delivered, so the dialer is what has to refuse it.")
+	}
+	if !strings.Contains(err.Error(), "loopback") {
+		t.Errorf("refused for the wrong reason: %v", err)
+	}
+}
+
+// The same refusal, when the loopback address is reached by name.
+//
+// This is the case the check in the dialer exists for, and the only one it
+// can be needed for: a URL that already holds a loopback literal is refused
+// at registration and never gets this far. DNS rebinding needs a name — the
+// destination resolves somewhere public while it is being validated, and
+// somewhere internal by the time a delivery is made — so a check that only
+// looks at literals is a check that never runs when it matters.
+//
+// The test above passes a loopback literal and stands in for this one. It
+// cannot substitute for it: the two take different branches.
+func TestTheClientRefusesALoopbackAddressReachedByName(t *testing.T) {
+	t.Parallel()
+
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+		w.WriteHeader(http.StatusOK)
+	}))
+	defer server.Close()
+
+	// The same server, named rather than numbered. "localhost" is a name
+	// that resolves to a loopback address, which is exactly what a rebound
+	// destination looks like at the moment of delivery.
+	_, port, err := net.SplitHostPort(strings.TrimPrefix(server.URL, "http://"))
+	if err != nil {
+		t.Fatalf("split %s: %v", server.URL, err)
+	}
+	target := "http://localhost:" + port
+
+	client := webhook.NewClient(5 * time.Second)
+	req, err := http.NewRequest(http.MethodPost, target, strings.NewReader("{}"))
+	if err != nil {
+		t.Fatalf("build request: %v", err)
+	}
+
+	resp, err := client.Do(req)
+	if err == nil {
+		_ = resp.Body.Close()
+		t.Fatal("the client connected to a loopback address reached by name. " +
+			"The dialer checks net.ParseIP, which is nil for a hostname, so " +
+			"the address check is skipped for every destination that is not " +
+			"already an IP literal — which is every destination rebinding " +
+			"applies to.")
 	}
 	if !strings.Contains(err.Error(), "loopback") {
 		t.Errorf("refused for the wrong reason: %v", err)
