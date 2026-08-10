@@ -83,14 +83,26 @@ func (q *Queries) GetActiveSigningKey(ctx context.Context, tenantID string) (Oau
 const listPublishedSigningKeys = `-- name: ListPublishedSigningKeys :many
 SELECT id, tenant_id, algorithm, private_key, public_key, status, created_at, retired_at FROM oauth_signing_keys
 WHERE tenant_id = $1
+  AND (retired_at IS NULL OR retired_at > $2)
 ORDER BY created_at DESC
 `
+
+type ListPublishedSigningKeysParams struct {
+	TenantID  string
+	RetiredAt *time.Time
+}
 
 // Everything the JWKS advertises: the active key and any retired key whose
 // tokens may still be in flight. A relying party that fetched the key set
 // before a rotation must still be able to verify what it holds.
-func (q *Queries) ListPublishedSigningKeys(ctx context.Context, tenantID string) ([]OauthSigningKey, error) {
-	rows, err := q.db.QueryContext(ctx, listPublishedSigningKeys, tenantID)
+//
+// The cutoff is applied here rather than left to whatever prunes the rows,
+// so what the key set offers does not depend on a background job having run.
+// Without it a tenant that rotated once and never again advertised the key
+// it rotated away from for the life of the deployment — and rotating is
+// usually done precisely because that key should stop being trusted.
+func (q *Queries) ListPublishedSigningKeys(ctx context.Context, arg ListPublishedSigningKeysParams) ([]OauthSigningKey, error) {
+	rows, err := q.db.QueryContext(ctx, listPublishedSigningKeys, arg.TenantID, arg.RetiredAt)
 	if err != nil {
 		return nil, err
 	}

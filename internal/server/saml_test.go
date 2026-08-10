@@ -8,6 +8,7 @@ import (
 	"crypto/x509"
 	"crypto/x509/pkix"
 	"encoding/base64"
+	"encoding/json"
 	"encoding/xml"
 	"html"
 	"io"
@@ -226,6 +227,86 @@ func (s *testSP) parse(encoded string, requestID string) (*saml.Assertion, error
 		s.t.Fatalf("decode SAML response: %v", err)
 	}
 	return s.sp.ParseXMLResponse(decoded, []string{requestID}, s.sp.AcsURL)
+}
+
+// A retired signing key leaves the published key set once its tokens cannot
+// be in flight any more.
+//
+// Rotation is what prunes today, so a tenant that rotates once and never
+// again advertises the retired key for the life of the deployment. That is
+// the opposite of what rotating is for: the reason to rotate is usually that
+// the old key should stop being trusted, and a key set that keeps offering
+// it means every token it ever signed still verifies.
+//
+// Placed here rather than beside the other OIDC tests because it is about
+// what the key set contains, which is the same question the SAML metadata
+// test above asks about certificates.
+func TestARetiredSigningKeyLeavesTheKeySet(t *testing.T) {
+	f := newFederationTest(t)
+
+	// One key to start with, then a rotation: two rows, one of them retired.
+	before := f.publishedKeyIDs()
+	if len(before) != 1 {
+		t.Fatalf("a fresh tenant publishes %d keys, want 1", len(before))
+	}
+
+	p, err := provision.Open(f.cfg)
+	if err != nil {
+		t.Fatalf("open provisioner: %v", err)
+	}
+	if _, err := p.RotateSigningKey(context.Background(), model.DefaultTenantCode); err != nil {
+		_ = p.Close()
+		t.Fatalf("rotate: %v", err)
+	}
+	_ = p.Close()
+
+	if got := f.publishedKeyIDs(); len(got) != 2 {
+		t.Fatalf("straight after a rotation the key set has %d keys, want 2 — "+
+			"a token signed a moment ago still has to verify", len(got))
+	}
+
+	// Past the window in which anything it signed could still be alive.
+	if _, err := f.db.Exec(
+		`UPDATE oauth_signing_keys SET retired_at = now() - interval '25 hours'
+		 WHERE retired_at IS NOT NULL`); err != nil {
+		t.Fatalf("age the retired key: %v", err)
+	}
+
+	after := f.publishedKeyIDs()
+	if len(after) != 1 {
+		t.Errorf("a key retired 25 hours ago is still published (%d keys in the "+
+			"set, want 1). Nothing prunes it but another rotation, so a tenant "+
+			"that rotated once keeps offering the key it rotated away from.",
+			len(after))
+	}
+}
+
+// publishedKeyIDs reads the key set the way a relying party does.
+func (f *federationTest) publishedKeyIDs() []string {
+	f.t.Helper()
+
+	res, err := http.Get(f.publicURL + "/keys")
+	if err != nil {
+		f.t.Fatalf("fetch the key set: %v", err)
+	}
+	defer func() { _ = res.Body.Close() }()
+	if res.StatusCode != http.StatusOK {
+		f.t.Fatalf("the key set returned %d", res.StatusCode)
+	}
+
+	var set struct {
+		Keys []struct {
+			Kid string `json:"kid"`
+		} `json:"keys"`
+	}
+	if err := json.NewDecoder(res.Body).Decode(&set); err != nil {
+		f.t.Fatalf("decode the key set: %v", err)
+	}
+	ids := make([]string, 0, len(set.Keys))
+	for _, key := range set.Keys {
+		ids = append(ids, key.Kid)
+	}
+	return ids
 }
 
 // The whole flow, driven by a real service provider: metadata, an
@@ -743,6 +824,29 @@ func TestSAMLMetadataDescribesTheRunningServer(t *testing.T) {
 		// have a service provider send logout requests into a 404.
 		if len(idp.SingleLogoutServices) != 0 {
 			t.Error("the metadata advertises single logout, which is not implemented")
+		}
+
+		// The name identifier format has to be the one that gets sent.
+		//
+		// A service provider is configured from this document, and the
+		// format decides what it does with the identifier: persistent is a
+		// stable key it may store against its local record, transient is a
+		// throwaway it must not. The assertion carries persistent — the
+		// account id, chosen so a rename cannot split somebody in two — so a
+		// document advertising transient invites exactly the local mapping
+		// the persistent identifier exists to make possible.
+		//
+		// The library defaults this field, as it defaults three fields in
+		// the OpenID Connect discovery document. Those are corrected before
+		// publication; this one has to be too.
+		var formats []string
+		for _, format := range idp.NameIDFormats {
+			formats = append(formats, string(format))
+		}
+		if len(formats) != 1 || formats[0] != string(saml.PersistentNameIDFormat) {
+			t.Errorf("the metadata advertises NameID formats %v, want only %q — "+
+				"which is what an assertion actually carries",
+				formats, saml.PersistentNameIDFormat)
 		}
 	}
 }

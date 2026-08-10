@@ -363,9 +363,12 @@ func (s *Scoped) GetActiveSigningKey(ctx context.Context) (sqlcgen.OauthSigningK
 	return s.q.GetActiveSigningKey(ctx, s.tenantID)
 }
 
-// ListPublishedSigningKeys returns everything the JWKS advertises.
-func (s *Scoped) ListPublishedSigningKeys(ctx context.Context) ([]sqlcgen.OauthSigningKey, error) {
-	return s.q.ListPublishedSigningKeys(ctx, s.tenantID)
+// ListPublishedSigningKeys returns everything the JWKS advertises: the active
+// key, and any key retired more recently than notBefore.
+func (s *Scoped) ListPublishedSigningKeys(ctx context.Context, notBefore time.Time) ([]sqlcgen.OauthSigningKey, error) {
+	return s.q.ListPublishedSigningKeys(ctx, sqlcgen.ListPublishedSigningKeysParams{
+		TenantID: s.tenantID, RetiredAt: &notBefore,
+	})
 }
 
 // RetireSigningKeys marks the current key retired. It stays in the key set

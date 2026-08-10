@@ -586,12 +586,19 @@ func (s *Storage) setUserinfo(ctx context.Context, userinfo *oidc.UserInfo, subj
 				// Not verified: this version never asks anyone to prove an
 				// address, so claiming otherwise would be a lie a relying
 				// party might act on.
-				userinfo.EmailVerified = false
+				//
+				// Through AppendClaims rather than the field beside it. The
+				// field is tagged omitempty over a bool, so assigning false
+				// removes the claim from the document altogether — and a
+				// relying party that distinguishes "absent" from "false"
+				// then learns nothing, while discovery advertises the claim.
+				// Saying false is the whole point.
+				userinfo.AppendClaims("email_verified", false)
 			}
 		case oidc.ScopePhone:
 			if user.Phone != "" {
 				userinfo.PhoneNumber = user.Phone
-				userinfo.PhoneNumberVerified = false
+				userinfo.AppendClaims("phone_number_verified", false)
 			}
 		}
 	}

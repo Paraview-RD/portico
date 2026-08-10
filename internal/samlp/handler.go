@@ -50,7 +50,21 @@ func (p *Providers) Handler(mount string) http.Handler {
 // from: the entity id, the SSO endpoint, and the certificate assertions are
 // signed with.
 func (p *Providers) serveMetadata(w http.ResponseWriter, idp *saml.IdentityProvider) {
-	document, err := xml.MarshalIndent(idp.Metadata(), "", "  ")
+	descriptor := idp.Metadata()
+
+	// The library fills this in with transient, which is not what gets sent.
+	// Corrected here for the same reason three fields of the OpenID Connect
+	// discovery document are: a service provider reads this once, before
+	// anybody is watching, and configures itself from it. Transient tells it
+	// the identifier is a throwaway that must not be stored — while every
+	// assertion carries a persistent one, the account id, chosen precisely so
+	// that a service provider can key its own record on it.
+	for i := range descriptor.IDPSSODescriptors {
+		descriptor.IDPSSODescriptors[i].NameIDFormats =
+			[]saml.NameIDFormat{saml.PersistentNameIDFormat}
+	}
+
+	document, err := xml.MarshalIndent(descriptor, "", "  ")
 	if err != nil {
 		http.Error(w, "could not build metadata", http.StatusInternalServerError)
 		return

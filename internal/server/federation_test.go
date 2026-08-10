@@ -3,6 +3,7 @@ package server_test
 import (
 	"context"
 	"database/sql"
+	"encoding/base64"
 	"encoding/json"
 	"net/http"
 	"net/http/httptest"
@@ -330,6 +331,140 @@ func TestAuthorizationCodeFlowWithARelyingParty(t *testing.T) {
 	if info.PreferredUsername != adminUsername {
 		t.Errorf("userinfo preferred_username = %q, want %q", info.PreferredUsername, adminUsername)
 	}
+}
+
+// email_verified and phone_number_verified are stated, not omitted.
+//
+// Both are documented as always false, and both are advertised in
+// claims_supported. False is also the zero value of the field they are
+// assigned to, and that field is tagged omitempty — so assigning false
+// dropped them from the document entirely, and a relying party that
+// distinguishes "absent" from "false" was told nothing at all while
+// discovery said it would be told something.
+//
+// Asserted against the raw JSON on purpose: decoding into the library's
+// struct turns a missing claim into false, which is exactly the confusion
+// being tested for.
+func TestTheVerifiedClaimsAreStatedRatherThanOmitted(t *testing.T) {
+	f := newFederationTest(t)
+
+	adminToken := f.api.adminToken()
+	if res := f.api.do(http.MethodPost, "/api/v1/users", adminToken, map[string]string{
+		"username":    "claims.subject",
+		"displayName": "Claims Subject",
+		"email":       "claims.subject@example.test",
+		"phone":       "+442079460100",
+		"password":    "claims-password-1",
+		"role":        "USER",
+	}); res.Status != http.StatusOK {
+		t.Fatalf("create the account: %d %s %s", res.Status, res.Code, res.Message)
+	}
+
+	// Registered and asked for with the phone scope as well, since a claim
+	// only appears for a scope that was requested — without it the absence
+	// of phone_number_verified would be correct rather than the defect.
+	tenant, err := f.tenants.Resolve(context.Background(), model.DefaultTenantCode)
+	if err != nil {
+		t.Fatalf("resolve tenant: %v", err)
+	}
+	registered, err := f.clients.Register(context.Background(),
+		service.CommandLineActor(tenant.ID), service.RegisterClientInput{
+			ClientID:     "verified-claims",
+			Name:         "Verified Claims",
+			RedirectURIs: []string{"http://127.0.0.1:9999/callback"},
+			Scopes:       []string{"openid", "profile", "email", "phone"},
+		})
+	if err != nil {
+		t.Fatalf("register client: %v", err)
+	}
+
+	issuer := f.publicURL + "/t/" + model.DefaultTenantCode
+	party, err := rp.NewRelyingPartyOIDC(context.Background(), issuer,
+		registered.Client.ClientID, registered.Secret,
+		"http://127.0.0.1:9999/callback",
+		[]string{oidc.ScopeOpenID, oidc.ScopeProfile, oidc.ScopeEmail, oidc.ScopePhone})
+	if err != nil {
+		t.Fatalf("discovery: %v", err)
+	}
+
+	verifier := "a-code-verifier-long-enough-to-be-respectable"
+	authURL := rp.AuthURL("state-verified", party,
+		rp.WithCodeChallenge(oidc.NewSHACodeChallenge(verifier)))
+	code, _ := f.signIn(authURL, model.DefaultTenantCode, "claims.subject", "claims-password-1")
+
+	tokens, err := rp.CodeExchange[*oidc.IDTokenClaims](context.Background(), code, party,
+		rp.WithCodeVerifier(verifier))
+	if err != nil {
+		t.Fatalf("code exchange: %v", err)
+	}
+
+	for name, body := range map[string]map[string]any{
+		"the ID token": decodeJWTPayload(t, tokens.IDToken),
+		"userinfo":     f.rawUserinfo(issuer, tokens.AccessToken),
+	} {
+		for _, claim := range []string{"email_verified", "phone_number_verified"} {
+			value, present := body[claim]
+			if !present {
+				t.Errorf("%s carries no %s, though it is advertised in "+
+					"claims_supported and documented as always false — a relying "+
+					"party that tells absent from false learns nothing", name, claim)
+				continue
+			}
+			if value != false {
+				t.Errorf("%s has %s = %v, want false", name, claim, value)
+			}
+		}
+	}
+}
+
+// decodeJWTPayload reads a JWT's claims without verifying it. The signature
+// is checked elsewhere; what matters here is which keys are present.
+func decodeJWTPayload(t *testing.T, token string) map[string]any {
+	t.Helper()
+
+	parts := strings.Split(token, ".")
+	if len(parts) != 3 {
+		t.Fatalf("not a JWT: %d segments", len(parts))
+	}
+	raw, err := base64.RawURLEncoding.DecodeString(parts[1])
+	if err != nil {
+		t.Fatalf("decode the payload: %v", err)
+	}
+	var claims map[string]any
+	if err := json.Unmarshal(raw, &claims); err != nil {
+		t.Fatalf("parse the payload: %v", err)
+	}
+	return claims
+}
+
+// rawUserinfo reads the userinfo document as it goes over the wire.
+//
+// issuer rather than the root: a token minted under a tenant's issuer is
+// presented to that issuer's endpoints, and the root mount is a different
+// issuer over the same accounts.
+func (f *federationTest) rawUserinfo(issuer, accessToken string) map[string]any {
+	f.t.Helper()
+
+	req, err := http.NewRequest(http.MethodGet, issuer+"/userinfo", nil)
+	if err != nil {
+		f.t.Fatalf("build the userinfo request: %v", err)
+	}
+	req.Header.Set("Authorization", "Bearer "+accessToken)
+
+	res, err := http.DefaultClient.Do(req)
+	if err != nil {
+		f.t.Fatalf("userinfo: %v", err)
+	}
+	defer func() { _ = res.Body.Close() }()
+	if res.StatusCode != http.StatusOK {
+		f.t.Fatalf("userinfo returned %d", res.StatusCode)
+	}
+
+	var body map[string]any
+	if err := json.NewDecoder(res.Body).Decode(&body); err != nil {
+		f.t.Fatalf("decode userinfo: %v", err)
+	}
+	return body
 }
 
 // A code may be spent once. Replaying it is what an attacker who read a

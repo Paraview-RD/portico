@@ -112,7 +112,10 @@ func (s *SigningKeyService) Published(ctx context.Context, tenantID string) ([]S
 		return nil, err
 	}
 
-	rows, err := s.store.ForTenant(tenantID).ListPublishedSigningKeys(ctx)
+	// Retired longer ago than the retention window means nothing it signed
+	// can still be alive, so publishing it only keeps an old key trusted.
+	rows, err := s.store.ForTenant(tenantID).ListPublishedSigningKeys(
+		ctx, store.Now().Add(-SigningKeyRetention))
 	if err != nil {
 		return nil, fmt.Errorf("list signing keys: %w", err)
 	}
