@@ -410,12 +410,86 @@ Not implemented: proxy tickets, and CAS 1.0 `/validate`, whose bare
 
 ## Trying it locally
 
+Register an application and ask the server what it advertises:
+
 ```bash
-portico client register --id demo --name Demo --public \
-  --redirect-uri http://127.0.0.1:9999/callback
+portico client register --id mock-sp --name "Mock SP" --public \
+  --redirect-uri http://localhost:8413/oidc/callback
 
 curl -s http://localhost:8410/.well-known/openid-configuration | jq
 ```
+
+`examples/mock-sp` is the other half: a relying party with a browser
+interface, so that a sign-in can be watched rather than only asserted.
+
+```bash
+go run ./examples/mock-sp
+```
+
+Then open <http://localhost:8413> and choose OpenID Connect. It leaves for
+Portico's sign-in screen and comes back to a page showing the ID token's
+claims and the userinfo response side by side.
+
+Three details decide whether that works first time, and each fails in a way
+that looks like something else:
+
+- **The redirect URI must match to the character.** The one registered above,
+  the one `mock-sp` sends, and the address the browser reaches are the same
+  string or the sign-in ends in `invalid_request`. `localhost` and
+  `127.0.0.1` are different strings even though they are the same host.
+- **`PORTICO_PUBLIC_URL` must be the address the browser uses.** It is the
+  issuer, discovery is built from it, and a relying party checks that what
+  came back matches what it asked for. Pointing at a server whose public URL
+  says something else fails during discovery, at start-up.
+- **The scopes requested must be scopes the client was registered with.**
+  Both default to `openid profile email`. Ask for `offline_access` — which is
+  what gets you a refresh token — and register the client with it too.
+
+### The other two protocols
+
+`mock-sp` speaks all three. SAML and CAS each need one registration. The CAS
+one could be run at any time — it is a URL prefix, knowable in advance — but
+SAML's takes a document the program generates, so start it once first:
+
+```bash
+go run ./examples/mock-sp        # writes .mock-sp/, prints the two commands
+
+portico sp register --metadata .mock-sp/saml-metadata.xml --name "Mock SP"
+portico cas register --url http://localhost:8413/cas/ --name "Mock SP"
+```
+
+The SAML and CAS pages work from that moment — no restart. Registration is
+state on Portico's side, and `mock-sp` holds none of it.
+
+`sp register` takes a **file** here rather than the metadata URL the program
+serves, because `--metadata` refuses plain `http`: that document names where
+assertions get delivered, so anybody on the path could point them elsewhere.
+The key behind it is kept in `.mock-sp/` and reused across runs — Portico
+encrypts an assertion to whatever encryption key the registered metadata
+published, so a program that generated a fresh key each start would have to
+be re-registered each time, and the symptom of forgetting would be a
+decryption failure rather than anything naming the cause.
+
+The CAS registration is a **prefix**, and it has to cover the service URL the
+program sends: `http://localhost:8413/cas/` covers
+`http://localhost:8413/cas/callback`. Watch the ticket on the page at the
+end, then reload — it is refused, because a service ticket is good for one
+validation.
+
+For another tenant, give the issuer its path and register everything there:
+
+```bash
+portico client register --tenant acme --id mock-sp --name "Mock SP" --public \
+  --redirect-uri http://localhost:8413/oidc/callback
+
+go run ./examples/mock-sp --issuer http://localhost:8410/t/acme
+```
+
+Each protocol is set up independently, so one that cannot start says so on
+the home page and leaves the other two working. It is a development tool and
+not part of a deployment — nothing in [integrations.md](integrations.md)
+changes by running it, because it makes no connection Portico did not already
+make.
 
 The complete flow, driven by a real relying-party library, is in
 [internal/server/federation_test.go](https://github.com/Paraview-RD/portico/blob/main/internal/server/federation_test.go) —

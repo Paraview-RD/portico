@@ -335,12 +335,75 @@ portico cas disable --url https://wiki.example.com/
 
 ## 本地试一下
 
+注册一个应用，再问服务器它对外声明了什么：
+
 ```bash
-portico client register --id demo --name Demo --public \
-  --redirect-uri http://127.0.0.1:9999/callback
+portico client register --id mock-sp --name "Mock SP" --public \
+  --redirect-uri http://localhost:8413/oidc/callback
 
 curl -s http://localhost:8410/.well-known/openid-configuration | jq
 ```
+
+`examples/mock-sp` 是另一半：一个**带浏览器界面的依赖方**，好让一次登录能被看见，而不
+只是被断言。
+
+```bash
+go run ./examples/mock-sp
+```
+
+然后打开 <http://localhost:8413> 并选择 OpenID Connect。它会离开到 Portico 的登录页，
+再回到一个把 ID 令牌的声明与 userinfo 响应**并排摆出来**的页面。
+
+有三处细节决定它能不能一次跑通，而**每一处出错时看起来都像是别的问题**：
+
+- **重定向 URI 必须逐字符相同。** 上面注册的那个、`mock-sp` 发出的那个、浏览器实际访
+  问的那个，是同一个字符串，否则登录会以 `invalid_request` 收场。`localhost` 与
+  `127.0.0.1` 是同一台主机，**但不是同一个字符串**。
+- **`PORTICO_PUBLIC_URL` 必须是浏览器用的那个地址。** 它就是签发者标识，发现文档由它
+  构造，而依赖方会核对拿回来的和自己问的是否一致。指向一台公开 URL 写着别的地址的服务
+  器，会在**发现阶段、也就是启动时**就失败。
+- **请求的 scope 必须是该客户端注册过的 scope。** 两边的默认值都是
+  `openid profile email`。要 `offline_access`——也就是要刷新令牌——就得在注册时也带上它。
+
+### 另外两个协议
+
+`mock-sp` 三个协议都说。SAML 与 CAS 各需要注册一次。CAS 那条什么时候跑都行——它是一段
+URL 前缀，事先就知道；但 **SAML 那条要用到程序生成的一份文档**，所以先启动一次：
+
+```bash
+go run ./examples/mock-sp        # 写出 .mock-sp/，并打印下面这两条命令
+
+portico sp register --metadata .mock-sp/saml-metadata.xml --name "Mock SP"
+portico cas register --url http://localhost:8413/cas/ --name "Mock SP"
+```
+
+**从这一刻起 SAML 与 CAS 页面就能用了，不需要重启**——注册是 Portico 那一侧的状态，
+`mock-sp` 一点都不缓存它。
+
+逐步操作指引见 [`examples/mock-sp/README.zh.md`](https://github.com/Paraview-RD/portico/blob/main/examples/mock-sp/README.zh.md)。
+
+这里 `sp register` 收的是**文件**，而不是程序自己提供的那个 metadata URL，因为
+`--metadata` 拒绝明文 `http`：那份文档写明了断言被送到哪里，**路径上的任何人都能把它改
+到别处**。它背后的密钥留在 `.mock-sp/` 里、跨运行复用——Portico 会用已注册 metadata 里
+公布的那把加密密钥去加密断言，所以一个每次启动都换新密钥的程序，每次都得重新注册一遍，
+而忘了重新注册时的症状是**一个解密失败**，不是任何能说清原因的东西。
+
+CAS 那条注册的是**前缀**，它必须覆盖程序发出的 service URL：
+`http://localhost:8413/cas/` 覆盖 `http://localhost:8413/cas/callback`。留意最后那个页面
+上的票据，然后刷新一次——它会被拒绝，**因为一张服务票只够验证一次**。
+
+换一个租户，就给签发者加上它的路径，并把东西都注册到那里：
+
+```bash
+portico client register --tenant acme --id mock-sp --name "Mock SP" --public \
+  --redirect-uri http://localhost:8413/oidc/callback
+
+go run ./examples/mock-sp --issuer http://localhost:8410/t/acme
+```
+
+三个协议各自独立初始化，所以**起不来的那个会在首页上说明原因，另外两个照常可用**。它是
+开发期工具，**不是部署的一部分**——跑它不会让 [integrations.md](integrations.md) 有任何
+变化，因为它不产生任何 Portico 本来就不会产生的连接。
 
 由一个真实的依赖方库驱动的完整流程在
 [internal/server/federation_test.go](https://github.com/Paraview-RD/portico/blob/main/internal/server/federation_test.go)

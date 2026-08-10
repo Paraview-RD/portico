@@ -6,6 +6,16 @@
 
 # Build artifact and database from the README's own instructions
 /portico
+# `go build ./...` writes every main package's binary to the working
+# directory, so the example lands here too — nobody asked for it and it is
+# 40MB.
+/mock-sp
+# The example's SAML key, certificate, and metadata document. The key has to
+# survive a restart — Portico encrypts assertions to whatever key the
+# registered metadata published — so it is written to disk, and a private
+# key in a repository is a private key in a repository even when it is a
+# demonstration's.
+/.mock-sp/
 /portico.db
 /portico.db-shm
 /portico.db-wal
