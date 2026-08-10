@@ -6,6 +6,11 @@ walks an account through every hop and asserts at each one.
 This is for contributors. It is not in the manual the binary ships — an
 operator has no dev stack — which is why this page is excluded from the site.
 
+It runs in CI as its own job — see the `walkthrough` job in
+`.github/workflows/ci.yml`, which starts the same compose file. The three
+federation steps are skipped there until `examples/mock-sp` is committed, and
+the run says so rather than passing quietly for having found nothing to do.
+
 ## Running it
 
 ```bash
@@ -78,6 +83,14 @@ generates a new `entryUUID`, so what returns is a different entry sharing a
 username, correctly skipped rather than reactivated. To make somebody leave
 and return, move the entry out of the base DN and back — which is what
 `ou=archive` in the seed is for.
+
+**`/ready` is not "ready enough" to create a tenant against.** It answers as
+soon as the database is reachable, which is true while migrations are still
+running and before the first tenant exists. A run against a fresh database
+failed once with `TENANT_NOT_FOUND` for a tenant the CLI had just created and
+the database really held; it did not reproduce. CI therefore waits until the
+server can actually sign somebody in, which is the signal that says
+migrations ran and the bootstrap finished.
 
 **A failed run still answers 200.** The sync endpoint returns the run record,
 and a run that failed is a run that was successfully recorded. The outcome is
