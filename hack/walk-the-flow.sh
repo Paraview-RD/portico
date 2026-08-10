@@ -443,7 +443,13 @@ api PUT /api/v1/settings "$TOKEN" \
 
 say "Take the directory out as a spreadsheet"
 
-EXPORT=$(mktemp -t portico-export).xlsx
+# An explicit template rather than `mktemp -t portico-export`, because -t
+# means two different things. BSD mktemp treats the argument as a prefix and
+# appends randomness; GNU mktemp treats it as a template and refuses one with
+# fewer than three X's — so the form that works on the laptop this was written
+# on dies on the runner with "too few X's in template". Passing the full path
+# with the X's spelled out is the one spelling both agree on.
+EXPORT=$(mktemp "${TMPDIR:-/tmp}/portico-export.XXXXXX").xlsx
 "${CURL[@]}" -H "Authorization: Bearer $TOKEN" \
   "$PORTICO_URL/api/v1/users/export" -o "$EXPORT"
 

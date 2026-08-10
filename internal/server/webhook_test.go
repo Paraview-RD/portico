@@ -21,6 +21,14 @@ import (
 // dialer refuses local addresses, which is the point of it — so these tests
 // exercise everything up to and including the queue, and the signing and
 // destination rules have their own tests in internal/webhook.
+//
+// Subscriptions below are registered against a literal address from RFC
+// 5737's documentation range rather than a hostname. Registering resolves the
+// destination, so a hostname makes every test here depend on whoever is
+// answering DNS: these once used hooks.example.com, which does not exist, and
+// so they failed in CI with `400 INVALID_WEBHOOK_URL` — a webhook test
+// reporting a DNS fact. What they are about is the queue and the secret, and
+// a literal address takes the branch that never resolves anything.
 
 func TestSubscribingRefusesDestinationsThatWouldReachInside(t *testing.T) {
 	api := newAPITest(t)
@@ -52,7 +60,7 @@ func TestTheSecretIsReturnedOnceAndNotListed(t *testing.T) {
 	admin := api.adminToken()
 
 	resp := api.do(http.MethodPost, "/api/v1/webhooks", admin, map[string]any{
-		"name": "billing", "url": "https://hooks.example.com/portico",
+		"name": "billing", "url": "https://203.0.113.10/portico",
 		"events": []string{"*"},
 	})
 	if resp.Status != http.StatusOK {
@@ -83,7 +91,7 @@ func TestAnEventIsQueuedForASubscriberThatSelectedIt(t *testing.T) {
 	admin := api.adminToken()
 
 	resp := api.do(http.MethodPost, "/api/v1/webhooks", admin, map[string]any{
-		"name": "directory-sync", "url": "https://hooks.example.com/portico",
+		"name": "directory-sync", "url": "https://203.0.113.10/portico",
 		"events": []string{webhook.EventUserCreated},
 	})
 	var created struct {
@@ -121,7 +129,7 @@ func TestASubscriberOnlyGetsWhatItSelected(t *testing.T) {
 	// that receives everything regardless of its selection is worse than no
 	// filter at all: the subscriber has said what it can handle.
 	resp := api.do(http.MethodPost, "/api/v1/webhooks", admin, map[string]any{
-		"name": "org-only", "url": "https://hooks.example.com/orgs",
+		"name": "org-only", "url": "https://203.0.113.10/orgs",
 		"events": []string{webhook.EventOrgCreated},
 	})
 	var created struct {
@@ -150,7 +158,7 @@ func TestAPausedSubscriptionIsNotQueuedFor(t *testing.T) {
 	admin := api.adminToken()
 
 	resp := api.do(http.MethodPost, "/api/v1/webhooks", admin, map[string]any{
-		"name": "paused", "url": "https://hooks.example.com/paused",
+		"name": "paused", "url": "https://203.0.113.10/paused",
 		"events": []string{"*"},
 	})
 	var created struct {

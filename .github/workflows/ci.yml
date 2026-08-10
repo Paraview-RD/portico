@@ -49,7 +49,18 @@ jobs:
           fi
 
       - run: go vet ./...
-      - run: go test -race ./...
+
+      # -timeout, because the default is ten minutes and internal/server
+      # needs about nine of them under -race on a developer's machine. That
+      # is not a margin, it is a coin toss: the same commit passes or panics
+      # with `test timed out` depending on how loaded the runner is, and the
+      # panic names whichever test was unlucky enough to be running.
+      #
+      # Raising the ceiling stops the false alarm; it does not make the suite
+      # fast. Nine minutes for one package is worth shortening on its own,
+      # and this line is what keeps that a scheduling decision rather than an
+      # intermittently red main.
+      - run: go test -race -timeout 25m ./...
 
       - uses: golangci/golangci-lint-action@v8
         with:

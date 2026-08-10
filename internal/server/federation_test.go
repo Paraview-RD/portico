@@ -765,6 +765,25 @@ func TestDiscoveryDescribesWhatIsActuallyImplemented(t *testing.T) {
 
 	// Every endpoint it names must answer. A document that points at a path
 	// nothing serves is the failure this test exists for.
+	//
+	// Redirects are not followed, and that is the whole correctness of this
+	// loop. `end_session` answers a bare GET with 302 to the sign-in screen,
+	// which is what RP-initiated logout is supposed to do — and a client that
+	// follows it lands on /login, a path served by the embedded SPA. So with
+	// a redirect-following client this test asks "is the frontend built?"
+	// while claiming to ask "is this endpoint mounted?": green from a
+	// developer's tree, red in CI, where the backend job never runs
+	// `npm run build` and dist holds nothing but .gitkeep. The failure named
+	// end_session_endpoint and the cause was three layers away.
+	//
+	// What this is checking is that the path is routed. A 302, a 400, a 401
+	// all establish that; only 404 says nothing is there.
+	probeClient := &http.Client{
+		CheckRedirect: func(*http.Request, []*http.Request) error {
+			return http.ErrUseLastResponse
+		},
+	}
+
 	for _, field := range []string{
 		"authorization_endpoint", "token_endpoint", "userinfo_endpoint",
 		"introspection_endpoint", "revocation_endpoint", "end_session_endpoint",
@@ -775,7 +794,7 @@ func TestDiscoveryDescribesWhatIsActuallyImplemented(t *testing.T) {
 			t.Errorf("%s is missing from the discovery document", field)
 			continue
 		}
-		probe, err := http.Get(endpoint)
+		probe, err := probeClient.Get(endpoint)
 		if err != nil {
 			t.Errorf("%s (%s): %v", field, endpoint, err)
 			continue

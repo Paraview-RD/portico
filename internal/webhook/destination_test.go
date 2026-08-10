@@ -59,15 +59,48 @@ func TestDestinationsThatWouldTurnThisIntoAProxyAreRefused(t *testing.T) {
 	}
 }
 
-func TestAnOrdinaryPublicDestinationIsAccepted(t *testing.T) {
+// The rules have to leave the actual use case working, which is the half a
+// deny-list gets wrong: a check strict enough to refuse everything is not a
+// check, it is an outage.
+//
+// Split in two because the two halves can fail for unrelated reasons, and
+// only one of them is about this package. `ValidateDestination` resolves a
+// name before judging its addresses, so a test that hands it a hostname is
+// also testing whoever is answering DNS. This one used to name
+// hooks.example.com — a subdomain that does not exist, so the test asserted
+// that a lookup failure was not a lookup failure. It passed anyway on any
+// machine behind a DNS proxy that answers everything, and failed in CI where
+// the name genuinely does not resolve.
+func TestAnOrdinaryPublicAddressIsAccepted(t *testing.T) {
 	t.Parallel()
 
-	// The rules have to leave the actual use case working, which is the half
-	// a deny-list gets wrong: a check strict enough to refuse everything is
-	// not a check, it is an outage.
-	if err := webhook.ValidateDestination("https://hooks.example.com/portico"); err != nil {
+	// RFC 5737 reserves this range for documentation, so it is a public
+	// address that is guaranteed never to be anybody's real server. A literal
+	// address takes the branch that skips resolution, which is what makes
+	// this half deterministic: it needs no network and no DNS at all.
+	if err := webhook.ValidateDestination("https://203.0.113.10/portico"); err != nil {
 		t.Errorf("a public https destination was refused: %v", err)
 	}
+}
+
+func TestAPublicHostnameIsAccepted(t *testing.T) {
+	t.Parallel()
+
+	// example.com rather than a subdomain of it: IANA reserves the name and
+	// publishes an address for it, so it is the one hostname that can be
+	// counted on to resolve to something public.
+	err := webhook.ValidateDestination("https://example.com/portico")
+	if err == nil {
+		return
+	}
+	// A machine with no DNS — offline, or an isolated build container — must
+	// not read as this package refusing a legitimate destination. Skipping
+	// says "not checked here" where a failure would have said "broken", and
+	// the difference cost an afternoon once already.
+	if strings.Contains(err.Error(), "does not resolve") {
+		t.Skip("example.com does not resolve here, so the hostname path is untested")
+	}
+	t.Errorf("a public https destination was refused: %v", err)
 }
 
 // The dialer is the check that survives DNS rebinding: a name that resolved
