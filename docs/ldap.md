@@ -21,7 +21,11 @@ Directory deployments cannot.
 Users. Not groups, not organizations, not passwords.
 
 - **Created** when an entry appears that this source has not seen before.
-- **Updated** when the display name, email, or phone changes.
+  A source may name an organization, and the accounts it creates are filed
+  there. That is the only time it is applied: a later run will not move
+  somebody an administrator has moved, because the directory says who
+  somebody is and where they belong is decided here.
+- **Updated** when the display name, email, phone, or username changes.
 - **Deactivated** when an entry stops appearing.
 - **Reactivated** when it appears again — a directory that is the source of
   truth has to be able to say somebody is back.

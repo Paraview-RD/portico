@@ -123,6 +123,13 @@ func (s *Scoped) UpdateUserProfile(ctx context.Context, arg sqlcgen.UpdateUserPr
 	return s.q.UpdateUserProfile(ctx, arg)
 }
 
+// RenameUser writes the username alone, for a directory that renamed an
+// account it owns.
+func (s *Scoped) RenameUser(ctx context.Context, arg sqlcgen.RenameUserParams) error {
+	arg.TenantID = s.tenantID
+	return s.q.RenameUser(ctx, arg)
+}
+
 // UpdateUserStatus enables or disables an account, revoking live sessions
 // on disable.
 func (s *Scoped) UpdateUserStatus(ctx context.Context, arg sqlcgen.UpdateUserStatusParams) error {

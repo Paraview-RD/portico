@@ -58,6 +58,24 @@ SET display_name = $1,
     updated_at = $6
 WHERE tenant_id = $7 AND id = $8;
 
+-- name: RenameUser :exec
+-- The username on its own, for a directory that renamed an account.
+--
+-- Separate from UpdateUserProfile because that one deliberately does not
+-- write the username: in the console a rename is an administrator's decision
+-- about somebody else's account, and a form that submitted every field would
+-- carry one along by accident. A synchronized account is the other case —
+-- the directory is the system of record, the external id is what says two
+-- entries are the same person, and declining its rename leaves the two sides
+-- permanently disagreeing with every later run attempting the same change.
+--
+-- Only the username, so that everything a synchronization is not allowed to
+-- decide — role, organization, status — is unreachable from here.
+UPDATE users
+SET username = $1,
+    updated_at = $2
+WHERE tenant_id = $3 AND id = $4;
+
 -- name: UpdateUserStatus :exec
 -- Disabling bumps token_version so any live session stops working at once.
 UPDATE users

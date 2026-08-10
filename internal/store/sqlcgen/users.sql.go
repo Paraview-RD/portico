@@ -774,6 +774,42 @@ func (q *Queries) RecordFailedLogin(ctx context.Context, arg RecordFailedLoginPa
 	return i, err
 }
 
+const renameUser = `-- name: RenameUser :exec
+UPDATE users
+SET username = $1,
+    updated_at = $2
+WHERE tenant_id = $3 AND id = $4
+`
+
+type RenameUserParams struct {
+	Username  string
+	UpdatedAt time.Time
+	TenantID  string
+	ID        string
+}
+
+// The username on its own, for a directory that renamed an account.
+//
+// Separate from UpdateUserProfile because that one deliberately does not
+// write the username: in the console a rename is an administrator's decision
+// about somebody else's account, and a form that submitted every field would
+// carry one along by accident. A synchronized account is the other case —
+// the directory is the system of record, the external id is what says two
+// entries are the same person, and declining its rename leaves the two sides
+// permanently disagreeing with every later run attempting the same change.
+//
+// Only the username, so that everything a synchronization is not allowed to
+// decide — role, organization, status — is unreachable from here.
+func (q *Queries) RenameUser(ctx context.Context, arg RenameUserParams) error {
+	_, err := q.db.ExecContext(ctx, renameUser,
+		arg.Username,
+		arg.UpdatedAt,
+		arg.TenantID,
+		arg.ID,
+	)
+	return err
+}
+
 const reopenUserAccount = `-- name: ReopenUserAccount :exec
 UPDATE users
 SET closed_at = NULL, updated_at = $1

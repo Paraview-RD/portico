@@ -729,7 +729,7 @@ func (s *DirectoryService) runSync(ctx context.Context, tenantID, sourceID strin
 
 		existing, known := byExternalID[entry.ExternalID]
 		if known {
-			changed, err := s.updateFromDirectory(ctx, actor, existing, entry, row)
+			changed, err := s.updateFromDirectory(ctx, actor, existing, entry)
 			if err != nil {
 				counts.skipped++
 				counts.skips.record(entry.Username, err)
@@ -813,17 +813,30 @@ func (s *DirectoryService) createFromDirectory(ctx context.Context, tenantID, so
 	return true, nil
 }
 
-func (s *DirectoryService) updateFromDirectory(ctx context.Context, actor auth.Principal, existing sqlcgen.User, entry directory.Entry, row sqlcgen.LdapSource) (bool, error) {
+func (s *DirectoryService) updateFromDirectory(ctx context.Context, actor auth.Principal, existing sqlcgen.User, entry directory.Entry) (bool, error) {
+	// Whatever it is now, which for an existing account is this side's
+	// decision. A source names an organization so that the accounts it
+	// *creates* land somewhere; reasserting it on every run would undo an
+	// administrator's move the next time anything else about that person
+	// changed — surviving until then, and then silently not. The directory
+	// says who somebody is; where they belong is answered here.
 	organizationID := ""
-	if row.OrganizationID != nil {
-		organizationID = *row.OrganizationID
-	} else if existing.OrganizationID != nil {
+	if existing.OrganizationID != nil {
 		organizationID = *existing.OrganizationID
 	}
 
 	sameDetails := existing.DisplayName == entry.DisplayName &&
 		existing.Email == entry.Email &&
 		existing.Phone == entry.Phone
+
+	// A rename is its own change, and its own statement. The details above go
+	// through UserService.Update, which does not write a username — in the
+	// console a rename is an administrator's decision, and the form that
+	// edits somebody would otherwise carry one along. Here the directory is
+	// the system of record: the external id already said this is the same
+	// person, so declining the new name would leave the two sides
+	// permanently disagreeing, with every later run attempting it again.
+	renamed := existing.Username != entry.Username
 
 	// An account the directory still lists is an account that should work
 	// here, so a previous deactivation is undone. That is the whole point of
@@ -832,8 +845,23 @@ func (s *DirectoryService) updateFromDirectory(ctx context.Context, actor auth.P
 	// controls would fight.
 	reactivate := existing.Status != string(model.StatusActive)
 
-	if sameDetails && !reactivate {
+	if sameDetails && !renamed && !reactivate {
 		return false, nil
+	}
+
+	if renamed {
+		q := s.store.ForTenant(actor.TenantID)
+		if err := q.RenameUser(ctx, sqlcgen.RenameUserParams{
+			ID: existing.ID, Username: entry.Username, UpdatedAt: store.Now(),
+		}); err != nil {
+			// A name the directory has moved onto somebody else's account
+			// here. Reported as the collision it is, so the entry is skipped
+			// with a reason rather than failing the run.
+			if taken := takenFieldError(err); taken != nil {
+				return false, taken
+			}
+			return false, fmt.Errorf("rename user: %w", err)
+		}
 	}
 
 	if !sameDetails {

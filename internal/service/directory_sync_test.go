@@ -158,6 +158,124 @@ func TestSyncCreatesThenUpdatesRatherThanDuplicating(t *testing.T) {
 	}
 }
 
+// A rename of the username itself lands, for the same reason a display-name
+// change does.
+//
+// The test above renames the display name and keeps the uid; this renames
+// the uid and keeps everything else. Both are "a rename" to whoever did it
+// in the directory, and the external id is what says they are the same
+// person — which is the entire argument for reconciling on it.
+//
+// The SCIM side already learned this: writing a provisioned account through
+// a call that does not carry a username silently dropped the rename, and
+// every later run tried the same change again while the two sides stayed
+// permanently different.
+func TestSyncCarriesAUsernameRename(t *testing.T) {
+	f := newSyncFixture(t)
+
+	f.directory.entries = []directory.Entry{entryFor("lisi", "李四", "uuid-rename")}
+	if run := f.sync(); run.CreatedCount != 1 {
+		t.Fatalf("first run created %d, want 1 (%s)", run.CreatedCount, run.Error)
+	}
+
+	// Same person, same external id, new uid — an administrator renamed the
+	// account in the directory.
+	f.directory.entries = []directory.Entry{entryFor("lisi2", "李四", "uuid-rename")}
+	second := f.sync()
+
+	if second.CreatedCount != 0 {
+		t.Errorf("a username rename created %d accounts, want 0 — "+
+			"reconciliation is not matching on the external id", second.CreatedCount)
+	}
+
+	users, _, err := f.users.List(context.Background(), f.tenantID, UserQuery{}, Page{Limit: 100})
+	if err != nil {
+		t.Fatalf("list users: %v", err)
+	}
+	var names []string
+	for _, u := range users {
+		names = append(names, u.Username)
+	}
+	if len(users) != 1 {
+		t.Fatalf("after a rename there are %d accounts (%s), want 1",
+			len(users), strings.Join(names, ", "))
+	}
+	if users[0].Username != "lisi2" {
+		t.Errorf("username = %q, want %q — the directory renamed the account "+
+			"and this side kept the old name, so the two are now permanently "+
+			"out of step and every later run will try the same change again",
+			users[0].Username, "lisi2")
+	}
+}
+
+// A synchronization does not move somebody an administrator has moved.
+//
+// A source may name an organization, and accounts it creates are filed
+// there — that is what the field is for. What it must not do is reassert it
+// on every run: the directory is the system of record for who somebody is,
+// and an organization here is a decision about where they belong, which is
+// this side's to make. Reasserting it means a console change survives until
+// the next time anything else about that person changes, and then silently
+// does not.
+func TestSyncDoesNotMoveSomebodyAnAdministratorMoved(t *testing.T) {
+	f := newSyncFixture(t)
+	ctx := context.Background()
+
+	orgs := NewOrganizationService(f.store, NewAuditService(f.store))
+	fromDirectory, err := orgs.Create(ctx, f.actor, OrganizationInput{Name: "Head office", Code: "head"})
+	if err != nil {
+		t.Fatalf("create organization: %v", err)
+	}
+	movedTo, err := orgs.Create(ctx, f.actor, OrganizationInput{Name: "Support", Code: "support"})
+	if err != nil {
+		t.Fatalf("create organization: %v", err)
+	}
+
+	if _, err := f.svc.Update(ctx, f.actor, f.sourceID, LDAPSourceInput{
+		Name: "Head office", Host: "ldap.example.test", Port: 389,
+		Encryption: directory.EncryptionNone,
+		BaseDN:     "dc=example,dc=org", UserFilter: "(objectClass=inetOrgPerson)",
+		AttrUsername: "uid", AttrDisplayName: "cn", AttrEmail: "mail",
+		AttrExternalID: "entryUUID",
+		OrganizationID: fromDirectory.ID,
+	}); err != nil {
+		t.Fatalf("point the source at an organization: %v", err)
+	}
+
+	f.directory.entries = []directory.Entry{entryFor("ravi", "Ravi", "uuid-move")}
+	if run := f.sync(); run.CreatedCount != 1 {
+		t.Fatalf("first run created %d, want 1 (%s)", run.CreatedCount, run.Error)
+	}
+	created := f.user("ravi")
+	if created.OrganizationID != fromDirectory.ID {
+		t.Fatalf("a created account is filed under %q, want the source's organization %q",
+			created.OrganizationID, fromDirectory.ID)
+	}
+
+	// An administrator moves them, in the console.
+	if _, err := f.users.Update(ctx, f.actor, created.ID, UpdateUserInput{
+		DisplayName: created.DisplayName, Email: created.Email, Phone: created.Phone,
+		Role: created.Role, OrganizationID: movedTo.ID,
+	}); err != nil {
+		t.Fatalf("move the account: %v", err)
+	}
+
+	// The directory changes something unrelated, which is what makes the run
+	// touch this account at all.
+	f.directory.entries = []directory.Entry{entryFor("ravi", "Ravi Patel", "uuid-move")}
+	f.sync()
+
+	after := f.user("ravi")
+	if after.DisplayName != "Ravi Patel" {
+		t.Errorf("display name = %q, want the directory's new value", after.DisplayName)
+	}
+	if after.OrganizationID != movedTo.ID {
+		t.Errorf("organization = %q, want %q — the synchronization put them back "+
+			"where the source says, undoing an administrator's decision",
+			after.OrganizationID, movedTo.ID)
+	}
+}
+
 // An account that stops appearing is deactivated — that is the contract.
 func TestAccountThatVanishesFromTheDirectoryIsDeactivated(t *testing.T) {
 	f := newSyncFixture(t)
