@@ -200,6 +200,12 @@ Working toward 0.2.0. See
 - It runs in CI on main, on a tag, and on request — deliberately not on pull
   requests, where two container images and a server would be spent protecting
   something other than the change in front of the reviewer.
+- **The accounts in no organization at all can be asked for**, through the
+  reserved value `none` on the same filter. The question could not be put
+  before: an empty value already means "every organization", so the people
+  nobody has filed anywhere — which is precisely who somebody goes looking
+  for — were the one group unreachable from the control meant to find
+  groups. `none` cannot collide with a real organization, whose id is a UUID.
 - Webhook delivery is now tested against a server that actually receives it,
   which was the one hop in that chain nothing covered. The rules for
   registering a destination are tested where they live and everything up to
@@ -209,6 +215,19 @@ Working toward 0.2.0. See
 
 ### Changed
 
+- **Filtering the user list by organization now means that organization and
+  everything under it.** It was an exact match, which is defensible on its
+  own and wrong the moment the filter is reached from a chart: picking a
+  division and being shown only the handful of people filed directly against
+  the division itself, rather than everybody in it, reads as a defect and not
+  as a distinction. The narrower question has not been asked; the broader one
+  is asked constantly. The subtree is resolved inside the same statement as
+  the count and the page, so somebody reparenting a department mid-request
+  cannot produce a total that disagrees with the rows beneath it.
+- The export shares that filter, and now has a test that opens the workbook
+  and compares it with the listing rather than trusting the two to agree for
+  having called the same function. "Export what I am looking at" is a claim
+  the documentation makes; this is what makes it true rather than intended.
 - **The module path and the container image moved to the address this project
   is actually at.** `github.com/paraview/portico` was a name only the compiler
   ever saw and a repository that does not exist for everybody else: `go

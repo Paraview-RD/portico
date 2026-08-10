@@ -171,13 +171,32 @@ func (s *UserService) Get(ctx context.Context, tenantID, userID string) (model.U
 	return users[0], nil
 }
 
+// UnassignedOrganization is what OrganizationID is set to in order to ask
+// for the people who are in no organization at all.
+//
+// An empty string cannot express it, because an empty string already means
+// "every organization" — so before this existed there was no way to ask the
+// question, and the accounts nobody has filed anywhere are exactly the ones
+// somebody goes looking for. Safe as a reserved value because organization
+// ids are UUIDs (see OrganizationService.Create) and can never be this.
+const UnassignedOrganization = "none"
+
 // UserQuery filters a user listing.
 type UserQuery struct {
 	// Keyword matches the username or display name (§3.1).
 	Keyword string
-	// Status, Role, and OrganizationID are exact filters; empty means all.
-	Status         model.Status
-	Role           model.Role
+	// Status and Role are exact filters; empty means all.
+	Status model.Status
+	Role   model.Role
+	// OrganizationID selects an organization and everything under it, not
+	// that one organization alone. Empty means all of them, and
+	// UnassignedOrganization means the people in none.
+	//
+	// The subtree is the whole point: this filter is reached from a tree, and
+	// picking a division and being shown only the handful of people filed
+	// directly against the division itself — rather than everybody in it —
+	// reads as a defect rather than as a distinction. The narrower question
+	// has never been asked; the broader one is asked constantly.
 	OrganizationID string
 }
 
@@ -200,8 +219,48 @@ func (s *UserService) List(ctx context.Context, tenantID string, q UserQuery, pa
 	if q.Role != "" {
 		f.Add("role = %s", string(q.Role))
 	}
-	if q.OrganizationID != "" {
-		f.Add("organization_id = %s", q.OrganizationID)
+	switch {
+	case q.OrganizationID == UnassignedOrganization:
+		f.Add("organization_id IS NULL")
+	case q.OrganizationID != "":
+		// The subtree, resolved in the same statement rather than in a
+		// round trip of its own, so the count and the page can never be
+		// answered against two different shapes of the chart — somebody
+		// reparenting a department between the two would otherwise produce
+		// a total that disagrees with the rows under it.
+		//
+		// Both tenant predicates in here are redundancy, and it is worth
+		// saying so rather than leaving somebody to assume they are what
+		// keeps this walk inside the tenant. What actually does is the outer
+		// query: users is filtered on tenant_id, and users.organization_id
+		// carries a composite foreign key into (tenant_id, id), so an
+		// organization belonging to another tenant cannot match a row this
+		// query can see even if the walk below hands it one. The recursive
+		// term is covered twice over, because organizations has the same
+		// composite key on (tenant_id, parent_id) — a child in another
+		// tenant is a row the database refuses rather than one to filter
+		// out. Removing either predicate leaves every test here passing;
+		// that was measured, not assumed.
+		//
+		// They stay because they cost nothing, and because somebody asking
+		// "can this leave the tenant" should be able to answer from the
+		// query instead of from two migrations and a join. The tenant is
+		// bound explicitly rather than written as $1 on the knowledge that
+		// tenantFilters puts it there, for the same reason: that knowledge
+		// is true today and is a poor thing to depend on silently.
+		//
+		// Depth is bounded by resolveParent refusing cycles, so the
+		// recursion terminates on any chart this server will accept.
+		f.Add(`organization_id IN (
+			WITH RECURSIVE subtree(id) AS (
+				SELECT id FROM organizations WHERE tenant_id = %s AND id = %s
+				UNION ALL
+				SELECT child.id FROM organizations child
+				  JOIN subtree ON child.parent_id = subtree.id
+				 WHERE child.tenant_id = %s
+			)
+			SELECT id FROM subtree
+		)`, tenantID, q.OrganizationID, tenantID)
 	}
 
 	clause := f.And()

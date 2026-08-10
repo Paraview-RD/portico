@@ -526,9 +526,7 @@ paths:
         - name: role
           in: query
           schema: { $ref: "#/components/schemas/Role" }
-        - name: organizationId
-          in: query
-          schema: { type: string }
+        - $ref: "#/components/parameters/OrganizationFilter"
       responses:
         "200":
           description: An .xlsx workbook.
@@ -1153,9 +1151,7 @@ paths:
         - name: role
           in: query
           schema: { $ref: "#/components/schemas/Role" }
-        - name: organizationId
-          in: query
-          schema: { type: string }
+        - $ref: "#/components/parameters/OrganizationFilter"
       responses:
         "200":
           description: A page of accounts.
@@ -2801,6 +2797,23 @@ components:
       name: pageSize
       in: query
       schema: { type: integer, minimum: 1, default: 20 }
+    OrganizationFilter:
+      name: organizationId
+      in: query
+      schema: { type: string }
+      description: |
+        An organization **and everything under it**, rather than that one
+        organization alone. This filter is reached from a chart, and picking
+        a division there means the division: being shown only the handful of
+        people filed directly against the division itself reads as a defect
+        rather than as a distinction.
+
+        Omit it for every organization. The reserved value `none` asks for
+        the accounts that are in no organization at all — a question an
+        empty value cannot ask, because an empty value already means "all".
+        It cannot collide with a real organization, whose id is a UUID.
+
+        An id naming nothing matches nobody, not everybody.
     TenantHeader:
       name: X-Portico-Tenant
       in: header
