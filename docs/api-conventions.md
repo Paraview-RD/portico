@@ -49,6 +49,25 @@ standard verb behavior:
 | PUT   | Full replace of a resource                                   |
 | PATCH | Partial update                                               |
 
+**`PUT /settings` is the one exception, and it is deliberate.** It overlays
+what the request carried and leaves the rest as they are, which is PATCH's
+behaviour under PUT's name. The reason is that several of those settings
+treat zero as a meaningful value rather than as absence: nought lockout
+attempts switches lockout off, nought days of session age removes the cap on
+a refresh chain, nought days of audit retention keeps everything, and an
+empty default locale means "follow the deployment". Under a true replace,
+any client that omitted a field — a script written against half the object,
+a form that grew a section — would silently turn those off. The distinction
+between "not sent" and "sent as zero" is a safety property here, and a
+pointer per field is what preserves it.
+
+`TestOmittedSettingsAreLeftAlone` holds it, so this is a property rather than
+an accident of the handler — a change that made the endpoint replace would
+fail with a message saying which control it switched off.
+
+Renaming it to PATCH would be the tidy answer and is a breaking change for
+every existing caller. It is worth doing the next time this API takes one.
+
 **`DELETE` is absent for anything the audit trail names.** Users,
 organizations, and application registrations are disabled instead, so an
 entry recorded a year ago still points at something that exists. Disabling

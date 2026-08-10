@@ -1689,10 +1689,22 @@ paths:
     put:
       tags: [Settings]
       operationId: updateSettings
-      summary: Replace this tenant's settings.
+      summary: Update this tenant's settings.
       description: |
-        A full replace, so send the whole object. `passwordMinLength` has a
-        floor no policy can lower.
+        Every field is optional and only what you send is changed — this
+        endpoint overlays rather than replacing, which is the one place in
+        this API where PUT does not mean a full replace.
+
+        That is deliberate. Several of these treat zero as a value rather
+        than as absence: `lockoutThreshold` 0 switches lockout off,
+        `oidcSessionMaxAgeDays` 0 removes the cap on a refresh chain,
+        `auditRetentionDays` 0 keeps everything, and `defaultLocale` ""
+        means "follow the deployment". Under a true replace, omitting a
+        field would silently turn those off, so "not sent" and "sent as
+        zero" have to be different things.
+
+        Send only what you are changing. `passwordMinLength` has a floor no
+        policy can lower.
       requestBody:
         required: true
         content:
