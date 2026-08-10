@@ -59,8 +59,9 @@ By making a contribution to this project, I certify that:
 
 ## Getting started
 
-Prerequisites: **Go 1.25.7+** (a dependency sets that floor), **Node 22+**,
-and — only if you change a SQL query — [`sqlc`](https://sqlc.dev).
+Prerequisites: **Go 1.26+** (what `go.mod` declares, and what the release
+image builds with), **Node 22+**, and — only if you change a SQL query —
+[`sqlc`](https://sqlc.dev).
 
 ```bash
 git clone https://github.com/Paraview-RD/portico.git

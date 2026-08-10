@@ -44,7 +44,7 @@ What is worth an alert:
 | `portico_account_lockouts_total` | Counted where a lock is *applied*. A spike is either an attack or a policy set too tight for real people. |
 | `portico_sign_in_attempts_total{outcome="password_expired"}` | Only interesting just after enabling expiry, when it tells you how many people are about to contact you at once. |
 | `portico_db_connections_wait_total` | Pool exhaustion, which presents as everything being slow with no errors and no slow query to find. This is the metric that names it. |
-| `portico_http_requests_total{status="5xx"}` | Client disconnects are reported as `499` and are excluded from this, so a rise here is real. |
+| `portico_http_requests_total{status=~"5.."}` | The label holds the exact code, so this has to be a regular expression — `status="5xx"` matches no series at all and the alert built on it never fires. Client disconnects are reported as `499` and fall outside it, so a rise here is real. |
 
 Every series is initialised to zero at startup, so `rate(...)` returns zero
 rather than nothing on a quiet instance — an alert can tell "no failed
@@ -101,7 +101,15 @@ committed `.env`. `.env.example` lists the variable names only.
 
 ## First run
 
-1. Start the server (`./portico`, or `docker compose -f deploy/docker-compose.yml up -d`).
+1. Start the server. `./portico` needs `PORTICO_DB_DSN`; compose needs
+   `POSTGRES_PASSWORD` and `PORTICO_JWT_SECRET` exported first, and stops
+   naming whichever is missing rather than defaulting one:
+
+    ```bash
+    export POSTGRES_PASSWORD=$(openssl rand -hex 16)
+    export PORTICO_JWT_SECRET=$(openssl rand -hex 32)
+    docker compose -f deploy/docker-compose.yml up -d
+    ```
 2. Read the startup log for the generated administrator password, unless you
    set one.
 3. Open the UI, sign in, and change that password from **My profile**.

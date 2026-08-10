@@ -143,7 +143,8 @@ PORTICO_DB_DSN=postgres://portico:portico@localhost:5432/portico?sslmode=disable
 PORTICO_JWT_SECRET=$(openssl rand -hex 32) ./portico
 ```
 
-Requires Go 1.25.7+ (a dependency sets that floor) and Node 22+.
+Requires Go 1.26+ and Node 22+. That is what `go.mod` declares and what the
+release image builds with, so it is one answer rather than three.
 
 ### Docker
 
@@ -157,9 +158,10 @@ docker compose -f deploy/docker-compose.yml up -d
 
 Configuration is entirely environment variables — see
 [.env.example](.env.example) for the full list. Every one has a working
-default except `PORTICO_JWT_SECRET`, which you should set explicitly:
-without it a random secret is generated per start and every session dies on
-restart.
+default except `PORTICO_DB_DSN`, which has none: unset, the server says so
+and exits. Set `PORTICO_JWT_SECRET` explicitly too — it does not stop a
+start, but without it a random secret is generated per start and every
+session dies on restart.
 
 ### Tenants
 

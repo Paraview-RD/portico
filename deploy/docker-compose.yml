@@ -3,8 +3,13 @@
 # federation protocols came in, and a file-backed database is no longer the
 # right trade.
 #
+#   export POSTGRES_PASSWORD=$(openssl rand -hex 16)
 #   export PORTICO_JWT_SECRET=$(openssl rand -hex 32)
 #   docker compose -f deploy/docker-compose.yml up -d
+#
+# Both are required and neither has a default: the password below is written
+# with `:?`, so compose stops and says which one is missing rather than
+# bringing up a database whose password came from a file in this repository.
 #
 # On first start the server creates an administrator and prints a generated
 # password once, to stderr. Set PORTICO_INITIAL_ADMIN_PASSWORD to choose it.

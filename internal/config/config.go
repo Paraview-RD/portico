@@ -1,10 +1,16 @@
 // Package config loads runtime configuration from environment variables.
 //
-// Every setting has a usable default so that running the binary with no
-// environment at all starts a working single-node instance. The only
-// exception is PORTICO_JWT_SECRET: a random secret is generated at startup
-// when it is unset, which is fine for a first run but invalidates all
-// tokens on restart, so production deployments must set it explicitly.
+// Every setting has a usable default except PORTICO_DB_DSN, which has none
+// and cannot: a connection string for somebody else's database is not
+// something to guess. Unset, the server reports it and exits at startup.
+//
+// PORTICO_JWT_SECRET is the other one to set deliberately, though it does
+// not stop a start: a random secret is generated when it is unset, which is
+// fine for a first run and invalidates every token on restart.
+//
+// An earlier version of this comment said an empty environment started a
+// working instance. That was true while storage was a file; it stopped being
+// true when it moved to PostgreSQL.
 package config
 
 import (

@@ -24,10 +24,40 @@ that still covers a checkout without it.
 docker compose -f deploy/dev-stack/compose.yml up -d --wait
 
 go build -o portico ./cmd/server
-PORTICO_DB_DSN=… PORTICO_ENCRYPTION_KEY=… ./portico      # in another terminal
 
-./hack/walk-the-flow.sh
+# In another terminal. The address is set explicitly because the walkthrough
+# has to be pointed at the same one, and PORTICO_PUBLIC_URL has to match it
+# too — it is the OIDC issuer, and a relying party checks that what came back
+# is what it asked for.
+PORTICO_ADDR=127.0.0.1:8410 \
+PORTICO_PUBLIC_URL=http://127.0.0.1:8410 \
+PORTICO_DB_DSN=… \
+PORTICO_JWT_SECRET=$(openssl rand -hex 32) \
+PORTICO_ENCRYPTION_KEY=$(openssl rand -hex 32) \
+PORTICO_SMTP_HOST=127.0.0.1 PORTICO_SMTP_PORT=1026 \
+PORTICO_SMTP_ENCRYPTION=none PORTICO_SMTP_FROM=portico@example.test \
+  ./portico
+
+# And the walkthrough, pointed at the same address and the same database.
+PORTICO_URL=http://127.0.0.1:8410 PORTICO_DB_DSN=… ./hack/walk-the-flow.sh
 ```
+
+There is no database in the compose file, on purpose: you point it at one you
+already have. Give it an empty one — the run creates a tenant of its own and
+leaves the rest alone, but migrations run at startup and a scratch database
+is the cheap way to keep that off anything you care about.
+
+The rest are not optional either, and each fails in its own way if left out:
+
+- **`PORTICO_URL` defaults to a port this file does not use**, so the
+  walkthrough looks for a server that is not there and stops at its first
+  step saying so.
+- **`PORTICO_PUBLIC_URL` has to equal the address a browser uses.** It is the
+  issuer; the federation steps drive a real relying party, which checks that
+  the issuer it got back is the one it asked for.
+- **The SMTP settings**, because the registration and recovery steps send
+  mail. Without a relay the server reports recovery as unavailable, which is
+  correct behaviour and a stopped walkthrough.
 
 Everything binds to `127.0.0.1`. A directory with a published bind password
 and an inbox with no authentication are both fine on a laptop and neither is

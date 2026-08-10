@@ -42,10 +42,17 @@ source code.
 
 ## Defaults
 
-**Every setting has a working default except the signing secret.** Running
-the binary with an empty environment starts a working instance — that is
-the first-run experience, and making it depend on getting six variables
-right would waste the goodwill of anyone evaluating it.
+**Every setting has a working default except the database.** One variable
+stands between an empty environment and a running instance —
+`PORTICO_DB_DSN`, which has no default and cannot have one: a connection
+string for somebody else's database is not something to guess. Unset, the
+server says so and exits rather than starting half-configured.
+
+That is the whole of the required configuration, and the number matters:
+a first run that depended on getting six variables right would waste the
+goodwill of anyone evaluating it. The signing secret is the one other
+setting to choose deliberately, though it does not stop a start — unset, a
+random one is generated and every token dies on restart.
 
 Defaults are chosen so the *unconfigured* state is the *safe* state:
 

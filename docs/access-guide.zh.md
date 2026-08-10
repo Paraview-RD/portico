@@ -39,7 +39,7 @@
 | `portico_account_lockouts_total` | 在锁**生效**的地方计数。骤增要么是攻击，要么是策略对真人来说定得太紧。 |
 | `portico_sign_in_attempts_total{outcome="password_expired"}` | 只在刚打开密码有效期时有意思——它告诉你有多少人即将同时来找你。 |
 | `portico_db_connections_wait_total` | 连接池耗尽。它表现为"什么都慢、没有报错、也找不到慢查询"，而这个指标是唯一叫得出它名字的东西。 |
-| `portico_http_requests_total{status="5xx"}` | 客户端断连被记为 `499` 并从这里排除，所以这里上涨是真的。 |
+| `portico_http_requests_total{status=~"5.."}` | 这个 label 里是**精确的状态码**，所以只能用正则——`status="5xx"` 匹配不到任何一条序列，照它写的告警永远不会触发。客户端断连被记为 `499`，落在这个正则之外，所以这里上涨是真的。 |
 
 每条时间序列在启动时都初始化为零，这样安静的实例上 `rate(...)` 返回的是零而不是
 什么都没有——告警可以据此区分"没有失败登录"和"根本没在上报"。
@@ -89,7 +89,15 @@ Portico 自己保存账号——MVP 里没有外部身份提供方。
 
 ## 第一次运行
 
-1. 启动服务（`./portico`，或 `docker compose -f deploy/docker-compose.yml up -d`）。
+1. 启动服务。`./portico` 需要 `PORTICO_DB_DSN`；compose 则需要先导出
+   `POSTGRES_PASSWORD` 与 `PORTICO_JWT_SECRET`——**两个都没有默认值**，缺哪个它就
+   停下来说哪个，而不是替你填一个：
+
+    ```bash
+    export POSTGRES_PASSWORD=$(openssl rand -hex 16)
+    export PORTICO_JWT_SECRET=$(openssl rand -hex 32)
+    docker compose -f deploy/docker-compose.yml up -d
+    ```
 2. 如果你没有自己设密码，去启动日志里读那个生成的管理员密码。
 3. 打开界面登录，然后在**个人中心**改掉那个密码。改密码会让你退出登录——这是预期
    行为，因为一次改密会撤销所有既有令牌。
