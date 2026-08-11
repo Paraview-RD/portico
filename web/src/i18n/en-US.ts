@@ -382,6 +382,9 @@ export const enUS = {
   "settings.oidcSessionMaxAge": "Maximum session age (days)",
   "settings.oidcSessionMaxAgeHelp":
     "How long a refresh chain may continue, counted from the original sign-in rather than the last refresh; past it, signing in again is required. Zero switches it off and is the default — because refreshing renews itself, no limit means an integration that keeps calling never has to sign in again. Raising it above zero will end sessions that are working when they reach the limit, so turn it on deliberately.",
+  "settings.showGuides": "Show the explanation on each screen",
+  "settings.showGuidesHelp":
+    "The panel at the top of the administrative screens, saying what each one is for. Turn it off once your operators know the product. Each panel can also be collapsed individually, which is remembered per browser rather than for everybody.",
   "settings.registrationEnabled": "Allow self-service registration",
   "settings.registrationHelp":
     "When off, only administrators can create accounts. New accounts always get the User role.",

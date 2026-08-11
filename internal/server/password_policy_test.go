@@ -1,6 +1,7 @@
 package server_test
 
 import (
+	"database/sql"
 	"net/http"
 	"testing"
 	"time"
@@ -365,5 +366,56 @@ func TestOwnProfileSaysWhenThisPasswordStopsWorking(t *testing.T) {
 		t.Errorf("passwordExpiresAt = %s, in the future, for a password the "+
 			"sign-in path already refuses; the warning and the refusal have "+
 			"to agree", expires)
+	}
+}
+
+// The guide panels can be switched off for the whole tenant, and the switch
+// has to survive being saved.
+//
+// Its own test because the partial-update guard above cannot catch the way
+// this one breaks. A settings field is wired in five places, and omitting
+// the one that writes it to the store leaves a value that reads back
+// correctly for the rest of the request and is gone on the next load — so a
+// round trip through the API is the only thing that notices.
+func TestTurningOffTheGuidePanelsSticks(t *testing.T) {
+	api := newAPITest(t)
+	admin := api.adminToken()
+
+	var initial struct {
+		ShowGuides bool `json:"showGuides"`
+	}
+	api.do(http.MethodGet, "/api/v1/settings", admin, nil).into(t, &initial)
+	if !initial.ShowGuides {
+		t.Error("guides are off by default; a deployment nobody has configured " +
+			"is exactly the one whose operators have never seen these screens")
+	}
+
+	res := api.do(http.MethodPut, "/api/v1/settings", admin,
+		map[string]any{"showGuides": false})
+	if res.Status != http.StatusOK {
+		t.Fatalf("turn off: %d %s %s", res.Status, res.Code, res.Message)
+	}
+
+	// Read out of the table rather than back through the API, and this is
+	// the whole point of the test. Update writes the row and then puts the
+	// new value straight into an in-memory cache, so a GET afterwards is
+	// answered from that cache — a field missing from the map that builds the
+	// row reads back correctly for the life of the process and is gone after
+	// a restart. Asking the store is the only way to see the difference.
+	db, err := sql.Open("pgx", api.dsn)
+	if err != nil {
+		t.Fatalf("open: %v", err)
+	}
+	defer func() { _ = db.Close() }()
+
+	var stored string
+	err = db.QueryRow(
+		`SELECT value FROM system_settings WHERE key = 'show_guides'`).Scan(&stored)
+	if err != nil {
+		t.Fatalf("show_guides was never written to the store: %v", err)
+	}
+	if stored != "false" {
+		t.Errorf("stored value is %q; the switch would come back on at the "+
+			"next restart", stored)
 	}
 }

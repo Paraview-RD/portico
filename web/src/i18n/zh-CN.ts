@@ -359,6 +359,9 @@ export const zhCN: Record<keyof typeof enUS, string> = {
   "settings.oidcSessionMaxAge": "最长会话时长（天）",
   "settings.oidcSessionMaxAgeHelp":
     "从最初那次登录算起，整条刷新链最长能延续多久，到点必须重新登录。填 0 表示不限制，也是默认值——因为刷新会不断续期，不限制意味着一个持续调用的集成可以永不重新登录。改成非 0 值会在到期时把正在正常工作的会话挤下线，请按需开启。",
+  "settings.showGuides": "在各页顶部显示说明",
+  "settings.showGuidesHelp":
+    "管理页面顶部那块「这屏是做什么的」。等你的运维熟悉本产品后可以关掉。单个面板也可以各自折叠，那是按浏览器记住的，只影响你自己。",
   "settings.registrationEnabled": "开放用户自主注册",
   "settings.registrationHelp":
     "关闭后只能由管理员创建账号。自主注册的账号一律为普通用户。",

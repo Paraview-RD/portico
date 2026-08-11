@@ -1,8 +1,15 @@
 import { render, screen } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
-import { describe, expect, it, vi } from "vitest";
+import { beforeEach, describe, expect, it, vi } from "vitest";
 
 import { LanguageProvider } from "../i18n";
+/** What useOptionalSession returns; null means "outside a provider". */
+let session: { showGuides: boolean } | null = null;
+vi.mock("../session", () => ({ useOptionalSession: () => session }));
+beforeEach(() => {
+  session = null;
+});
+
 import { AppIcon, Field, GuidePanel, Input, Modal } from "./ui";
 
 /**
@@ -230,5 +237,47 @@ describe("a guide panel's structure", () => {
 
     expect(screen.getByText("Just one sentence, no points.")).toBeTruthy();
     expect(screen.queryByRole("list")).toBeNull();
+  });
+});
+
+/**
+ * The tenant-wide switch that turns the guide panels off.
+ *
+ * Nothing at all, not a collapsed header. A tenant that asked for the screen
+ * without the introduction still has it if a row saying "Guide ›" is left
+ * behind — same line, same invitation to click.
+ *
+ * The session is mocked rather than stood up: SessionProvider fetches an
+ * account on mount, and this is a test of one primitive's rendering. It also
+ * keeps SessionContext unexported, which is what stops anything else reading
+ * the session without going through the hook.
+ */
+describe("the guide panel switch", () => {
+  it("shows the panel when nothing has said otherwise", () => {
+    // No session at all, which is how these primitives render in isolation.
+    render(
+      <LanguageProvider>
+        <GuidePanel id="switch-default" title="Guide">
+          {"Lead."}
+        </GuidePanel>
+      </LanguageProvider>,
+    );
+
+    expect(screen.getByText("Lead.")).toBeTruthy();
+  });
+
+  it("renders nothing at all when the tenant has turned them off", () => {
+    session = { showGuides: false };
+    render(
+      <LanguageProvider>
+        <GuidePanel id="switch-off" title="Guide">
+          {"Lead."}
+        </GuidePanel>
+      </LanguageProvider>,
+    );
+
+    expect(screen.queryByText("Lead.")).toBeNull();
+    // The header too. A collapsed panel is still a panel.
+    expect(screen.queryByRole("button", { name: /Guide/ })).toBeNull();
   });
 });

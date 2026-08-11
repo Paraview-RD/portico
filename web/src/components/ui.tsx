@@ -32,6 +32,7 @@ import {
 } from "react";
 
 import { docsUrl, useLanguage, useT } from "../i18n";
+import { useOptionalSession } from "../session";
 import { ChevronRightIcon, CloseIcon, GuideIcon } from "./icons";
 
 function cx(...classes: (string | false | undefined | null)[]): string {
@@ -805,6 +806,9 @@ export function GuidePanel({
   docsPage?: string;
 }) {
   const { language, t } = useLanguage();
+  // Optional, because this renders outside a session in the component
+  // tests, and shown by default when there is nothing to ask.
+  const showGuides = useOptionalSession()?.showGuides ?? true;
   const storageKey = `portico.guide.${id}`;
 
   // Read during initialization rather than in an effect: an effect would
@@ -831,6 +835,16 @@ export function GuidePanel({
   };
 
   const bodyId = `${storageKey}.body`;
+
+  // Nothing at all rather than a collapsed header. The tenant asked for the
+  // screen without the introduction, and leaving a row that says "Guide ›"
+  // is still the introduction, taking up the same line and inviting the same
+  // click.
+  //
+  // After the hooks above, never before: returning early past a useState is
+  // how a component starts rendering with somebody else's state the first
+  // time this value changes.
+  if (!showGuides) return null;
 
   return (
     <section

@@ -183,6 +183,11 @@ export interface Settings {
 
   registrationEnabled: boolean;
   /**
+   * Offers the explanatory panel at the top of each administrative screen.
+   * Tenant-wide; each panel is separately collapsible per browser.
+   */
+  showGuides: boolean;
+  /**
    * Requires a self-registered account to confirm its address before it can
    * sign in. Turning it on is refused where the deployment cannot send one.
    */

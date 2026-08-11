@@ -18,13 +18,28 @@ import {
 } from "react";
 import type { ReactNode } from "react";
 
-import { authApi, userApi } from "./api/endpoints";
+import { authApi, settingsApi, userApi } from "./api/endpoints";
 import { setSessionEndedHandler, tenantStore, tokenStore } from "./api/client";
 import type { User } from "./api/types";
 import { hasStoredLanguage, matchLanguage, useLanguage } from "./i18n";
 
 interface SessionValue {
   user: User | null;
+  /**
+   * Whether the tenant offers the explanatory panel at the top of each
+   * administrative screen.
+   *
+   * Held here rather than fetched by each panel: seven screens each asking
+   * would be seven requests for one boolean, and a panel that rendered
+   * before its answer arrived would flash the explanation at somebody whose
+   * tenant has switched it off — which is precisely what they switched off.
+   *
+   * True until told otherwise, and true for anybody who cannot read
+   * settings. Only administrators see these panels at all, so the fallback
+   * costs nothing; defaulting the other way would hide them from every
+   * deployment that has never set it.
+   */
+  showGuides: boolean;
   /** True until the stored token has been checked against the server. */
   loading: boolean;
   /** Set when the previous session ended unexpectedly, for the login page. */
@@ -64,6 +79,21 @@ export function SessionProvider({ children }: { children: ReactNode }) {
   const [user, setUser] = useState<User | null>(null);
   const [loading, setLoading] = useState(true);
   const [expired, setExpired] = useState(false);
+  const [showGuides, setShowGuides] = useState(true);
+
+  // Asked for only where it can be answered. Settings are administrator-only
+  // and so are every screen these panels appear on, so a non-administrator
+  // asking would get a 403 for a value they will never use.
+  const loadGuidePreference = useCallback(async (account: User) => {
+    if (account.role !== "SUPER_ADMIN") return;
+    try {
+      const settings = await settingsApi.get();
+      setShowGuides(settings.showGuides);
+    } catch {
+      // Left on. A panel nobody asked to hide is a smaller failure than an
+      // explanation missing from a screen somebody has never seen.
+    }
+  }, []);
 
   const endSession = useCallback(() => {
     tokenStore.clear();
@@ -87,7 +117,9 @@ export function SessionProvider({ children }: { children: ReactNode }) {
       return;
     }
     try {
-      setUser(await userApi.me());
+      const account = await userApi.me();
+      setUser(account);
+      void loadGuidePreference(account);
     } catch {
       // The client already cleared the token for auth failures; any other
       // error means we cannot confirm the session, so treat it as signed out.
@@ -121,6 +153,7 @@ export function SessionProvider({ children }: { children: ReactNode }) {
 
       const account = await userApi.me();
       setUser(account);
+      void loadGuidePreference(account);
 
       // The account's own language, but only where this browser has not been
       // told one. A person who picked English here should not have it
@@ -176,6 +209,7 @@ export function SessionProvider({ children }: { children: ReactNode }) {
   const value = useMemo(
     () => ({
       user,
+      showGuides,
       loading,
       expired,
       signIn,
@@ -186,6 +220,7 @@ export function SessionProvider({ children }: { children: ReactNode }) {
     }),
     [
       user,
+      showGuides,
       loading,
       expired,
       signIn,
@@ -199,6 +234,19 @@ export function SessionProvider({ children }: { children: ReactNode }) {
   return (
     <SessionContext.Provider value={value}>{children}</SessionContext.Provider>
   );
+}
+
+/**
+ * The session if there is one, and null outside a provider.
+ *
+ * For the UI primitives, which have to render on their own — a component
+ * test mounting one control should not have to stand up a session, and a
+ * primitive that throws without one is a primitive that cannot be tested in
+ * isolation. Everything that genuinely needs a session uses useSession and
+ * still gets the error.
+ */
+export function useOptionalSession(): SessionValue | null {
+  return useContext(SessionContext);
 }
 
 export function useSession(): SessionValue {
