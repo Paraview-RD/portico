@@ -155,6 +155,31 @@ func ClientIP(r *http.Request) string {
 	return host
 }
 
+// ContentSecurityPolicy is the policy this server sends, with extra sources
+// appended to script-src and nothing else changed.
+//
+// One function so there is one policy. The manual served under /docs needs
+// script-src to admit a set of hashes the application does not, and the way
+// that goes wrong is a second policy written out beside this one that then
+// misses whatever is added here later — a frame-ancestors, a connect-src for
+// a new endpoint. Callers vary the one directive they have a reason to vary
+// and inherit the rest.
+//
+// Called with no arguments this is the application's own policy: the SPA is
+// served from this origin with no CDN and no inline scripts of its own, so
+// script-src 'self' costs it nothing. style-src allows inline because the
+// bundler emits a style element.
+func ContentSecurityPolicy(extraScriptSources ...string) string {
+	scriptSrc := "'self'"
+	if len(extraScriptSources) > 0 {
+		scriptSrc += " " + strings.Join(extraScriptSources, " ")
+	}
+	return "default-src 'self'; script-src " + scriptSrc + "; " +
+		"style-src 'self' 'unsafe-inline'; " +
+		"img-src 'self' data:; connect-src 'self'; font-src 'self'; " +
+		"object-src 'none'; frame-ancestors 'none'; base-uri 'self'; form-action 'self'"
+}
+
 // SecurityHeaders applies the response headers that cost nothing for a
 // self-hosted single-origin app and remove whole classes of attack.
 //
@@ -170,13 +195,7 @@ func SecurityHeaders(next http.Handler) http.Handler {
 		// must never be frameable.
 		h.Set("X-Frame-Options", "DENY")
 		h.Set("Referrer-Policy", "no-referrer")
-		// The SPA is served from this same origin with no CDN and no inline
-		// scripts, so a strict policy costs nothing. style-src allows inline
-		// because the bundler emits a style element.
-		h.Set("Content-Security-Policy",
-			"default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; "+
-				"img-src 'self' data:; connect-src 'self'; font-src 'self'; "+
-				"object-src 'none'; frame-ancestors 'none'; base-uri 'self'; form-action 'self'")
+		h.Set("Content-Security-Policy", ContentSecurityPolicy())
 
 		// API responses carry account data and tokens; keep them out of
 		// shared caches.

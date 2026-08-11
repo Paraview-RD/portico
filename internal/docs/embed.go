@@ -14,12 +14,18 @@
 package docs
 
 import (
+	"crypto/sha256"
 	"embed"
+	"encoding/base64"
 	"errors"
 	"io/fs"
 	"net/http"
 	"path"
+	"sort"
 	"strings"
+	"sync"
+
+	"golang.org/x/net/html"
 )
 
 //go:embed all:site
@@ -30,6 +36,99 @@ var embedded embed.FS
 // it: moving the mount without rebuilding would serve a site whose own
 // navigation points somewhere else.
 const Prefix = "/docs"
+
+// InlineScriptHashes returns a CSP source token — 'sha256-…' — for every
+// distinct inline script the built manual contains.
+//
+// The manual needs them because MkDocs Material puts three inline scripts on
+// every page and the application's policy is script-src 'self', which blocks
+// all of them. The visible result was not a warning in a console somewhere:
+// the blocked script is the one defining __md_get, so Material's bundle threw
+// a ReferenceError on load and the manual shipped for months with its search
+// box inert and its light/dark toggle unresponsive. Nothing said so, because
+// a Content-Security-Policy is enforced by the browser and by nothing in the
+// test suite that ran without one.
+//
+// Hashes rather than 'unsafe-inline'. The manual is same-origin with a
+// console that holds a session token, so a policy permitting arbitrary
+// inline script there would spend the protection that policy exists to buy.
+// Hashes permit exactly the scripts that were compiled into this binary and
+// nothing else.
+//
+// Computed from the embedded files rather than written down, so a rebuilt
+// manual cannot fall out of step with the header that admits it — a
+// hard-coded list would be one docs change away from silently breaking the
+// thing it was added to fix. Eleven distinct scripts across twenty-one pages
+// at the time of writing, which is a header of about 600 bytes.
+func InlineScriptHashes() []string { return inlineScriptHashes() }
+
+var inlineScriptHashes = sync.OnceValue(func() []string {
+	seen := map[string]struct{}{}
+
+	// An error here means the embedded tree could not be walked, which a
+	// build that compiled makes impossible; and a malformed page yields no
+	// tokens rather than an error. Either way the answer is the hashes found
+	// so far: returning none would leave the manual's scripts blocked, which
+	// is the state this function exists to leave behind, and it is visible
+	// the moment anybody opens a page.
+	_ = fs.WalkDir(assets(), ".", func(name string, entry fs.DirEntry, err error) error {
+		if err != nil || entry.IsDir() || !strings.HasSuffix(name, ".html") {
+			return nil //nolint:nilerr // see above: a page we cannot read contributes nothing
+		}
+		file, err := assets().Open(name)
+		if err != nil {
+			return nil
+		}
+		defer func() { _ = file.Close() }()
+
+		// A tokenizer rather than a regular expression. `script` is a raw
+		// text element, so its contents may hold anything that is not the
+		// closing tag — including `</` inside a string — and the tokenizer
+		// implements that rule where a pattern would guess at it.
+		tokenizer := html.NewTokenizer(file)
+		inScript := false
+		for {
+			switch tokenizer.Next() {
+			case html.ErrorToken:
+				return nil
+			case html.StartTagToken:
+				name, hasAttr := tokenizer.TagName()
+				inScript = string(name) == "script"
+				for hasAttr && inScript {
+					var key []byte
+					key, _, hasAttr = tokenizer.TagAttr()
+					// A script with a src is fetched, not inline, and is
+					// already covered by 'self'.
+					if string(key) == "src" {
+						inScript = false
+					}
+				}
+			case html.TextToken:
+				if !inScript {
+					continue
+				}
+				// The token is the script body exactly as the browser will
+				// hash it: bytes between the tags, no trimming. Trimming
+				// would produce a digest that matches nothing.
+				sum := sha256.Sum256(tokenizer.Text())
+				seen["'sha256-"+base64.StdEncoding.EncodeToString(sum[:])+"'"] = struct{}{}
+				inScript = false
+			case html.EndTagToken:
+				inScript = false
+			}
+		}
+	})
+
+	hashes := make([]string, 0, len(seen))
+	for hash := range seen {
+		hashes = append(hashes, hash)
+	}
+	// Sorted so the header is byte-identical between two servers built from
+	// the same tree, which is what makes it comparable in a test and in a
+	// diff of two deployments.
+	sort.Strings(hashes)
+	return hashes
+})
 
 // Available reports whether a built manual is present.
 func Available() bool {

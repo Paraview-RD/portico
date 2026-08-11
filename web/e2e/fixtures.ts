@@ -49,6 +49,33 @@ export const test = base.extend<Fixtures>({
       // has no session. It is expected, and failing on it would make every
       // test start by asserting the absence of normal behaviour.
       if (text.includes("401")) return;
+      // A 404 for a sitemap, and only for a sitemap.
+      //
+      // MkDocs Material prefetches sitemap.xml beside every alternate-language
+      // URL in the head, to build a cross-language map for instant navigation.
+      // mkdocs-static-i18n rewrites those URLs per page — which is what makes
+      // the language switcher land on the same page in the other language —
+      // so the set of places it looks is one per directory, and the manual has
+      // one sitemap, at its root.
+      //
+      // Left rather than fixed, and the alternatives are why. Dropping the
+      // alternate links means overriding a Material template block, and the
+      // version installed locally is not the version CI pins, so a copy taken
+      // from one would be rendered by the other. Emptying extra.alternate
+      // removes the language switcher, which works and is wanted. Answering
+      // sitemap.xml at any depth would make the server claim a document exists
+      // where it does not.
+      //
+      // The requests are harmless — the navigation feature they serve is not
+      // enabled — but they are not nothing: two 404s per manual page view,
+      // logged at WARN by the server. Narrow on purpose: matched by the
+      // resource's own URL, so an ordinary 404 anywhere else still fails.
+      if (
+        text.includes("404") &&
+        message.location().url.endsWith("/sitemap.xml")
+      ) {
+        return;
+      }
       consoleErrors.push(text);
     });
     page.on("pageerror", (error) => pageErrors.push(error.message));

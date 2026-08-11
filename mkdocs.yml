@@ -14,7 +14,17 @@
 # is noise in the one place they are looking for an answer.
 site_name: Portico
 site_description: A self-hostable identity platform — single sign-on, multi-tenant, SCIM and LDAP.
-repo_url: https://github.com/Paraview-RD/portico
+# No repo_url, and the reason is the same one that turned off Google Fonts:
+# Material renders it as a header widget that asks api.github.com for the
+# star count and the latest release on every page load. This manual is served
+# from inside somebody's identity server, often on a network with no route
+# out — where those calls hang rather than fail — and asking a third party
+# for anything tells them which of their deployments is reading which page.
+#
+# It was invisible until the Content-Security-Policy stopped blocking
+# Material's inline scripts, because a bundle that threw on load never got as
+# far as making the request. The repository is linked from the pages that
+# have a reason to link it.
 edit_uri: ""
 
 docs_dir: docs
@@ -34,6 +44,14 @@ exclude_docs: |
 theme:
   name: material
   custom_dir: mkdocs-overrides
+  # No Google Fonts. Material asks fonts.googleapis.com for Roboto, and this
+  # server's own Content-Security-Policy has always blocked the request — so
+  # the manual renders in the browser's fallback and every page load spends
+  # a round trip finding that out. A self-hosted product shipped as one
+  # binary should not reach a CDN to draw its own documentation, least of
+  # all in a deployment with no route to the internet. The stack it uses
+  # instead is named in docs/stylesheets/portico.css.
+  font: false
   features:
     - navigation.sections
     - navigation.top
@@ -52,6 +70,11 @@ theme:
       toggle:
         icon: material/weather-sunny
         name: Switch to light
+
+# Loaded after the theme's own stylesheet, which is what lets it override
+# Material's palette variables without fighting specificity.
+extra_css:
+  - stylesheets/portico.css
 
 plugins:
   - search
@@ -78,12 +101,23 @@ plugins:
           nav_translations:
             Home: 首页
             Getting in: 访问指南
+            Organizations and groups: 机构与用户组
             Reading a directory: 目录对接
             Provisioning: 目录供给
             Federation: 单点登录
             Webhooks: 事件订阅
             Integrations: 外部依赖
+            Settings and audit: 系统设置与审计
             Backup and restore: 备份与恢复
+
+extra:
+  alternate:
+    - name: English
+      link: ./
+      lang: en
+    - name: 简体中文
+      link: zh/
+      lang: zh
 
 nav:
   - Home: index.md

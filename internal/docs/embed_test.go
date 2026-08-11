@@ -6,8 +6,14 @@ package docs_test
 // address says so instead of quietly handing back the home page.
 
 import (
+	"crypto/sha256"
+	"encoding/base64"
+	"io/fs"
 	"net/http"
 	"net/http/httptest"
+	"os"
+	"path/filepath"
+	"regexp"
 	"strings"
 	"testing"
 
@@ -97,4 +103,61 @@ func TestLocalePathSendsAReaderToTheirOwnLanguage(t *testing.T) {
 			t.Errorf("LocalePath(%q) = %q, want %q", locale, got, want)
 		}
 	}
+}
+
+// Every inline script in the built manual has a hash the policy will admit.
+//
+// The property is coverage, not correctness of any one digest: a browser
+// blocks a script whose hash is absent, and the way that shows up is a page
+// that renders and does nothing. So this walks the site independently of the
+// code under test and asserts that nothing was missed — a second parser
+// disagreeing with the first is exactly the failure worth catching, and a
+// test that called the same function twice would catch nothing.
+func TestEveryInlineScriptInTheManualIsAdmittedByThePolicy(t *testing.T) {
+	if !docs.Available() {
+		t.Skip("manual not built; run ./hack/build-docs.sh")
+	}
+
+	admitted := map[string]bool{}
+	for _, hash := range docs.InlineScriptHashes() {
+		admitted[hash] = true
+	}
+	if len(admitted) == 0 {
+		t.Fatal("no hashes at all, so every inline script in the manual is blocked")
+	}
+
+	// Deliberately a different implementation from the one being checked.
+	pattern := regexp.MustCompile(`(?s)<script(?:\s[^>]*)?>(.*?)</script>`)
+	hasSrc := regexp.MustCompile(`(?s)^<script[^>]*\ssrc=`)
+
+	var checked int
+	err := fs.WalkDir(os.DirFS("site"), ".", func(name string, entry fs.DirEntry, err error) error {
+		if err != nil || entry.IsDir() || !strings.HasSuffix(name, ".html") {
+			return err
+		}
+		body, err := os.ReadFile(filepath.Join("site", name))
+		if err != nil {
+			return err
+		}
+		for _, match := range pattern.FindAllSubmatch(body, -1) {
+			if hasSrc.Match(match[0]) {
+				continue
+			}
+			checked++
+			sum := sha256.Sum256(match[1])
+			hash := "'sha256-" + base64.StdEncoding.EncodeToString(sum[:]) + "'"
+			if !admitted[hash] {
+				t.Errorf("%s: an inline script has no hash in the policy, so a "+
+					"browser will block it: %s", name, hash)
+			}
+		}
+		return nil
+	})
+	if err != nil {
+		t.Fatalf("walk the built site: %v", err)
+	}
+	if checked == 0 {
+		t.Fatal("found no inline scripts to check, so this asserted nothing")
+	}
+	t.Logf("%d inline scripts across the manual, %d distinct hashes", checked, len(admitted))
 }
