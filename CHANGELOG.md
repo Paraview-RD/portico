@@ -18,6 +18,15 @@ Working toward 0.2.0. See
   the panel was carrying detail it should have been linking to. Both are in
   English and 简体中文, and every screen with a panel now links into the
   manual.
+- **The explanation panels can be turned off**, per tenant, for a deployment
+  whose operators have learned the product and are now reading past the same
+  four sentences every day. On by default, because the cost of an
+  explanation somebody no longer needs is smaller than the cost of a screen
+  nobody can interpret.
+- An individual panel still collapses on its own, and that is remembered per
+  browser rather than for the tenant — so one operator putting a panel away
+  is not a decision made for everybody else. The two controls answer
+  different questions and neither substitutes for the other.
 - **A subscription can send custom headers**, for a receiver behind an API
   gateway that wants an `Authorization` of its own. The signature says who
   produced the body; the gateway is deciding whether to let the request
