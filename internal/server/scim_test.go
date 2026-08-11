@@ -7,6 +7,7 @@ import (
 	"net/http"
 	"net/http/httptest"
 	"net/url"
+	"strings"
 	"testing"
 )
 
@@ -238,6 +239,77 @@ func TestTheTokenIsShownOnceAndNeverStored(t *testing.T) {
 		t.Error("the listing returned the token. What is stored is a digest, " +
 			"so that a database dump is not a set of working credentials — " +
 			"returning it here would undo that.")
+	}
+}
+
+// The prefix in the listing is what tells two credentials apart.
+//
+// That is the whole reason any of the token is kept in the clear, and it did
+// not work: every token begins `portico_scim_`, and the first eight
+// characters were stored — so every credential in every deployment showed
+// `portico_`, and an operator deciding which of three to revoke had a column
+// that was the same in all three.
+//
+// Asserted two ways. That the prefixes differ is the defect; that each is a
+// prefix of its own token is what makes the column usable for the thing an
+// operator actually does with it, which is compare it against the token they
+// saved when it was issued.
+func TestTheStoredPrefixTellsTwoCredentialsApart(t *testing.T) {
+	api := newAPITest(t)
+	admin := api.adminToken()
+
+	issue := func(name string) (id, token, prefix string) {
+		t.Helper()
+		resp := api.do(http.MethodPost, "/api/v1/scim-credentials", admin,
+			map[string]string{"name": name})
+		if resp.Status != http.StatusOK {
+			t.Fatalf("issue %s: status %d, code %s", name, resp.Status, resp.Code)
+		}
+		var issued struct {
+			ID          string `json:"id"`
+			Token       string `json:"token"`
+			TokenPrefix string `json:"tokenPrefix"`
+		}
+		resp.into(t, &issued)
+		return issued.ID, issued.Token, issued.TokenPrefix
+	}
+
+	_, firstToken, firstPrefix := issue("first-directory")
+	_, secondToken, secondPrefix := issue("second-directory")
+
+	if firstPrefix == secondPrefix {
+		t.Errorf("both credentials show the prefix %q; the column exists so "+
+			"that an operator can tell which one to revoke, and it says the "+
+			"same thing about every credential ever issued", firstPrefix)
+	}
+	for _, pair := range []struct{ prefix, token string }{
+		{firstPrefix, firstToken},
+		{secondPrefix, secondToken},
+	} {
+		if !strings.HasPrefix(pair.token, pair.prefix) {
+			t.Errorf("the listing shows %q, which is not how %q begins; an "+
+				"operator comparing it against the token they saved finds "+
+				"nothing", pair.prefix, pair.token[:20]+"…")
+		}
+	}
+
+	// And the listing agrees with what issuance returned, since that is
+	// where the operator reads it from later.
+	listing := api.do(http.MethodGet, "/api/v1/scim-credentials", admin, nil)
+	var credentials []struct {
+		Name        string `json:"name"`
+		TokenPrefix string `json:"tokenPrefix"`
+	}
+	listing.into(t, &credentials)
+	for _, credential := range credentials {
+		want := firstPrefix
+		if credential.Name == "second-directory" {
+			want = secondPrefix
+		}
+		if credential.TokenPrefix != want {
+			t.Errorf("the listing shows %s with prefix %q, want %q",
+				credential.Name, credential.TokenPrefix, want)
+		}
 	}
 }
 

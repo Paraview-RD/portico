@@ -55,10 +55,21 @@ var (
 		"The bearer token is not valid for SCIM.")
 )
 
-// tokenPrefixLength is how much of a token is kept in the clear.
+// Every token starts with this, so that one found in a configuration file or
+// a log is recognizable as belonging to this system.
+const scimTokenMarker = "portico_scim_"
+
+// tokenPrefixLength is how much of the random part of a token is kept in the
+// clear, beyond the marker every token shares.
 //
-// Enough to tell two credentials apart in a list, far too little to narrow a
-// 32-byte secret. The remainder exists only as a SHA-256 digest.
+// Beyond the marker, because it was not: the first eight characters of a
+// token were stored, and those are `portico_` for every credential ever
+// issued. The column an operator uses to decide which of three credentials
+// to revoke said the same thing about all three.
+//
+// Eight characters of base64 is 48 bits — enough that two credentials in a
+// deployment will not collide, and far too little to narrow a 32-byte secret.
+// The remainder exists only as a SHA-256 digest.
 const tokenPrefixLength = 8
 
 // SCIMCredential is a credential as the console sees it: never the token.
@@ -101,7 +112,7 @@ func (s *SCIMCredentialService) Create(ctx context.Context, actor auth.Principal
 		ID:          id,
 		Name:        name,
 		TokenHash:   hashSCIMToken(token),
-		TokenPrefix: token[:tokenPrefixLength],
+		TokenPrefix: tokenPrefix(token),
 		CreatedAt:   now,
 	})
 	if err != nil {
@@ -119,7 +130,7 @@ func (s *SCIMCredentialService) Create(ctx context.Context, actor auth.Principal
 
 	return IssuedSCIMCredential{
 		SCIMCredential: SCIMCredential{
-			ID: id, Name: name, TokenPrefix: token[:tokenPrefixLength],
+			ID: id, Name: name, TokenPrefix: tokenPrefix(token),
 			Status: string(model.StatusActive), CreatedAt: now,
 		},
 		Token: token,
@@ -248,7 +259,13 @@ func newSCIMToken() (string, error) {
 	if _, err := rand.Read(buf); err != nil {
 		return "", fmt.Errorf("generate scim token: %w", err)
 	}
-	return "portico_scim_" + base64.RawURLEncoding.EncodeToString(buf), nil
+	return scimTokenMarker + base64.RawURLEncoding.EncodeToString(buf), nil
+}
+
+// tokenPrefix is the part of a token kept in the clear: the marker every
+// token shares, and enough of what follows it to identify this one.
+func tokenPrefix(token string) string {
+	return token[:len(scimTokenMarker)+tokenPrefixLength]
 }
 
 // hashSCIMToken is the digest stored in place of the token.
