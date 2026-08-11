@@ -13,12 +13,17 @@ import (
 	"testing"
 )
 
+// The destination is a literal address from RFC 5737's documentation range,
+// for the reason set out at the top of webhook_test.go: registering resolves
+// the destination, so a hostname makes these depend on whoever answers DNS.
+// They are about the header rules, and a literal address takes the branch
+// that never resolves anything.
 func createWebhookWithHeaders(t *testing.T, api *apiTest, token, name string,
 	headers map[string]string) response {
 	t.Helper()
 	return api.do(http.MethodPost, "/api/v1/webhooks", token, map[string]any{
 		"name":    name,
-		"url":     "https://hooks.example.com/" + name,
+		"url":     "https://203.0.113.10/" + name,
 		"events":  []string{"user.created"},
 		"headers": headers,
 	})
