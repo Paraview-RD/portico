@@ -575,6 +575,9 @@ portico cas register --url http://localhost:8413/cas/ --name "Mock SP"
 The SAML and CAS pages work from that moment — no restart. Registration is
 state on Portico's side, and `mock-sp` holds none of it.
 
+Step by step, with the traps, in
+[`examples/mock-sp/README.md`](https://github.com/Paraview-RD/portico/blob/main/examples/mock-sp/README.md).
+
 `sp register` takes a **file** here rather than the metadata URL the program
 serves, because `--metadata` refuses plain `http`: that document names where
 assertions get delivered, so anybody on the path could point them elsewhere.
