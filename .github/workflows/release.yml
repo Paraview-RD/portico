@@ -32,6 +32,12 @@ jobs:
           cache: npm
           cache-dependency-path: web/package-lock.json
 
+      # And the manual, for the same reason. Without this the hook that builds
+      # it cannot run, and the release embeds an empty directory — which is
+      # what every release before this one did.
+      - uses: actions/setup-python@v5
+      - run: pip install -r hack/docs-requirements.txt
+
       # Refuse to publish a tag that does not pass the same gates as a PR.
       - name: Verify before releasing
         run: |

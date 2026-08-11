@@ -1,0 +1,26 @@
+# What it takes to build the manual that goes inside the binary.
+#
+# One file because there are four places that build it — the docs check, the
+# browser-test binary, the release, and the container image — and four copies
+# of a pin list is four chances for them to disagree. Two builds of the same
+# site from different versions are two different sites, and the binary embeds
+# whichever one was produced.
+#
+# Pinned rather than floating: the manual is compiled into a release artifact,
+# so a theme update arriving on its own schedule would change what shipped
+# without anybody deciding to.
+
+mkdocs-material==9.5.44
+mkdocs-static-i18n==1.3.1
+
+# Chinese word segmentation for the search index.
+#
+# Not a dependency of mkdocs-material — its search plugin does `import jieba`
+# inside a try and sets it to None when that fails, so a build without it
+# succeeds, says nothing, and produces an index in which no Chinese text has
+# word boundaries. Searching 机构 in the 简体中文 manual then matches nothing
+# at all, which is indistinguishable from a search box that is simply empty.
+#
+# It was missing everywhere but a contributor's own machine, so the manual
+# with working Chinese search was the one nobody shipped.
+jieba==0.42.1

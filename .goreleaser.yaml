@@ -1,9 +1,16 @@
 # Release build. See .github/workflows/release.yml for what invokes this.
 #
-# The frontend is compiled into the binary, so it has to be built before any
-# Go compilation happens — that is what the `before` hook is for. Skipping it
-# produces binaries that serve an API and no UI, which is exactly the bug the
-# README once shipped.
+# Two things are compiled into the binary — the frontend and the manual — so
+# both have to be built before any Go compilation happens. That is what the
+# `before` hook is for. Skipping the frontend produces binaries that serve an
+# API and no UI, which is exactly the bug the README once shipped.
+#
+# Skipping the manual produced the same shape of bug and shipped for longer,
+# because the failure is quieter: /docs answers "The Portico manual was not
+# included in this build" rather than a blank page, and nobody reads their own
+# release's /docs. internal/docs carries a .gitkeep so `go:embed all:site`
+# compiles in a fresh clone, which is what let every release so far embed one
+# empty directory and succeed.
 version: 2
 
 project_name: portico
@@ -13,6 +20,7 @@ before:
     - go mod download
     - sh -c "cd web && npm ci"
     - sh -c "cd web && npm run build"
+    - ./hack/build-docs.sh
 
 builds:
   - id: portico
