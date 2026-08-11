@@ -64,15 +64,15 @@ export const errorsZhCN: Record<keyof typeof errorsEnUS, string> = {
   LAST_ADMIN: "这是本租户最后一名在用管理员，请先指定另一名管理员。",
   REGISTRATION_DISABLED: "本部署未开放自主注册。",
 
-  // --- 机构 ---
-  ORGANIZATION_NOT_FOUND: "机构不存在。",
-  ORGANIZATION_DISABLED: "该机构已被停用。",
-  ORGANIZATION_CODE_TAKEN: "该机构编码已被占用。",
+  // --- 组织 ---
+  ORGANIZATION_NOT_FOUND: "组织不存在。",
+  ORGANIZATION_DISABLED: "该组织已被停用。",
+  ORGANIZATION_CODE_TAKEN: "该组织编码已被占用。",
   ORGANIZATION_MANAGER_NOT_FOUND: "找不到要设为负责人的账号。",
   ALREADY_PRIMARY_ORGANIZATION:
-    "该账号本来就归属这个机构。附加挂靠是给它不归属的那些用的。",
-  ORGANIZATION_CYCLE: "这会把机构移动到它自己或其下级之内。",
-  ORGANIZATION_TOO_DEEP: "机构层级嵌套过深。",
+    "该账号本来就归属这个组织。附加挂靠是给它不归属的那些用的。",
+  ORGANIZATION_CYCLE: "这会把组织移动到它自己或其下级之内。",
+  ORGANIZATION_TOO_DEEP: "组织层级嵌套过深。",
   NAME_REQUIRED: "请填写名称。",
   CODE_REQUIRED: "请填写编码。",
 

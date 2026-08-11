@@ -145,7 +145,7 @@ def verify(secret: str, headers, body: bytes) -> bool:
 }
 ```
 
-`data` 就是 API 返回的那个账号或机构。**请求体在事件发生时渲染并按发出的样子存下来**
+`data` 就是 API 返回的那个账号或组织。**请求体在事件发生时渲染并按发出的样子存下来**
 ——事件描述的是**已经发生的事**，而在投递时才渲染，会发出一个描述"某个此后已被重新
 启用的账号"的 disabled 事件。
 
@@ -160,10 +160,10 @@ def verify(secret: str, headers, body: bytes) -> bool:
 | `user.password_changed` | 密码被设置，无论是本人修改、管理员重置，还是走完找回流程。**每一次都会终结全部会话**。载荷中不含任何凭据 |
 | `user.locked` | 账号因连续登录失败被锁定。**只在加锁那一刻发一次**——对一个已锁定账号的后续尝试不再发 |
 | `user.unlocked` | 管理员解锁账号。改密码同样会清除锁定，但它以 `user.password_changed` 的名义上报 |
-| `organization.created` | 机构被创建 |
-| `organization.updated` | 机构的名称、编码、上级或排序变更 |
-| `organization.enabled` | 机构启用 |
-| `organization.disabled` | 机构停用。已有成员留在原处，只是不能再加新人 |
+| `organization.created` | 组织被创建 |
+| `organization.updated` | 组织的名称、编码、上级或排序变更 |
+| `organization.enabled` | 组织启用 |
+| `organization.disabled` | 组织停用。已有成员留在原处，只是不能再加新人 |
 | `group.created` | 用户组被创建 |
 | `group.updated` | 用户组信息变更 |
 | `group.deleted` | 用户组被删除 |
