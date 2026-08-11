@@ -114,10 +114,27 @@ func TestLayeringRules(t *testing.T) {
 // and everything that appears is a package.
 func TestBothLayoutDiagramsNameEveryPackage(t *testing.T) {
 	onDisk := packagesOnDisk(t)
+	commands := directoriesIn(t, "../../cmd")
 
 	for _, doc := range []string{"../../README.md", "../../docs/code-conventions.md"} {
 		t.Run(filepath.Base(doc), func(t *testing.T) {
 			listed := layoutDiagram(t, doc)
+
+			// The commands, on the same terms. `cmd/seed` arrived and both
+			// diagrams went on naming `cmd/server` as though it were the
+			// only one — the same drift as below, one directory higher, and
+			// the check did not reach it.
+			named := commandsNamed(t, doc)
+			for _, command := range commands {
+				if !named[command] {
+					t.Errorf("cmd/%s exists and %s does not list it", command, doc)
+				}
+			}
+			for command := range named {
+				if !slicesContains(commands, command) {
+					t.Errorf("%s lists cmd/%s, which does not exist", doc, command)
+				}
+			}
 
 			for _, pkg := range onDisk {
 				if !listed[pkg] {
@@ -133,6 +150,43 @@ func TestBothLayoutDiagramsNameEveryPackage(t *testing.T) {
 			}
 		})
 	}
+}
+
+// directoriesIn is every subdirectory of a path, for the ones that need no
+// further qualification than existing.
+func directoriesIn(t *testing.T, path string) []string {
+	t.Helper()
+
+	entries, err := os.ReadDir(path)
+	if err != nil {
+		t.Fatalf("read %s: %v", path, err)
+	}
+	var names []string
+	for _, entry := range entries {
+		if entry.IsDir() {
+			names = append(names, entry.Name())
+		}
+	}
+	sort.Strings(names)
+	return names
+}
+
+// commandsNamed reads the `cmd/<name>/` entries out of a layout diagram.
+// They sit at the left margin, which is what distinguishes them from the
+// packages indented under `internal/`.
+func commandsNamed(t *testing.T, path string) map[string]bool {
+	t.Helper()
+
+	content, err := os.ReadFile(path)
+	if err != nil {
+		t.Fatalf("read %s: %v", path, err)
+	}
+	entry := regexp.MustCompile(`(?m)^cmd/([a-z][a-z0-9-]*)/`)
+	names := map[string]bool{}
+	for _, match := range entry.FindAllStringSubmatch(string(content), -1) {
+		names[match[1]] = true
+	}
+	return names
 }
 
 // packagesOnDisk is every directory directly under internal/ that holds Go

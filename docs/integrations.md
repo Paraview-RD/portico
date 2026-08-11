@@ -71,7 +71,7 @@ a standing risk for no benefit.
 | Setting | Meaning |
 |---|---|
 | Server address, bind DN, bind password, base DN, filters, attribute map | Per connector, in the console under **Directory integration** — not environment variables, because a deployment may have several. |
-| `PORTICO_ENCRYPTION_KEY` | 32 bytes of hex that the bind password is sealed under (AES-256-GCM) before it is written. **Unset, saving a bind password is refused** rather than stored in the clear. Must differ from `PORTICO_JWT_SECRET`. |
+| `PORTICO_ENCRYPTION_KEY` | 32 bytes of hex that AES-256-GCM seals the credentials this system has to be able to read back rather than merely check: a directory bind password, and the header values a webhook subscription sends. **Unset, saving either is refused** rather than storing it in the clear. Must differ from `PORTICO_JWT_SECRET`. |
 
 The honest limit of that encryption: anyone who can read the process
 environment can read the credential. What it defends against is the leak that

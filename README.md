@@ -244,6 +244,7 @@ touch `internal/store/queries/`.
 
 ```
 cmd/server/        entry point
+cmd/seed/          fills a development database with ninety days of use
 internal/
   config/          environment variables, read and validated once
   server/          routing, and the version the build reports
