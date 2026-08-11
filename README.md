@@ -266,6 +266,7 @@ internal/
   notify/          email and the SMS interface that ships without a provider
   metrics/         Prometheus, on its own listener when one is configured
   provision/       tenant and client provisioning, for the CLI
+  seed/            a development database that looks used, for cmd/seed
   testdb/          throwaway PostgreSQL for tests
   web/             embeds the built frontend
   docs/            embeds this documentation, served from the binary

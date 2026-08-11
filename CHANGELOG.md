@@ -68,6 +68,23 @@ Working toward 0.2.0. See
   documented answer is to rotate and then pause the subscription: pausing
   stops deliveries, rather than continuing to sign them with a key somebody
   else holds.
+- **A development database that looks used.** `go run ./cmd/seed` fills an
+  empty deployment with two tenants, fifty-five accounts, applications in all
+  three protocols, both directions of directory integration, and ninety days
+  of history. It exists because an empty Portico cannot be looked at: every
+  screen shows its empty state, the user list pages at twenty rows it does not
+  have, and the questions the product answers — when did this directory stop
+  working, which delivery is stuck — need a past to answer from.
+  Entities go through the service layer, so the data is data the application
+  could have produced. History is written directly, because the service layer
+  stamps the current time on everything and ninety days of sign-ins in the same
+  second is a list rather than a past. Two tests keep it from rotting: one
+  asserts every list the console draws has rows after seeding, and one walks
+  the router and fails if a collection endpoint is neither seeded nor named as
+  deliberately empty — so adding a screen without seeding it is a red build
+  rather than a gap nobody sees. A binary of its own, not a `portico`
+  subcommand: the release image copies `portico` and nothing else, so there is
+  no build that can be pointed at a production database.
 - **Accounts can be read out of an Active Directory or OpenLDAP.** The
   opposite direction from SCIM, which is a server here: a directory pushes
   into `/scim/v2` and Portico never reaches out, while this has Portico

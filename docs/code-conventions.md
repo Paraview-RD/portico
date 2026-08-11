@@ -33,6 +33,8 @@ internal/
   directory/       the opposite direction: reading accounts out of LDAP
   provision/       a second composition root, for the operations with no
                    HTTP surface: tenants, clients, service providers
+  seed/            a third one, for filling a development database with
+                   ninety days of plausible history
   handler/         HTTP handlers
   server/          wiring: builds everything and mounts routes
   web/             embeds the built frontend

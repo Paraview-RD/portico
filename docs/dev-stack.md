@@ -73,6 +73,60 @@ binary you just built against the database you already have; a compose file
 that also owned the server would mean demonstrating a released image rather
 than the change in front of you.
 
+## Filling the database so it can be looked at
+
+The walkthrough proves the flows work. It does not leave behind anything to
+look at — and an empty Portico cannot be looked at: every screen shows its
+empty state, the user list pages at twenty rows it does not have, and the
+questions the product exists to answer ("when did this directory stop
+working", "which delivery is stuck") have no past to answer from.
+
+```bash
+# Optional but worth it: the LDAP container gives the seeded directory
+# something real to synchronize against.
+docker compose -f deploy/dev-stack/compose.yml up -d
+
+PORTICO_DB_DSN='postgres://portico:portico@localhost:5432/portico?sslmode=disable' \
+  go run ./cmd/seed
+```
+
+It prints a summary and the one password every seeded account shares. Sign in
+as `zhangwei` in the default tenant, or as the same name in tenant `acme` to
+see how little carries across.
+
+What arrives:
+
+- **Two tenants**, holding an organization with the same code and an account
+  with the same username. That pair is what makes isolation visible; one
+  tenant cannot demonstrate it.
+- **Fifty-five accounts** in the first, which is the smallest number that
+  produces a third page at the console's twenty per page. Among them: one with
+  no email and no phone (the portal warns), one locked out with twenty minutes
+  left on it, one whose password expires in three days, two the directory
+  owns, a very long display name, and two disabled.
+- **Ninety days of history** — sign-ins and failures, sessions including
+  revoked ones, synchronization runs with the day the deactivated count jumped,
+  webhook deliveries in all four states, and one subscription mid key
+  rotation with hours left on the old key.
+- **Different settings per tenant**, because almost every setting changes what
+  a screen draws: a lockout threshold of zero hides the unlock button, a
+  password age of zero removes the expiry column. Seeding both tenants the
+  same would exercise one branch of each and leave the other unvisited.
+
+Two things worth knowing. It **refuses a database that already holds
+accounts** — `--force` if you are certain which database it is — because the
+usual mistake is a development tool pointed at the wrong DSN. And it is a
+binary of its own rather than a `portico seed` subcommand: the release image
+copies `portico` and nothing else, so there is no build of the product that
+can be pointed at production.
+
+The seed goes stale the moment somebody adds a screen and forgets it, and an
+empty list looks exactly like a feature nobody uses. So two tests hold it
+shut: one seeds a database and asserts every list the console draws has rows
+in it, and one walks the router and fails if any collection endpoint is
+neither seeded nor named as deliberately empty with a reason. Adding a screen
+without seeding it is a red build.
+
 ## What the walkthrough proves
 
 Thirteen steps, fifty-five assertions, non-zero exit on the first failure. A
