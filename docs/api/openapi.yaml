@@ -384,6 +384,13 @@ paths:
                 destination:
                   type: string
                   description: The email address or phone number to send to.
+                tenant:
+                  type: string
+                  description: |
+                    Tenant code. Omit for the default tenant. The caller
+                    cannot sign in — that is why they are here — so there is
+                    no token to take it from, and this or the header is the
+                    only way to say which tenant the account is in.
       responses:
         "200":
           description: Accepted, whether or not an account matched.
@@ -403,8 +410,8 @@ paths:
       operationId: confirmPasswordRecovery
       summary: Redeem a password reset link.
       description: |
-        The tenant travels in the link rather than here. Redeeming ends every
-        session the account had.
+        The tenant reaches the caller in the reset link and is sent back in
+        `tenant` below. Redeeming ends every session the account had.
       security: []
       requestBody:
         required: true
@@ -416,6 +423,12 @@ paths:
               properties:
                 token: { type: string }
                 newPassword: { type: string, format: password }
+                tenant:
+                  type: string
+                  description: |
+                    Tenant code. Omit for the default tenant. As above, there
+                    is no token to read it from: whoever is redeeming a reset
+                    link is by definition not signed in.
       responses:
         "200":
           description: The password was replaced.
