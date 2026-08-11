@@ -1,0 +1,196 @@
+/*
+  Typography for the manual, set against the console rather than against
+  Material's defaults.
+
+  The two are not meant to match. The console is dense administrative UI at
+  14px; this is long-form prose, and prose set at interface density reads
+  worse rather than more consistently. What follows closes the gap partway,
+  to a reading size, and leaves one deliberate step between them.
+
+  Material's own defaults are what this overrides:
+
+    body     1rem × 125–150%   → 1rem
+    h1       2em    / 300 / 54% grey → 1.75em / 600 / full contrast
+    h2       1.5625em / 300    → 1.375em / 600
+    h3       1.25em / 400      → 1.125em / 600
+
+  The heading weights matter more than the sizes. Material sets h1 and h2 in
+  a 300 weight at 54% opacity, which next to full-contrast body text reads as
+  washed out at the exact moment a heading is supposed to anchor the page.
+*/
+
+/*
+  The root, which is where "the text is too large" actually came from.
+
+  Material scales the whole document with the viewport:
+
+    html { font-size: 125%   }                          20px
+    html { font-size: 137.5% } @media (min-width: 100em) 22px
+    html { font-size: 150%   } @media (min-width: 125em) 24px
+
+  So on a 2304px display every page arrives half again as large as the
+  author set it — prose at 19.2px, an h1 at 38.4px — while the console
+  beside it is unchanged at 14px. The complaint reads as "the manual is
+  oversized" and the cause is the monitor, which is why it does not
+  reproduce on a laptop.
+
+  100% is the reader's own browser setting rather than a number of pixels
+  chosen here. Somebody who has set 20px because they want 20px still gets
+  it; what they no longer get is that preference silently multiplied by the
+  width of the screen they happen to be at. Every size below is in rem or em
+  so it follows.
+
+  A plain rule beats all three of Material's because a media query adds no
+  specificity and this stylesheet is loaded after the theme's.
+*/
+html {
+  font-size: 100%;
+}
+
+:root {
+  /* The console's stack, stated rather than arrived at.
+
+     Material asks Google for Roboto, which this deployment's own
+     Content-Security-Policy blocks — so the manual has always rendered in
+     the browser's fallback, which happens to be what the console uses. That
+     is luck, not a decision, and it says nothing about the Chinese pages:
+     Roboto carries no CJK glyphs, so those fall out of the declared stack
+     entirely and land wherever the browser decides. Naming PingFang SC here
+     makes the 简体中文 manual and the 简体中文 console the same typeface on
+     purpose. See theme.font in mkdocs.yml, which stops the request. */
+  --md-text-font:
+    system-ui, -apple-system, "Segoe UI", "PingFang SC", "Microsoft YaHei",
+    sans-serif;
+  --md-code-font: ui-monospace, SFMono-Regular, "SF Mono", Menlo, monospace;
+}
+
+/* The console's primary, so a reader crossing from one to the other is not
+   told by the colour that they have left the product. Material's palette
+   sets these on an attribute selector of equal specificity, so this wins on
+   source order — extra_css is loaded after the theme. */
+:root,
+[data-md-color-scheme="default"],
+[data-md-color-scheme="slate"] {
+  --md-primary-fg-color: #2563eb;
+  --md-primary-fg-color--light: #3b82f6;
+  --md-primary-fg-color--dark: #1d4ed8;
+  --md-accent-fg-color: #1d4ed8;
+}
+
+[data-md-color-scheme="default"] {
+  --md-typeset-a-color: #2563eb;
+}
+
+/* Slate darkens the page, so the link has to lighten to stay legible
+   against it. The console does the same thing in its own dark tokens. */
+[data-md-color-scheme="slate"] {
+  --md-typeset-a-color: #60a5fa;
+}
+
+/*
+  The measure, which the root change above moves whether or not anybody
+  asks it to: Material's grid is 61rem, so shrinking the root from 24px to
+  16px took the content column from 757px to 550px with it.
+
+  550px is a good Latin measure — about 68 characters, inside the 65–75 that
+  is comfortable. It is a poor Chinese one. A CJK glyph is a full em, so the
+  same column holds ~34 characters where 35–45 reads best, and this manual
+  is written in both languages from the same source.
+
+  One column has to serve both, so this is a compromise rather than an
+  optimum, and it was measured rather than guessed:
+
+    61rem → 550px → 34 CJK / 68 Latin   Chinese too tight
+    68rem → 662px → 41 CJK / 83 Latin   Latin too loose
+    65rem → 614px → 38 CJK / 77 Latin   both a little off, neither badly
+
+  Wider is not more generous: past about 75 Latin characters the eye starts
+  losing the return sweep, which is the failure the original 757px was
+  already edging into.
+*/
+.md-grid {
+  max-width: 65rem;
+}
+
+.md-typeset {
+  /* The reader's own base size — 16px unless they have said otherwise. One
+     step above the console's 14px, and deliberately: the console is dense
+     UI read in glances, this is prose read in lines, and prose set at
+     interface density reads worse rather than more consistent. */
+  font-size: 1rem;
+  /* Looser than the console's 1.6, for the same reason: the longer the
+     line, the more the eye needs help finding the next one. */
+  line-height: 1.7;
+}
+
+/* Sizes in em so they stay tied to the body size above: change one number
+   there and the whole scale follows, which is the property Material's own
+   scale has and a table of px values would lose. */
+.md-typeset h1 {
+  font-size: 1.75em;
+  font-weight: 600;
+  /* Not --md-default-fg-color--light, which is the 54% grey. A heading is
+     the most load-bearing text on the page. */
+  color: var(--md-default-fg-color);
+  margin-bottom: 1rem;
+  letter-spacing: -0.01em;
+}
+
+.md-typeset h2 {
+  font-size: 1.375em;
+  font-weight: 600;
+  color: var(--md-default-fg-color);
+  margin-top: 2rem;
+  letter-spacing: -0.005em;
+}
+
+.md-typeset h3 {
+  font-size: 1.125em;
+  font-weight: 600;
+  color: var(--md-default-fg-color);
+  margin-top: 1.5rem;
+}
+
+.md-typeset h4 {
+  font-size: 1em;
+  font-weight: 600;
+  color: var(--md-default-fg-color);
+}
+
+/* Tables carry a lot of the reference material here — the organization vs
+   group comparison, the settings that cannot be undone — so they stay close
+   to the body size rather than being shrunk into the least readable thing
+   on the page.
+
+   The size goes on the table and not on the cells: em compounds, and a cell
+   inside an already-reduced table lands two steps down instead of one. That
+   is what put these at 13.44px on the first attempt. */
+.md-typeset table:not([class]) {
+  font-size: 0.875em;
+  line-height: 1.6;
+}
+
+.md-typeset table:not([class]) th {
+  font-weight: 600;
+}
+
+/* Inline code sits inside running prose, so it is sized to the text around
+   it rather than to the code blocks. */
+.md-typeset code {
+  font-size: 0.875em;
+}
+
+.md-typeset pre > code {
+  font-size: 0.8125em;
+  line-height: 1.6;
+}
+
+/* The navigation and table of contents are interface, not prose, and take
+   the console's size accordingly. */
+.md-nav {
+  font-size: 0.8125rem;
+}
+
+.md-nav__title {
+  font-weight: 600;
+}

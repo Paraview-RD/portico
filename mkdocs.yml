@@ -34,6 +34,14 @@ exclude_docs: |
 theme:
   name: material
   custom_dir: mkdocs-overrides
+  # No Google Fonts. Material asks fonts.googleapis.com for Roboto, and this
+  # server's own Content-Security-Policy has always blocked the request — so
+  # the manual renders in the browser's fallback and every page load spends
+  # a round trip finding that out. A self-hosted product shipped as one
+  # binary should not reach a CDN to draw its own documentation, least of
+  # all in a deployment with no route to the internet. The stack it uses
+  # instead is named in docs/stylesheets/portico.css.
+  font: false
   features:
     - navigation.sections
     - navigation.top
@@ -52,6 +60,11 @@ theme:
       toggle:
         icon: material/weather-sunny
         name: Switch to light
+
+# Loaded after the theme's own stylesheet, which is what lets it override
+# Material's palette variables without fighting specificity.
+extra_css:
+  - stylesheets/portico.css
 
 plugins:
   - search
@@ -78,11 +91,13 @@ plugins:
           nav_translations:
             Home: 首页
             Getting in: 访问指南
+            Organizations and groups: 机构与用户组
             Reading a directory: 目录对接
             Provisioning: 目录供给
             Federation: 单点登录
             Webhooks: 事件订阅
             Integrations: 外部依赖
+            Settings and audit: 系统设置与审计
             Backup and restore: 备份与恢复
 
 nav:
