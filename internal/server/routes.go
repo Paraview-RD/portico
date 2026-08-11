@@ -129,6 +129,12 @@ func (s *Server) routes() http.Handler {
 				// changes role, status, and organization — a form editing a
 				// job title must not be able to send a role at all.
 				r.Put("/{id}/profile", h.SetUserProfile)
+				// The attributes this tenant defined for itself, kept apart
+				// from the profile for the same reason the profile is kept
+				// apart from role and status: one form editing one kind of
+				// thing cannot reach the others by accident.
+				r.Get("/{id}/attributes", h.GetUserAttributeValues)
+				r.Put("/{id}/attributes", h.SetUserAttributeValues)
 				// The tenant's accounts as a spreadsheet, taking the same
 				// filters the listing does. Audited: this is every
 				// attribute of every account leaving in one request.
@@ -261,6 +267,23 @@ func (s *Server) routes() http.Handler {
 				r.Post("/{id}/disable", h.DisableDirectory)
 				r.Post("/{id}/sync", h.SyncDirectory)
 				r.Get("/{id}/runs", h.ListDirectoryRuns)
+			})
+
+			// Everything that may be mapped, in either direction: the
+			// built-in vocabulary and this tenant's own together. Read-only,
+			// and the picker on every mapping form is drawn from it.
+			r.Get("/fields", h.ListFields)
+
+			r.Route("/user-attributes", func(r chi.Router) {
+				r.Get("/", h.ListUserAttributes)
+				r.Post("/", h.DefineUserAttribute)
+				r.Put("/{id}", h.UpdateUserAttribute)
+				// Retiring keeps every recorded value; deleting discards
+				// them. Two verbs rather than one, because the second is not
+				// recoverable and should not be reachable by a checkbox.
+				r.Post("/{id}/enable", h.EnableUserAttribute)
+				r.Post("/{id}/disable", h.DisableUserAttribute)
+				r.Delete("/{id}", h.DeleteUserAttribute)
 			})
 
 			r.Route("/scim-credentials", func(r chi.Router) {

@@ -195,4 +195,17 @@ export const errorsZhCN: Record<keyof typeof errorsEnUS, string> = {
   METHOD_NOT_ALLOWED: "该接口不支持此方法。",
   ALREADY_EXISTS: "该记录已存在。",
   INTERNAL_ERROR: "服务端出错了。",
+  // --- 自定义用户属性与字段目录 ---
+  USER_ATTRIBUTE_NOT_FOUND: "该属性不存在。",
+  USER_ATTRIBUTE_KEY_TAKEN:
+    "该键名已被占用——键名在内置字段与你自己定义的字段之间共用一个命名空间。",
+  INVALID_USER_ATTRIBUTE_KEY:
+    "键名为 3 到 40 个字符，只能用小写字母、数字和下划线，且以字母开头。",
+  INVALID_USER_ATTRIBUTE_KIND: "类型只能是文本、数字、是/否、日期或单选。",
+  USER_ATTRIBUTE_LABEL_REQUIRED: "名称必填：它就是表单上显示的那一行。",
+  USER_ATTRIBUTE_NEEDS_VALUES: "单选类型至少要有一个可选值。",
+  TOO_MANY_USER_ATTRIBUTES:
+    "自定义属性数量已达上限。每一个都可能被映射出站，而映射出去的属性就是每个令牌里的字节。",
+  INVALID_USER_ATTRIBUTE_VALUE: "这个值与该属性的类型不符。",
+  UNKNOWN_FIELD: "没有这个字段。只有字段目录里的字段可以被映射。",
 };

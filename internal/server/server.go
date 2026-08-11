@@ -142,6 +142,8 @@ func New(cfg *config.Config, opts ...Option) (*Server, error) {
 
 	groups := service.NewGroupService(st, audit)
 	logos := service.NewApplicationLogoService(st)
+	attributes := service.NewUserAttributeService(st, audit)
+	fields := service.NewFieldCatalogue(st)
 	webhooks := service.NewWebhookService(st, audit)
 	// Attached after construction: the webhook service is built from the same
 	// store and the account operations only need to know it exists.
@@ -174,7 +176,8 @@ func New(cfg *config.Config, opts ...Option) (*Server, error) {
 		store: st,
 		handler: handler.New(users, orgs, audit, settings, tenants, recovery, verification, sessions,
 			clients, serviceProviders, samlKeys, casServices, scimCredentials,
-			directories, webhooks, groups, logos, providers, samlProviders, casServer),
+			directories, webhooks, groups, logos, attributes, fields,
+			providers, samlProviders, casServer),
 		middleware:    auth.NewMiddleware(tokens, users, sessions),
 		metrics:       registry,
 		scim:          scimHandler,

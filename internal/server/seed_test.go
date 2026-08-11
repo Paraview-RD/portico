@@ -93,6 +93,8 @@ func seededCollections(t *testing.T, api *apiTest, admin string) []collection {
 		{path: "/api/v1/directories", screen: "Directory integration — LDAP"},
 		{path: "/api/v1/scim-credentials", screen: "Directory integration — SCIM"},
 		{path: "/api/v1/webhooks", screen: "Webhooks"},
+		{path: "/api/v1/fields", screen: "Field catalogue (the mapping picker)"},
+		{path: "/api/v1/user-attributes", screen: "Tenant-defined user attributes"},
 		{path: "/api/v1/audit-logs?limit=20", screen: "Audit logs"},
 		// The portal, which is what everybody who is not an administrator
 		// sees. An empty one there is the whole product looking broken.
@@ -128,6 +130,7 @@ func seededCollections(t *testing.T, api *apiTest, admin string) []collection {
 		lists = append(lists,
 			collection{path: "/api/v1/users/" + id + "/groups", screen: "User detail — groups"},
 			collection{path: "/api/v1/users/" + id + "/sessions", screen: "User detail — devices"},
+			collection{path: "/api/v1/users/" + id + "/attributes", screen: "User detail — custom attributes"},
 		)
 	}
 	return lists
@@ -189,8 +192,15 @@ func countRows(t *testing.T, data json.RawMessage) int {
 		Items []json.RawMessage `json:"items"`
 		Data  []json.RawMessage `json:"data"`
 	}
-	if err := json.Unmarshal(data, &paged); err == nil {
+	if err := json.Unmarshal(data, &paged); err == nil && (paged.Items != nil || paged.Data != nil) {
 		return len(paged.Items) + len(paged.Data)
+	}
+	// A map, which is how one account's custom attribute values arrive: keyed
+	// by the attribute key, because that is what the rest of the system refers
+	// to and an id would make every caller resolve it.
+	var keyed map[string]json.RawMessage
+	if err := json.Unmarshal(data, &keyed); err == nil {
+		return len(keyed)
 	}
 	t.Errorf("cannot tell how many rows are in %s", string(data))
 	return 0
@@ -249,7 +259,8 @@ func TestEverySeededCollectionIsAccountedFor(t *testing.T) {
 		"/api/v1/webhooks", "/api/v1/webhooks/{id}/deliveries",
 		"/api/v1/audit-logs", "/api/v1/portal/applications",
 		"/api/v1/groups/{id}/members", "/api/v1/users/{id}/groups",
-		"/api/v1/users/{id}/sessions",
+		"/api/v1/users/{id}/sessions", "/api/v1/fields",
+		"/api/v1/user-attributes", "/api/v1/users/{id}/attributes",
 	} {
 		covered[c] = true
 	}

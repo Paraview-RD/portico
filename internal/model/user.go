@@ -202,3 +202,42 @@ const (
 func (c RecoveryChannel) Valid() bool {
 	return c == RecoveryEmail || c == RecoverySMS
 }
+
+// UserAttributeDefinition is an attribute a tenant defined for itself.
+//
+// The twenty-five specification-derived attributes are fields on UserProfile.
+// These are the other kind — a fact SCIM's schema has no name for — and they
+// are rows rather than fields because the set is the tenant's, not this
+// project's. See migration 00014.
+type UserAttributeDefinition struct {
+	ID       string `json:"id"`
+	TenantID string `json:"tenantId"`
+
+	// Key is what a mapping stores and what an application receives. Fixed at
+	// creation: renaming it would silently stop a mapping that names it.
+	Key string `json:"key"`
+
+	// Label is what an operator sees, in the tenant's own words. Not
+	// translated, because a message catalogue cannot hold a typed-in string.
+	Label       string `json:"label"`
+	Description string `json:"description"`
+
+	// Kind is TEXT, NUMBER, BOOLEAN, DATE, or SELECT.
+	Kind string `json:"kind"`
+	// AllowedValues constrains a SELECT and is empty otherwise.
+	AllowedValues []string `json:"allowedValues,omitempty"`
+
+	// Required means an administrator's form will not save without it. It
+	// deliberately does not apply to a directory synchronization: a required
+	// attribute no LDAP entry carries would turn one form rule into a refusal
+	// to import anybody.
+	Required  bool `json:"required"`
+	SortOrder int  `json:"sortOrder"`
+
+	// Disabled keeps every recorded value and stops the attribute being shown
+	// or sent. It is the ordinary way to retire one.
+	Status Status `json:"status"`
+
+	CreatedAt time.Time `json:"createdAt"`
+	UpdatedAt time.Time `json:"updatedAt"`
+}

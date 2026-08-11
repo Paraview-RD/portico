@@ -63,6 +63,7 @@ type Seeder struct {
 	scim     *service.SCIMCredentialService
 	webhooks *service.WebhookService
 	dirs     *service.DirectoryService
+	attrs    *service.UserAttributeService
 	audit    *service.AuditService
 
 	// canSeal records whether this deployment has PORTICO_ENCRYPTION_KEY.
@@ -148,6 +149,7 @@ func New(st *store.Store, cfg *config.Config) *Seeder {
 		scim:     service.NewSCIMCredentialService(st, audit),
 		webhooks: webhooks,
 		dirs:     service.NewDirectoryService(st, users, audit, webhooks, vault),
+		attrs:    service.NewUserAttributeService(st, audit),
 		audit:    audit,
 		canSeal:  vault != nil,
 	}

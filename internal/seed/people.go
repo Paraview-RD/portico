@@ -191,6 +191,9 @@ func (s *Seeder) seedUsers(ctx context.Context, w *world) error {
 	if err := s.assignGroupMembers(ctx, w); err != nil {
 		return err
 	}
+	if err := s.seedCustomAttributes(ctx, w); err != nil {
+		return err
+	}
 	return s.closeOffOrganizations(ctx, w)
 }
 
@@ -302,4 +305,67 @@ func findUser(users []model.User, username string) model.User {
 		}
 	}
 	return model.User{}
+}
+
+// Two attributes this tenant defined for itself, and values on some accounts.
+//
+// Two rather than one, and of different kinds, because the interesting part of
+// the feature is that a tenant names its own facts: a single TEXT field would
+// show that a form can hold a string, which nobody doubted. A date and a
+// single-select show the two things that need validating, and the select is
+// what makes the picker on a mapping form worth looking at.
+//
+// Values on some accounts rather than all: "who has filled this in" is the
+// question asked before retiring or mapping one, and it has no answer if
+// everybody has.
+var customAttributes = []struct {
+	key, label, description, kind string
+	allowed                       []string
+	// filledFor names the accounts that get a value, and what it is.
+	filledFor map[string]string
+}{
+	{
+		key: "badge_number", label: "门禁卡号",
+		description: "园区门禁系统里的卡号，随人走而不随工号走",
+		kind:        service.FieldKindText,
+		filledFor: map[string]string{
+			"zhangwei": "A-10293", "liyan": "A-10294", "wangfang": "A-11007",
+		},
+	},
+	{
+		key: "work_mode", label: "办公方式",
+		description: "用于下游的座位与设备发放", kind: service.FieldKindSelect,
+		allowed: []string{"ONSITE", "HYBRID", "REMOTE"},
+		filledFor: map[string]string{
+			"zhangwei": "ONSITE", "wangfang": "HYBRID", "sunli": "REMOTE",
+		},
+	},
+}
+
+func (s *Seeder) seedCustomAttributes(ctx context.Context, w *world) error {
+	t := w.tenantByCode(TenantMain)
+	if t == nil {
+		return nil
+	}
+
+	for _, a := range customAttributes {
+		if _, err := s.attrs.Define(ctx, t.actor, service.UserAttributeInput{
+			Key: a.key, Label: a.label, Description: a.description,
+			Kind: a.kind, AllowedValues: a.allowed,
+		}); err != nil {
+			return fmt.Errorf("define attribute %s: %w", a.key, err)
+		}
+
+		for username, value := range a.filledFor {
+			user := findUser(t.users, username)
+			if user.ID == "" {
+				continue
+			}
+			if err := s.attrs.SetValues(ctx, t.actor, user.ID,
+				map[string]string{a.key: value}); err != nil {
+				return fmt.Errorf("set %s on %s: %w", a.key, username, err)
+			}
+		}
+	}
+	return nil
 }

@@ -233,6 +233,23 @@ export const errorsEnUS = {
   METHOD_NOT_ALLOWED: "That endpoint does not support this method.",
   ALREADY_EXISTS: "That already exists.",
   INTERNAL_ERROR: "Something went wrong on the server.",
+  // --- Tenant-defined user attributes and the field catalogue ---
+  USER_ATTRIBUTE_NOT_FOUND: "No such attribute.",
+  USER_ATTRIBUTE_KEY_TAKEN:
+    "That key is already in use — keys are unique across both the built-in fields and your own.",
+  INVALID_USER_ATTRIBUTE_KEY:
+    "A key is 3 to 40 characters of lower-case letters, digits, and underscores, starting with a letter.",
+  INVALID_USER_ATTRIBUTE_KIND:
+    "The kind must be text, number, yes/no, date, or single-select.",
+  USER_ATTRIBUTE_LABEL_REQUIRED:
+    "A label is required: it is what appears on the form.",
+  USER_ATTRIBUTE_NEEDS_VALUES:
+    "A single-select attribute needs at least one permitted value.",
+  TOO_MANY_USER_ATTRIBUTES:
+    "You have reached the limit on defined attributes. Each one is a candidate for outbound mapping, and a mapped attribute is bytes in every token.",
+  INVALID_USER_ATTRIBUTE_VALUE:
+    "That value does not match the attribute's kind.",
+  UNKNOWN_FIELD: "No such field. Only fields from the catalogue can be mapped.",
 };
 
 /** Every code this table knows. */
