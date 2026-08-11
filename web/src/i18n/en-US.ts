@@ -568,6 +568,8 @@ export const enUS = {
     "{0} created, {1} updated, {2} deactivated, {3} skipped.",
   "directories.emptyResult":
     "The directory returned no entries while accounts here belong to it. Nothing was changed — an empty result is far more often a wrong base DN or user filter than a directory everybody has left, and acting on it would deactivate every one of those accounts.",
+  "directories.entriesUnreadable":
+    "The directory returned entries and none of them could be read as an account, while accounts here belong to it. Nothing was changed. The base DN and the user filter matched, so what to check is the attribute map — the username and external id attributes above all. The reasons are in the skipped detail below.",
   "directories.runFailed": "The synchronization failed.",
   "directories.outcome.SUCCEEDED": "Succeeded",
   "directories.outcome.FAILED": "Failed",

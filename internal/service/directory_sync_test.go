@@ -10,6 +10,7 @@ package service
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"strings"
 	"testing"
@@ -26,11 +27,15 @@ import (
 
 type fakeDirectory struct {
 	entries []directory.Entry
+	// skipped is what the LDAP reader could not make an entry of at all —
+	// no username, no external id. Separate from an entry that arrives and
+	// is refused later, which is in entries.
+	skipped []error
 	err     error
 }
 
 func (f *fakeDirectory) Users() ([]directory.Entry, []error, error) {
-	return f.entries, nil, f.err
+	return f.entries, f.skipped, f.err
 }
 func (f *fakeDirectory) Close() {}
 
@@ -361,6 +366,60 @@ func TestEmptyDirectoryResultDeactivatesNobody(t *testing.T) {
 		if got := f.user(username).Status; got != model.StatusActive {
 			t.Errorf("%s is %s after an empty result, want ACTIVE", username, got)
 		}
+	}
+}
+
+// Every entry unreadable is not the same thing as no entries.
+//
+// Both end with nothing to reconcile against, and both must refuse to act —
+// deactivating everybody either way. What differs is what an operator should
+// go and look at, and the run said the wrong one: "the directory returned no
+// entries", whose troubleshooting entry sends them to the base DN and the
+// user filter. Those are the two things that were working. What was wrong is
+// the attribute map — a username or external id attribute naming a field
+// that is not there, which is the single most common way to misconfigure a
+// source and produces exactly this.
+func TestEveryEntrySkippedIsNotAnEmptyDirectory(t *testing.T) {
+	f := newSyncFixture(t)
+
+	f.directory.entries = []directory.Entry{
+		entryFor("one", "One", "uuid-1"),
+		entryFor("two", "Two", "uuid-2"),
+	}
+	f.sync()
+
+	// The directory answers with the same people and the reader can make
+	// nothing of any of them.
+	f.directory.entries = nil
+	f.directory.skipped = []error{
+		errors.New("the entry has no username attribute"),
+		errors.New("the entry has no username attribute"),
+	}
+	run := f.sync()
+
+	if run.Outcome != model.SyncFailed {
+		t.Errorf("outcome = %s, want FAILED; there is still nothing to "+
+			"reconcile against", run.Outcome)
+	}
+	if run.DeactivatedCount != 0 {
+		t.Errorf("deactivated %d accounts, want none", run.DeactivatedCount)
+	}
+	if run.ErrorCode == "DIRECTORY_RETURNED_NOTHING" {
+		t.Errorf("the run says the directory returned nothing; it returned "+
+			"%d entries and none could be read, and that reading sends an "+
+			"operator to the base DN and the filter, which are the two "+
+			"things that worked", len(f.directory.skipped))
+	}
+	if run.ErrorCode == "" {
+		t.Error("the refusal carries no code, so the console cannot say why " +
+			"in the reader's language")
+	}
+	if run.SkippedCount != 2 {
+		t.Errorf("skipped = %d, want 2", run.SkippedCount)
+	}
+	if !strings.Contains(run.SkippedDetail, "username") {
+		t.Errorf("skippedDetail = %q, want the reason the entries could not "+
+			"be read", run.SkippedDetail)
 	}
 }
 

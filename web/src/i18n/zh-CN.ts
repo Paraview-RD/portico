@@ -534,6 +534,8 @@ export const zhCN: Record<keyof typeof enUS, string> = {
   "directories.runSummary": "新增 {0}，更新 {1}，停用 {2}，跳过 {3}。",
   "directories.emptyResult":
     "目录一条记录都没返回，而这里还有归属于它的账号。本次未作任何改动——结果为空，多半是 Base DN 或用户过滤器填错了，而不是所有人都离职了；照做会把这些账号全部停用。",
+  "directories.entriesUnreadable":
+    "目录返回了记录，但没有一条能被读成账号，而这里还有归属于它的账号。本次未作任何改动。Base DN 和用户过滤器都匹配上了，所以要查的是属性映射——尤其是用户名和外部标识这两个。原因见下面的跳过明细。",
   "directories.runFailed": "同步失败。",
   "directories.outcome.SUCCEEDED": "成功",
   "directories.outcome.FAILED": "失败",
