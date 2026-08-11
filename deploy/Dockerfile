@@ -1,7 +1,7 @@
 # Build the frontend, then the binary that embeds it, then ship only the
 # binary. The result is a scratch-based image containing one file.
 
-FROM node:22-alpine AS web
+FROM node:26-alpine AS web
 WORKDIR /src
 # Install dependencies first so a source-only change does not re-fetch them.
 COPY web/package.json web/package-lock.json ./web/
