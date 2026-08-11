@@ -1,0 +1,95 @@
+// Command seed fills a development database with data that looks used.
+//
+// A binary of its own rather than a `portico seed` subcommand, and that is the
+// point rather than an accident of layout: the release image copies `portico`
+// and nothing else, so there is no build of the product in which this can be
+// pointed at somebody's production database.
+//
+//	docker compose -f deploy/dev-stack/compose.yml up -d   # optional, for LDAP
+//	PORTICO_DB_DSN=postgres://portico:portico@localhost:5432/portico?sslmode=disable \
+//	  go run ./cmd/seed
+//
+// It refuses a database that already holds accounts. --force says you know
+// which database this is.
+package main
+
+import (
+	"context"
+	"errors"
+	"flag"
+	"fmt"
+	"log/slog"
+	"os"
+
+	"github.com/Paraview-RD/portico/internal/config"
+	"github.com/Paraview-RD/portico/internal/seed"
+)
+
+func main() {
+	if err := run(); err != nil {
+		fmt.Fprintf(os.Stderr, "seed: %v\n", err)
+		os.Exit(1)
+	}
+}
+
+func run() error {
+	force := flag.Bool("force", false,
+		"seed a database that already holds accounts (you are certain it is a development one)")
+	quiet := flag.Bool("quiet", false, "only report the summary")
+	flag.Parse()
+
+	cfg, err := config.Load()
+	if err != nil {
+		return err
+	}
+
+	level := slog.LevelInfo
+	if *quiet {
+		level = slog.LevelWarn
+	}
+	log := slog.New(slog.NewTextHandler(os.Stderr, &slog.HandlerOptions{Level: level}))
+
+	seeder, err := seed.Open(cfg)
+	if err != nil {
+		return err
+	}
+	defer func() { _ = seeder.Close() }()
+
+	summary, err := seeder.Run(context.Background(), seed.Options{Force: *force, Log: log})
+	if err != nil {
+		if errors.Is(err, seed.ErrNotEmpty) {
+			return err
+		}
+		return fmt.Errorf("seeding stopped: %w", err)
+	}
+
+	report(summary)
+	return nil
+}
+
+// report prints what was created and how to sign in. The password is printed
+// because a seed nobody can sign in to is a database, not a demonstration.
+func report(s seed.Summary) {
+	fmt.Printf(`Seeded.
+
+  tenants        %d
+  accounts       %d
+  organizations  %d
+  groups         %d
+  applications   %d
+  directories    %d
+  subscriptions  %d
+  audit entries  %d
+  sessions       %d
+  deliveries     %d
+  sync runs      %d
+
+Sign in as any seeded account with the password %q — for example %q in the
+default tenant, or the same name in tenant %q to see how little of it carries
+across.
+`,
+		s.Tenants, s.Users, s.Organizations, s.Groups, s.Applications,
+		s.Directories, s.Subscriptions, s.AuditEntries, s.Sessions,
+		s.Deliveries, s.SyncRuns,
+		seed.DemoPassword, "zhangwei", seed.TenantSecond)
+}

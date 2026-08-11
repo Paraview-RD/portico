@@ -62,6 +62,13 @@ func TestLayeringRules(t *testing.T) {
 		// reach for the web stack: anything it needed from there would mean
 		// the rule belongs in a service, where the API can reach it too.
 		"provision": {"handler", "httpx", "server"},
+		// Seeding is a third composition root and belongs on the same terms
+		// as provision. It reaches the services and the store — the store
+		// because history has to be written at a chosen time, which no service
+		// will do — and must not reach the web stack: an endpoint it needed
+		// from there would mean the seed was exercising the API rather than
+		// filling the database the API reads.
+		"seed": {"handler", "httpx", "server"},
 	}
 
 	for pkg, banned := range forbidden {
