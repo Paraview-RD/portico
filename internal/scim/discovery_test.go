@@ -109,6 +109,55 @@ func TestTheSchemaUsesOnlyTheValuesTheSpecificationDefines(t *testing.T) {
 	}
 }
 
+// A complex attribute agrees with what is underneath it.
+//
+// `groups` on the User resource was published as writable over
+// sub-attributes that each said readOnly, because the helper that built
+// complex attributes assumed readWrite for the parent. A directory reading
+// that document is being told it can add somebody to a group by writing the
+// User resource, which is not where membership lives — and the attempt
+// succeeds at the HTTP layer while changing nothing.
+//
+// So: something declared writable has to have somewhere writable to put a
+// value, and something declared readOnly must not appear to accept one.
+func TestAComplexAttributeAgreesWithItsSubAttributes(t *testing.T) {
+	const base = "http://example.test/scim/v2"
+	for _, schema := range []map[string]any{
+		userSchema(base), enterpriseSchema(base), groupSchema(base),
+	} {
+		name, _ := schema["name"].(string)
+		walkAttributes(t, schema, func(path string, attribute map[string]any) {
+			sub, ok := attribute["subAttributes"].([]map[string]any)
+			if !ok || len(sub) == 0 {
+				return
+			}
+
+			writableBelow := false
+			for _, child := range sub {
+				if child["mutability"] == "readWrite" || child["mutability"] == "writeOnly" {
+					writableBelow = true
+				}
+			}
+
+			switch attribute["mutability"] {
+			case "readWrite", "writeOnly":
+				if !writableBelow {
+					t.Errorf("%s.%s is advertised as writable and nothing "+
+						"under it is; a client writing to it is told nothing "+
+						"went wrong and nothing changes", name, path)
+				}
+			case "readOnly":
+				if writableBelow {
+					t.Errorf("%s.%s is advertised as read-only over a "+
+						"writable sub-attribute; one of the two is wrong and "+
+						"a client will believe whichever it read first",
+						name, path)
+				}
+			}
+		})
+	}
+}
+
 // jsonFieldNames is the set of attribute names a resource struct serializes,
 // less the common ones and the extension URNs, which are schemas rather than
 // attributes of this one.

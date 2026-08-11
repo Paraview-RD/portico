@@ -203,7 +203,7 @@ func userSchema(base string) map[string]any {
 		"attributes": []map[string]any{
 			attr("userName", "string", "readWrite", true, true),
 			attr("externalId", "string", "readWrite", false, true),
-			complexAttr("name", false,
+			complexAttr("name", "readWrite", false,
 				attr("formatted", "string", "readWrite", false, false),
 				attr("familyName", "string", "readWrite", false, false),
 				attr("givenName", "string", "readWrite", false, false),
@@ -222,7 +222,7 @@ func userSchema(base string) map[string]any {
 			multiAttr("emails"),
 			multiAttr("phoneNumbers"),
 			multiAttr("photos"),
-			complexAttr("addresses", true,
+			complexAttr("addresses", "readWrite", true,
 				attr("formatted", "string", "readWrite", false, false),
 				attr("streetAddress", "string", "readWrite", false, false),
 				attr("locality", "string", "readWrite", false, false),
@@ -235,7 +235,7 @@ func userSchema(base string) map[string]any {
 			// person is put into a group through the Group resource, which is
 			// where the membership lives. Writing it from both ends would
 			// make two requests disagree about which won.
-			complexAttr("groups", true,
+			complexAttr("groups", "readOnly", true,
 				attr("value", "string", "readOnly", false, false),
 				attr("display", "string", "readOnly", false, false),
 				attr("$ref", "reference", "readOnly", false, false),
@@ -262,7 +262,7 @@ func enterpriseSchema(base string) map[string]any {
 			attr("employeeNumber", "string", "readWrite", false, false),
 			attr("costCenter", "string", "readWrite", false, false),
 			attr("department", "string", "readWrite", false, false),
-			complexAttr("manager", false,
+			complexAttr("manager", "readWrite", false,
 				attr("value", "string", "readWrite", false, false),
 				attr("displayName", "string", "readOnly", false, false),
 				attr("$ref", "reference", "readWrite", false, false)),
@@ -283,7 +283,7 @@ func groupSchema(base string) map[string]any {
 		"attributes": []map[string]any{
 			attr("displayName", "string", "readWrite", true, true),
 			attr("externalId", "string", "readWrite", false, true),
-			complexAttr("members", true,
+			complexAttr("members", "readWrite", true,
 				attr("value", "string", "readWrite", false, false),
 				attr("display", "string", "readOnly", false, false),
 				attr("$ref", "reference", "readWrite", false, false),
@@ -311,16 +311,20 @@ func attr(name, typ, mutability string, required, unique bool) map[string]any {
 // multiAttr is the value/type/primary shape SCIM uses for the several
 // contact attributes that share it.
 func multiAttr(name string) map[string]any {
-	return complexAttr(name, true,
+	return complexAttr(name, "readWrite", true,
 		attr("value", "string", "readWrite", true, false),
 		attr("type", "string", "readWrite", false, false),
 		attr("primary", "boolean", "readWrite", false, false))
 }
 
-func complexAttr(name string, multiValued bool, sub ...map[string]any) map[string]any {
+// complexAttr takes its own mutability rather than assuming readWrite. It
+// used to assume it, which published `groups` on the User resource as
+// writable while every sub-attribute under it said readOnly — an invitation
+// to push group membership through the wrong resource and be told nothing.
+func complexAttr(name, mutability string, multiValued bool, sub ...map[string]any) map[string]any {
 	return map[string]any{
 		"name": name, "type": "complex", "multiValued": multiValued,
-		"required": false, "mutability": "readWrite", "returned": "default",
+		"required": false, "mutability": mutability, "returned": "default",
 		"subAttributes": sub,
 	}
 }
