@@ -3,6 +3,7 @@ package server_test
 import (
 	"context"
 	"encoding/xml"
+	"errors"
 	"io"
 	"net/http"
 	"net/url"
@@ -270,7 +271,7 @@ func (f *federationTest) casAttributeNames(username, password string) map[string
 	inside := false
 	for {
 		token, err := decoder.Token()
-		if err == io.EOF {
+		if errors.Is(err, io.EOF) {
 			break
 		}
 		if err != nil {
