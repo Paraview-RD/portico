@@ -13,6 +13,7 @@ about.
 
 ```
 cmd/server/        process entry point: flags, logging setup, signals
+cmd/seed/          a second entry point, for filling a development database
 internal/
   config/          environment parsing; no dependencies
   model/           domain types shared across layers; no dependencies
