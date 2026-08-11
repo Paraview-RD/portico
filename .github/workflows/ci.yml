@@ -4,6 +4,14 @@ on:
   push:
     branches: [main]
   pull_request:
+  # Nightly, so that the race detector still sees every package on a
+  # schedule of its own rather than only when somebody happens to merge.
+  # See the two test steps below for why it does not run on a pull request.
+  #
+  # Not on the hour: that is when everybody else's schedules fire, and a
+  # queued run is a run nobody reads in the morning.
+  schedule:
+    - cron: "37 18 * * *"
 
 permissions:
   contents: read
@@ -50,17 +58,37 @@ jobs:
 
       - run: go vet ./...
 
-      # -timeout, because the default is ten minutes and internal/server
-      # needs about nine of them under -race on a developer's machine. That
-      # is not a margin, it is a coin toss: the same commit passes or panics
-      # with `test timed out` depending on how loaded the runner is, and the
-      # panic names whichever test was unlucky enough to be running.
+      # The suite runs twice over, in two places, and the difference is the
+      # race detector.
       #
-      # Raising the ceiling stops the false alarm; it does not make the suite
-      # fast. Nine minutes for one package is worth shortening on its own,
-      # and this line is what keeps that a scheduling decision rather than an
-      # intermittently red main.
-      - run: go test -race -timeout 25m ./...
+      # It is what makes this job long. Measured on one machine, on the
+      # package that dominates the suite: `internal/server` takes 98 seconds
+      # without the detector and 614 with it — six times over, and most of
+      # the wait on every pull request. Including the ones that change a line
+      # of Markdown: several Go tests read the documentation, so no path
+      # filter can skip this job for them.
+      #
+      # A race is not something a pull request introduces and a merge fixes,
+      # so checking it once per merge rather than once per push costs
+      # detection latency and nothing else. What it costs is real, though:
+      # a race now lands on main and is reported minutes later instead of
+      # blocking the pull request that carried it. The nightly run above is
+      # the second net, so a race merged on a quiet afternoon is named before
+      # the next morning rather than at whatever unrelated merge comes next.
+      #
+      # -timeout, because the default is ten minutes and 614 seconds is over
+      # it. That is not a margin, it is a coin toss: the same commit passes
+      # or panics with `test timed out` depending on how loaded the runner
+      # is, and the panic names whichever test was unlucky enough to be
+      # running rather than the clock. Kept on both steps, since a timeout
+      # only costs anything once something has already hung.
+      - name: Tests
+        if: github.event_name == 'pull_request'
+        run: go test -timeout 25m ./...
+
+      - name: Tests, with the race detector
+        if: github.event_name != 'pull_request'
+        run: go test -race -timeout 25m ./...
 
       - uses: golangci/golangci-lint-action@v8
         with:
