@@ -88,11 +88,13 @@ plugins:
 nav:
   - Home: index.md
   - Getting in: access-guide.md
+  - Organizations and groups: organizations.md
   - Reading a directory: ldap.md
   - Provisioning: scim.md
   - Federation: federation.md
   - Webhooks: webhooks.md
   - Integrations: integrations.md
+  - Settings and audit: settings.md
   - Backup and restore: backup-and-restore.md
 
 # Dead links fail the build under --strict, which is the point of building

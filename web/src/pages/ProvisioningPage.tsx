@@ -71,7 +71,11 @@ export function ProvisioningPage() {
           scim.md — and a single link here would send half the readers to
           the wrong one while sitting inches from the header's link to the
           other. The tab they pick is the better disambiguator. */}
-      <GuidePanel id="provisioning" title={t("provisioning.guideTitle")}>
+      <GuidePanel
+        id="provisioning"
+        docsPage="scim/"
+        title={t("provisioning.guideTitle")}
+      >
         {t("provisioning.guideBody")}
       </GuidePanel>
 

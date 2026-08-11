@@ -86,7 +86,11 @@ export function SettingsPage() {
           suite exists to catch. It caught this. */}
       <div className={settingsColumns}>
         <div className="lg:col-span-2">
-          <GuidePanel id="settings" title={t("settings.guideTitle")}>
+          <GuidePanel
+            id="settings"
+            docsPage="settings/"
+            title={t("settings.guideTitle")}
+          >
             {t("settings.guideBody")}
           </GuidePanel>
         </div>

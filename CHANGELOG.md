@@ -12,6 +12,12 @@ Working toward 0.2.0. See
 
 ### Added
 
+- **Two manual chapters that had no page**: organizations and groups, and
+  settings and the audit trail. Five administrative screens had an
+  explanation at the top and nowhere to send a reader who wanted more, so
+  the panel was carrying detail it should have been linking to. Both are in
+  English and 简体中文, and every screen with a panel now links into the
+  manual.
 - **A subscription can send custom headers**, for a receiver behind an API
   gateway that wants an `Authorization` of its own. The signature says who
   produced the body; the gateway is deciding whether to let the request
