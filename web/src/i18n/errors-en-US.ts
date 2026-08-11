@@ -201,6 +201,10 @@ export const errorsEnUS = {
     "Give the host name on its own, without a scheme, path, or port — those are separate fields.",
   LDAP_FIELD_REQUIRED:
     "The host, base DN, user filter, and the username, display name, and external id attributes are all required.",
+  // The name or value of a custom header the subscription cannot send. The
+  // server's message names which and why; this is the fallback.
+  INVALID_WEBHOOK_HEADER:
+    "That header cannot be sent. Portico sets some itself, and a value cannot contain a line break.",
   NO_ENCRYPTION_KEY:
     "This deployment has no encryption key, so a bind password cannot be stored. Ask an operator to set PORTICO_ENCRYPTION_KEY, or use an anonymous bind.",
 

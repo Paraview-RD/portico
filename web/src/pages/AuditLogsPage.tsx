@@ -94,7 +94,11 @@ export function AuditLogsPage() {
         subtitle={t("auditLogs.subtitle")}
       />
 
-      <GuidePanel id="auditLogs" title={t("auditLogs.guideTitle")}>
+      <GuidePanel
+        id="auditLogs"
+        docsPage="settings/"
+        title={t("auditLogs.guideTitle")}
+      >
         {t("auditLogs.guideBody")}
       </GuidePanel>
 

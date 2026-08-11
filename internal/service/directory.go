@@ -736,6 +736,34 @@ var ErrDirectoryReturnedNothing = refusal{
 		"deactivate every one of those accounts.",
 }
 
+// directoryEntriesUnreadable is the other way to end a run with nothing to
+// reconcile against, and it is not the same fault.
+//
+// The directory answered, with entries, and the reader could make an account
+// of none of them — no username, or no external id, because the attribute
+// map names a field that is not there. That is the commonest way to
+// misconfigure a source.
+//
+// It used to report ErrDirectoryReturnedNothing, whose troubleshooting entry
+// sends the reader to the base DN and the user filter. Those are precisely
+// the two things that were working: the search matched, and every match was
+// then discarded. Somebody following that advice changes the one part of the
+// configuration that was right.
+//
+// Which attributes and how many of each are already on the run, in
+// skippedDetail, which is written whether the run succeeded or failed.
+func directoryEntriesUnreadable(count int) refusal {
+	return refusal{
+		code: "DIRECTORY_ENTRIES_UNREADABLE",
+		text: fmt.Sprintf("The directory returned %d entries and none of them "+
+			"could be read as an account, while this source owns accounts "+
+			"here. Nothing was changed. The base DN and the user filter "+
+			"matched, so what to check is the attribute map — the username "+
+			"and external id attributes above all. The reasons are on this "+
+			"run.", count),
+	}
+}
+
 // refusal is a failure Portico decided on rather than one the directory
 // reported, and the difference is what decides whether a console can
 // translate it.
@@ -807,6 +835,11 @@ func (s *DirectoryService) runSync(ctx context.Context, tenantID, sourceID strin
 	}
 
 	if len(entries) == 0 && len(owned) > 0 {
+		// Two ways to arrive here, and they send an operator to opposite
+		// ends of the configuration. See directoryEntriesUnreadable.
+		if len(skipped) > 0 {
+			return counts, directoryEntriesUnreadable(len(skipped))
+		}
 		return counts, ErrDirectoryReturnedNothing
 	}
 

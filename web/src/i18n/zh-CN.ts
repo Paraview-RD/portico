@@ -359,6 +359,9 @@ export const zhCN: Record<keyof typeof enUS, string> = {
   "settings.oidcSessionMaxAge": "最长会话时长（天）",
   "settings.oidcSessionMaxAgeHelp":
     "从最初那次登录算起，整条刷新链最长能延续多久，到点必须重新登录。填 0 表示不限制，也是默认值——因为刷新会不断续期，不限制意味着一个持续调用的集成可以永不重新登录。改成非 0 值会在到期时把正在正常工作的会话挤下线，请按需开启。",
+  "settings.showGuides": "在各页顶部显示说明",
+  "settings.showGuidesHelp":
+    "管理页面顶部那块「这屏是做什么的」。等你的运维熟悉本产品后可以关掉。单个面板也可以各自折叠，那是按浏览器记住的，只影响你自己。",
   "settings.registrationEnabled": "开放用户自主注册",
   "settings.registrationHelp":
     "关闭后只能由管理员创建账号。自主注册的账号一律为普通用户。",
@@ -440,6 +443,20 @@ export const zhCN: Record<keyof typeof enUS, string> = {
   "webhooks.guideBody":
     "当你自己的系统需要在变更发生的那一刻就知道、而不是每隔几分钟去问一次时，用它。\n一定要验签::每次投递都带签名。接收端不验的话，任何人推一条伪造的「某某已被停用」它都会照做。\n是通知，不是同步::失败会重试，所以同一事件可能到达两次、顺序也不保证——接收端必须幂等。\n要的是整份名册::那是「目录对接」，不是这一页。",
   "webhooks.new": "新建订阅",
+  "webhooks.headers": "自定义请求头",
+  "webhooks.headersHelp":
+    "随每次投递一起发出，用于接收端处在 API 网关之后、网关要求它自己的 Authorization 的场景。签名回答的是「这个请求体是谁生成的」，而这个回答的是「让不让进门」。值加密存储且不再显示；若本部署没有配 PORTICO_ENCRYPTION_KEY，则直接拒绝保存而不是明文落库。",
+  "webhooks.headerName": "名称",
+  "webhooks.headerValue": "值",
+  "webhooks.headerAdd": "添加请求头",
+  "webhooks.rotate": "轮换密钥",
+  "webhooks.rotateTitle": "轮换签名密钥",
+  // 说在按钮之前，不是之后。宽限期内每次投递带两个签名，而把整个头当一个
+  // 字符串比较的接收端在旧密钥退役前什么都验不过——这种失败看起来像端点是好的。
+  "webhooks.rotateConfirm":
+    '为 {0} 签发新的签名密钥？旧密钥还会继续有效 24 小时，这段时间内每次投递会带上两个以逗号分隔的签名。继续之前请确认你的接收端会按 "," 切分签名头并接受其中任意一个——整串比较的接收端在窗口关闭前会拒绝全部投递。',
+  "webhooks.rotateOverlap":
+    "旧密钥在 {0} 之前仍被接受。请在那之前把这一把装到接收端。",
   "webhooks.name": "名称",
   "webhooks.url": "接收地址",
   "webhooks.urlHint":
@@ -517,6 +534,8 @@ export const zhCN: Record<keyof typeof enUS, string> = {
   "directories.runSummary": "新增 {0}，更新 {1}，停用 {2}，跳过 {3}。",
   "directories.emptyResult":
     "目录一条记录都没返回，而这里还有归属于它的账号。本次未作任何改动——结果为空，多半是 Base DN 或用户过滤器填错了，而不是所有人都离职了；照做会把这些账号全部停用。",
+  "directories.entriesUnreadable":
+    "目录返回了记录，但没有一条能被读成账号，而这里还有归属于它的账号。本次未作任何改动。Base DN 和用户过滤器都匹配上了，所以要查的是属性映射——尤其是用户名和外部标识这两个。原因见下面的跳过明细。",
   "directories.runFailed": "同步失败。",
   "directories.outcome.SUCCEEDED": "成功",
   "directories.outcome.FAILED": "失败",

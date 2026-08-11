@@ -88,6 +88,7 @@ type updateSettingsRequest struct {
 	OIDCSessionMaxAgeDays     *int `json:"oidcSessionMaxAgeDays"`
 
 	RegistrationEnabled *bool `json:"registrationEnabled"`
+	ShowGuides          *bool `json:"showGuides"`
 	// Requiring a self-registered account to prove its address. Refused
 	// where this deployment has no way to send one, rather than accepted and
 	// then stranding every registration on a message that never arrives.
@@ -128,6 +129,7 @@ func (req updateSettingsRequest) applyTo(current service.Settings) service.Setti
 	overlayInt(&current.OIDCRefreshTokenTTLDays, req.OIDCRefreshTokenTTLDays)
 	overlayInt(&current.OIDCSessionMaxAgeDays, req.OIDCSessionMaxAgeDays)
 	overlayBool(&current.RegistrationEnabled, req.RegistrationEnabled)
+	overlayBool(&current.ShowGuides, req.ShowGuides)
 	overlayBool(&current.RegistrationVerification, req.RegistrationVerification)
 	if req.SystemName != nil {
 		current.SystemName = *req.SystemName

@@ -174,6 +174,10 @@ paths:
           content:
             application/json:
               schema: { $ref: "#/components/schemas/Envelope" }
+        "403":
+          $ref: "#/components/responses/TenantDisabled"
+        "404":
+          $ref: "#/components/responses/TenantNotFound"
 
   /api/v1/auth/register:
     post:
@@ -206,7 +210,9 @@ paths:
             application/json:
               schema: { $ref: "#/components/schemas/UserEnvelope" }
         "403":
-          description: Registration is not open for this tenant.
+          description: |
+            `REGISTRATION_DISABLED` when registration is not open for this
+            tenant, or `TENANT_DISABLED` when the tenant itself is off.
           content:
             application/json:
               schema: { $ref: "#/components/schemas/Envelope" }
@@ -214,6 +220,10 @@ paths:
           $ref: "#/components/responses/Conflict"
         "422":
           $ref: "#/components/responses/ValidationFailed"
+        "404":
+          $ref: "#/components/responses/TenantNotFound"
+        "503":
+          $ref: "#/components/responses/DeliveryUnavailable"
 
   /api/v1/auth/registration-status:
     get:
@@ -230,6 +240,10 @@ paths:
           content:
             application/json:
               schema: { $ref: "#/components/schemas/RegistrationStatusEnvelope" }
+        "403":
+          $ref: "#/components/responses/TenantDisabled"
+        "404":
+          $ref: "#/components/responses/TenantNotFound"
 
   /api/v1/auth/recovery-channels:
     get:
@@ -247,6 +261,10 @@ paths:
           content:
             application/json:
               schema: { $ref: "#/components/schemas/RecoveryChannelsEnvelope" }
+        "403":
+          $ref: "#/components/responses/TenantDisabled"
+        "404":
+          $ref: "#/components/responses/TenantNotFound"
 
   /api/v1/auth/register/verify:
     post:
@@ -291,6 +309,10 @@ paths:
           content:
             application/json:
               schema: { $ref: "#/components/schemas/Envelope" }
+        "403":
+          $ref: "#/components/responses/TenantDisabled"
+        "404":
+          $ref: "#/components/responses/TenantNotFound"
 
   /api/v1/auth/register/verify/resend:
     post:
@@ -334,6 +356,10 @@ paths:
                         type: object
                         properties:
                           sent: { type: boolean }
+        "403":
+          $ref: "#/components/responses/TenantDisabled"
+        "404":
+          $ref: "#/components/responses/TenantNotFound"
 
   /api/v1/auth/password-recovery:
     post:
@@ -364,6 +390,12 @@ paths:
           content:
             application/json:
               schema: { $ref: "#/components/schemas/MessageEnvelope" }
+        "403":
+          $ref: "#/components/responses/TenantDisabled"
+        "404":
+          $ref: "#/components/responses/TenantNotFound"
+        "503":
+          $ref: "#/components/responses/DeliveryUnavailable"
 
   /api/v1/auth/password-recovery/confirm:
     post:
@@ -397,6 +429,10 @@ paths:
               schema: { $ref: "#/components/schemas/Envelope" }
         "422":
           $ref: "#/components/responses/ValidationFailed"
+        "403":
+          $ref: "#/components/responses/TenantDisabled"
+        "404":
+          $ref: "#/components/responses/TenantNotFound"
 
   /api/v1/auth/password/expired:
     post:
@@ -431,6 +467,10 @@ paths:
           $ref: "#/components/responses/Unauthorized"
         "422":
           $ref: "#/components/responses/ValidationFailed"
+        "403":
+          $ref: "#/components/responses/TenantDisabled"
+        "404":
+          $ref: "#/components/responses/TenantNotFound"
 
   /api/v1/auth/logout:
     post:
@@ -2711,6 +2751,15 @@ paths:
                   description: |
                     Event types, or `*` for everything including types added
                     in later versions.
+                headers:
+                  type: object
+                  additionalProperties: { type: string }
+                  description: |
+                    Sent with every delivery, for a receiver behind a gateway
+                    that wants an API key of its own. The values are
+                    credentials: they are sealed on the way in and never
+                    served back, so a later read returns `headerNames` and
+                    not these.
       responses:
         "200":
           description: Subscribed, with the signing secret.
@@ -2779,6 +2828,51 @@ paths:
             application/json:
               schema:
                 { $ref: "#/components/schemas/WebhookDeliveryListEnvelope" }
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+
+  # createWebhook takes an optional `headers` object: names to values, sent
+  # with every delivery for a receiver behind a gateway. Values are sealed
+  # with PORTICO_ENCRYPTION_KEY and never served back — only the names are,
+  # as `headerNames`. Refused with NO_ENCRYPTION_KEY where no key is
+  # configured, rather than stored in the clear, and with
+  # INVALID_WEBHOOK_HEADER for a name Portico sets itself, a value carrying
+  # a line break, or more than ten of them.
+
+  /api/v1/webhooks/{id}/rotate-secret:
+    post:
+      tags: [Webhooks]
+      operationId: rotateWebhookSecret
+      summary: Issue a new signing secret, keeping the old one briefly.
+      description: |
+        Returns the new secret once, and `previousSecretExpiresAt`: the
+        moment the replaced key stops being sent.
+
+        Until then **every delivery carries both signatures**, comma
+        separated in `X-Portico-Signature`. A receiver must split on `,` and
+        accept any element. One that compares the whole header as a single
+        string verifies nothing for the whole overlap — and because it
+        rejects rather than errors, the symptom is deliveries failing at a
+        receiver that looks healthy.
+
+        The overlap exists because Portico produces the signature and the
+        receiver verifies it, so the receiver is the side with something to
+        deploy. A rotation that took effect instantly would break every
+        delivery until they had.
+
+        The subscription keeps its id. Deleting and re-registering was the
+        only previous remedy for a leaked key and it discarded the delivery
+        history along with the receiver's deduplication.
+      parameters:
+        - $ref: "#/components/parameters/ID"
+      responses:
+        "200":
+          description: The new secret, shown once.
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/CreatedWebhookEnvelope" }
         "403":
           $ref: "#/components/responses/Forbidden"
         "404":
@@ -2925,6 +3019,34 @@ components:
       content:
         application/json:
           schema: { $ref: "#/components/schemas/Envelope" }
+    TenantNotFound:
+      description: |
+        `TENANT_NOT_FOUND`. No tenant with that code, from the body, the
+        `X-Portico-Tenant` header, or the `tenant` query parameter.
+
+        Named rather than folded into a credential failure, because a tenant
+        code is not a credential: it appears in sign-in URLs and in the
+        configuration handed to everybody who uses that tenant. Concealing
+        whether one exists buys nothing and costs an operator a diagnosable
+        error.
+      content:
+        application/json:
+          schema: { $ref: "#/components/schemas/Envelope" }
+    TenantDisabled:
+      description: |
+        `TENANT_DISABLED`. The tenant exists and has been turned off, so
+        nothing in it will answer until somebody turns it back on.
+      content:
+        application/json:
+          schema: { $ref: "#/components/schemas/Envelope" }
+    DeliveryUnavailable:
+      description: |
+        This deployment has no way to send the message the request depends
+        on — no SMTP host configured, or no SMS provider. Reported rather
+        than answered with a success the caller would wait on forever.
+      content:
+        application/json:
+          schema: { $ref: "#/components/schemas/Envelope" }
 
   schemas:
     Envelope:
@@ -2990,6 +3112,22 @@ components:
           type: [string, "null"]
           format: date-time
           description: Present only while a lockout is actually in force.
+        closedAt:
+          type: [string, "null"]
+          format: date-time
+          description: |
+            When the account holder closed it themselves, and absent for
+            every other reason an account might be disabled. The distinction
+            is why the field exists: "they left" and "we suspended them" look
+            identical in the status column and call for different responses.
+        externalId:
+          type: string
+          description: |
+            The identifier a provisioning system knows this account by —
+            SCIM's externalId — and empty for an account created any other
+            way. Reported so an administrator can see that a directory owns
+            an account before wondering why their edit was overwritten by the
+            next synchronization.
         profile: { $ref: "#/components/schemas/UserProfile" }
         attachments:
           type: array
@@ -3105,7 +3243,31 @@ components:
             Requires a self-registered account to confirm its email address
             or phone number before it can sign in. Turning it on is refused
             where the deployment has no way to send one.
-        tokenTtlMinutes: { type: integer }
+        tokenTtlMinutes:
+          type: integer
+          description: The console's own session, not the OIDC tokens below.
+        oidcAccessTokenTtlMinutes:
+          type: integer
+          description: |
+            1 to 60. The ceiling is not a preference: an access token cannot
+            be withdrawn once issued, so its expiry is the only thing
+            bounding a permission that has been taken away.
+        oidcRefreshTokenTtlDays:
+          type: integer
+          description: |
+            1 to 90. Days rather than minutes because minutes for a
+            thirty-day value is a number nobody reads at a glance.
+        oidcSessionMaxAgeDays:
+          type: integer
+          description: |
+            Caps the whole refresh chain, measured from the sign-in that
+            began it, however diligently it is refreshed. Zero — the default
+            — means no cap.
+        showGuides:
+          type: boolean
+          description: |
+            Offers the explanatory panel on each administrative screen. A
+            tenant that has trained its administrators can turn them off.
         lockoutThreshold:
           type: integer
           description: |
@@ -3270,7 +3432,6 @@ components:
         tenantId: { type: string }
         entityId: { type: string }
         name: { type: string }
-        metadataXml: { type: string }
         launchUrl: { type: string }
         logoUri: { type: string }
         acsUrls:
@@ -3382,6 +3543,15 @@ components:
         events: { type: array, items: { type: string } }
         status: { $ref: "#/components/schemas/Status" }
         createdAt: { type: string, format: date-time }
+        headerNames:
+          type: array
+          items: { type: string }
+          description: |
+            The names of the headers this subscription sends, without their
+            values. The values are credentials, and an endpoint serving them
+            back would be a way to read every bearer token the tenant has
+            stored — which is what sealing them was for. The names are enough
+            to answer "what is this subscription sending".
 
     CreatedWebhookSubscription:
       allOf:
@@ -3396,6 +3566,16 @@ components:
                 because it signs rather than authenticates — there is nothing
                 to compare a digest against — which is exactly why no
                 endpoint serves it a second time.
+            previousSecretExpiresAt:
+              type: string
+              format: date-time
+              description: |
+                When the key this replaced stops being sent, and absent on a
+                first issue because there was nothing it replaced.
+
+                It is the receiver's deadline rather than this server's, and
+                the one number they have to act on: until then every delivery
+                carries both signatures.
 
     WebhookDelivery:
       type: object

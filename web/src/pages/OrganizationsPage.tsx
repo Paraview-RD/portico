@@ -99,7 +99,11 @@ export function OrganizationsPage() {
         }
       />
 
-      <GuidePanel id="organizations" title={t("organizations.guideTitle")}>
+      <GuidePanel
+        id="organizations"
+        docsPage="organizations/"
+        title={t("organizations.guideTitle")}
+      >
         {t("organizations.guideBody")}
       </GuidePanel>
 

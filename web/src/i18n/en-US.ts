@@ -382,6 +382,9 @@ export const enUS = {
   "settings.oidcSessionMaxAge": "Maximum session age (days)",
   "settings.oidcSessionMaxAgeHelp":
     "How long a refresh chain may continue, counted from the original sign-in rather than the last refresh; past it, signing in again is required. Zero switches it off and is the default — because refreshing renews itself, no limit means an integration that keeps calling never has to sign in again. Raising it above zero will end sessions that are working when they reach the limit, so turn it on deliberately.",
+  "settings.showGuides": "Show the explanation on each screen",
+  "settings.showGuidesHelp":
+    "The panel at the top of the administrative screens, saying what each one is for. Turn it off once your operators know the product. Each panel can also be collapsed individually, which is remembered per browser rather than for everybody.",
   "settings.registrationEnabled": "Allow self-service registration",
   "settings.registrationHelp":
     "When off, only administrators can create accounts. New accounts always get the User role.",
@@ -465,6 +468,22 @@ export const enUS = {
   "webhooks.guideBody":
     "Subscribe when one of your own systems has to know the moment something changes, rather than asking every few minutes.\nVerify the signature::Every delivery is signed. A receiver that does not check it will act on anything anybody posts, including a forged account disabled.\nNotification, not synchronization::Retries mean the same event can arrive twice and order is not guaranteed, so the receiving end has to be idempotent.\nFor the whole roster::That is Directory integration, not this page.",
   "webhooks.new": "New subscription",
+  "webhooks.headers": "Custom headers",
+  "webhooks.headersHelp":
+    "Sent with every delivery, for a receiver behind a gateway that wants an Authorization of its own. The signature says who produced the body; this is for being let through the door at all. Values are encrypted at rest and never shown again — and refused outright where this deployment has no PORTICO_ENCRYPTION_KEY, rather than stored in the clear.",
+  "webhooks.headerName": "Header",
+  "webhooks.headerValue": "Value",
+  "webhooks.headerAdd": "Add a header",
+  "webhooks.rotate": "Rotate secret",
+  "webhooks.rotateTitle": "Rotate the signing secret",
+  // Said before the button, not after. During the overlap each delivery
+  // carries two signatures, and a receiver comparing the whole header as one
+  // string verifies nothing until the old key is retired — which is a
+  // failure that looks like the endpoint working.
+  "webhooks.rotateConfirm":
+    'Issue a new signing secret for {0}? The old one keeps working for 24 hours, and during that window every delivery carries both signatures, comma separated. Check that your receiver splits the signature header on "," and accepts any of them before you continue — one that compares the whole header will reject everything until the window closes.',
+  "webhooks.rotateOverlap":
+    "The previous secret is accepted until {0}. Install this one at the receiver before then.",
   "webhooks.name": "Name",
   "webhooks.url": "Endpoint URL",
   "webhooks.urlHint":
@@ -549,6 +568,8 @@ export const enUS = {
     "{0} created, {1} updated, {2} deactivated, {3} skipped.",
   "directories.emptyResult":
     "The directory returned no entries while accounts here belong to it. Nothing was changed — an empty result is far more often a wrong base DN or user filter than a directory everybody has left, and acting on it would deactivate every one of those accounts.",
+  "directories.entriesUnreadable":
+    "The directory returned entries and none of them could be read as an account, while accounts here belong to it. Nothing was changed. The base DN and the user filter matched, so what to check is the attribute map — the username and external id attributes above all. The reasons are in the skipped detail below.",
   "directories.runFailed": "The synchronization failed.",
   "directories.outcome.SUCCEEDED": "Succeeded",
   "directories.outcome.FAILED": "Failed",

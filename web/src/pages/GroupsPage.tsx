@@ -156,7 +156,11 @@ export function GroupsPage() {
         actions={<Button onClick={openCreate}>{t("groups.new")}</Button>}
       />
 
-      <GuidePanel id="groups" title={t("groups.guideTitle")}>
+      <GuidePanel
+        id="groups"
+        docsPage="organizations/"
+        title={t("groups.guideTitle")}
+      >
         {t("groups.guideBody")}
       </GuidePanel>
 

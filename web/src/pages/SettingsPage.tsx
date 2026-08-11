@@ -86,7 +86,11 @@ export function SettingsPage() {
           suite exists to catch. It caught this. */}
       <div className={settingsColumns}>
         <div className="lg:col-span-2">
-          <GuidePanel id="settings" title={t("settings.guideTitle")}>
+          <GuidePanel
+            id="settings"
+            docsPage="settings/"
+            title={t("settings.guideTitle")}
+          >
             {t("settings.guideBody")}
           </GuidePanel>
         </div>
@@ -261,6 +265,28 @@ export function SettingsPage() {
                     ))}
                   </Select>
                 </Field>
+
+                {/* Above registration rather than below the password
+                    rules, because it is about this interface rather than
+                    about who may sign in to it. */}
+                <label className="flex items-start gap-2.5">
+                  <input
+                    type="checkbox"
+                    className="mt-1"
+                    checked={settings.showGuides}
+                    onChange={(e) =>
+                      setSettings({ ...settings, showGuides: e.target.checked })
+                    }
+                  />
+                  <span>
+                    <span className="block font-[weight:var(--font-weight-medium)] text-[var(--color-fg)]">
+                      {t("settings.showGuides")}
+                    </span>
+                    <span className="block text-[length:var(--font-size-sm)] text-[var(--color-fg-muted)]">
+                      {t("settings.showGuidesHelp")}
+                    </span>
+                  </span>
+                </label>
 
                 <label className="flex items-start gap-2.5">
                   <input

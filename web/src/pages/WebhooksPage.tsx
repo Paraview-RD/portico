@@ -95,11 +95,18 @@ export function WebhooksPage() {
   const [name, setName] = useState("");
   const [url, setUrl] = useState("");
   const [selected, setSelected] = useState<string[]>([]);
+  // Rows rather than a JSON box. The values are credentials somebody pastes
+  // in, and a mistyped brace turning a bearer token into a parse error is a
+  // worse first experience than two fields.
+  const [headerRows, setHeaderRows] = useState<
+    { name: string; value: string }[]
+  >([]);
   const [submitting, setSubmitting] = useState(false);
   const [created, setCreated] = useState<CreatedWebhookSubscription | null>(
     null,
   );
   const [deleting, setDeleting] = useState<WebhookSubscription | null>(null);
+  const [rotating, setRotating] = useState<WebhookSubscription | null>(null);
   const [inspecting, setInspecting] = useState<WebhookSubscription | null>(
     null,
   );
@@ -128,15 +135,22 @@ export function WebhooksPage() {
     setError("");
     setSubmitting(true);
     try {
+      const headers: Record<string, string> = {};
+      for (const row of headerRows) {
+        if (row.name.trim() !== "") headers[row.name.trim()] = row.value;
+      }
+
       const subscription = await webhooksApi.create({
         name,
         url,
         events: selected,
+        headers: Object.keys(headers).length > 0 ? headers : undefined,
       });
       setCreating(false);
       setName("");
       setUrl("");
       setSelected([]);
+      setHeaderRows([]);
       setCreated(subscription);
       await load();
     } catch (err) {
@@ -165,6 +179,21 @@ export function WebhooksPage() {
     setInspecting(subscription);
     try {
       setDeliveries(await webhooksApi.deliveries(subscription.id));
+    } catch (err) {
+      setError(describeError(err));
+    }
+  }
+
+  async function rotate() {
+    if (!rotating) return;
+    setError("");
+    try {
+      const result = await webhooksApi.rotateSecret(rotating.id);
+      setRotating(null);
+      // Shown through the same dialog a new subscription uses: it is the
+      // same fact — a secret that appears once and is never served again.
+      setCreated(result);
+      await load();
     } catch (err) {
       setError(describeError(err));
     }
@@ -265,6 +294,13 @@ export function WebhooksPage() {
                     {subscription.status === "ACTIVE"
                       ? t("common.disable")
                       : t("common.enable")}
+                  </Button>
+                  <Button
+                    size="sm"
+                    variant="secondary"
+                    onClick={() => setRotating(subscription)}
+                  >
+                    {t("webhooks.rotate")}
                   </Button>
                   <Button
                     size="sm"
@@ -376,8 +412,76 @@ export function WebhooksPage() {
                 </div>
               ))}
           </fieldset>
+
+          <fieldset className="flex flex-col gap-2">
+            <legend className="text-[length:var(--font-size-sm)] font-[weight:var(--font-weight-medium)]">
+              {t("webhooks.headers")}
+            </legend>
+            <p className="text-[length:var(--font-size-sm)] text-[var(--color-fg-muted)]">
+              {t("webhooks.headersHelp")}
+            </p>
+            {headerRows.map((row, index) => (
+              <div key={index} className="flex gap-2">
+                <Input
+                  placeholder={t("webhooks.headerName")}
+                  value={row.name}
+                  onChange={(e) =>
+                    setHeaderRows(
+                      headerRows.map((r, i) =>
+                        i === index ? { ...r, name: e.target.value } : r,
+                      ),
+                    )
+                  }
+                />
+                {/* type=password so a token pasted here is not left on
+                    screen behind whoever is doing the configuring. */}
+                <Input
+                  type="password"
+                  placeholder={t("webhooks.headerValue")}
+                  value={row.value}
+                  onChange={(e) =>
+                    setHeaderRows(
+                      headerRows.map((r, i) =>
+                        i === index ? { ...r, value: e.target.value } : r,
+                      ),
+                    )
+                  }
+                />
+                <Button
+                  type="button"
+                  size="sm"
+                  variant="secondary"
+                  onClick={() =>
+                    setHeaderRows(headerRows.filter((_, i) => i !== index))
+                  }
+                >
+                  {t("common.delete")}
+                </Button>
+              </div>
+            ))}
+            <div>
+              <Button
+                type="button"
+                size="sm"
+                variant="secondary"
+                onClick={() =>
+                  setHeaderRows([...headerRows, { name: "", value: "" }])
+                }
+              >
+                {t("webhooks.headerAdd")}
+              </Button>
+            </div>
+          </fieldset>
         </form>
       </Modal>
+
+      <ConfirmDialog
+        open={rotating !== null}
+        title={t("webhooks.rotateTitle")}
+        message={t("webhooks.rotateConfirm", rotating?.name ?? "")}
+        onCancel={() => setRotating(null)}
+        onConfirm={() => void rotate()}
+      />
 
       <Modal
         open={created !== null}
@@ -393,6 +497,14 @@ export function WebhooksPage() {
             label={t("webhooks.secret")}
             value={created?.secret ?? ""}
           />
+          {created?.previousSecretExpiresAt && (
+            <Alert tone="warning">
+              {t(
+                "webhooks.rotateOverlap",
+                new Date(created.previousSecretExpiresAt).toLocaleString(),
+              )}
+            </Alert>
+          )}
         </div>
       </Modal>
 

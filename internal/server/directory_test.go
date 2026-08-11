@@ -115,6 +115,40 @@ func TestUpdatingWithoutAPasswordKeepsTheStoredOne(t *testing.T) {
 	}
 }
 
+// A limit out of range is ignored, not obeyed and not refused.
+//
+// The handler passes the query parameter through unexamined and the bound
+// lives in the service, which is the right way round — it is a rule about
+// what may be asked for rather than about HTTP. This holds it from the
+// outside, where a caller actually is: a negative limit reaches PostgreSQL
+// as a negative LIMIT, which is an error, and the run history is the screen
+// somebody opens precisely when a synchronization has gone wrong. It must
+// not be removable with a stray minus sign.
+//
+// Ignored rather than refused, on the same terms as every other list here:
+// the caller is a screen drawing a list, and failing it over a query
+// parameter replaces the list with an error. The ceiling is the hundred
+// docs/api/openapi.yaml declares.
+func TestARunLimitOutOfRangeIsIgnored(t *testing.T) {
+	api := newAPITest(t)
+	token := api.adminToken()
+
+	var source struct {
+		ID string `json:"id"`
+	}
+	registerDirectory(t, api, token, "Limits", nil).into(t, &source)
+
+	for _, limit := range []string{"-1", "0", "abc", "999999", ""} {
+		path := "/api/v1/directories/" + source.ID + "/runs?limit=" + limit
+		if res := api.do(http.MethodGet, path, token, nil); res.Status != http.StatusOK {
+			t.Errorf("limit=%q answered %d %s; the history is what somebody "+
+				"opens when a synchronization has gone wrong, and a query "+
+				"parameter must not be able to take it away",
+				limit, res.Status, res.Code)
+		}
+	}
+}
+
 func TestDirectoryManagementIsAdministratorOnly(t *testing.T) {
 	api := newAPITest(t)
 	admin := api.adminToken()

@@ -106,6 +106,20 @@ const (
 	// should follow whatever the deployment is changed to later rather than
 	// having been frozen at install time.
 	SettingDefaultLocale = "default_locale"
+
+	// SettingShowGuides controls whether the explanatory panel at the top of
+	// each administrative screen is offered at all.
+	//
+	// Tenant-wide rather than per-person, because it is asked as "our
+	// operators know this product, stop showing them the introduction" — and
+	// each panel is already individually collapsible and remembered per
+	// browser, which is the per-person answer and was not enough.
+	//
+	// On by default. The people it costs are the ones who read every screen
+	// daily and can collapse them; the people it helps are the ones who have
+	// never seen the screen before, and a deployment that starts with them
+	// hidden helps nobody.
+	SettingShowGuides = "show_guides"
 )
 
 // Settings is the full set of runtime settings for one tenant.
@@ -122,6 +136,8 @@ type Settings struct {
 	OIDCSessionMaxAgeDays int `json:"oidcSessionMaxAgeDays"`
 
 	RegistrationEnabled bool `json:"registrationEnabled"`
+	// ShowGuides offers the explanatory panel on each administrative screen.
+	ShowGuides bool `json:"showGuides"`
 	// RegistrationVerification requires a self-registered account to prove
 	// its email address or phone number before it can sign in. Without it
 	// somebody can open an account under a colleague's address — and that
@@ -392,6 +408,7 @@ func NewSettingsService(st *store.Store, defaultTokenTTL time.Duration) *Setting
 			// Registration is off by default: an instance that is exposed
 			// before anyone configures it should not accept sign-ups.
 			RegistrationEnabled: false,
+			ShowGuides:          true,
 			SystemName:          "Portico",
 			// On by default. An instance exposed before anyone configures it
 			// should already resist online guessing, and five in fifteen
@@ -466,6 +483,8 @@ func (s *SettingsService) Get(ctx context.Context, tenantID string) (Settings, e
 			}
 		case SettingRegistrationEnabled:
 			loaded.RegistrationEnabled = row.Value == "true"
+		case SettingShowGuides:
+			loaded.ShowGuides = row.Value == "true"
 		case SettingRegistrationVerification:
 			loaded.RegistrationVerification = row.Value == "true"
 		case SettingSystemName:
@@ -613,6 +632,7 @@ func (s *SettingsService) Update(ctx context.Context, tenantID string, next Sett
 		SettingOIDCRefreshTokenTTLDays:   strconv.Itoa(next.OIDCRefreshTokenTTLDays),
 		SettingOIDCSessionMaxAgeDays:     strconv.Itoa(next.OIDCSessionMaxAgeDays),
 		SettingRegistrationEnabled:       strconv.FormatBool(next.RegistrationEnabled),
+		SettingShowGuides:                strconv.FormatBool(next.ShowGuides),
 		SettingRegistrationVerification:  strconv.FormatBool(next.RegistrationVerification),
 		SettingSystemName:                next.SystemName,
 

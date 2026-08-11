@@ -322,6 +322,12 @@ function failureText(
   if (run.errorCode === "DIRECTORY_RETURNED_NOTHING") {
     return t("directories.emptyResult");
   }
+  // Its near neighbour, and a separate message on purpose: both end with
+  // nothing to reconcile against, and they send the reader to opposite ends
+  // of the configuration.
+  if (run.errorCode === "DIRECTORY_ENTRIES_UNREADABLE") {
+    return t("directories.entriesUnreadable");
+  }
   return run.error || t("directories.runFailed");
 }
 

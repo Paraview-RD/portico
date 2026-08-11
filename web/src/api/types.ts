@@ -183,6 +183,11 @@ export interface Settings {
 
   registrationEnabled: boolean;
   /**
+   * Offers the explanatory panel at the top of each administrative screen.
+   * Tenant-wide; each panel is separately collapsible per browser.
+   */
+  showGuides: boolean;
+  /**
    * Requires a self-registered account to confirm its address before it can
    * sign in. Turning it on is refused where the deployment cannot send one.
    */
@@ -557,6 +562,12 @@ export interface WebhookSubscription {
   events: string[];
   status: "ACTIVE" | "DISABLED";
   createdAt: string;
+  /**
+   * The names of the custom headers this subscription sends, without their
+   * values. The values are credentials, sealed at rest and never served
+   * back — a name is enough to answer what a subscription is sending.
+   */
+  headerNames?: string[];
 }
 
 /**
@@ -566,6 +577,14 @@ export interface WebhookSubscription {
  */
 export interface CreatedWebhookSubscription extends WebhookSubscription {
   secret: string;
+  /**
+   * When the key this replaced stops being sent, on a rotation only. Absent
+   * on a first issue, because there is nothing it replaced.
+   *
+   * This is the receiver's deadline rather than ours: until it passes, every
+   * delivery carries both signatures and either verifies.
+   */
+  previousSecretExpiresAt?: string;
 }
 
 /** One attempt to deliver one event. */

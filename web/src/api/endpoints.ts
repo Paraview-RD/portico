@@ -690,7 +690,18 @@ export const webhooksApi = {
 
   events: () => request<string[]>("/webhooks/events"),
 
-  create: (input: { name: string; url: string; events: string[] }) =>
+  /**
+   * `headers` are sent with every delivery, for a receiver behind a gateway
+   * that wants an Authorization of its own. Write-only: sealed with
+   * PORTICO_ENCRYPTION_KEY, and refused outright where no key is
+   * configured rather than stored in the clear.
+   */
+  create: (input: {
+    name: string;
+    url: string;
+    events: string[];
+    headers?: Record<string, string>;
+  }) =>
     request<CreatedWebhookSubscription>("/webhooks", {
       method: "POST",
       body: input,
@@ -698,6 +709,20 @@ export const webhooksApi = {
 
   deliveries: (id: string) =>
     request<WebhookDelivery[]>(`/webhooks/${segment(id)}/deliveries`),
+
+  /**
+   * Issues a new signing key, returned once. The subscription keeps its id,
+   * so the delivery history and the receiver's deduplication survive.
+   *
+   * During the overlap each delivery carries both signatures, comma
+   * separated — a receiver comparing the whole header as one string
+   * verifies nothing until it ends.
+   */
+  rotateSecret: (id: string) =>
+    request<CreatedWebhookSubscription>(
+      `/webhooks/${segment(id)}/rotate-secret`,
+      { method: "POST" },
+    ),
 
   enable: (id: string) =>
     request<void>(`/webhooks/${segment(id)}/enable`, { method: "POST" }),

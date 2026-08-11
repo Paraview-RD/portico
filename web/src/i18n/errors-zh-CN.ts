@@ -164,6 +164,9 @@ export const errorsZhCN: Record<keyof typeof errorsEnUS, string> = {
     "主机名单独填写，不要带协议、路径或端口——它们是各自独立的字段。",
   LDAP_FIELD_REQUIRED:
     "主机、Base DN、用户过滤器，以及用户名、显示名、外部 ID 三个属性都必须填写。",
+  // 订阅不能发送的自定义请求头名或值。服务端消息会指明是哪一条、为什么；这是兜底。
+  INVALID_WEBHOOK_HEADER:
+    "这个请求头不能发送。有一部分由 Portico 自己设置，且值里不能含换行。",
   NO_ENCRYPTION_KEY:
     "本部署未配置加密密钥，无法保存 Bind 密码。请让运维设置 PORTICO_ENCRYPTION_KEY，或改用匿名绑定。",
 

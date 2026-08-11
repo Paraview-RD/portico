@@ -21,6 +21,35 @@ it is on the same footing as the signing keys, and
 [backup-and-restore.md](backup-and-restore.md) says what that means for a
 database dump.
 
+## Custom headers
+
+A receiver behind an API gateway usually needs an `Authorization` of its
+own. The signature says who produced the body; the gateway is deciding
+whether to let the request through at all, and the signature cannot answer
+that. Set headers when registering the subscription.
+
+Values are sealed with `PORTICO_ENCRYPTION_KEY`, on the same footing as a
+directory bind password: a credential this server stores and later presents,
+so there is nothing to compare a digest against. **Without a key configured,
+saving one is refused** rather than written in the clear — the console says
+so. A subscription with no custom headers needs no key.
+
+They are never served back. The API and the console report the names; the
+values are known to whoever typed them.
+
+Refused at registration, rather than at delivery hours later:
+
+| | |
+|---|---|
+| `X-Portico-Signature`, `-Timestamp`, `-Event`, `-Delivery` | Setting these would let whoever registers a subscription choose what its receiver verifies |
+| `Content-Type`, `Content-Length`, `Host`, `User-Agent` | The body is JSON and the transport decides its length; overriding either produces a request that disagrees with itself |
+| A value containing a line break | Everything after it is read as another header, or as the body |
+| A name that is not an HTTP token | Same, one step earlier |
+| More than 10, or a value over 2048 characters | Every one is sent on every delivery |
+
+Portico sets its own headers **after** these, so the order is a second
+defence that does not depend on the list above being complete.
+
 ## Which destinations are allowed
 
 Https, publicly resolvable, and not an address inside your network. Refused:
@@ -67,6 +96,14 @@ signature over the body alone is replayable forever by anyone who ever saw
 one — including your own logs — and a replayed `user.disabled` is a denial of
 service against one person's account in whatever consumes these.
 
+The header may carry **more than one signature**, comma separated, and any
+of them verifying is enough. That happens during a secret rotation, when
+each delivery is signed with both the new key and the one it replaced —
+see [Rotating the secret](#rotating-the-secret). Split on `,` even if you
+have never rotated: a receiver that compares the whole header as one string
+works perfectly until the day somebody rotates, and then rejects everything
+while looking healthy.
+
 ```python
 import hashlib, hmac, time
 
@@ -75,9 +112,13 @@ def verify(secret: str, headers, body: bytes) -> bool:
     expected = "sha256=" + hmac.new(
         secret.encode(), f"{timestamp}.".encode() + body, hashlib.sha256
     ).hexdigest()
+    # Any one of them. During a rotation there are two, and which one is
+    # yours depends on whether you have deployed the new secret yet.
+    #
     # Constant time: a fast string comparison leaks how much of a forged
     # signature was right, one byte at a time.
-    if not hmac.compare_digest(expected, headers["X-Portico-Signature"]):
+    signatures = headers["X-Portico-Signature"].split(",")
+    if not any(hmac.compare_digest(expected, s.strip()) for s in signatures):
         return False
     # And reject anything too old to be current, or the signature only proves
     # the body was ours at some point in history.
@@ -86,6 +127,30 @@ def verify(secret: str, headers, body: bytes) -> bool:
 
 Use the **raw** body, before any JSON parsing. Re-serializing changes
 whitespace and key order, and the signature is over bytes.
+
+## Rotating the secret
+
+**Webhooks → Rotate secret**, or `POST /api/v1/webhooks/{id}/rotate-secret`.
+The new secret is shown once, along with `previousSecretExpiresAt`.
+
+For **24 hours** after that, every delivery carries two signatures: one with
+the new key and one with the old. Install the new secret at your end before
+the deadline; until then either verifies, so there is no moment where
+deliveries fail.
+
+That window is the whole point. Portico produces the signature and you check
+it, so you are the side with something to deploy — a rotation taking effect
+instantly would reject every delivery until you had.
+
+The subscription keeps its id, so the delivery history and any deduplication
+you do on delivery ids survive. Deleting and re-registering was the only
+previous remedy for a leaked key, and it threw both away.
+
+Rotating again before the window closes replaces the pending old key rather
+than keeping three. If a key has actually leaked and you cannot wait 24
+hours, rotate and then pause the subscription until your receiver is
+updated: pausing stops deliveries rather than signing them with a key
+somebody else holds.
 
 ## The body
 

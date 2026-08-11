@@ -12,6 +12,62 @@ Working toward 0.2.0. See
 
 ### Added
 
+- **Two manual chapters that had no page**: organizations and groups, and
+  settings and the audit trail. Five administrative screens had an
+  explanation at the top and nowhere to send a reader who wanted more, so
+  the panel was carrying detail it should have been linking to. Both are in
+  English and 简体中文, and every screen with a panel now links into the
+  manual.
+- **The explanation panels can be turned off**, per tenant, for a deployment
+  whose operators have learned the product and are now reading past the same
+  four sentences every day. On by default, because the cost of an
+  explanation somebody no longer needs is smaller than the cost of a screen
+  nobody can interpret.
+- An individual panel still collapses on its own, and that is remembered per
+  browser rather than for the tenant — so one operator putting a panel away
+  is not a decision made for everybody else. The two controls answer
+  different questions and neither substitutes for the other.
+- **A subscription can send custom headers**, for a receiver behind an API
+  gateway that wants an `Authorization` of its own. The signature says who
+  produced the body; the gateway is deciding whether to let the request
+  through at all, and the signature cannot answer that.
+- The values are sealed with `PORTICO_ENCRYPTION_KEY`, on the same footing
+  as a directory bind password — a credential this server stores and later
+  presents, so there is nothing to compare a digest against. **Without a key
+  configured, saving one is refused** rather than written in the clear. A
+  plaintext bearer token sitting in a table somebody dumps for support would
+  be worse than not offering the feature.
+- They are never served back. The API and the console report the names,
+  which answers "what is this subscription sending" without making the
+  listing a way to read every credential a tenant has stored.
+- A header that would change what the delivery *is* — rather than get it
+  past a door — is refused at registration, where somebody can still see the
+  message: the signature headers, `Content-Type`, `Content-Length`, `Host`,
+  a value carrying a line break, a name that is not an HTTP token, more than
+  ten of them. Portico sets its own headers **after** a subscription's, so
+  the order is a second defence that does not depend on that list being
+  complete.
+- **A webhook signing secret can be rotated**, with the key it replaces kept
+  alive for 24 hours. Before this the only remedy for a leaked secret was to
+  delete the subscription and register a new one — which changes the id the
+  delivery history hangs off and the id a receiver deduplicates on, so the
+  cure discarded the evidence and broke idempotency at the far end. The
+  subscription now keeps its id.
+- During the overlap every delivery carries **both signatures**, comma
+  separated, and either verifies. That is the mechanism rather than a
+  detail: Portico produces the signature and the receiver checks it, so the
+  receiver is the side with something to deploy, and a rotation taking
+  effect instantly would reject every delivery until they had.
+- Which means a receiver must split `X-Portico-Signature` on `,` and accept
+  any element. One comparing the whole header as a single string works
+  perfectly until somebody rotates and then rejects everything while looking
+  healthy — so the documented example now splits, and the console says so
+  before starting a rotation rather than after.
+- Rotating again inside the window replaces the pending old key rather than
+  keeping three. For a key that has actually leaked and cannot wait, the
+  documented answer is to rotate and then pause the subscription: pausing
+  stops deliveries, rather than continuing to sign them with a key somebody
+  else holds.
 - **Accounts can be read out of an Active Directory or OpenLDAP.** The
   opposite direction from SCIM, which is a server here: a directory pushes
   into `/scim/v2` and Portico never reaches out, while this has Portico
@@ -421,6 +477,39 @@ Working toward 0.2.0. See
   service providers map it. What
   [docs/federation.md](docs/federation.md) lists is now what an assertion
   carries, which it was not before.
+- **The names each protocol sends are written down per protocol, and
+  checked.** [docs/federation.md](docs/federation.md) said CAS carried
+  attributes "under the same names the other protocols use". It does not and
+  cannot: OpenID Connect's names are its specification's, so CAS sends
+  `phone` where OpenID Connect sends `phone_number` and SAML sends
+  `telephoneNumber`. There is now a table per fact across the three, a second
+  giving the attribute `Name` behind each SAML friendly name — which is what
+  a service provider's configuration keys on — and a test that signs in over
+  all three with an account that has every fact and compares what comes back
+  with what is written, in both directions and against both translations.
+  Writing it out turned up `subject-id`, an attribute every assertion carries
+  and nothing had ever mentioned.
+- **Both layout diagrams name every package, and the documented Go version is
+  the one `go.mod` requires.** Eight packages were missing from
+  [docs/code-conventions.md](docs/code-conventions.md)'s tree and four from
+  README's, and README named a `middleware` package that has not existed for
+  some time. Both directions are now asserted. Separately, README,
+  CONTRIBUTING and the release image must state the version the module
+  requires — a contributor who installed what the documents asked for got a
+  build failure complaining about a language feature.
+- **Nine corrections to things the documentation said that were not so.**
+  Signing out ends the session signing out rather than all of them; webhook
+  delivery is not the only outbound TLS, so an image without a CA bundle also
+  breaks mail and directory synchronization; backup and restore never
+  mentioned `PORTICO_ENCRYPTION_KEY`, without which every directory connector
+  fails at bind after a restore, nor that `webhook_subscriptions.secret` is
+  stored in the clear; `portico ready` does read the environment directly and
+  has to; `.env.example` pointed at a port nothing here listens on;
+  `ServiceProviderConfig` cannot advertise which PATCH paths are supported,
+  because SCIM has no field for it.
+- **[examples/mock-sp/README.md](examples/mock-sp/README.md) exists in
+  English.** The Chinese federation page linked a step-by-step guide to the
+  example relying party and the English one had nowhere to send anybody.
 
 ### Fixed
 
@@ -483,6 +572,61 @@ Working toward 0.2.0. See
   parts, the address. `DELETE` did the same on the way out, which contradicts
   the reason it deactivates rather than deletes. `PUT` is unaffected and
   still replaces, which is the difference between the two verbs.
+- **A SCIM push no longer clears a group's description.** SCIM's Group schema
+  has `displayName`, `externalId` and `members` and no description, so a
+  directory cannot send one and cannot mean to clear one. Every push did,
+  through all three ways in: `PUT`, a `POST` for a group the directory lost
+  track of and re-creates, and a `PATCH` that renames.
+- **The prefix shown for a SCIM credential distinguishes one from another.**
+  It exists so an operator can decide which of several to revoke, and it
+  stored the first eight characters of a token — which are `portico_` for
+  every credential ever issued. It now keeps the marker and eight characters
+  of what follows. Credentials issued before this keep the prefix they were
+  stored with; the token is not kept, so there is nothing to recompute one
+  from. Authentication is by digest and is unaffected either way.
+- **`GET /Schemas` describes the resource that is actually served.** Six
+  attributes were published for a User carrying twenty-two, and the
+  enterprise extension — `employeeNumber`, `costCenter`, `department` — was
+  not published at all, so an administrator looking for somewhere to map a
+  department found nothing on a server that would have stored it. The User
+  resource type now declares that extension in `schemaExtensions`, which is
+  what several directories look for before sending it. `userName` was
+  advertised with mutability `server`, which is not one of the four values
+  RFC 7643 defines, and a client that validates the document rejects all of
+  it over one bad enum. `groups` is advertised read-only, which is what it
+  is: membership is written through the Group resource.
+- **The down migrations run.** Rolling a release back is what
+  [docs/backup-and-restore.md](docs/backup-and-restore.md) describes, and
+  nothing had ever run them. The first migration's down section listed twenty
+  of the twenty-two tables it creates — `sessions` and `password_history`
+  were never there — and both hold a foreign key to `users`, so PostgreSQL
+  refused to drop it. What that leaves is worse than a refusal: most tables
+  gone, the schema version still recorded as applied, and an `up` that now
+  fails on whichever table it tries to create first.
+- **A run where every entry was skipped no longer reports an empty
+  directory.** Both end with nothing to reconcile against and both refuse to
+  act, which is right either way. But "the directory returned no entries"
+  sends an operator to the base DN and the user filter, and when the entries
+  arrived and none could be read as an account those are exactly the two
+  things that worked — what is wrong is the attribute map. The second case
+  has its own code and its own sentence in the console.
+- **The API description names the fields and the failures the API has.**
+  `User` had gained `closedAt` and `externalId` and neither was described, so
+  neither existed for anybody generating a client; `SAMLServiceProvider`
+  advertised `metadataXml`, which is `json:"-"` and has never been in a
+  response. All nine public endpoints resolve a tenant from the request and
+  can answer `TENANT_NOT_FOUND` or `TENANT_DISABLED`, and none said so.
+  Registration and password recovery can answer 503 when the deployment has
+  no way to send the message they depend on.
+
+  Twenty-two schemas are now compared against their Go types by reflection,
+  in both directions, and that comparison found six more: a subscription's
+  `headerNames` and a rotation's `previousSecretExpiresAt` were undescribed,
+  `POST /webhooks` accepts `headers` and the request body did not say so,
+  `rotate-secret` answered with the generic envelope so nothing typed carried
+  the new secret, and `Settings` omitted `showGuides` along with the three
+  OIDC lifetimes that [docs/federation.md](docs/federation.md) tells people
+  to set on that screen.
 
 ### Security
 

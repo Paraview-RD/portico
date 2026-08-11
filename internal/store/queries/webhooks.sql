@@ -1,7 +1,7 @@
 -- name: CreateWebhookSubscription :exec
 INSERT INTO webhook_subscriptions (
-    id, tenant_id, name, url, secret, events, status, created_at, updated_at
-) VALUES ($1, $2, $3, $4, $5, $6, 'ACTIVE', $7, $7);
+    id, tenant_id, name, url, secret, events, headers, status, created_at, updated_at
+) VALUES ($1, $2, $3, $4, $5, $6, $7, 'ACTIVE', $8, $8);
 
 -- name: ListWebhookSubscriptions :many
 SELECT * FROM webhook_subscriptions
@@ -18,13 +18,25 @@ WHERE tenant_id = $1 AND id = $2;
 
 -- name: UpdateWebhookSubscription :exec
 UPDATE webhook_subscriptions
-SET name = $1, url = $2, events = $3, updated_at = $4
-WHERE tenant_id = $5 AND id = $6;
+SET name = $1, url = $2, events = $3, headers = $4, updated_at = $5
+WHERE tenant_id = $6 AND id = $7;
 
 -- name: SetWebhookSubscriptionStatus :exec
 UPDATE webhook_subscriptions
 SET status = $1, updated_at = $2
 WHERE tenant_id = $3 AND id = $4;
+
+-- name: RotateWebhookSubscriptionSecret :exec
+-- The old key moves aside rather than being discarded, and is sent alongside
+-- the new one until it expires. Portico produces the signature and the
+-- receiver verifies it, so the receiver is the side that needs a window in
+-- which to deploy the new secret.
+UPDATE webhook_subscriptions
+SET secret = $1,
+    previous_secret = secret,
+    previous_secret_expires_at = $2,
+    updated_at = $3
+WHERE tenant_id = $4 AND id = $5;
 
 -- name: DeleteWebhookSubscription :exec
 -- Deleted rather than disabled, like a SCIM credential and unlike an

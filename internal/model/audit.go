@@ -188,6 +188,11 @@ const (
 	ActionWebhookEnable  = "WEBHOOK_ENABLE"
 	ActionWebhookDisable = "WEBHOOK_DISABLE"
 	ActionWebhookDelete  = "WEBHOOK_DELETE"
+	// Recorded because it is a credential changing hands. The secret itself
+	// is never in the entry — the detail is when the old one stops working,
+	// which is the fact somebody needs when a receiver starts rejecting
+	// deliveries a day later.
+	ActionWebhookRotate = "WEBHOOK_ROTATE_SECRET"
 
 	// Groups and their membership. Membership is audited as its own verb
 	// rather than as a group update because the questions differ: "who
