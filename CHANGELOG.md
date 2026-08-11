@@ -638,6 +638,14 @@ Working toward 0.2.0. See
   nothing about it, and they are the two that most need it: whoever is asking
   for a reset link cannot sign in, so there is no token for the tenant to
   come from.
+- **An endpoint that resolves a tenant from the request has to say so.** The
+  nine that can answer `TENANT_NOT_FOUND` or `TENANT_DISABLED` were found by
+  hand, by listing the callers of one function, and nothing stopped a tenth
+  being added without the same two lines. That list is now mechanical: the
+  routing table says which handler serves each path, the handler's source
+  says whether it resolves a tenant, and the document has to agree. It found
+  the same nine, which is the first independent confirmation that the hand
+  list was right.
 
 ### Security
 
