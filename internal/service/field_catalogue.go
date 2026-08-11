@@ -126,10 +126,15 @@ var builtInFields = []Field{
 	{Key: "display_name", Group: FieldGroupIdentity, Kind: FieldKindText, Inbound: true},
 	{Key: "email", Group: FieldGroupIdentity, Kind: FieldKindText, Inbound: true},
 	{Key: "phone", Group: FieldGroupIdentity, Kind: FieldKindText, Inbound: true},
-	{Key: "email_verified", Group: FieldGroupIdentity, Kind: FieldKindBoolean,
-		OutboundOnlyBecause: "it records that Portico checked the address, and a directory saying so is not Portico having checked"},
-	{Key: "phone_verified", Group: FieldGroupIdentity, Kind: FieldKindBoolean,
-		OutboundOnlyBecause: "the same: it is a record of a check made here"},
+	// Deliberately absent: email_verified and phone_number_verified.
+	//
+	// OpenID Connect sends both today and both are always false — this system
+	// records that a self-registration confirmed its address, not that a
+	// particular address was proved. Offering them here would be offering a
+	// mappable field whose value never changes, and an integrator who mapped it
+	// would conclude that nobody's address is verified rather than that the
+	// fact is not kept. The two claims keep going out as they always have; what
+	// is not on offer is renaming a constant.
 	{Key: "role", Group: FieldGroupIdentity, Kind: FieldKindSelect,
 		AllowedValues:       []string{"SUPER_ADMIN", "USER"},
 		OutboundOnlyBecause: "a directory attribute that granted administrator would put privilege escalation in a system Portico does not own"},

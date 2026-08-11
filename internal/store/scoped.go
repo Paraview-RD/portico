@@ -1161,6 +1161,61 @@ func (s *Scoped) ListOrganizationAttachedUsers(ctx context.Context, organization
 	})
 }
 
+// --- per-application field mappings ------------------------------------
+
+// ApplicationRef names one registered application without saying which of the
+// three protocols it speaks. Exactly one field is set, which the schema also
+// enforces: three nullable foreign keys and a CHECK, so that the database keeps
+// the reference honest and takes the mappings away with the application.
+type ApplicationRef struct {
+	OAuthClientID string
+	SAMLSPID      string
+	CASServiceID  string
+}
+
+func (r ApplicationRef) ids() (oauth, saml, cas *string) {
+	if r.OAuthClientID != "" {
+		oauth = &r.OAuthClientID
+	}
+	if r.SAMLSPID != "" {
+		saml = &r.SAMLSPID
+	}
+	if r.CASServiceID != "" {
+		cas = &r.CASServiceID
+	}
+	return oauth, saml, cas
+}
+
+// ListApplicationFieldMappings returns one application's mappings.
+func (s *Scoped) ListApplicationFieldMappings(ctx context.Context, ref ApplicationRef) ([]sqlcgen.ApplicationFieldMapping, error) {
+	oauth, saml, cas := ref.ids()
+	return s.q.ListApplicationFieldMappings(ctx, sqlcgen.ListApplicationFieldMappingsParams{
+		TenantID: s.tenantID, OauthClientID: oauth, SamlSpID: saml, CasServiceID: cas,
+	})
+}
+
+// ListApplicationsMappingField answers which applications receive one fact,
+// across all three protocols at once.
+func (s *Scoped) ListApplicationsMappingField(ctx context.Context, sourceKey string) ([]sqlcgen.ApplicationFieldMapping, error) {
+	return s.q.ListApplicationsMappingField(ctx,
+		sqlcgen.ListApplicationsMappingFieldParams{TenantID: s.tenantID, SourceKey: sourceKey})
+}
+
+// DeleteApplicationFieldMappings clears one application's set, which is what a
+// save does before writing the set the form holds.
+func (s *Scoped) DeleteApplicationFieldMappings(ctx context.Context, ref ApplicationRef) error {
+	oauth, saml, cas := ref.ids()
+	return s.q.DeleteApplicationFieldMappings(ctx, sqlcgen.DeleteApplicationFieldMappingsParams{
+		TenantID: s.tenantID, OauthClientID: oauth, SamlSpID: saml, CasServiceID: cas,
+	})
+}
+
+// CreateApplicationFieldMapping writes one row.
+func (s *Scoped) CreateApplicationFieldMapping(ctx context.Context, arg sqlcgen.CreateApplicationFieldMappingParams) error {
+	arg.TenantID = s.tenantID
+	return s.q.CreateApplicationFieldMapping(ctx, arg)
+}
+
 // --- tenant-defined user attributes -----------------------------------
 
 // ListUserAttributeDefinitions returns the tenant's own attribute definitions,

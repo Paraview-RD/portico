@@ -12,11 +12,11 @@ import (
 
 // Every field that a directory may not write says why.
 //
-// This is the test that keeps the boundary legible. Four of the outbound-only
-// entries are refusals with teeth — role, status, the two verification flags —
-// and the rest are merely facts a directory has no business asserting. A
-// reader deciding whether to relax one has to be able to tell those apart, and
-// an entry with no reason is one where somebody will guess.
+// This is the test that keeps the boundary legible. Some of the outbound-only
+// entries are refusals with teeth — role and status, chiefly — and the rest are
+// merely facts a directory has no business asserting. A reader deciding whether
+// to relax one has to be able to tell those apart, and an entry with no reason
+// is one where somebody will guess.
 func TestEveryOutboundOnlyFieldSaysWhy(t *testing.T) {
 	for _, f := range BuiltInFields() {
 		if f.Inbound {
@@ -35,21 +35,19 @@ func TestEveryOutboundOnlyFieldSaysWhy(t *testing.T) {
 	}
 }
 
-// The four that must never be writable from a directory.
+// The ones that must never be writable from a directory.
 //
-// Named individually rather than counted, because "the list has four
+// Named individually rather than counted, because "the list has five
 // outbound-only security entries" is a fact about today and "a directory may
 // not set a role" is a fact about the system. If somebody makes role inbound,
 // this fails with the sentence explaining what that would mean.
 func TestADirectoryCannotBeGivenControlOfPrivilege(t *testing.T) {
 	forbidden := map[string]string{
-		"role":           "a directory attribute granting administrator is privilege escalation in a system Portico does not own",
-		"status":         "an entry disappearing is already how a directory deactivates; a second channel would fight with it",
-		"email_verified": "it records a check Portico made, and a directory asserting it is not that check",
-		"phone_verified": "the same",
-		"user_id":        "a directory that could set it could take over an existing account",
-		"tenant_id":      "no account may change its own tenant",
-		"tenant_code":    "the same",
+		"role":        "a directory attribute granting administrator is privilege escalation in a system Portico does not own",
+		"status":      "an entry disappearing is already how a directory deactivates; a second channel would fight with it",
+		"user_id":     "a directory that could set it could take over an existing account",
+		"tenant_id":   "no account may change its own tenant",
+		"tenant_code": "the same",
 	}
 
 	for _, f := range BuiltInFields() {
