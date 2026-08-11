@@ -57,7 +57,11 @@ var (
 
 // Every token starts with this, so that one found in a configuration file or
 // a log is recognizable as belonging to this system.
-const scimTokenMarker = "portico_scim_"
+//
+// It is the opposite of a secret: it is shared by every token ever issued and
+// exists to be read. gosec sees a string constant near the word "token" and
+// cannot tell the two apart.
+const scimTokenMarker = "portico_scim_" //nolint:gosec // a public marker, not a secret
 
 // tokenPrefixLength is how much of the random part of a token is kept in the
 // clear, beyond the marker every token shares.
