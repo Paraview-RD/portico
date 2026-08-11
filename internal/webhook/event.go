@@ -102,17 +102,6 @@ const (
 	HeaderDelivery  = "X-Portico-Delivery"
 )
 
-// Sign returns the signature for a body at a moment in time.
-//
-// The timestamp is inside the signed string, not merely sent beside it. A
-// signature over the body alone is replayable forever by anyone who ever saw
-// one — including the receiver's own logs and any proxy in between — and a
-// replayed "user.disabled" is a denial of service against one person's
-// account in whatever system consumes these.
-//
-// The receiver checks it by recomputing this and comparing in constant time,
-// then rejecting a timestamp too far from now. Both halves are needed: the
-// signature says the body is ours, the timestamp says it is current.
 // SignWith returns the header value for one or more keys.
 //
 // During a rotation there are two, newest first, comma-separated — the shape
@@ -140,6 +129,17 @@ func SignWith(secrets []string, timestamp time.Time, body []byte) string {
 	return strings.Join(parts, ",")
 }
 
+// Sign returns the signature for a body at a moment in time.
+//
+// The timestamp is inside the signed string, not merely sent beside it. A
+// signature over the body alone is replayable forever by anyone who ever saw
+// one — including the receiver's own logs and any proxy in between — and a
+// replayed "user.disabled" is a denial of service against one person's
+// account in whatever system consumes these.
+//
+// The receiver checks it by recomputing this and comparing in constant time,
+// then rejecting a timestamp too far from now. Both halves are needed: the
+// signature says the body is ours, the timestamp says it is current.
 func Sign(secret string, timestamp time.Time, body []byte) string {
 	mac := hmac.New(sha256.New, []byte(secret))
 	// Length-prefixed by construction: the timestamp is fixed-width digits
