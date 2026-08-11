@@ -847,6 +847,18 @@ CREATE TABLE group_members (
 CREATE INDEX idx_group_members_user ON group_members (tenant_id, user_id);
 
 -- +goose Down
+--
+-- Exactly the reverse of the order above, and that is the rule to follow
+-- when adding a table: every foreign key here points at a table created
+-- earlier in this file, so dropping in reverse never leaves a dependency
+-- standing.
+--
+-- The list used to be assembled by hand and was missing `sessions` and
+-- `password_history`. Both hold a foreign key to `users`, so PostgreSQL
+-- refused to drop `users` and the rollback stopped halfway — leaving a
+-- database with most of its tables gone and the version still recorded as
+-- applied, which is worse than either finishing or refusing. TestTheMigrations
+-- RunBackwards runs this section rather than reading it.
 DROP TABLE group_members;
 DROP TABLE groups;
 DROP TABLE webhook_deliveries;
@@ -861,8 +873,10 @@ DROP TABLE oauth_refresh_tokens;
 DROP TABLE oauth_auth_requests;
 DROP TABLE oauth_clients;
 DROP TABLE oauth_signing_keys;
-DROP TABLE password_resets;
 DROP TABLE system_settings;
+DROP TABLE sessions;
+DROP TABLE password_history;
+DROP TABLE password_resets;
 DROP TABLE audit_logs;
 DROP TABLE users;
 DROP TABLE organizations;
