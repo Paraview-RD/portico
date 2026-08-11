@@ -56,108 +56,86 @@ export function ProfilePage() {
     <>
       <PageHeader title={t("profile.title")} subtitle={t("profile.subtitle")} />
 
-      {/* Two columns on a wide display: the forms at the width a form wants,
-          and the device list beside them taking whatever is left.
+      {/* Four sections in two rows of two, and the pairing is the layout.
 
-          The previous version stacked four cards all clamped to 30rem, which
-          on a 1440px column left two thirds of the screen empty and read as
-          a page that had failed rather than as a deliberate measure. The
-          fix is not to widen the forms — an input is no more usable for
-          being a metre across — it is to put something beside them. */}
+          The previous version put three cards in a left column and one
+          beside them, which reads as two columns until you notice that the
+          right one runs out after the first card. It also broke the rule the
+          layout guard checks: the device list ended 150px above where the
+          password form began, so that form chained into no row and sat alone
+          at 346–826 between two rows reaching 1786. A row stopping short of
+          the one above it is the thing that looks like a mistake.
+
+          Explicit grid cells fix it by construction rather than by luck. Two
+          cards placed in the same grid row start at the same y whatever they
+          contain, so the rows agree about the column no matter how many
+          devices are signed in or how long a user agent string runs.
+
+          The pairing is also the meaning. Row one is the account as it
+          stands — who you are, and what is currently signed in as you. Row
+          two is what you can do about it: change the password, or close the
+          account. */}
       <div className="grid items-start gap-4 lg:grid-cols-[minmax(0,var(--form-width))_minmax(0,1fr)]">
-        <div className="flex flex-col gap-4">
-          {/* Read-only above, editable below. The split is the server's:
-              username, role, and organization are not things a user may
-              change about themselves, and showing them in a form would
-              imply otherwise. */}
-          <Card>
-            <dl className="grid grid-cols-[auto_1fr] gap-x-6 gap-y-3">
-              <Detail label={t("profile.username")} value={user.username} />
-              <dt className="text-[var(--color-fg-muted)]">
-                {t("profile.role")}
-              </dt>
-              <dd>
-                <Badge
-                  tone={user.role === "SUPER_ADMIN" ? "warning" : "neutral"}
-                >
-                  {t(`role.${user.role}`)}
-                </Badge>
-              </dd>
-              <Detail
-                label={t("profile.organization")}
-                value={user.organizationName || "—"}
-              />
-            </dl>
-          </Card>
-
-          <ProfileDetailsForm onSaved={refresh} />
-
-          <Card title={t("profile.changePassword")}>
-            {changed ? (
-              <div className="flex flex-col items-start gap-4">
-                <Alert tone="success">{t("profile.passwordChanged")}</Alert>
-                <Button onClick={endSession}>{t("login.submit")}</Button>
-              </div>
-            ) : (
-              <form onSubmit={handleSubmit} className="flex flex-col gap-4">
-                <Field label={t("profile.currentPassword")} required>
-                  <Input
-                    type="password"
-                    value={form.current}
-                    onChange={(e) =>
-                      setForm({ ...form, current: e.target.value })
-                    }
-                    autoComplete="current-password"
-                    required
-                  />
-                </Field>
-
-                <Field label={t("profile.newPassword")} required>
-                  <Input
-                    type="password"
-                    value={form.next}
-                    onChange={(e) => setForm({ ...form, next: e.target.value })}
-                    autoComplete="new-password"
-                    required
-                  />
-                </Field>
-
-                <Field label={t("profile.confirmNewPassword")} required>
-                  <Input
-                    type="password"
-                    value={form.confirm}
-                    onChange={(e) =>
-                      setForm({ ...form, confirm: e.target.value })
-                    }
-                    autoComplete="new-password"
-                    required
-                  />
-                </Field>
-
-                {error && <Alert tone="danger">{error}</Alert>}
-
-                <div>
-                  <Button type="submit" disabled={submitting}>
-                    {t("profile.changePassword")}
-                  </Button>
-                </div>
-              </form>
-            )}
-          </Card>
-        </div>
+        <ProfileDetailsForm onSaved={refresh} />
 
         {/* The device list, which is the one thing on this screen that wants
             width: an address, a user agent string, a timestamp, and a button
             on one row. At 30rem it wrapped to four lines per session. */}
         <SessionsCard />
-      </div>
 
-      {/* Below both columns rather than at the foot of one of them.
-          Underneath the right column it was a card floating in half the
-          width with empty space beside it — which the layout guard called
-          ragged, correctly. Full width also reads as what it is: a final
-          section, separate from the account maintenance above it. */}
-      <div className="mt-4">
+        <Card title={t("profile.changePassword")}>
+          {changed ? (
+            <div className="flex flex-col items-start gap-4">
+              <Alert tone="success">{t("profile.passwordChanged")}</Alert>
+              <Button onClick={endSession}>{t("login.submit")}</Button>
+            </div>
+          ) : (
+            <form onSubmit={handleSubmit} className="flex flex-col gap-4">
+              <Field label={t("profile.currentPassword")} required>
+                <Input
+                  type="password"
+                  value={form.current}
+                  onChange={(e) =>
+                    setForm({ ...form, current: e.target.value })
+                  }
+                  autoComplete="current-password"
+                  required
+                />
+              </Field>
+
+              <Field label={t("profile.newPassword")} required>
+                <Input
+                  type="password"
+                  value={form.next}
+                  onChange={(e) => setForm({ ...form, next: e.target.value })}
+                  autoComplete="new-password"
+                  required
+                />
+              </Field>
+
+              <Field label={t("profile.confirmNewPassword")} required>
+                <Input
+                  type="password"
+                  value={form.confirm}
+                  onChange={(e) =>
+                    setForm({ ...form, confirm: e.target.value })
+                  }
+                  autoComplete="new-password"
+                  required
+                />
+              </Field>
+
+              {error && <Alert tone="danger">{error}</Alert>}
+
+              <div>
+                <Button type="submit" disabled={submitting}>
+                  {t("profile.changePassword")}
+                </Button>
+              </div>
+            </form>
+          )}
+        </Card>
+
         <CloseAccountCard />
       </div>
     </>
@@ -183,6 +161,11 @@ function ProfileDetailsForm({ onSaved }: { onSaved: () => Promise<void> }) {
   const [saved, setSaved] = useState(false);
   const [submitting, setSubmitting] = useState(false);
 
+  // The parent renders nothing without a user, so this cannot be reached —
+  // but it is what lets the account facts below be read without a `?.` on
+  // every one, and `role.undefined` is not a translation key.
+  if (!user) return null;
+
   async function handleSubmit(event: React.FormEvent) {
     event.preventDefault();
     setError("");
@@ -204,6 +187,38 @@ function ProfileDetailsForm({ onSaved }: { onSaved: () => Promise<void> }) {
 
   return (
     <Card title={t("profile.details")}>
+      {/* What the server decides, above what you decide, separated by a rule
+          rather than by a card of its own.
+
+          The split is still the server's — a username, a role, and an
+          organization are not things a user may change about themselves, and
+          putting them in the form below would imply otherwise. But that
+          distinction needed a divider, not a second surface: as a bare
+          untitled card it read as three facts floating above the page with
+          nothing saying what they were.
+
+          Laid across rather than down. As a two-column list the labels and
+          values huddled at the left edge of a 480px card and left the rest
+          empty; three across fills the width and gives each fact the same
+          weight. */}
+      <dl className="mb-5 grid gap-4 border-b border-[var(--color-border)] pb-5 sm:grid-cols-3">
+        <Detail label={t("profile.username")} value={user.username} />
+        <div className="min-w-0">
+          <dt className="text-[length:var(--font-size-xs)] text-[var(--color-fg-muted)]">
+            {t("profile.role")}
+          </dt>
+          <dd className="mt-1">
+            <Badge tone={user.role === "SUPER_ADMIN" ? "warning" : "neutral"}>
+              {t(`role.${user.role}`)}
+            </Badge>
+          </dd>
+        </div>
+        <Detail
+          label={t("profile.organization")}
+          value={user.organizationName || "—"}
+        />
+      </dl>
+
       <form onSubmit={handleSubmit} className="flex flex-col gap-4">
         <Field label={t("profile.displayName")} required>
           <Input
@@ -376,10 +391,6 @@ function SessionsCard() {
   );
 }
 
-// A label and its value as two cells of the surrounding grid, rather than as
-// a row that pushes them to opposite edges. The fragment is what lets the
-// grid see both: wrapping them in a div would make the pair one cell and put
-// the justification problem straight back.
 /**
  * Closing your own account.
  *
@@ -461,11 +472,18 @@ function CloseAccountCard() {
   );
 }
 
+// One fact as a stacked pair — a small muted label over its value — which is
+// what lets three of them sit across a row and line up. The previous version
+// returned a fragment so the two halves became cells of the caller's grid;
+// that was right for a two-column list and is wrong here, where each pair has
+// to be one cell to be one of the three columns.
 function Detail({ label, value }: { label: string; value: string }) {
   return (
-    <>
-      <dt className="text-[var(--color-fg-muted)]">{label}</dt>
-      <dd className="min-w-0 text-[var(--color-fg)]">{value}</dd>
-    </>
+    <div className="min-w-0">
+      <dt className="text-[length:var(--font-size-xs)] text-[var(--color-fg-muted)]">
+        {label}
+      </dt>
+      <dd className="mt-1 truncate text-[var(--color-fg)]">{value}</dd>
+    </div>
   );
 }
