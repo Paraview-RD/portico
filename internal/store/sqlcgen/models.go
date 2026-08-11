@@ -6,6 +6,7 @@ package sqlcgen
 
 import (
 	"database/sql"
+	"encoding/json"
 	"time"
 )
 
@@ -390,6 +391,30 @@ type User struct {
 	Department string
 	// Who this person reports to. Not checked for cycles: one is a data-quality problem in the source system rather than something this schema can prevent.
 	ManagerID *string
+}
+
+// Tenant-defined user attributes. The fixed, specification-derived ones are columns on users; see migration 00007.
+type UserAttributeDefinition struct {
+	ID            string
+	TenantID      string
+	Key           string
+	Label         string
+	Description   string
+	Kind          string
+	AllowedValues json.RawMessage
+	Required      bool
+	SortOrder     int32
+	Status        string
+	CreatedAt     time.Time
+	UpdatedAt     time.Time
+}
+
+type UserAttributeValue struct {
+	TenantID     string
+	UserID       string
+	DefinitionID string
+	Value        string
+	UpdatedAt    time.Time
 }
 
 // Additional organizations a person is attached to. Advisory: grants nothing, synchronizes nowhere, and does not change users.organization_id, which remains the one authoritative membership.
