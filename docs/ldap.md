@@ -1,7 +1,8 @@
 # Reading accounts out of a directory
 
-Portico connects to your Active Directory or OpenLDAP on demand and pulls
-accounts out of it. This is the **opposite direction** from
+Portico connects to your Active Directory or OpenLDAP — when asked, or on an
+interval you set — and pulls accounts out of it. This is the **opposite
+direction** from
 [scim.md](scim.md), and the distinction is worth holding onto because the two
 land in the same place:
 
@@ -118,21 +119,67 @@ allow.
 
 ## Running it
 
-Synchronization is manual in this version: **Directory integration** →
-**Synchronize**. The run is synchronous and reports what it did — created,
-updated, deactivated, skipped — and the history is kept per run, because the
-question asked when something has gone wrong is not "what is the state now"
-but "when did this start".
+By hand: **Directory integration** → **Synchronize**. The run is synchronous
+and reports what it did — created, updated, deactivated, skipped — and the
+history is kept per run, because the question asked when something has gone
+wrong is not "what is the state now" but "when did this start".
 
-There is no scheduler yet, and the obvious workaround is worse than it
-looks. A cron job can call `POST /api/v1/directories/{id}/sync`, but an
-access token lasts `PORTICO_TOKEN_TTL` (two hours by default) and is revoked
-by a password change or a sign-out-everywhere — so the job has to sign in on
-each run, which means an administrator's password sitting in the cron
+On a schedule: **Synchronize automatically**, on the same form, from every
+fifteen minutes to once a week. The default is off, so nothing starts reading
+a directory because Portico was upgraded.
+
+Do not build the cron job instead. It was the documented workaround here and
+it was worse than it looked: `POST /api/v1/directories/{id}/sync` needs an
+access token, which lasts `PORTICO_TOKEN_TTL` (two hours by default) and is
+revoked by a password change or a sign-out-everywhere — so the job has to sign
+in on each run, which means an administrator's password sitting in the cron
 environment. That is a worse credential to leave lying about than the bind
-password this page spends a section protecting.
+password this page spends a section protecting. The scheduler runs inside the
+server and holds no credential at all.
 
-Run it by hand until the scheduler exists, or accept that trade knowingly.
+### What the schedule does, exactly
+
+**Turning it on runs one now**, rather than waiting out the first interval.
+The alternative is configuring a nightly synchronization and having no idea
+until tomorrow whether it was configured correctly.
+
+**A failed run waits for the next interval.** It is not retried on the next
+tick. A source pointed at a host that has gone away would otherwise connect
+to it every minute for as long as it stayed broken, which is the opposite of
+what an interval is for.
+
+**A failed run does not touch "last synchronized".** That column answers "is
+this directory still the source of truth", and a schedule that advanced it on
+every attempt would report a connector that has been broken for a week as
+having synchronized two minutes ago. Look there for the last success, and at
+the run history for what has been happening since.
+
+**Scheduled runs are attributed to nobody.** The history shows them as
+*scheduled* rather than against whoever last edited the connector — they did
+not deactivate those accounts.
+
+**Two Portico instances synchronize a directory once between them.** Whichever
+claims it first runs it; the other finds it taken and moves on. No
+configuration, and nothing to turn off on the second instance.
+
+The floor of fifteen minutes is not adjustable. A synchronization has only one
+size — working out who has left means listing everybody in the directory — so
+a shorter interval is a load test against somebody else's LDAP server rather
+than fresher data. An interval outside the permitted range is refused rather
+than rounded, so what the form says is what runs.
+
+**Restarting costs nothing.** A directory is claimed immediately before it is
+read, not at the start of the pass, so a restart part-way through leaves the
+directories it had not reached still due — they are picked up within the
+minute rather than waiting out an interval for a synchronization that never
+happened.
+
+Two things it is worth knowing it does not do. **A scheduled run and the
+Synchronize button can overlap**: the claim keeps instances from colliding,
+not a person from pressing the button mid-run. And **the one run that was
+in flight when the process stopped stays in the history as `RUNNING`** — its
+attempt was recorded before the directory was contacted, on purpose, so that
+directory's next attempt is one interval away rather than immediate.
 
 ## Troubleshooting
 

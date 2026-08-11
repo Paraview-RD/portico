@@ -82,26 +82,29 @@ type GroupMember struct {
 }
 
 type LdapSource struct {
-	ID              string
-	TenantID        string
-	Name            string
-	Host            string
-	Port            int32
-	Encryption      string
-	BindDn          string
-	BindPassword    string
-	BaseDn          string
-	UserFilter      string
-	AttrUsername    string
-	AttrDisplayName string
-	AttrEmail       string
-	AttrPhone       string
-	AttrExternalID  string
-	OrganizationID  *string
-	Status          string
-	LastSyncedAt    *time.Time
-	CreatedAt       time.Time
-	UpdatedAt       time.Time
+	ID                  string
+	TenantID            string
+	Name                string
+	Host                string
+	Port                int32
+	Encryption          string
+	BindDn              string
+	BindPassword        string
+	BaseDn              string
+	UserFilter          string
+	AttrUsername        string
+	AttrDisplayName     string
+	AttrEmail           string
+	AttrPhone           string
+	AttrExternalID      string
+	OrganizationID      *string
+	Status              string
+	LastSyncedAt        *time.Time
+	CreatedAt           time.Time
+	UpdatedAt           time.Time
+	SyncIntervalMinutes int32
+	// When a scheduled run was last claimed, success or not. See last_synced_at for the last one that worked.
+	LastSyncAttemptAt *time.Time
 }
 
 type LdapSyncRun struct {

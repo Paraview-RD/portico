@@ -1,6 +1,7 @@
 package server_test
 
 import (
+	"context"
 	"net/http"
 	"strings"
 	"testing"
@@ -166,6 +167,99 @@ func TestDisabledDirectoryRefusesToSync(t *testing.T) {
 	if res.Code != "LDAP_SOURCE_DISABLED" {
 		t.Errorf("syncing a disabled directory = %d %s, want LDAP_SOURCE_DISABLED",
 			res.Status, res.Code)
+	}
+}
+
+// The synchronization interval survives the round trip, and an interval the
+// server will not honour is refused at the door.
+//
+// The schedule's behaviour is tested in internal/service; what is only visible
+// here is the wiring, which has no other guard. A request field that never
+// reaches the service reads as a saved setting that quietly does nothing —
+// somebody would configure a nightly synchronization, see it accepted, and
+// find out weeks later that nothing ever ran.
+func TestASynchronizationIntervalIsStoredAndBounded(t *testing.T) {
+	api := newAPITest(t)
+	admin := api.adminToken()
+
+	created := registerDirectory(t, api, admin, "Nightly", map[string]any{
+		"syncIntervalMinutes": 1440,
+	})
+	if created.Status != http.StatusOK {
+		t.Fatalf("register: %d %s %s", created.Status, created.Code, created.Message)
+	}
+
+	var source struct {
+		ID                  string `json:"id"`
+		SyncIntervalMinutes int    `json:"syncIntervalMinutes"`
+	}
+	created.into(t, &source)
+	if source.SyncIntervalMinutes != 1440 {
+		t.Errorf("registration returned an interval of %d, want 1440; the field "+
+			"is not reaching the service", source.SyncIntervalMinutes)
+	}
+
+	read := api.do(http.MethodGet, "/api/v1/directories/"+source.ID, admin, nil)
+	read.into(t, &source)
+	if source.SyncIntervalMinutes != 1440 {
+		t.Errorf("stored interval = %d, want 1440", source.SyncIntervalMinutes)
+	}
+
+	// Under the floor, and refused rather than rounded up: an operator who
+	// asked for five minutes and was silently given fifteen would go on
+	// believing the directory is read three times as often as it is.
+	refused := registerDirectory(t, api, admin, "Too eager", map[string]any{
+		"syncIntervalMinutes": 5,
+	})
+	if refused.Code != "INVALID_SYNC_INTERVAL" {
+		t.Errorf("a five-minute interval = %d %s, want INVALID_SYNC_INTERVAL",
+			refused.Status, refused.Code)
+	}
+
+	// Omitted means off, which is what keeps an integration written against
+	// the previous version from acquiring a schedule by being upgraded.
+	silent := registerDirectory(t, api, admin, "Manual", nil)
+	silent.into(t, &source)
+	if source.SyncIntervalMinutes != 0 {
+		t.Errorf("a directory registered without mentioning the interval got %d, want 0",
+			source.SyncIntervalMinutes)
+	}
+}
+
+// The scheduler's entry point runs, across tenants, with the directory
+// service actually attached to the server.
+//
+// Everything about what a scheduled run does is tested in internal/service.
+// What only exists here is the wiring, and it is the kind that fails silently:
+// the field is set in New, the goroutine that calls this is the only caller,
+// and nothing else depends on it — so a missing dependency would be a nil
+// receiver panicking on the first tick of a background goroutine, with the
+// server otherwise serving happily. Removing `directories:` from New still
+// compiles and still passes every other test in this package.
+//
+// The directory here is disabled, so nothing dials anything: the assertion is
+// that the pass completes, not that it synchronizes.
+func TestTheScheduledSynchronizationPassRuns(t *testing.T) {
+	api := newAPITest(t)
+	admin := api.adminToken()
+
+	if err := api.srv.SyncDirectories(context.Background()); err != nil {
+		t.Fatalf("a pass with nothing configured: %v", err)
+	}
+
+	created := registerDirectory(t, api, admin, "Scheduled", map[string]any{
+		"syncIntervalMinutes": 15,
+	})
+	var source struct {
+		ID string `json:"id"`
+	}
+	created.into(t, &source)
+	if res := api.do(http.MethodPost, "/api/v1/directories/"+source.ID+"/disable", admin, nil); res.Status != http.StatusOK {
+		t.Fatalf("disable: %d %s", res.Status, res.Code)
+	}
+
+	if err := api.srv.SyncDirectories(context.Background()); err != nil {
+		t.Fatalf("a pass with a scheduled directory: %v", err)
 	}
 }
 

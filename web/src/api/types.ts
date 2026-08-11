@@ -378,7 +378,16 @@ export interface LDAPSource {
   organizationId: string;
   organizationName: string;
   status: Status;
-  /** Absent until the first run finishes. */
+  /**
+   * How often this directory is read without anybody asking, in minutes. Zero
+   * means never, and is the default.
+   */
+  syncIntervalMinutes: number;
+  /**
+   * Absent until the first run *succeeds*. A scheduled run that failed
+   * advances the schedule without touching this, so it stays the answer to
+   * "is this directory still working".
+   */
   lastSyncedAt?: string;
   createdAt: string;
   updatedAt: string;
@@ -431,6 +440,8 @@ export interface LDAPSourceInput {
   attrPhone: string;
   attrExternalId: string;
   organizationId: string;
+  /** 0 for manual only; otherwise 15 to 10080 minutes. */
+  syncIntervalMinutes: number;
 }
 
 /** A registered SAML 2.0 service provider. */

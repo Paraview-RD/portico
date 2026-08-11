@@ -1008,6 +1008,20 @@ func (s *Scoped) MarkLDAPSourceSynced(ctx context.Context, id string, at time.Ti
 	})
 }
 
+// ClaimNextDueLDAPSource takes one directory whose synchronization interval
+// has elapsed and returns its id, or IsNoRows when none is due. Claiming is
+// the write that records the attempt, so a second instance asking at the same
+// moment gets a different directory or nothing.
+//
+// Scoped like everything else: the scheduler walks tenants and asks once per
+// tenant, exactly as webhook delivery does, rather than sweeping the table
+// across all of them.
+func (s *Scoped) ClaimNextDueLDAPSource(ctx context.Context, now time.Time) (string, error) {
+	return s.q.ClaimNextDueLDAPSource(ctx, sqlcgen.ClaimNextDueLDAPSourceParams{
+		TenantID: s.tenantID, LastSyncAttemptAt: &now,
+	})
+}
+
 // StartLDAPSyncRun opens a run record before any directory is contacted, so
 // a sync that dies mid-flight leaves evidence rather than nothing.
 func (s *Scoped) StartLDAPSyncRun(ctx context.Context, arg sqlcgen.StartLDAPSyncRunParams) error {

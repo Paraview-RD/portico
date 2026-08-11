@@ -35,6 +35,9 @@ type Server struct {
 	metrics    *metrics.Registry
 	webhooks   *service.WebhookService
 	logos      *service.ApplicationLogoService
+	// Held for the scheduled synchronization pass, which is the only thing
+	// outside the HTTP layer that needs it.
+	directories *service.DirectoryService
 	// The client webhook deliveries go out through. One per server: its
 	// transport pools connections, and its dialer is what refuses a
 	// destination that has started resolving somewhere local.
@@ -173,6 +176,7 @@ func New(cfg *config.Config, opts ...Option) (*Server, error) {
 		scim:          scimHandler,
 		webhooks:      webhooks,
 		logos:         logos,
+		directories:   directories,
 		webhookClient: webhook.NewClient(webhook.RequestTimeout),
 		users:         users,
 		tenants:       tenants,
@@ -358,6 +362,47 @@ func (s *Server) DispatchWebhooks(ctx context.Context) error {
 		if _, err := s.webhooks.DispatchDue(ctx, tenant.ID, s.webhookClient); err != nil {
 			slog.WarnContext(ctx, "webhook dispatch failed for tenant",
 				"tenant", tenant.Code, "error", err)
+		}
+	}
+	return nil
+}
+
+// SyncDirectories reads the directories whose interval has elapsed, across
+// every tenant.
+//
+// In-process rather than something an operator schedules externally, and that
+// is the whole point of it. The documented workaround before this existed was
+// a cron job calling POST /api/v1/directories/{id}/sync, which needs an access
+// token, which expires and is revoked by a password change — so the job had to
+// sign in each time, which meant an administrator's password sitting in the
+// cron environment. This path holds no credential at all.
+//
+// A tenant whose pass fails does not stop the others, for the same reason
+// webhook delivery works that way: one unreachable directory is one tenant's
+// problem until an aborted loop makes it everybody's.
+func (s *Server) SyncDirectories(ctx context.Context) error {
+	tenants, err := s.tenants.List(ctx)
+	if err != nil {
+		return fmt.Errorf("list tenants: %w", err)
+	}
+
+	now := store.Now()
+	for _, tenant := range tenants {
+		runs, err := s.directories.SyncDue(ctx, tenant.ID, now)
+		if err != nil {
+			slog.WarnContext(ctx, "scheduled directory synchronization failed for tenant",
+				"tenant", tenant.Code, "error", err)
+			continue
+		}
+		for _, run := range runs {
+			// Logged at info because it is unattended: nobody is watching a
+			// screen for the result, and the run record is only consulted
+			// once somebody already suspects something is wrong.
+			slog.InfoContext(ctx, "directory synchronized on schedule",
+				"tenant", tenant.Code, "source", run.SourceID, "outcome", run.Outcome,
+				"created", run.CreatedCount, "updated", run.UpdatedCount,
+				"deactivated", run.DeactivatedCount, "skipped", run.SkippedCount,
+				"error", run.Error)
 		}
 	}
 	return nil

@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"log/slog"
 	"math"
 	"net"
 	"strings"
@@ -73,6 +74,13 @@ var (
 		"Host, base DN, user filter, and the username, display name, and external id attributes are all required.")
 	ErrInvalidLDAPPort = httpx.BadRequest("INVALID_LDAP_PORT",
 		"Port must be between 1 and 65535.")
+	// ErrInvalidSyncInterval refuses rather than clamping, as the tenant
+	// settings do: an operator who typed five minutes and was quietly given
+	// fifteen would go on believing the directory is read four times as often
+	// as it is.
+	ErrInvalidSyncInterval = httpx.BadRequest("INVALID_SYNC_INTERVAL",
+		"The automatic synchronization interval must be 0 to turn it off, "+
+			"or between 15 minutes and 7 days.")
 	// ErrNoEncryptionKey is what a deployment with no PORTICO_ENCRYPTION_KEY
 	// gets when it tries to store a bind password. Refusing is the point:
 	// the alternative is a service account's credential sitting in a text
@@ -106,7 +114,28 @@ type LDAPSourceInput struct {
 	AttrExternalID  string
 
 	OrganizationID string
+
+	// SyncIntervalMinutes is how often to synchronize without being asked.
+	// Zero is off, and is the default for a directory registered without
+	// mentioning it.
+	SyncIntervalMinutes int
 }
+
+// Bounds on the automatic synchronization interval.
+//
+// The floor is there because a synchronization has only one size: working out
+// who has disappeared from a directory means listing everybody in it, so
+// there is no cheap incremental pass to run every minute. Fifteen minutes is
+// the shortest interval that is a schedule rather than a load test against
+// somebody else's AD.
+//
+// The ceiling is a week, past which "automatic" stops being a useful
+// description of what is happening and a person should be pressing the
+// button.
+const (
+	MinSyncIntervalMinutes = 15
+	MaxSyncIntervalMinutes = 7 * 24 * 60
+)
 
 // Register adds a directory.
 func (s *DirectoryService) Register(ctx context.Context, actor auth.Principal, in LDAPSourceInput) (model.LDAPSource, error) {
@@ -145,8 +174,12 @@ func (s *DirectoryService) Register(ctx context.Context, actor auth.Principal, i
 		AttrExternalID:  normalized.AttrExternalID,
 		OrganizationID:  optionalID(normalized.OrganizationID),
 		Status:          string(model.StatusActive),
-		CreatedAt:       now,
-		UpdatedAt:       now,
+		// No last_sync_attempt_at, so a directory registered with an interval
+		// is due at once rather than one interval from now. "I turned it on
+		// and nothing happened all day" is the worse of the two surprises.
+		SyncIntervalMinutes: narrow(normalized.SyncIntervalMinutes),
+		CreatedAt:           now,
+		UpdatedAt:           now,
 	})
 	if err != nil {
 		if store.IsUniqueViolation(err) {
@@ -201,7 +234,11 @@ func (s *DirectoryService) Update(ctx context.Context, actor auth.Principal, id 
 		AttrPhone:       normalized.AttrPhone,
 		AttrExternalID:  normalized.AttrExternalID,
 		OrganizationID:  optionalID(normalized.OrganizationID),
-		UpdatedAt:       now,
+		// Not last_sync_attempt_at: shortening an interval takes effect
+		// against whenever the last attempt was, and lengthening one does not
+		// hand the directory a fresh start it has not earned.
+		SyncIntervalMinutes: narrow(normalized.SyncIntervalMinutes),
+		UpdatedAt:           now,
 	})
 	if err != nil {
 		if store.IsUniqueViolation(err) {
@@ -342,10 +379,11 @@ func (s *DirectoryService) decorate(ctx context.Context, tenantID string, row sq
 		BaseDN: row.BaseDn, UserFilter: row.UserFilter,
 		AttrUsername: row.AttrUsername, AttrDisplayName: row.AttrDisplayName,
 		AttrEmail: row.AttrEmail, AttrPhone: row.AttrPhone,
-		AttrExternalID: row.AttrExternalID,
-		Status:         model.Status(row.Status),
-		LastSyncedAt:   row.LastSyncedAt,
-		CreatedAt:      row.CreatedAt, UpdatedAt: row.UpdatedAt,
+		AttrExternalID:      row.AttrExternalID,
+		Status:              model.Status(row.Status),
+		SyncIntervalMinutes: int(row.SyncIntervalMinutes),
+		LastSyncedAt:        row.LastSyncedAt,
+		CreatedAt:           row.CreatedAt, UpdatedAt: row.UpdatedAt,
 	}
 
 	if row.OrganizationID != nil {
@@ -404,6 +442,11 @@ func (s *DirectoryService) normalize(in LDAPSourceInput) (LDAPSourceInput, error
 		return in, ErrInvalidLDAPPort
 	}
 
+	if in.SyncIntervalMinutes != 0 &&
+		(in.SyncIntervalMinutes < MinSyncIntervalMinutes || in.SyncIntervalMinutes > MaxSyncIntervalMinutes) {
+		return in, ErrInvalidSyncInterval
+	}
+
 	if in.Host == "" || in.BaseDN == "" || in.UserFilter == "" ||
 		in.AttrUsername == "" || in.AttrDisplayName == "" || in.AttrExternalID == "" {
 		return in, ErrLDAPFieldRequired
@@ -446,6 +489,59 @@ func optionalID(id string) *string {
 		return nil
 	}
 	return &id
+}
+
+// SyncDue synchronizes the tenant's directories whose interval has elapsed,
+// and returns the runs it performed. Nothing due is not an error.
+//
+// The caller supplies the time, as the sweeps do, so a test can ask what
+// would happen tomorrow without waiting for it.
+//
+// It runs through SyncNow rather than beside it, with an actor that has no
+// name. That is what keeps a scheduled run indistinguishable from a manual
+// one everywhere it matters — the same run record, the same audit entry, the
+// same refusal to act on an empty result — and the empty name is what the
+// console renders as "scheduled", a distinction the schema reserved for it
+// from the start.
+//
+// One directory's failure does not stop the next. A source pointed at a host
+// that has gone away is a common state, and letting it hold up the other
+// directories in the tenant would make one team's mistake everybody's.
+//
+// Claimed one at a time, immediately before each is read, rather than all at
+// once up front. The difference shows when a pass does not finish: a directory
+// this loop never reached has not been claimed, so it is still due — instead
+// of carrying an attempt timestamp for a synchronization that never happened
+// and waiting out an interval for a run nobody performed.
+func (s *DirectoryService) SyncDue(ctx context.Context, tenantID string, now time.Time) ([]model.LDAPSyncRun, error) {
+	q := s.store.ForTenant(tenantID)
+	scheduler := auth.Principal{TenantID: tenantID}
+
+	var runs []model.LDAPSyncRun
+	for {
+		// Terminates because the claim advances the row's attempt timestamp,
+		// which is the same condition it selects on: every iteration removes
+		// one directory from the due set and nothing puts one back.
+		sourceID, err := q.ClaimNextDueLDAPSource(ctx, now)
+		if store.IsNoRows(err) {
+			return runs, nil
+		}
+		if err != nil {
+			return runs, fmt.Errorf("claim due directory: %w", err)
+		}
+
+		// A failed synchronization is not an error here: it is a run record
+		// saying why, which is the whole point of the run records. What
+		// reaches this branch is the layer beneath failing — a source deleted
+		// between the claim and the read, or a database that has gone away.
+		run, err := s.SyncNow(ctx, scheduler, sourceID)
+		if err != nil {
+			slog.WarnContext(ctx, "scheduled directory synchronization could not run",
+				"source", sourceID, "error", err)
+			continue
+		}
+		runs = append(runs, run)
+	}
 }
 
 // SyncNow reads the directory and reconciles what it returns against the

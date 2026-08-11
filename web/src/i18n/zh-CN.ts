@@ -501,7 +501,7 @@ export const zhCN: Record<keyof typeof enUS, string> = {
   "provisioning.tab.scim": "目录推过来（SCIM）",
 
   "directories.hint":
-    "Portico 连接你的目录并从中读取账号。目录里不再出现的账号会在这里被停用；重新出现则自动恢复。",
+    "Portico 连接你的目录并从中读取账号——手动触发，或按你设定的间隔自动进行。目录里不再出现的账号会在这里被停用；重新出现则自动恢复。",
   "directories.new": "添加目录",
   "directories.edit": "编辑目录",
   "directories.colName": "名称",
@@ -552,6 +552,14 @@ export const zhCN: Record<keyof typeof enUS, string> = {
   "directories.organization": "归入机构",
   "directories.organizationHelp": "同步进来的账号归属的机构。选填。",
   "directories.organizationNone": "不归入机构",
+  "directories.syncSchedule": "自动同步",
+  "directories.syncScheduleHelp":
+    "按这个间隔自动读取目录，无人值守。开启后会立刻跑一次，而不是等满第一个间隔，好让你马上知道配没配对。失败的一次会等到下个间隔再试，而不是立即重试——目录服务器出问题时，不该每分钟去连它一次。",
+  "directories.syncManualOnly": "仅在我点「同步」时",
+  "directories.syncEveryMinutes": "每 {0} 分钟",
+  "directories.syncEveryHours": "每 {0} 小时",
+  "directories.syncDaily": "每天一次",
+  "directories.syncWeekly": "每周一次",
 
   "scim.title": "目录同步（SCIM）",
   "scim.subtitle":

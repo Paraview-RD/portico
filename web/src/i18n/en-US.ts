@@ -532,7 +532,7 @@ export const enUS = {
   "provisioning.tab.scim": "The directory pushes (SCIM)",
 
   "directories.hint":
-    "Portico connects to your directory and reads accounts out of it. An account that stops appearing is deactivated here; one that reappears comes back.",
+    "Portico connects to your directory and reads accounts out of it — when you ask, or on an interval you set. An account that stops appearing is deactivated here; one that reappears comes back.",
   "directories.new": "Add a directory",
   "directories.edit": "Edit directory",
   "directories.colName": "Name",
@@ -586,6 +586,14 @@ export const enUS = {
   "directories.organization": "Put accounts in",
   "directories.organizationHelp": "Where synchronized accounts land. Optional.",
   "directories.organizationNone": "No organization",
+  "directories.syncSchedule": "Synchronize automatically",
+  "directories.syncScheduleHelp":
+    "Portico reads the directory this often, with nobody watching. Turning it on runs one now rather than waiting out the first interval, so you find out straight away whether it works. A run that fails waits for the next interval instead of retrying immediately, so a directory that has gone away is not connected to every minute.",
+  "directories.syncManualOnly": "Only when I press Synchronize",
+  "directories.syncEveryMinutes": "Every {0} minutes",
+  "directories.syncEveryHours": "Every {0} hours",
+  "directories.syncDaily": "Once a day",
+  "directories.syncWeekly": "Once a week",
 
   "scim.title": "Directory provisioning (SCIM)",
   "scim.subtitle":

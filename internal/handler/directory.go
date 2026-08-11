@@ -43,6 +43,12 @@ type directoryRequest struct {
 	AttrExternalID  string `json:"attrExternalId"`
 
 	OrganizationID string `json:"organizationId"`
+
+	// SyncIntervalMinutes turns automatic synchronization on. Omitting it
+	// means zero, which means off — the same as it has always been, so an
+	// integration written against the previous version keeps working and does
+	// not start reading a directory on a timer because it was upgraded.
+	SyncIntervalMinutes int `json:"syncIntervalMinutes"`
 }
 
 func (r directoryRequest) input() service.LDAPSourceInput {
@@ -54,6 +60,8 @@ func (r directoryRequest) input() service.LDAPSourceInput {
 		AttrEmail: r.AttrEmail, AttrPhone: r.AttrPhone,
 		AttrExternalID: r.AttrExternalID,
 		OrganizationID: r.OrganizationID,
+
+		SyncIntervalMinutes: r.SyncIntervalMinutes,
 	}
 }
 
@@ -145,11 +153,15 @@ func (h *Handler) setDirectoryStatus(w http.ResponseWriter, r *http.Request, sta
 
 // SyncDirectory reads the directory now and reconciles what it returns.
 //
-// Synchronous, and deliberately so at this size: an administrator who
-// presses the button is watching, and a background job would mean the
-// counts arrive somewhere they are not looking. A directory large enough for
-// that to be the wrong trade is a directory that needs a scheduler, which is
-// a different feature.
+// Synchronous, and deliberately so: an administrator who presses the button is
+// watching, and a background job would mean the counts arrive somewhere they
+// are not looking.
+//
+// This stays the manual path now that a schedule exists. The unattended runs
+// go through service.SyncDue, which shares everything below this line — the
+// same reconciliation, the same run record, the same refusal to act on an
+// empty result — and differs only in having no actor to record and nobody to
+// answer to.
 func (h *Handler) SyncDirectory(w http.ResponseWriter, r *http.Request) {
 	principal := auth.MustPrincipal(r.Context())
 

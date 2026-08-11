@@ -3661,10 +3661,19 @@ components:
         organizationId: { type: string }
         organizationName: { type: string }
         status: { $ref: "#/components/schemas/Status" }
+        syncIntervalMinutes:
+          type: integer
+          description: |
+            How often this directory is synchronized without anybody asking.
+            Zero means never, and is the default.
         lastSyncedAt:
           type: string
           format: date-time
-          description: Absent until the first run finishes.
+          description: |
+            Absent until the first run **succeeds**. A scheduled run that
+            failed advances the schedule without touching this, so it stays the
+            answer to "is this directory still working" rather than "did
+            something try recently".
         createdAt: { type: string, format: date-time }
         updatedAt: { type: string, format: date-time }
 
@@ -3696,6 +3705,20 @@ components:
         organizationId:
           type: string
           description: Where synchronized accounts land. Optional.
+        syncIntervalMinutes:
+          type: integer
+          description: |
+            Synchronize automatically this often. Omit it, or send 0, for no
+            automatic synchronization — which is the default, so upgrading
+            does not start reading a directory on a timer.
+
+            Otherwise between 15 and 10080 (seven days), and refused outside
+            that range rather than clamped. The floor exists because a
+            synchronization has only one size: working out who has left the
+            directory means listing everybody in it.
+
+            Turning it on synchronizes promptly rather than one interval
+            later. Scheduled runs carry no `actorName`.
 
     LDAPSyncRun:
       type: object

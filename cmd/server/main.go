@@ -182,6 +182,7 @@ func run() error {
 
 	go sweepExpired(ctx, srv)
 	go dispatchWebhooks(ctx, srv)
+	go syncDirectories(ctx, srv)
 
 	errCh := make(chan error, 1)
 	go func() {
@@ -292,6 +293,40 @@ func sweepExpired(ctx context.Context, srv *server.Server) {
 	for {
 		if err := srv.SweepExpired(ctx); err != nil && ctx.Err() == nil {
 			slog.Warn("could not clear expired rows", "error", err)
+		}
+		select {
+		case <-ctx.Done():
+			return
+		case <-ticker.C:
+		}
+	}
+}
+
+// directoryScanInterval is how often Portico looks for a directory whose
+// synchronization is due.
+//
+// A minute, which is not how often anything is synchronized: the shortest
+// interval a directory can be given is fifteen, and this only decides how
+// late a run may be. Scanning is one statement per tenant against a table
+// with a row per configured directory, so the cost of asking often is
+// nothing, while the cost of asking rarely is a schedule that drifts by half
+// the scan interval.
+const directoryScanInterval = time.Minute
+
+// syncDirectories runs the scheduled directory synchronizations until the
+// process is asked to stop.
+//
+// A failure is logged and the next tick tries again, as with the sweep. This
+// reaches out to somebody else's LDAP server, so failing is a normal state
+// rather than an exceptional one, and a server that stopped serving because a
+// directory was unreachable would be turning their outage into ours.
+func syncDirectories(ctx context.Context, srv *server.Server) {
+	ticker := time.NewTicker(directoryScanInterval)
+	defer ticker.Stop()
+
+	for {
+		if err := srv.SyncDirectories(ctx); err != nil && ctx.Err() == nil {
+			slog.Warn("could not run scheduled directory synchronization", "error", err)
 		}
 		select {
 		case <-ctx.Done():

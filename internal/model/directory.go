@@ -39,8 +39,16 @@ type LDAPSource struct {
 
 	Status Status `json:"status"`
 
+	// SyncIntervalMinutes is how often this directory is read without anybody
+	// asking. Zero means never, and is the default: reading somebody's
+	// directory on a timer is opted into.
+	SyncIntervalMinutes int `json:"syncIntervalMinutes"`
+
 	// LastSyncedAt is nil until the first run finishes, which is how the
-	// console tells "never ran" from "ran and found nothing".
+	// console tells "never ran" from "ran and found nothing". It records
+	// success only — a scheduled run that failed advances the schedule
+	// without touching this, so it stays the answer to "is this still
+	// working" rather than "did something try recently".
 	LastSyncedAt *time.Time `json:"lastSyncedAt,omitempty"`
 
 	CreatedAt time.Time `json:"createdAt"`

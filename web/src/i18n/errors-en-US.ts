@@ -195,6 +195,8 @@ export const errorsEnUS = {
   LDAP_SOURCE_DISABLED: "That directory is disabled.",
   INVALID_LDAP_ENCRYPTION: "Encryption must be none, STARTTLS, or TLS.",
   INVALID_LDAP_PORT: "The port must be between 1 and 65535.",
+  INVALID_SYNC_INTERVAL:
+    "The automatic synchronization interval must be 15 minutes to 7 days, or off.",
   INVALID_LDAP_HOST:
     "Give the host name on its own, without a scheme, path, or port — those are separate fields.",
   LDAP_FIELD_REQUIRED:

@@ -17,6 +17,22 @@ Working toward 0.2.0. See
   into `/scim/v2` and Portico never reaches out, while this has Portico
   connect and pull. Reconciled on the directory's own stable identifier, so
   a rename stays a rename rather than becoming a second account.
+- **A directory can synchronize itself on an interval**, from every fifteen
+  minutes to once a week, configured per directory and off by default — so
+  upgrading does not start reading anybody's directory on a timer. This
+  replaces the workaround this page used to document, which was worse than it
+  looked: a cron job calling the API needs an access token, tokens expire and
+  are revoked by a password change, so the job had to sign in on each run —
+  which meant an administrator's password sitting in the cron environment,
+  a worse credential to leave lying about than the bind password the feature
+  encrypts. The scheduler runs inside the server and holds none.
+  Turning it on runs one immediately rather than after the first interval, a
+  failed run waits out the interval rather than retrying every tick, and a
+  failed run does not advance "last synchronized" — that column answers "is
+  this directory still working", and a schedule that touched it would report a
+  connector broken for a week as having synchronized two minutes ago. Two
+  instances synchronize a directory once between them, claimed by the same
+  statement that records the attempt.
 - The attribute map has no defaults, because Active Directory and OpenLDAP
   disagree on every one of them and a wrong guess imports a directory's worth
   of accounts named after the wrong field. The console ships both as presets

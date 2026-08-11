@@ -175,6 +175,13 @@ export function DirectoriesPanel() {
                 {source.lastSyncedAt
                   ? new Date(source.lastSyncedAt).toLocaleString()
                   : t("directories.neverSynced")}
+                {/* Whether anything will happen without being asked, which is
+                    otherwise only visible by opening each form in turn. */}
+                {source.syncIntervalMinutes > 0 && (
+                  <div className="text-[length:var(--font-size-xs)] text-[var(--color-fg-muted)]">
+                    {intervalLabel(t, source.syncIntervalMinutes)}
+                  </div>
+                )}
               </Td>
               <Td>
                 <Badge
@@ -360,7 +367,27 @@ const emptyForm: LDAPSourceInput = {
   attrPhone: "",
   attrExternalId: "",
   organizationId: "",
+  syncIntervalMinutes: 0,
 };
+
+/**
+ * The intervals offered, in minutes, with 0 for "manual only".
+ *
+ * A list rather than a number box. The server refuses anything under fifteen
+ * minutes — a synchronization enumerates the whole directory, so there is no
+ * cheap pass to run every minute — and a field that lets somebody type 5 only
+ * to be told no is a worse way to say that than one that never offers it.
+ */
+const syncIntervals = [0, 15, 30, 60, 360, 720, 1440, 10080];
+
+/** "Every 6 hours", in the reader's language and units. */
+function intervalLabel(t: ReturnType<typeof useT>, minutes: number): string {
+  if (minutes === 0) return t("directories.syncManualOnly");
+  if (minutes < 60) return t("directories.syncEveryMinutes", String(minutes));
+  if (minutes === 1440) return t("directories.syncDaily");
+  if (minutes === 10080) return t("directories.syncWeekly");
+  return t("directories.syncEveryHours", String(minutes / 60));
+}
 
 function DirectoryFormDialog({
   open,
@@ -407,6 +434,7 @@ function DirectoryFormDialog({
             attrPhone: source.attrPhone,
             attrExternalId: source.attrExternalId,
             organizationId: source.organizationId,
+            syncIntervalMinutes: source.syncIntervalMinutes,
           }
         : emptyForm,
     );
@@ -636,6 +664,22 @@ function DirectoryFormDialog({
             </Field>
           </div>
         </div>
+
+        <Field
+          label={t("directories.syncSchedule")}
+          hint={t("directories.syncScheduleHelp")}
+        >
+          <Select
+            value={String(form.syncIntervalMinutes)}
+            onChange={(e) => set("syncIntervalMinutes", Number(e.target.value))}
+          >
+            {syncIntervals.map((minutes) => (
+              <option key={minutes} value={minutes}>
+                {intervalLabel(t, minutes)}
+              </option>
+            ))}
+          </Select>
+        </Field>
 
         <Field
           label={t("directories.organization")}

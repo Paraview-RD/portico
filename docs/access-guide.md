@@ -274,7 +274,13 @@ Typical journey — read accounts out of an AD:
 4. **Synchronize**, then read the counts. Anything skipped is an entry that
    could not become an account, most often a username an account Portico
    owns already holds.
-5. Storing a bind password needs `PORTICO_ENCRYPTION_KEY` set on the
+5. Once the counts look right, set **Synchronize automatically** — every
+   fifteen minutes to once a week. It is off until you set it, and turning it
+   on runs one immediately rather than at the end of the first interval. Do
+   not build a cron job against the sync endpoint instead: that needs an
+   administrator's password in the cron environment, which is a worse
+   credential to leave lying about than the bind password.
+6. Storing a bind password needs `PORTICO_ENCRYPTION_KEY` set on the
    deployment. Without it the save is refused rather than the credential
    being written in the clear.
 

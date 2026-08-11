@@ -159,6 +159,7 @@ export const errorsZhCN: Record<keyof typeof errorsEnUS, string> = {
   LDAP_SOURCE_DISABLED: "该目录已被停用。",
   INVALID_LDAP_ENCRYPTION: "加密方式只能是 none、STARTTLS 或 TLS。",
   INVALID_LDAP_PORT: "端口必须在 1 到 65535 之间。",
+  INVALID_SYNC_INTERVAL: "自动同步间隔必须在 15 分钟到 7 天之间，或者关闭。",
   INVALID_LDAP_HOST:
     "主机名单独填写，不要带协议、路径或端口——它们是各自独立的字段。",
   LDAP_FIELD_REQUIRED:
