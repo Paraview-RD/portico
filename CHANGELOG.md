@@ -627,6 +627,17 @@ Working toward 0.2.0. See
   the new secret, and `Settings` omitted `showGuides` along with the three
   OIDC lifetimes that [docs/federation.md](docs/federation.md) tells people
   to set on that screen.
+- **The request bodies are described as the handlers read them.** The
+  response schemas were the half a check could reach from outside; the type a
+  handler decodes into is unexported, so the comparison for request bodies
+  lives in the handler package instead. Thirty-eight operations, both
+  directions — a field the server accepts and the document omits is a feature
+  nobody can find, and one the document promises and the server ignores is
+  worse, because the caller sends it, gets a 200, and believes it took. It
+  found the two password-recovery endpoints, which accept a `tenant` and said
+  nothing about it, and they are the two that most need it: whoever is asking
+  for a reset link cannot sign in, so there is no token for the tenant to
+  come from.
 
 ### Security
 
