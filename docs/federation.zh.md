@@ -412,7 +412,7 @@ CAS 客户端都按拿到的名字去映射——**统一成一套自家风格�
 | 机构 | `organization_id`、`organization_name` | `organizationId`、`organizationName` | `organization_id`、`organization_name` |
 | 最后变更时间 | `updated_at` | 不发 | 不发 |
 
-SAML 这一列是**友好名**。服务提供方真正映射的 Attribute Name 在[上面那张表](#实现了什么-1)。
+SAML 这一列是**友好名**。服务提供方真正映射的 Attribute Name 在[上面那张表](#实现了什么_1)。
 
 **一个名字只在账号确实有这项事实时才出现**：没有邮箱就没有 `mail`，没有机构就没有
 `organization_id`。**不会发空值**——所以一个映射了却始终收不到的字段，先去看账号，再

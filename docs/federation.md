@@ -504,7 +504,7 @@ writing a custom mapping for facts every directory already publishes.
 | Last changed | `updated_at` | not sent | not sent |
 
 The SAML column is the friendly name. The Name a service provider maps on is
-in the [table above](#what-is-implemented-1).
+in the [table above](#what-is-implemented_1).
 
 A name arrives only when the account has the fact behind it: no email
 address, no `mail`; no organization, no `organization_id`. Nothing is sent
