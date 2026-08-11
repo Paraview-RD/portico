@@ -6,6 +6,13 @@
 
 # Build artifact and database from the README's own instructions
 /portico
+# And the copies of it that get set aside before a rebuild — rebuilding over
+# a binary that is currently running breaks its signature on macOS, so the
+# working answer is to move it out of the way first. Ignored because the one
+# that appeared was 40MB, untracked, and therefore listed in `git status`
+# alongside real work: exactly the thing a hurried `git add -A` sweeps into
+# the history.
+/portico.bak.*
 # `go build ./...` writes every main package's binary to the working
 # directory, so the example lands here too — nobody asked for it and it is
 # 40MB.
