@@ -59,6 +59,7 @@ func (h *Handler) patchGroup(w http.ResponseWriter, r *http.Request) {
 	desired := groupAttributes{
 		displayName: current.DisplayName,
 		externalID:  current.ExternalID,
+		description: current.Description,
 	}
 
 	for _, op := range body.Operations {
@@ -99,10 +100,18 @@ func (h *Handler) patchGroup(w http.ResponseWriter, r *http.Request) {
 type groupAttributes struct {
 	displayName string
 	externalID  string
+	// description is carried and never changed. No operation can name it —
+	// SCIM's Group schema has no such attribute — so it is here to be
+	// written back unaltered by the update the other two provoke.
+	description string
 }
 
 func (a groupAttributes) input() service.GroupInput {
-	return service.GroupInput{DisplayName: a.displayName, ExternalID: a.externalID}
+	return service.GroupInput{
+		DisplayName: a.displayName,
+		ExternalID:  a.externalID,
+		Description: a.description,
+	}
 }
 
 func (a groupAttributes) changed(current model.Group) bool {

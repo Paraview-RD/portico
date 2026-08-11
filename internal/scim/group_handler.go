@@ -136,6 +136,11 @@ func (h *Handler) createGroup(w http.ResponseWriter, r *http.Request) {
 			h.failGroup(w, r, err)
 			return
 		}
+		// The description comes from the group as it stands. SCIM has no
+		// attribute for it, so a directory cannot have meant to clear it,
+		// and an update built from the request alone would.
+		in.Description = existing.Description
+
 		updated, err := h.groups.Update(r.Context(), tenantID, existing.ID, in, scimActor)
 		if err != nil {
 			h.failGroup(w, r, err)
@@ -185,9 +190,20 @@ func (h *Handler) replaceGroup(w http.ResponseWriter, r *http.Request) {
 	tenantID := tenantOf(r)
 	groupID := chi.URLParam(r, "id")
 
+	// Read first, for the description alone. PUT replaces the resource, and
+	// the resource is what SCIM defines — a field the schema has no way to
+	// carry is not part of what was replaced, so it is read across rather
+	// than written over.
+	current, err := h.groups.Get(r.Context(), tenantID, groupID)
+	if err != nil {
+		h.failGroup(w, r, err)
+		return
+	}
+
 	updated, err := h.groups.Update(r.Context(), tenantID, groupID, service.GroupInput{
 		DisplayName: strings.TrimSpace(body.DisplayName),
 		ExternalID:  strings.TrimSpace(body.ExternalID),
+		Description: current.Description,
 	}, scimActor)
 	if err != nil {
 		h.failGroup(w, r, err)

@@ -75,6 +75,100 @@ func memberPatch(op, path string, value any) map[string]any {
 	}
 }
 
+// A description is Portico's, and SCIM has no way to say it.
+//
+// The Group schema has displayName, externalId and members — no description
+// — so a directory cannot send one and cannot mean to clear one. Every push
+// nevertheless did: the handlers built a GroupInput without it, and the
+// update wrote that empty field over whatever an administrator had typed.
+//
+// Three ways in, because they are three code paths and only one of them is
+// the obvious PUT. A directory that re-creates a group it lost track of
+// arrives at POST, and a rename arrives at PATCH.
+func TestASCIMPushKeepsWhatSCIMCannotSay(t *testing.T) {
+	api := newAPITest(t)
+	admin := api.adminToken()
+	client := newSCIMClient(t, api, "group-description")
+
+	const description = "Who to page at three in the morning"
+
+	create := func(name string) string {
+		t.Helper()
+		res := api.do(http.MethodPost, "/api/v1/groups", admin, map[string]any{
+			"displayName": name, "description": description,
+		})
+		if res.Status != http.StatusOK {
+			t.Fatalf("create %s: %d %s %s", name, res.Status, res.Code, res.Message)
+		}
+		var group struct {
+			ID string `json:"id"`
+		}
+		res.into(t, &group)
+		return group.ID
+	}
+
+	describedAs := func(id string) string {
+		t.Helper()
+		res := api.do(http.MethodGet, "/api/v1/groups/"+id, admin, nil)
+		if res.Status != http.StatusOK {
+			t.Fatalf("read group %s: %d %s", id, res.Status, res.Code)
+		}
+		var group struct {
+			Description string `json:"description"`
+		}
+		res.into(t, &group)
+		return group.Description
+	}
+
+	for _, push := range []struct {
+		name string
+		send func(id, displayName string)
+	}{
+		{"PUT", func(id, displayName string) {
+			res := client.do(t, http.MethodPut, "/Groups/"+id, map[string]any{
+				"schemas":     []string{"urn:ietf:params:scim:schemas:core:2.0:Group"},
+				"displayName": displayName,
+			})
+			if res.Status != http.StatusOK {
+				t.Fatalf("PUT: %d %s", res.Status, res.Body)
+			}
+		}},
+		{"POST for a group that already exists", func(id, displayName string) {
+			res := client.do(t, http.MethodPost, "/Groups", map[string]any{
+				"schemas":     []string{"urn:ietf:params:scim:schemas:core:2.0:Group"},
+				"displayName": displayName,
+			})
+			if res.Status != http.StatusOK && res.Status != http.StatusCreated {
+				t.Fatalf("POST: %d %s", res.Status, res.Body)
+			}
+		}},
+		{"PATCH that renames", func(id, displayName string) {
+			res := client.do(t, http.MethodPatch, "/Groups/"+id, map[string]any{
+				"schemas": []string{"urn:ietf:params:scim:api:messages:2.0:PatchOp"},
+				"Operations": []map[string]any{
+					{"op": "replace", "path": "displayName", "value": displayName + " Renamed"},
+				},
+			})
+			if res.Status != http.StatusOK {
+				t.Fatalf("PATCH: %d %s", res.Status, res.Body)
+			}
+		}},
+	} {
+		t.Run(push.name, func(t *testing.T) {
+			name := "Support " + push.name
+			id := create(name)
+
+			push.send(id, name)
+
+			if got := describedAs(id); got != description {
+				t.Errorf("after a %s the description is %q, want %q; SCIM "+
+					"cannot express this field, so a push cannot have meant "+
+					"to clear it", push.name, got, description)
+			}
+		})
+	}
+}
+
 func TestGroupsAreAdvertisedAndServed(t *testing.T) {
 	api := newAPITest(t)
 	client := newSCIMClient(t, api, "groups-advertised")
