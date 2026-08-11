@@ -241,3 +241,22 @@ type UserAttributeDefinition struct {
 	CreatedAt time.Time `json:"createdAt"`
 	UpdatedAt time.Time `json:"updatedAt"`
 }
+
+// FieldMapping is one rule about what an application receives.
+//
+// The defaults are not rules: an application with no mappings gets exactly what
+// it always got. A rule renames a default, suppresses one, or adds a field the
+// defaults never sent — which is the larger half of what mapping is for, since
+// most of the catalogue has never been on the wire at all.
+type FieldMapping struct {
+	// SourceKey is a field catalogue key. Not a column name: the catalogue is
+	// an enumeration precisely so that a configuration cannot name
+	// password_hash.
+	SourceKey string `json:"sourceKey"`
+	// TargetName is what the application expects. For SAML this is the Name,
+	// which is what a service provider maps on; FriendlyName sits beside it.
+	TargetName   string `json:"targetName,omitempty"`
+	FriendlyName string `json:"friendlyName,omitempty"`
+	// Suppressed removes a name a default would have sent.
+	Suppressed bool `json:"suppressed,omitempty"`
+}

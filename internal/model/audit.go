@@ -222,6 +222,12 @@ const (
 	// be a second copy of whatever a tenant records about its people, in a
 	// table with a different retention period.
 	ActionUserAttributeSet = "USER_ATTRIBUTE_SET"
+
+	// One verb for a whole application's mapping set, because a save replaces
+	// the set rather than editing rows: "these are the rules now" is the change
+	// that happened, and six entries describing it row by row would be six
+	// entries about one decision.
+	ActionFieldMappingReplace = "FIELD_MAPPING_REPLACE"
 )
 
 // There is deliberately no verb for a downstream synchronisation.
