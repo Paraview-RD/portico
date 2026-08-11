@@ -60,7 +60,7 @@ describe("choosing which events to receive", () => {
     await openTheDialog("zh-CN");
 
     expect(await screen.findByText("连续登录失败被锁定")).toBeTruthy();
-    expect(screen.getByText("机构停用")).toBeTruthy();
+    expect(screen.getByText("组织停用")).toBeTruthy();
   });
 
   it("still shows the identifier the receiver has to match on", async () => {
@@ -88,6 +88,6 @@ describe("choosing which events to receive", () => {
     await openTheDialog("zh-CN");
 
     expect(await screen.findByText("账号")).toBeTruthy();
-    expect(screen.getByText("机构")).toBeTruthy();
+    expect(screen.getByText("组织")).toBeTruthy();
   });
 });

@@ -4,7 +4,7 @@
 
 三种协议，一套账号。用哪一种由**这个应用本来就会讲哪一种**决定，而不是由这里的任何
 东西决定：现代应用用 OpenID Connect，企业产品通常有一个多年前写好的 SAML 集成，大学
-或 Java 应用往往用 CAS。**三者回答的是同一批事实**——租户、角色、机构，以及这个人本身的信息
+或 Java 应用往往用 CAS。**三者回答的是同一批事实**——租户、角色、组织，以及这个人本身的信息
 ——所以一个从其中一种迁到另一种的应用，能知道的东西不会变少。**名字是不同的**，因为
 每种协议都有自己的一套：[同一个人，三套名字](#同一个人三套名字)就是用来对照的那张表。
 
@@ -163,7 +163,7 @@ portico client register --id grafana --name Grafana \
 |---|---|
 | `tenant_id`、`tenant_code` | 账号属于哪个租户 |
 | `role` | `SUPER_ADMIN` 或 `USER` |
-| `organization_id`、`organization_name` | 账号有机构时才出现 |
+| `organization_id`、`organization_name` | 账号有组织时才出现 |
 
 这些在 ID token、访问令牌和 userinfo 响应里**都有**。依赖方从 ID token 读身份，资源
 服务器从访问令牌读；**一个只出现在其中之一里的 claim，是一半集成方看不见的 claim**。
@@ -409,12 +409,12 @@ CAS 客户端都按拿到的名字去映射——**统一成一套自家风格�
 | 这两项是否被证实过 | `email_verified`、`phone_number_verified` | 不发 | 不发 |
 | 租户 | `tenant_id`、`tenant_code` | `tenantId`、`tenantCode` | `tenant_id`、`tenant_code` |
 | 角色 | `role` | `role` | `role` |
-| 机构 | `organization_id`、`organization_name` | `organizationId`、`organizationName` | `organization_id`、`organization_name` |
+| 组织 | `organization_id`、`organization_name` | `organizationId`、`organizationName` | `organization_id`、`organization_name` |
 | 最后变更时间 | `updated_at` | 不发 | 不发 |
 
 SAML 这一列是**友好名**。服务提供方真正映射的 Attribute Name 在[上面那张表](#实现了什么_1)。
 
-**一个名字只在账号确实有这项事实时才出现**：没有邮箱就没有 `mail`，没有机构就没有
+**一个名字只在账号确实有这项事实时才出现**：没有邮箱就没有 `mail`，没有组织就没有
 `organization_id`。**不会发空值**——所以一个映射了却始终收不到的字段，先去看账号，再
 去看映射。
 
