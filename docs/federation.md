@@ -7,9 +7,11 @@ Three protocols, one set of accounts. Which one to use is decided by what the
 application already speaks, not by anything here: a modern application uses
 OpenID Connect, an enterprise product usually has a SAML integration written
 years ago, and a university or a Java application often has CAS. All three
-answer with the same facts under the same names — tenant, role, organization
-— so an application migrated from one to another sees no change in what it
-is told.
+answer with the same facts — tenant, role, organization, and the person's
+details — so an application migrated from one to another learns exactly as
+much as it did before. The names differ, because each protocol has its own;
+[One person, three sets of names](#one-person-three-sets-of-names) is the
+table to map from.
 
 The sections below are OpenID Connect first, then [SAML](#saml-20), then
 [CAS](#cas).
@@ -213,10 +215,23 @@ would be lying to a relying party that might act on it.
 ## Revocation, honestly
 
 Three things end a session: signing out, changing a password, and an
-administrator disabling the account. Each of them:
+administrator disabling the account. All three revoke **every refresh token
+held by every relying party**, immediately. Where they differ is how much of
+Portico's own they end:
 
-- invalidates every Portico session token immediately, and
-- revokes every refresh token held by every relying party.
+| | Portico's own sessions | Relying parties' refresh tokens |
+|---|---|---|
+| Signing out | the one signing out | all |
+| **Sign out everywhere** | all | all |
+| Changing a password | all | all |
+| An administrator disabling the account | all | all |
+
+Signing out ends the session doing it and leaves the one on your phone alone,
+because that is what somebody closing a browser expects; ending them all is a
+deliberate act with a button of its own. The relying parties are the other
+way round in every row — on a single sign-on system "sign out" is read as
+signing out of the things you signed in to, and doing less than that is the
+surprise that matters.
 
 None of them can withdraw an **access token that has already been
 issued**. That is not a gap in Portico; it is what issuing a self-verifying
@@ -266,7 +281,7 @@ until they have all expired, and is then deleted.
 
 | | Sign-out, password change, disable |
 |---|---|
-| Portico's own session | Ends immediately |
+| Portico's own session | Ends immediately — the one signing out, or all of them for the other two; see the table above |
 | OIDC refresh tokens | Revoked |
 | OIDC access tokens | Cannot be withdrawn; expiry (15 minutes by default, at most an hour) or introspect |
 | SAML | Nothing to revoke — no server-side session exists, because there is no single logout. A service provider's own session outlives this entirely and ends on its own terms. |
@@ -277,7 +292,7 @@ in Portico does not end the session an application created after it accepted
 an assertion or a ticket; no identity provider can do that without a working
 single-logout profile, which this version does not have.
 
-## Known limitations in v0.1
+## Known limitations
 
 - **Expired refresh tokens outlive their expiry by thirty days.** The hourly
   sweep removes a rotation chain only once every token in it is both expired

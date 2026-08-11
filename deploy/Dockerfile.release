@@ -15,9 +15,10 @@ ARG TARGETPLATFORM
 # (nobody); the /data volume below is writable by it.
 USER 65534:65534
 
-# Root certificates: webhook delivery is outbound TLS, and scratch has no
-# CA store. GoReleaser's build context has no /etc/ssl to copy from, so the
-# bundle comes from a public image rather than from the builder.
+# Root certificates: webhook delivery, SMTP over STARTTLS or TLS, and LDAPS
+# are all outbound TLS, and scratch has no CA store. GoReleaser's build
+# context has no /etc/ssl to copy from, so the bundle comes from a public
+# image rather than from the builder.
 COPY --from=certs /etc/ssl/certs/ca-certificates.crt /etc/ssl/certs/ca-certificates.crt
 
 COPY $TARGETPLATFORM/portico /portico

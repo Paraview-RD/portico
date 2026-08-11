@@ -30,12 +30,13 @@ FROM scratch
 USER 65534:65534
 # Root certificates, which this image did not have until webhooks existed.
 #
-# Portico now makes one kind of outbound TLS connection: delivering an event
-# to a subscriber's https endpoint. Without a CA bundle every one of those
-# fails certificate verification inside the container while working perfectly
-# on a developer's machine, which has a system store — the failure would
-# appear only in a deployment, and only for the one feature that is hardest
-# to notice is broken.
+# Portico makes outbound TLS connections in three places: delivering an event
+# to a subscriber's https endpoint, sending mail over SMTP with STARTTLS or
+# implicit TLS, and reading a directory over LDAPS or LDAP StartTLS. Without a
+# CA bundle all three fail certificate verification inside the container while
+# working perfectly on a developer's machine, which has a system store — the
+# failure appears only in a deployment, and only in the features that are
+# hardest to notice are broken.
 #
 # The bundle is copied rather than the image rebased, so this stays FROM
 # scratch and stays one binary plus one file of certificates.

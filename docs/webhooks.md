@@ -165,10 +165,21 @@ asking the receiver to check their own logs.
 
 Delivery records are kept for thirty days.
 
+`GET /api/v1/webhooks/{id}/deliveries` returns the fifty most recent by
+default. `?limit=` takes anything from 1 to 200; a value outside that, or one
+that is not a number, is ignored rather than refused — the screen asking is
+showing a list, and failing it over a query string would replace the list
+with an error.
+
 ## Running in a container
 
 The release image includes a CA certificate bundle, which it did not before
-webhooks existed — delivery is the only outbound TLS this server makes.
-Nothing to configure; it is noted because an image built from an older
-Dockerfile would fail every delivery with a certificate error while working
-on a developer's machine.
+webhooks existed. Nothing to configure; it is noted because an image built
+from an older Dockerfile would fail every delivery with a certificate error
+while working perfectly on a developer's machine, which has a system store.
+
+Delivery is not the only thing that needs it. Sending mail over SMTP with
+STARTTLS or implicit TLS, and reading a directory over LDAPS or LDAP with
+StartTLS, verify against the same bundle — so an image without one breaks
+email and directory synchronization too, and each reports it as its own kind
+of certificate error.

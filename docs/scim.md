@@ -50,11 +50,20 @@ enterprise extension's `department` *is* kept, as free text, precisely
 because it often names something that is not in this tenant's tree — losing
 it would lose information an operator can act on.
 
+The attribute row above is what POST and PUT accept, and it is what
+`/Schemas` publishes — a directory reading that document finds every one of
+them. The PATCH row is deliberately shorter; the next paragraph is why.
+
 **PUT replaces; PATCH does not.** SCIM's PUT means "the resource is now
 this", so a directory that stops sending a title is saying the title is gone
 and Portico clears it. If that is not what you want, use PATCH — which is
 also why the PATCH row above lists a shorter set: those are the paths with a
-handler, and `ServiceProviderConfig` advertises exactly them.
+handler.
+
+That set is not discoverable. `ServiceProviderConfig` says `patch:
+supported`, and SCIM gives it no field in which to say which paths — so the
+only machine-readable statement of the list is the `invalidPath` error a
+client gets by trying one, which names the attribute and lists the rest.
 
 ### Groups are not organizations
 

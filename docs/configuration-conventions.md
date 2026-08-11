@@ -121,6 +121,19 @@ else in the codebase calls `os.Getenv` — otherwise the real set of settings
 is whatever a grep turns up, and a typo in a variable name silently means
 "default".
 
+Two places do, and both are outside the server:
+
+- **`cmd/server/ready.go`** reads `PORTICO_ADDR` to work out which port to
+  probe. It cannot go through `config.Load`, because that validates the
+  database DSN, the JWT secret and the rest — and `portico ready` has to
+  answer while the configuration is wrong, since telling an operator the
+  container is unhealthy is the entire job. A healthcheck that refused to run
+  for a missing DSN would report the container as failing without saying why.
+- **`internal/testdb`** reads `PORTICO_TEST_DB_DSN`, which points the test
+  suite at an already-running database instead of starting a container. It is
+  a setting for running tests, not for running Portico, and putting it in the
+  server's configuration would advertise it to operators as something to set.
+
 Durations accept either a Go duration (`30m`, `2h`) or a bare number of
 seconds, because both are things people reasonably type. Anything else is an
 error rather than a silent zero.

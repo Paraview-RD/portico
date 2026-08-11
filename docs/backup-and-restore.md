@@ -9,6 +9,7 @@ you actually use one.
 |---|---|---|
 | PostgreSQL | Everything else: accounts, organizations, tenants, settings, the audit trail, sessions, and **every private key** — the OIDC signing keys and the SAML certificates both live in tables | A dropped database, a bad migration, a deleted tenant |
 | `PORTICO_JWT_SECRET` | The secret that signs Portico's own session tokens. It is not in the database and never has been | A rebuilt host, a rotated secret manager entry, a lost `.env` |
+| `PORTICO_ENCRYPTION_KEY` | The key the directory bind passwords are encrypted under. Also not in the database, and deliberately: the dump holds the ciphertext and nothing that opens it | The same three ways |
 
 **A `pg_dump`-only backup is not a backup of this system.** Restore it into
 an instance with a different `PORTICO_JWT_SECRET` and everything comes back
@@ -22,8 +23,18 @@ secret leaves the data correct — passwords still work, `/ready` answers 200
 "wrong secret"; it reads as an instance that signed everyone out for no
 reason.
 
-Back up the secret with the same care and the same schedule as the database,
-and keep them recoverable together. They are one backup in two files.
+**Nor is a dump plus the JWT secret, if you synchronize from a directory.**
+`PORTICO_ENCRYPTION_KEY` is what the LDAP bind passwords are encrypted under,
+and it is the one credential this system has to be able to read back rather
+than merely check — Portico sends it to your directory on every run. Restore
+under a different key and every directory connector fails at bind, with an
+error from the directory about credentials rather than anything naming the
+key. The bind password has to be typed in again for each source, and there is
+no way to recover the old one from the dump.
+
+Back up both secrets with the same care and the same schedule as the
+database, and keep all three recoverable together. It is one backup in three
+files.
 
 ## The database dump contains private keys
 
@@ -32,12 +43,24 @@ PKCS#8 PEM, stored as plain text — a deliberate decision, on the same
 footing as the password hashes beside them: protecting the database is the
 deployment's job.
 
+`webhook_subscriptions.secret` is in the clear beside them, for a reason
+worth stating rather than assuming: unlike a client secret or a SCIM token it
+is never compared against something a caller presents. It *produces* the
+signature on every delivery, so there is nothing to hash and a digest would
+be useless. Somebody holding a dump can sign a delivery that every subscriber
+verifies as genuine.
+
 The consequence for backups is not deliberate unless you make it so. A dump
 sitting in an object store with default permissions is your identity
 provider's signing keys sitting in an object store. Someone holding it can
 mint tokens your relying parties will accept and assertions your service
 providers will trust, and can keep doing so until every key is rotated and
 every service provider has been told.
+
+What is *not* in the clear is the directory bind password: that one is
+AES-256-GCM under `PORTICO_ENCRYPTION_KEY`, which lives in the environment
+rather than the database, so a dump on its own does not yield it. That is the
+one place where the split above buys something.
 
 Encrypt dumps at rest, restrict who can read them, and treat a leaked backup
 as a key compromise rather than a data breach — the response is different
@@ -82,8 +105,8 @@ createdb portico_restored
 pg_restore --dbname=portico_restored --no-owner portico-2026-08-08.dump
 ```
 
-Then start Portico against it **with the `PORTICO_JWT_SECRET` that was in
-use when the dump was taken**. Point `PORTICO_DB_DSN` at the restored
+Then start Portico against it **with the `PORTICO_JWT_SECRET` and the
+`PORTICO_ENCRYPTION_KEY` that were in use when the dump was taken**. Point `PORTICO_DB_DSN` at the restored
 database and let it start: migrations are embedded and run at startup, so a
 dump from an older version is brought forward automatically. There is no
 separate migration step to remember, and no tool to install.
