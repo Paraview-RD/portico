@@ -1,5 +1,6 @@
-# Build the frontend, then the binary that embeds it, then ship only the
-# binary. The result is a scratch-based image containing one file.
+# Build the frontend and the manual, then the binary that embeds both, then
+# ship only the binary. The result is a scratch-based image containing one
+# file.
 
 FROM node:26-alpine AS web
 WORKDIR /src
@@ -9,13 +10,29 @@ RUN cd web && npm ci
 COPY web ./web
 RUN cd web && npm run build
 
+# The manual, which this image shipped without until now. `go:embed all:site`
+# compiles against a directory holding one .gitkeep, so a build with no manual
+# in it succeeds and the image serves "The Portico manual was not included in
+# this build" at /docs — a correct sentence that nobody was meant to read.
+FROM python:3.12-alpine AS manual
+WORKDIR /src
+COPY hack/docs-requirements.txt ./hack/
+RUN pip install --no-cache-dir -r hack/docs-requirements.txt
+# Only what the build reads, so editing a Go file does not reinstall mkdocs.
+COPY mkdocs.yml ./
+COPY mkdocs-overrides ./mkdocs-overrides
+COPY docs ./docs
+COPY hack/build-docs.sh ./hack/
+RUN sh hack/build-docs.sh
+
 FROM golang:1.26-alpine AS build
 WORKDIR /src
 COPY go.mod go.sum ./
 RUN go mod download
 COPY . .
-# The frontend build lands in the package that embeds it.
+# Both builds land in the packages that embed them.
 COPY --from=web /src/internal/web/dist ./internal/web/dist
+COPY --from=manual /src/internal/docs/site ./internal/docs/site
 ARG VERSION=dev
 # CGO is off because the sqlite driver is pure Go; that is what allows a
 # scratch image with no libc.

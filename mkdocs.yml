@@ -101,7 +101,7 @@ plugins:
           nav_translations:
             Home: 首页
             Getting in: 访问指南
-            Organizations and groups: 机构与用户组
+            Organizations and groups: 组织与用户组
             Reading a directory: 目录对接
             Provisioning: 目录供给
             Federation: 单点登录
