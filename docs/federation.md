@@ -342,10 +342,30 @@ be changed by an administrator, and a service provider keying its local
 record on one would quietly create a second account for the same person the
 day it was. The username is in the `uid` attribute for display.
 
-Attributes use the OASIS X.500 names where such an agreement exists — `uid`,
-`cn`, `mail`, `displayName`, `telephoneNumber` — and Portico's own,
-unprefixed, where it does not: `tenant_id`, `tenant_code`, `role`,
-`organization_id`, `organization_name`.
+Attributes use the OASIS X.500 names where such an agreement exists, and
+Portico's own where it does not. Each is sent under two names, and the
+distinction matters when you configure a service provider: the friendly name
+is a label for a person reading the assertion, and the **Name** is the string
+the mapping keys on.
+
+| SAML attribute | Attribute Name a service provider maps on |
+|---|---|
+| `uid` | `urn:oid:0.9.2342.19200300.100.1.1` |
+| `displayName` | `urn:oid:2.16.840.1.113730.3.1.241` |
+| `cn` | `urn:oid:2.5.4.3` |
+| `mail` | `urn:oid:0.9.2342.19200300.100.1.3` |
+| `telephoneNumber` | `urn:oid:2.5.4.20` |
+| `tenantId` | `tenant_id` |
+| `tenantCode` | `tenant_code` |
+| `role` | `role` |
+| `organizationId` | `organization_id` |
+| `organizationName` | `organization_name` |
+| `urn:oasis:names:tc:SAML:attribute:subject-id` | `urn:oasis:names:tc:SAML:attribute:subject-id` |
+
+The last has no friendly name because the profile that defines it does not
+give one. It carries the account id, the same value as the name identifier,
+and is there for a service provider that follows the subject identifier
+profile rather than reading the NameID.
 
 That list is the whole of it, and each name appears exactly once. `cn` and
 `displayName` carry the same value, which is not an accident: they are the
@@ -422,7 +442,7 @@ CAS's redirect URI, and it gets the same treatment.
 |---|---|
 | Endpoints | `/cas/login`, `/cas/logout`, `/cas/serviceValidate`, `/cas/p3/serviceValidate` |
 | Ticket | `ST-` prefix, single use, one minute |
-| Attributes | CAS 3.0 only, under the same names the other protocols use |
+| Attributes | CAS 3.0 only, under CAS's own names — see [One person, three sets of names](#one-person-three-sets-of-names) |
 
 A ticket is bound to the service it was issued for: presenting it at another
 service's validation would otherwise let a service that legitimately received
@@ -446,6 +466,46 @@ caller names is an open redirect wearing a protocol's clothes.
 
 Not implemented: proxy tickets, and CAS 1.0 `/validate`, whose bare
 `yes\n<user>\n` carries no attributes and no way to say why a ticket failed.
+
+## One person, three sets of names
+
+The three protocols carry the same facts under three sets of names, and this
+is the table to map from. They are not the same names and cannot be: OpenID
+Connect's are its specification's, and a service provider or a CAS client
+maps by the name it is given, so a house style would mean every integration
+writing a custom mapping for facts every directory already publishes.
+
+| Fact | OpenID Connect claim | SAML attribute | CAS 3.0 attribute |
+|---|---|---|---|
+| Account id | `sub` | the NameID, and `urn:oasis:names:tc:SAML:attribute:subject-id` | not sent |
+| Username | `preferred_username` | `uid` | the cas:user element, not an attribute |
+| Display name | `name` | `displayName`, `cn` | `displayName` |
+| Email | `email` | `mail` | `email` |
+| Phone | `phone_number` | `telephoneNumber` | `phone` |
+| Whether either was proved | `email_verified`, `phone_number_verified` | not sent | not sent |
+| Tenant | `tenant_id`, `tenant_code` | `tenantId`, `tenantCode` | `tenant_id`, `tenant_code` |
+| Role | `role` | `role` | `role` |
+| Organization | `organization_id`, `organization_name` | `organizationId`, `organizationName` | `organization_id`, `organization_name` |
+| Last changed | `updated_at` | not sent | not sent |
+
+The SAML column is the friendly name. The Name a service provider maps on is
+in the [table above](#what-is-implemented-1).
+
+A name arrives only when the account has the fact behind it: no email
+address, no `mail`; no organization, no `organization_id`. Nothing is sent
+empty, so a service provider mapping a field it never receives should look at
+the account before the mapping.
+
+An OpenID Connect claim also needs its scope to have been asked for —
+`phone_number` arrives for `phone` and not otherwise — which is the more
+common reason for a claim to be missing than anything on this page.
+
+This table is checked rather than maintained.
+`TestEachProtocolSendsTheNamesTheManualLists` signs in over all three
+protocols with an account that has every fact, and compares what comes back
+against what is written here — in both directions, and against both
+translations of this page. It exists because this section previously said CAS
+used the same names as the other two, which it never has.
 
 ## Trying it locally
 

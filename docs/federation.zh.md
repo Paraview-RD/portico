@@ -279,9 +279,27 @@ portico sp disable --entity-id https://confluence.example.com/saml
 记录键的服务提供方，会在改名的那一天悄悄为同一个人再建一个账号**。用户名放在 `uid`
 属性里供显示。
 
-有既定约定的属性用 OASIS X.500 的名字——`uid`、`cn`、`mail`、`displayName`、
-`telephoneNumber`——没有约定的用 Portico 自己的、不带前缀的名字：`tenant_id`、
-`tenant_code`、`role`、`organization_id`、`organization_name`。
+有既定约定的属性用 OASIS X.500 的名字，没有约定的用 Portico 自己的。每个属性带
+**两个**名字，而这个区别在配置服务提供方时是要紧的：友好名是给读断言的人看的标签，
+**Name 才是映射真正匹配的那个字符串**。
+
+| SAML 属性 | 服务提供方实际映射的 Attribute Name |
+|---|---|
+| `uid` | `urn:oid:0.9.2342.19200300.100.1.1` |
+| `displayName` | `urn:oid:2.16.840.1.113730.3.1.241` |
+| `cn` | `urn:oid:2.5.4.3` |
+| `mail` | `urn:oid:0.9.2342.19200300.100.1.3` |
+| `telephoneNumber` | `urn:oid:2.5.4.20` |
+| `tenantId` | `tenant_id` |
+| `tenantCode` | `tenant_code` |
+| `role` | `role` |
+| `organizationId` | `organization_id` |
+| `organizationName` | `organization_name` |
+| `urn:oasis:names:tc:SAML:attribute:subject-id` | `urn:oasis:names:tc:SAML:attribute:subject-id` |
+
+最后一个没有友好名，因为定义它的那份 profile 就没给。它携带账号 id，与名称标识符
+是同一个值，供那些遵循 subject identifier profile、而不是去读 NameID 的服务提供方
+使用。
 
 **这份清单就是全部，而且每个名字只出现一次。** `cn` 与 `displayName` 携带同一个值，这不
 是疏忽：**它们是服务提供方真正会拿来映射「人名」的那两个名字，而它们彼此并不一致。**
@@ -342,7 +360,7 @@ portico cas disable --url https://wiki.example.com/
 |---|---|
 | 端点 | `/cas/login`、`/cas/logout`、`/cas/serviceValidate`、`/cas/p3/serviceValidate` |
 | 票 | `ST-` 前缀，一次性，一分钟 |
-| 属性 | 仅 CAS 3.0，用与其它协议相同的名字 |
+| 属性 | 仅 CAS 3.0，用 CAS 自己的名字——见[同一个人，三套名字](#同一个人三套名字) |
 
 **一张票被绑定在它被签发给的那个服务上**：否则，把它拿到另一个服务的校验端点去出示，
 会让一个合法收到票的服务得以在别处冒充那个人。**校验永远返回 `200`，即使是失败**，因
@@ -361,6 +379,41 @@ portico cas disable --url https://wiki.example.com/
 
 不实现：代理票，以及 CAS 1.0 的 `/validate`——它那句光秃秃的 `yes\n<user>\n` 既不带属性，
 也没有办法说明一张票为什么失败。
+
+## 同一个人，三套名字
+
+三种协议携带的是同一批事实，各自用自己的一套名字。**要映射，就照这张表。**
+
+它们不是同一套名字，而且做不到：OpenID Connect 的名字是它规范定的，而服务提供方和
+CAS 客户端都按拿到的名字去映射——**统一成一套自家风格，意味着每一次对接都要为每个
+目录本来就在发布的事实手写一遍映射。**
+
+| 事实 | OpenID Connect 声明 | SAML 属性 | CAS 3.0 属性 |
+|---|---|---|---|
+| 账号 id | `sub` | 名称标识符，以及 `urn:oasis:names:tc:SAML:attribute:subject-id` | 不发 |
+| 用户名 | `preferred_username` | `uid` | cas:user 元素，它不是一个属性 |
+| 显示名 | `name` | `displayName`、`cn` | `displayName` |
+| 邮箱 | `email` | `mail` | `email` |
+| 电话 | `phone_number` | `telephoneNumber` | `phone` |
+| 这两项是否被证实过 | `email_verified`、`phone_number_verified` | 不发 | 不发 |
+| 租户 | `tenant_id`、`tenant_code` | `tenantId`、`tenantCode` | `tenant_id`、`tenant_code` |
+| 角色 | `role` | `role` | `role` |
+| 机构 | `organization_id`、`organization_name` | `organizationId`、`organizationName` | `organization_id`、`organization_name` |
+| 最后变更时间 | `updated_at` | 不发 | 不发 |
+
+SAML 这一列是**友好名**。服务提供方真正映射的 Attribute Name 在[上面那张表](#实现了什么-1)。
+
+**一个名字只在账号确实有这项事实时才出现**：没有邮箱就没有 `mail`，没有机构就没有
+`organization_id`。**不会发空值**——所以一个映射了却始终收不到的字段，先去看账号，再
+去看映射。
+
+OpenID Connect 的声明还需要对应的 scope 被申请过——`phone_number` 只在申请了 `phone`
+时才来。**这比本页上的任何一条，都更常是「声明不见了」的真正原因。**
+
+**这张表是被校验的，不是被维护的。** `TestEachProtocolSendsTheNamesTheManualLists`
+会用一个拥有全部事实的账号跑通三种协议，把回来的名字与这里写的比对——**双向比对，
+且两种语言的本页都比**。它之所以存在，是因为这一节此前声称 CAS 用的名字与另外两种
+协议相同，而它从来就不是。
 
 ## 本地试一下
 
