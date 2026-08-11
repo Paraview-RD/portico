@@ -185,6 +185,23 @@ jobs:
         working-directory: web
       - run: npm run build
         working-directory: web
+
+      # The manual, for the same reason the frontend is built here: both are
+      # compiled into the binary, and a browser test against a binary missing
+      # one of them is a test of something nobody runs.
+      #
+      # It was missing, and that is why /docs could ship broken. The browser
+      # suite exists to catch what only a browser enforces, and it was
+      # exercising a binary whose internal/docs/site held one .gitkeep — so
+      # even a test that visited /docs would have been reading "the manual
+      # was not included in this build" and asserting nothing about the
+      # manual. Pinned to the same versions as the docs job; two builds of
+      # the same site from different Material releases are two different
+      # sites.
+      - uses: actions/setup-python@v5
+      - run: pip install mkdocs-material==9.5.44 mkdocs-static-i18n==1.3.1
+      - run: ./hack/build-docs.sh
+
       - run: CGO_ENABLED=0 go build -o portico ./cmd/server
 
       - name: Smoke test the built binary
