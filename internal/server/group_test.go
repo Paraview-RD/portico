@@ -133,7 +133,7 @@ func TestASCIMPushKeepsWhatSCIMCannotSay(t *testing.T) {
 				t.Fatalf("PUT: %d %s", res.Status, res.Body)
 			}
 		}},
-		{"POST for a group that already exists", func(id, displayName string) {
+		{"POST for a group that already exists", func(_, displayName string) {
 			res := client.do(t, http.MethodPost, "/Groups", map[string]any{
 				"schemas":     []string{"urn:ietf:params:scim:schemas:core:2.0:Group"},
 				"displayName": displayName,
