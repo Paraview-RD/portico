@@ -13,6 +13,7 @@ import (
 	"gopkg.in/yaml.v3"
 
 	"github.com/Paraview-RD/portico/internal/model"
+	"github.com/Paraview-RD/portico/internal/service"
 )
 
 // The OpenAPI document is hand-written, and this is what stops it becoming
@@ -224,6 +225,26 @@ func TestEverySchemaNamesTheFieldsItsTypeSends(t *testing.T) {
 		{"OAuthClient", model.OAuthClient{}},
 		{"LDAPSource", model.LDAPSource{}},
 		{"LDAPSyncRun", model.LDAPSyncRun{}},
+		// Not every response type is a model type. These are the service
+		// layer's, because what a console is shown about a subscription or
+		// a credential is deliberately less than what is stored — no
+		// secret, no header values — and that decision belongs beside the
+		// service that makes it.
+		//
+		// What this list cannot reach is a response struct declared inside
+		// `handler`, which is unexported by design. `RegisteredClient` is
+		// one such: the service type it is built from carries no JSON tags
+		// at all, because it never goes on the wire itself.
+		{"WebhookSubscription", service.Subscription{}},
+		{"CreatedWebhookSubscription", service.CreatedSubscription{}},
+		{"WebhookDelivery", service.Delivery{}},
+		{"SCIMCredential", service.SCIMCredential{}},
+		{"IssuedSCIMCredential", service.IssuedSCIMCredential{}},
+		{"Settings", service.Settings{}},
+		{"ImportResult", service.ImportResult{}},
+		{"BulkResult", service.BulkResult{}},
+		{"GroupMember", model.GroupMember{}},
+		{"GroupRef", model.GroupRef{}},
 		// model.Session is the sign-in shown to its owner. The document's
 		// `Session` is the login response — a token and a user — which is
 		// the service layer's, not this one's.
@@ -259,11 +280,22 @@ func TestEverySchemaNamesTheFieldsItsTypeSends(t *testing.T) {
 // tagged `json:"-"` puts none, which is the case worth catching.
 func serializedFields(value any) map[string]bool {
 	names := map[string]bool{}
-	structType := reflect.TypeOf(value)
+	collectFields(reflect.TypeOf(value), names)
+	return names
+}
+
+func collectFields(structType reflect.Type, names map[string]bool) {
 	for i := range structType.NumField() {
 		field := structType.Field(i)
 		tag := field.Tag.Get("json")
 		if tag == "-" {
+			continue
+		}
+		// An embedded struct with no tag is flattened by encoding/json, and
+		// the schema flattens it too — through allOf. `IssuedSCIMCredential`
+		// is a credential plus a token, in both descriptions.
+		if field.Anonymous && tag == "" && field.Type.Kind() == reflect.Struct {
+			collectFields(field.Type, names)
 			continue
 		}
 		name, _, _ := strings.Cut(tag, ",")
@@ -273,7 +305,6 @@ func serializedFields(value any) map[string]bool {
 		}
 		names[name] = true
 	}
-	return names
 }
 
 func specSchemas(t *testing.T) map[string]map[string]bool {
@@ -286,9 +317,7 @@ func specSchemas(t *testing.T) map[string]map[string]bool {
 
 	var doc struct {
 		Components struct {
-			Schemas map[string]struct {
-				Properties map[string]yaml.Node `yaml:"properties"`
-			} `yaml:"schemas"`
+			Schemas map[string]schemaNode `yaml:"schemas"`
 		} `yaml:"components"`
 	}
 	if err := yaml.Unmarshal(raw, &doc); err != nil {
@@ -296,12 +325,52 @@ func specSchemas(t *testing.T) map[string]map[string]bool {
 	}
 
 	out := map[string]map[string]bool{}
-	for name, schema := range doc.Components.Schemas {
-		properties := map[string]bool{}
-		for property := range schema.Properties {
-			properties[property] = true
-		}
-		out[name] = properties
+	for name := range doc.Components.Schemas {
+		out[name] = resolveProperties(t, doc.Components.Schemas, name, map[string]bool{})
 	}
 	return out
+}
+
+// schemaNode is as much of a schema object as this test reads: its own
+// properties, and the allOf composition the document uses to say "everything
+// that one has, plus these".
+type schemaNode struct {
+	Properties map[string]yaml.Node `yaml:"properties"`
+	AllOf      []struct {
+		Ref        string               `yaml:"$ref"`
+		Properties map[string]yaml.Node `yaml:"properties"`
+	} `yaml:"allOf"`
+}
+
+func resolveProperties(t *testing.T, schemas map[string]schemaNode, name string, seen map[string]bool) map[string]bool {
+	t.Helper()
+
+	properties := map[string]bool{}
+	if seen[name] {
+		t.Errorf("the %s schema composes itself through allOf", name)
+		return properties
+	}
+	seen[name] = true
+
+	schema := schemas[name]
+	for property := range schema.Properties {
+		properties[property] = true
+	}
+	for _, part := range schema.AllOf {
+		for property := range part.Properties {
+			properties[property] = true
+		}
+		if part.Ref == "" {
+			continue
+		}
+		referenced := strings.TrimPrefix(part.Ref, "#/components/schemas/")
+		if _, known := schemas[referenced]; !known {
+			t.Errorf("the %s schema composes %s, which is not defined", name, part.Ref)
+			continue
+		}
+		for property := range resolveProperties(t, schemas, referenced, seen) {
+			properties[property] = true
+		}
+	}
+	return properties
 }

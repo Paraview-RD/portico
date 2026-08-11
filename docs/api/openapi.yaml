@@ -2751,6 +2751,15 @@ paths:
                   description: |
                     Event types, or `*` for everything including types added
                     in later versions.
+                headers:
+                  type: object
+                  additionalProperties: { type: string }
+                  description: |
+                    Sent with every delivery, for a receiver behind a gateway
+                    that wants an API key of its own. The values are
+                    credentials: they are sealed on the way in and never
+                    served back, so a later read returns `headerNames` and
+                    not these.
       responses:
         "200":
           description: Subscribed, with the signing secret.
@@ -2863,7 +2872,7 @@ paths:
           description: The new secret, shown once.
           content:
             application/json:
-              schema: { $ref: "#/components/schemas/Envelope" }
+              schema: { $ref: "#/components/schemas/CreatedWebhookEnvelope" }
         "403":
           $ref: "#/components/responses/Forbidden"
         "404":
@@ -3234,7 +3243,31 @@ components:
             Requires a self-registered account to confirm its email address
             or phone number before it can sign in. Turning it on is refused
             where the deployment has no way to send one.
-        tokenTtlMinutes: { type: integer }
+        tokenTtlMinutes:
+          type: integer
+          description: The console's own session, not the OIDC tokens below.
+        oidcAccessTokenTtlMinutes:
+          type: integer
+          description: |
+            1 to 60. The ceiling is not a preference: an access token cannot
+            be withdrawn once issued, so its expiry is the only thing
+            bounding a permission that has been taken away.
+        oidcRefreshTokenTtlDays:
+          type: integer
+          description: |
+            1 to 90. Days rather than minutes because minutes for a
+            thirty-day value is a number nobody reads at a glance.
+        oidcSessionMaxAgeDays:
+          type: integer
+          description: |
+            Caps the whole refresh chain, measured from the sign-in that
+            began it, however diligently it is refreshed. Zero — the default
+            — means no cap.
+        showGuides:
+          type: boolean
+          description: |
+            Offers the explanatory panel on each administrative screen. A
+            tenant that has trained its administrators can turn them off.
         lockoutThreshold:
           type: integer
           description: |
@@ -3510,6 +3543,15 @@ components:
         events: { type: array, items: { type: string } }
         status: { $ref: "#/components/schemas/Status" }
         createdAt: { type: string, format: date-time }
+        headerNames:
+          type: array
+          items: { type: string }
+          description: |
+            The names of the headers this subscription sends, without their
+            values. The values are credentials, and an endpoint serving them
+            back would be a way to read every bearer token the tenant has
+            stored — which is what sealing them was for. The names are enough
+            to answer "what is this subscription sending".
 
     CreatedWebhookSubscription:
       allOf:
@@ -3524,6 +3566,16 @@ components:
                 because it signs rather than authenticates — there is nothing
                 to compare a digest against — which is exactly why no
                 endpoint serves it a second time.
+            previousSecretExpiresAt:
+              type: string
+              format: date-time
+              description: |
+                When the key this replaced stops being sent, and absent on a
+                first issue because there was nothing it replaced.
+
+                It is the receiver's deadline rather than this server's, and
+                the one number they have to act on: until then every delivery
+                carries both signatures.
 
     WebhookDelivery:
       type: object
