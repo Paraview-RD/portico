@@ -2,7 +2,10 @@ package server_test
 
 import (
 	"go/build"
+	"os"
 	"path/filepath"
+	"regexp"
+	"sort"
 	"strings"
 	"testing"
 )
@@ -87,4 +90,130 @@ func TestLayeringRules(t *testing.T) {
 			}
 		})
 	}
+}
+
+// Both layout diagrams name every package, and name nothing else.
+//
+// The table above reads itself, which the document says leaves one direction
+// free to drift: a package added to the tree and to neither diagram. That is
+// what happened. `directory`, `scim`, `webhook`, `secrets`, `i18n`, and
+// several more were absent from one or both, and README named a `middleware`
+// package that had not existed for some time — a reader looking for the
+// authentication middleware would have gone hunting for a directory rather
+// than opening `auth`.
+//
+// A diagram that lists most of the packages is worse than none, because it
+// reads as complete. So both directions are checked: every package appears,
+// and everything that appears is a package.
+func TestBothLayoutDiagramsNameEveryPackage(t *testing.T) {
+	onDisk := packagesOnDisk(t)
+
+	for _, doc := range []string{"../../README.md", "../../docs/code-conventions.md"} {
+		t.Run(filepath.Base(doc), func(t *testing.T) {
+			listed := layoutDiagram(t, doc)
+
+			for _, pkg := range onDisk {
+				if !listed[pkg] {
+					t.Errorf("internal/%s exists and %s does not list it; "+
+						"the diagram reads as the whole of it", pkg, doc)
+				}
+			}
+			for pkg := range listed {
+				if !slicesContains(onDisk, pkg) {
+					t.Errorf("%s lists internal/%s, which does not exist; "+
+						"somebody will go looking for it", doc, pkg)
+				}
+			}
+		})
+	}
+}
+
+// packagesOnDisk is every directory directly under internal/ that holds Go
+// source. Subpackages such as store/sqlcgen are deliberately not included:
+// the diagrams describe the top level, and mention the generated one in
+// prose beside its parent.
+func packagesOnDisk(t *testing.T) []string {
+	t.Helper()
+
+	entries, err := os.ReadDir("..")
+	if err != nil {
+		t.Fatalf("read internal/: %v", err)
+	}
+
+	var packages []string
+	for _, entry := range entries {
+		if !entry.IsDir() {
+			continue
+		}
+		files, err := os.ReadDir(filepath.Join("..", entry.Name()))
+		if err != nil {
+			t.Fatalf("read internal/%s: %v", entry.Name(), err)
+		}
+		for _, file := range files {
+			if strings.HasSuffix(file.Name(), ".go") {
+				packages = append(packages, entry.Name())
+				break
+			}
+		}
+	}
+	sort.Strings(packages)
+	return packages
+}
+
+// layoutDiagram reads the fenced block holding the source tree and returns
+// the names indented under `internal/`. Indentation is what distinguishes
+// them from the top-level entries beside it — `docs/` and `web/` are both a
+// package and a directory at the root, and only one of those is meant here.
+func layoutDiagram(t *testing.T, path string) map[string]bool {
+	t.Helper()
+
+	content, err := os.ReadFile(path)
+	if err != nil {
+		t.Fatalf("read %s: %v", path, err)
+	}
+
+	var tree, block []string
+	inside := false
+	for _, line := range strings.Split(string(content), "\n") {
+		if strings.HasPrefix(line, "```") {
+			if inside && tree == nil && holdsTree(block) {
+				tree = block
+			}
+			inside, block = !inside, nil
+			continue
+		}
+		if inside {
+			block = append(block, line)
+		}
+	}
+	if tree == nil {
+		t.Fatalf("%s has no fenced block containing an internal/ tree", path)
+	}
+
+	entry := regexp.MustCompile(`^ {2,}([a-z][a-z0-9]*)/`)
+	names := map[string]bool{}
+	for _, line := range tree {
+		if match := entry.FindStringSubmatch(line); match != nil {
+			names[match[1]] = true
+		}
+	}
+	return names
+}
+
+func holdsTree(block []string) bool {
+	for _, line := range block {
+		if strings.HasPrefix(line, "internal/") {
+			return true
+		}
+	}
+	return false
+}
+
+func slicesContains(haystack []string, needle string) bool {
+	for _, value := range haystack {
+		if value == needle {
+			return true
+		}
+	}
+	return false
 }

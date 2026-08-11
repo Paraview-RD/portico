@@ -16,19 +16,28 @@ cmd/server/        process entry point: flags, logging setup, signals
 internal/
   config/          environment parsing; no dependencies
   model/           domain types shared across layers; no dependencies
+  i18n/            the message catalogues; no dependencies
   httpx/           HTTP plumbing: envelope, errors, middleware
+  metrics/         Prometheus counters, depending on nothing they measure
   store/           database access; sqlcgen/ is generated
+  secrets/         AES-GCM, for a credential that has to be readable back
   auth/            passwords, tokens, authentication middleware
   notify/          message delivery: SMTP, and an SMS interface
+  webhook/         outbound delivery: signing, retries, and where it may
+                   connect to
   service/         business rules
   oidcp/           the OpenID Provider adapter
   samlp/           the SAML identity provider adapter
   casp/            the CAS protocol
+  scim/            the SCIM 2.0 endpoints a directory provisions through
+  directory/       the opposite direction: reading accounts out of LDAP
   provision/       a second composition root, for the operations with no
                    HTTP surface: tenants, clients, service providers
   handler/         HTTP handlers
   server/          wiring: builds everything and mounts routes
   web/             embeds the built frontend
+  docs/            embeds these documents, served from the binary
+  testdb/          throwaway PostgreSQL for tests
 migrations/        schema, embedded
 ```
 
@@ -83,9 +92,14 @@ The rules that matter:
   ripple into them.
 
 These are the rules `internal/server/layering_test.go` enforces. It reads
-its own table, so this document and that test can drift apart in one
-direction: a package added there and not here. If you add one, add it in
-both.
+its own table, so a package added to the tree and given no rule there is
+simply unconstrained — add it in both.
+
+The tree above is checked, in both directions: the same file asserts that
+every package under `internal/` appears in this diagram and in README's,
+and that neither names one that does not exist. Both had drifted — eight
+packages were missing from this one, and README pointed at a `middleware`
+package that had not existed for some time.
 
 `service` importing `auth` is deliberate: authentication is a domain
 concept here (who the actor is, whether their session is still valid), not

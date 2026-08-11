@@ -247,23 +247,28 @@ cmd/server/        entry point
 internal/
   config/          environment variables, read and validated once
   server/          routing, and the version the build reports
-  middleware/      authentication, request logging, security headers
   handler/         HTTP handlers
   service/         business rules
   store/           database access; sqlcgen/ is generated
   model/           domain types
   auth/            passwords, JWTs, token verification
-  httpx/           the response envelope and the error type it carries
+  httpx/           the response envelope, the error type it carries, and
+                   request logging and the security headers
+  secrets/         AES-GCM, for the one credential that has to be readable
+                   back rather than merely checkable
+  i18n/            the message catalogues, English and Chinese
   casp/            the CAS protocol, implemented directly
   oidcp/           adapts Portico to the OpenID Provider interface
   samlp/           adapts Portico to the SAML identity provider role
   scim/            the SCIM 2.0 endpoints a directory provisions through
+  directory/       the other direction: reading accounts out of LDAP
   webhook/         outbound delivery, signing, and retries
   notify/          email and the SMS interface that ships without a provider
   metrics/         Prometheus, on its own listener when one is configured
   provision/       tenant and client provisioning, for the CLI
   testdb/          throwaway PostgreSQL for tests
   web/             embeds the built frontend
+  docs/            embeds this documentation, served from the binary
 migrations/        schema, embedded and applied at startup
 web/               React + Vite frontend
 docs/              conventions, requirements, access guide
