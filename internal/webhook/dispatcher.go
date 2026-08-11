@@ -66,7 +66,7 @@ type Result struct {
 // addresses: this function does not re-validate the URL, because the check
 // that matters is at connection time and re-checking here would only add a
 // resolution whose answer could differ from the one used.
-func Deliver(ctx context.Context, client *http.Client, url, secret, eventType, deliveryID string, body []byte) Result {
+func Deliver(ctx context.Context, client *http.Client, url string, secrets []string, eventType, deliveryID string, body []byte) Result {
 	req, err := http.NewRequestWithContext(ctx, http.MethodPost, url, bytes.NewReader(body))
 	if err != nil {
 		return Result{Err: err, Retryable: false}
@@ -78,7 +78,7 @@ func Deliver(ctx context.Context, client *http.Client, url, secret, eventType, d
 	req.Header.Set(HeaderEvent, eventType)
 	req.Header.Set(HeaderDelivery, deliveryID)
 	req.Header.Set(HeaderTimestamp, formatTimestamp(now))
-	req.Header.Set(HeaderSignature, Sign(secret, now, body))
+	req.Header.Set(HeaderSignature, SignWith(secrets, now, body))
 
 	resp, err := client.Do(req)
 	if err != nil {

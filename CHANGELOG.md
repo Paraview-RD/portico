@@ -12,6 +12,27 @@ Working toward 0.2.0. See
 
 ### Added
 
+- **A webhook signing secret can be rotated**, with the key it replaces kept
+  alive for 24 hours. Before this the only remedy for a leaked secret was to
+  delete the subscription and register a new one — which changes the id the
+  delivery history hangs off and the id a receiver deduplicates on, so the
+  cure discarded the evidence and broke idempotency at the far end. The
+  subscription now keeps its id.
+- During the overlap every delivery carries **both signatures**, comma
+  separated, and either verifies. That is the mechanism rather than a
+  detail: Portico produces the signature and the receiver checks it, so the
+  receiver is the side with something to deploy, and a rotation taking
+  effect instantly would reject every delivery until they had.
+- Which means a receiver must split `X-Portico-Signature` on `,` and accept
+  any element. One comparing the whole header as a single string works
+  perfectly until somebody rotates and then rejects everything while looking
+  healthy — so the documented example now splits, and the console says so
+  before starting a rotation rather than after.
+- Rotating again inside the window replaces the pending old key rather than
+  keeping three. For a key that has actually leaked and cannot wait, the
+  documented answer is to rotate and then pause the subscription: pausing
+  stops deliveries, rather than continuing to sign them with a key somebody
+  else holds.
 - **Accounts can be read out of an Active Directory or OpenLDAP.** The
   opposite direction from SCIM, which is a server here: a directory pushes
   into `/scim/v2` and Portico never reaches out, while this has Portico

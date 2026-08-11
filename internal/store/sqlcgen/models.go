@@ -416,13 +416,15 @@ type WebhookDelivery struct {
 }
 
 type WebhookSubscription struct {
-	ID        string
-	TenantID  string
-	Name      string
-	Url       string
-	Secret    string
-	Events    string
-	Status    string
-	CreatedAt time.Time
-	UpdatedAt time.Time
+	ID                      string
+	TenantID                string
+	Name                    string
+	Url                     string
+	Secret                  string
+	Events                  string
+	Status                  string
+	CreatedAt               time.Time
+	UpdatedAt               time.Time
+	PreviousSecret          string
+	PreviousSecretExpiresAt *time.Time
 }

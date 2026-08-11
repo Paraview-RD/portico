@@ -911,6 +911,13 @@ func (s *Scoped) SetWebhookSubscriptionStatus(ctx context.Context, arg sqlcgen.S
 	return s.q.SetWebhookSubscriptionStatus(ctx, arg)
 }
 
+// RotateWebhookSubscriptionSecret installs a new signing key and moves the
+// old one aside, to be sent alongside until it expires.
+func (s *Scoped) RotateWebhookSubscriptionSecret(ctx context.Context, arg sqlcgen.RotateWebhookSubscriptionSecretParams) error {
+	arg.TenantID = s.tenantID
+	return s.q.RotateWebhookSubscriptionSecret(ctx, arg)
+}
+
 // DeleteWebhookSubscription removes one and its deliveries.
 func (s *Scoped) DeleteWebhookSubscription(ctx context.Context, id string) error {
 	return s.q.DeleteWebhookSubscription(ctx,

@@ -60,7 +60,7 @@ func (s *WebhookService) DispatchDue(ctx context.Context, tenantID string, clien
 		}
 
 		result := webhook.Deliver(ctx, client,
-			subscription.Url, subscription.Secret,
+			subscription.Url, signingSecrets(subscription, store.Now()),
 			delivery.EventType, delivery.ID, []byte(delivery.Payload))
 		webhook.LogAttempt(ctx, subscription.ID, delivery.EventType, result)
 
@@ -144,4 +144,22 @@ const deliveryRetention = 30 * 24 * time.Hour
 func (s *WebhookService) SweepDeliveries(ctx context.Context, tenantID string, now time.Time) error {
 	return s.store.ForTenant(tenantID).
 		DeleteOldWebhookDeliveries(ctx, now.Add(-deliveryRetention))
+}
+
+// signingSecrets returns the keys a delivery is signed with, newest first.
+//
+// Two of them only while a rotation is in flight, and the expiry is checked
+// here rather than swept: an overlap that ended is simply an overlap nobody
+// asks about again, and a background job to blank two columns would be a
+// moving part earning nothing. The consequence is that the old key stays in
+// the row after it stops being used, which is why rotating twice in quick
+// succession replaces it rather than accumulating a third.
+func signingSecrets(s sqlcgen.WebhookSubscription, now time.Time) []string {
+	if s.PreviousSecret == "" || s.PreviousSecretExpiresAt == nil {
+		return []string{s.Secret}
+	}
+	if !s.PreviousSecretExpiresAt.After(now) {
+		return []string{s.Secret}
+	}
+	return []string{s.Secret, s.PreviousSecret}
 }

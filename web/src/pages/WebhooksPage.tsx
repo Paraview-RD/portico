@@ -100,6 +100,7 @@ export function WebhooksPage() {
     null,
   );
   const [deleting, setDeleting] = useState<WebhookSubscription | null>(null);
+  const [rotating, setRotating] = useState<WebhookSubscription | null>(null);
   const [inspecting, setInspecting] = useState<WebhookSubscription | null>(
     null,
   );
@@ -165,6 +166,21 @@ export function WebhooksPage() {
     setInspecting(subscription);
     try {
       setDeliveries(await webhooksApi.deliveries(subscription.id));
+    } catch (err) {
+      setError(describeError(err));
+    }
+  }
+
+  async function rotate() {
+    if (!rotating) return;
+    setError("");
+    try {
+      const result = await webhooksApi.rotateSecret(rotating.id);
+      setRotating(null);
+      // Shown through the same dialog a new subscription uses: it is the
+      // same fact — a secret that appears once and is never served again.
+      setCreated(result);
+      await load();
     } catch (err) {
       setError(describeError(err));
     }
@@ -265,6 +281,13 @@ export function WebhooksPage() {
                     {subscription.status === "ACTIVE"
                       ? t("common.disable")
                       : t("common.enable")}
+                  </Button>
+                  <Button
+                    size="sm"
+                    variant="secondary"
+                    onClick={() => setRotating(subscription)}
+                  >
+                    {t("webhooks.rotate")}
                   </Button>
                   <Button
                     size="sm"
@@ -379,6 +402,14 @@ export function WebhooksPage() {
         </form>
       </Modal>
 
+      <ConfirmDialog
+        open={rotating !== null}
+        title={t("webhooks.rotateTitle")}
+        message={t("webhooks.rotateConfirm", rotating?.name ?? "")}
+        onCancel={() => setRotating(null)}
+        onConfirm={() => void rotate()}
+      />
+
       <Modal
         open={created !== null}
         title={t("webhooks.created")}
@@ -393,6 +424,14 @@ export function WebhooksPage() {
             label={t("webhooks.secret")}
             value={created?.secret ?? ""}
           />
+          {created?.previousSecretExpiresAt && (
+            <Alert tone="warning">
+              {t(
+                "webhooks.rotateOverlap",
+                new Date(created.previousSecretExpiresAt).toLocaleString(),
+              )}
+            </Alert>
+          )}
         </div>
       </Modal>
 

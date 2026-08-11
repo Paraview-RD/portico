@@ -113,6 +113,33 @@ const (
 // The receiver checks it by recomputing this and comparing in constant time,
 // then rejecting a timestamp too far from now. Both halves are needed: the
 // signature says the body is ours, the timestamp says it is current.
+// SignWith returns the header value for one or more keys.
+//
+// During a rotation there are two, newest first, comma-separated — the shape
+// Stripe uses, and for the same reason. The receiver is the side that has to
+// deploy a new secret, so the only way to give it a window is to sign each
+// delivery with both keys until the window closes.
+//
+// A receiver must therefore split on "," and accept any element, rather than
+// comparing the header as one string. That is a real requirement and not a
+// formality: a receiver doing an exact match on the whole header verifies
+// nothing from the moment a rotation starts until it finishes. It is why the
+// console will not start a rotation without saying so, and why the
+// documentation's example splits.
+//
+// Outside a rotation this returns exactly what it always did — one
+// signature, no comma — so nothing changes for anybody not rotating.
+func SignWith(secrets []string, timestamp time.Time, body []byte) string {
+	parts := make([]string, 0, len(secrets))
+	for _, secret := range secrets {
+		if secret == "" {
+			continue
+		}
+		parts = append(parts, Sign(secret, timestamp, body))
+	}
+	return strings.Join(parts, ",")
+}
+
 func Sign(secret string, timestamp time.Time, body []byte) string {
 	mac := hmac.New(sha256.New, []byte(secret))
 	// Length-prefixed by construction: the timestamp is fixed-width digits

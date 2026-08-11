@@ -171,7 +171,7 @@ func (q *Queries) EnqueueWebhookDelivery(ctx context.Context, arg EnqueueWebhook
 }
 
 const getWebhookSubscription = `-- name: GetWebhookSubscription :one
-SELECT id, tenant_id, name, url, secret, events, status, created_at, updated_at FROM webhook_subscriptions
+SELECT id, tenant_id, name, url, secret, events, status, created_at, updated_at, previous_secret, previous_secret_expires_at FROM webhook_subscriptions
 WHERE tenant_id = $1 AND id = $2
 `
 
@@ -193,12 +193,14 @@ func (q *Queries) GetWebhookSubscription(ctx context.Context, arg GetWebhookSubs
 		&i.Status,
 		&i.CreatedAt,
 		&i.UpdatedAt,
+		&i.PreviousSecret,
+		&i.PreviousSecretExpiresAt,
 	)
 	return i, err
 }
 
 const listActiveWebhookSubscriptions = `-- name: ListActiveWebhookSubscriptions :many
-SELECT id, tenant_id, name, url, secret, events, status, created_at, updated_at FROM webhook_subscriptions
+SELECT id, tenant_id, name, url, secret, events, status, created_at, updated_at, previous_secret, previous_secret_expires_at FROM webhook_subscriptions
 WHERE tenant_id = $1 AND status = 'ACTIVE'
 `
 
@@ -221,6 +223,8 @@ func (q *Queries) ListActiveWebhookSubscriptions(ctx context.Context, tenantID s
 			&i.Status,
 			&i.CreatedAt,
 			&i.UpdatedAt,
+			&i.PreviousSecret,
+			&i.PreviousSecretExpiresAt,
 		); err != nil {
 			return nil, err
 		}
@@ -285,7 +289,7 @@ func (q *Queries) ListWebhookDeliveries(ctx context.Context, arg ListWebhookDeli
 }
 
 const listWebhookSubscriptions = `-- name: ListWebhookSubscriptions :many
-SELECT id, tenant_id, name, url, secret, events, status, created_at, updated_at FROM webhook_subscriptions
+SELECT id, tenant_id, name, url, secret, events, status, created_at, updated_at, previous_secret, previous_secret_expires_at FROM webhook_subscriptions
 WHERE tenant_id = $1
 ORDER BY created_at DESC
 `
@@ -309,6 +313,8 @@ func (q *Queries) ListWebhookSubscriptions(ctx context.Context, tenantID string)
 			&i.Status,
 			&i.CreatedAt,
 			&i.UpdatedAt,
+			&i.PreviousSecret,
+			&i.PreviousSecretExpiresAt,
 		); err != nil {
 			return nil, err
 		}
@@ -378,6 +384,38 @@ func (q *Queries) MarkWebhookDelivered(ctx context.Context, arg MarkWebhookDeliv
 	_, err := q.db.ExecContext(ctx, markWebhookDelivered,
 		arg.LastStatus,
 		arg.DeliveredAt,
+		arg.TenantID,
+		arg.ID,
+	)
+	return err
+}
+
+const rotateWebhookSubscriptionSecret = `-- name: RotateWebhookSubscriptionSecret :exec
+UPDATE webhook_subscriptions
+SET secret = $1,
+    previous_secret = secret,
+    previous_secret_expires_at = $2,
+    updated_at = $3
+WHERE tenant_id = $4 AND id = $5
+`
+
+type RotateWebhookSubscriptionSecretParams struct {
+	Secret                  string
+	PreviousSecretExpiresAt *time.Time
+	UpdatedAt               time.Time
+	TenantID                string
+	ID                      string
+}
+
+// The old key moves aside rather than being discarded, and is sent alongside
+// the new one until it expires. Portico produces the signature and the
+// receiver verifies it, so the receiver is the side that needs a window in
+// which to deploy the new secret.
+func (q *Queries) RotateWebhookSubscriptionSecret(ctx context.Context, arg RotateWebhookSubscriptionSecretParams) error {
+	_, err := q.db.ExecContext(ctx, rotateWebhookSubscriptionSecret,
+		arg.Secret,
+		arg.PreviousSecretExpiresAt,
+		arg.UpdatedAt,
 		arg.TenantID,
 		arg.ID,
 	)

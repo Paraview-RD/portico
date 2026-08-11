@@ -63,6 +63,11 @@ type CreatedSubscription struct {
 	// serve it a second time and every reason not to have an endpoint that
 	// does.
 	Secret string `json:"secret"`
+	// PreviousExpiry is when the key this replaced stops being sent, and is
+	// absent on a first issue because there is nothing it replaced. It is
+	// the one number the receiver has to act on: it is their deadline, not
+	// ours.
+	PreviousExpiry *time.Time `json:"previousSecretExpiresAt,omitempty"`
 }
 
 // SubscriptionInput is what an administrator supplies.
@@ -70,6 +75,76 @@ type SubscriptionInput struct {
 	Name   string
 	URL    string
 	Events []string
+}
+
+// SecretOverlap is how long the replaced key keeps being sent alongside the
+// new one.
+//
+// Twenty-four hours because the work it is buying time for is somebody
+// deploying a configuration change to another system, which is measured in
+// working hours rather than minutes. Not configurable: the number that
+// matters to a receiver is when the old key stops, and that is reported to
+// them; a knob here would be a second thing to get wrong for no gain.
+const SecretOverlap = 24 * time.Hour
+
+// RotateSecret issues a new signing key and keeps the old one alive briefly.
+//
+// The overlap is the whole point. Portico produces the signature and the
+// receiver verifies it, so the receiver is the side that has to deploy
+// something, and a rotation that took effect instantly would reject every
+// delivery until they had. During the overlap each delivery carries both
+// signatures, comma-separated, and the receiver accepts either.
+//
+// That has a consequence worth stating plainly rather than discovering: a
+// receiver comparing the whole X-Portico-Signature header as one string
+// verifies nothing from the moment this is called until the overlap ends.
+// Splitting on "," is a requirement of the protocol, not a nicety, and the
+// console says so before starting one.
+//
+// The subscription id does not change. Deleting and re-registering was the
+// only previous remedy for a leaked key, and it discarded the delivery
+// history and broke deduplication at the far end — the cure destroyed the
+// evidence.
+func (s *WebhookService) RotateSecret(ctx context.Context, actor auth.Principal, id string) (CreatedSubscription, error) {
+	q := s.store.ForTenant(actor.TenantID)
+
+	existing, err := q.GetWebhookSubscription(ctx, id)
+	if err != nil {
+		if store.IsNoRows(err) {
+			return CreatedSubscription{}, ErrWebhookNotFound
+		}
+		return CreatedSubscription{}, fmt.Errorf("get subscription: %w", err)
+	}
+
+	secret, err := newWebhookSecret()
+	if err != nil {
+		return CreatedSubscription{}, err
+	}
+
+	now := store.Now()
+	expires := now.Add(SecretOverlap)
+	if err := q.RotateWebhookSubscriptionSecret(ctx,
+		sqlcgen.RotateWebhookSubscriptionSecretParams{
+			Secret:                  secret,
+			PreviousSecretExpiresAt: &expires,
+			UpdatedAt:               now,
+			ID:                      id,
+		}); err != nil {
+		return CreatedSubscription{}, fmt.Errorf("rotate secret: %w", err)
+	}
+
+	s.audit.Log(ctx, actor.TenantID, AuditEntry{
+		Kind: model.LogOperation, Action: model.ActionWebhookRotate,
+		ActorID: actor.UserID, ActorName: actor.Username,
+		TargetType: "WEBHOOK", TargetID: id, TargetName: existing.Name,
+		Detail: "previous secret accepted until " + expires.UTC().Format(time.RFC3339),
+	})
+
+	return CreatedSubscription{
+		Subscription:   toSubscription(existing),
+		Secret:         secret,
+		PreviousExpiry: &expires,
+	}, nil
 }
 
 // Create registers a subscription and returns its signing secret.
@@ -127,13 +202,19 @@ func (s *WebhookService) List(ctx context.Context, tenantID string) ([]Subscript
 
 	out := make([]Subscription, 0, len(rows))
 	for _, row := range rows {
-		out = append(out, Subscription{
-			ID: row.ID, Name: row.Name, URL: row.Url,
-			Events: strings.Split(row.Events, ","),
-			Status: row.Status, CreatedAt: row.CreatedAt,
-		})
+		out = append(out, toSubscription(row))
 	}
 	return out, nil
+}
+
+// toSubscription is the one place a row becomes the wire shape, so a field
+// added to one listing cannot be missing from another.
+func toSubscription(row sqlcgen.WebhookSubscription) Subscription {
+	return Subscription{
+		ID: row.ID, Name: row.Name, URL: row.Url,
+		Events: strings.Split(row.Events, ","),
+		Status: row.Status, CreatedAt: row.CreatedAt,
+	}
 }
 
 // SetStatus pauses or resumes a subscription.

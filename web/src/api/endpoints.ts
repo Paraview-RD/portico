@@ -699,6 +699,20 @@ export const webhooksApi = {
   deliveries: (id: string) =>
     request<WebhookDelivery[]>(`/webhooks/${segment(id)}/deliveries`),
 
+  /**
+   * Issues a new signing key, returned once. The subscription keeps its id,
+   * so the delivery history and the receiver's deduplication survive.
+   *
+   * During the overlap each delivery carries both signatures, comma
+   * separated — a receiver comparing the whole header as one string
+   * verifies nothing until it ends.
+   */
+  rotateSecret: (id: string) =>
+    request<CreatedWebhookSubscription>(
+      `/webhooks/${segment(id)}/rotate-secret`,
+      { method: "POST" },
+    ),
+
   enable: (id: string) =>
     request<void>(`/webhooks/${segment(id)}/enable`, { method: "POST" }),
 

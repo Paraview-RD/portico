@@ -59,6 +59,22 @@ func (h *Handler) CreateWebhook(w http.ResponseWriter, r *http.Request) {
 	httpx.OK(w, created)
 }
 
+// RotateWebhookSecret issues a new signing key, returning it once.
+//
+// The response also carries when the replaced key stops being sent, which is
+// the receiver's deadline rather than this server's — it is the only number
+// they can act on, so it travels with the secret they have to install.
+func (h *Handler) RotateWebhookSecret(w http.ResponseWriter, r *http.Request) {
+	actor := auth.MustPrincipal(r.Context())
+
+	rotated, err := h.webhooks.RotateSecret(r.Context(), actor, chi.URLParam(r, "id"))
+	if err != nil {
+		httpx.Fail(w, r, err)
+		return
+	}
+	httpx.OK(w, rotated)
+}
+
 // EnableWebhook resumes delivery.
 func (h *Handler) EnableWebhook(w http.ResponseWriter, r *http.Request) {
 	h.setWebhookStatus(w, r, model.StatusActive)

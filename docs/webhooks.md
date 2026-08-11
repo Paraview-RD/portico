@@ -67,6 +67,14 @@ signature over the body alone is replayable forever by anyone who ever saw
 one — including your own logs — and a replayed `user.disabled` is a denial of
 service against one person's account in whatever consumes these.
 
+The header may carry **more than one signature**, comma separated, and any
+of them verifying is enough. That happens during a secret rotation, when
+each delivery is signed with both the new key and the one it replaced —
+see [Rotating the secret](#rotating-the-secret). Split on `,` even if you
+have never rotated: a receiver that compares the whole header as one string
+works perfectly until the day somebody rotates, and then rejects everything
+while looking healthy.
+
 ```python
 import hashlib, hmac, time
 
@@ -75,14 +83,42 @@ def verify(secret: str, headers, body: bytes) -> bool:
     expected = "sha256=" + hmac.new(
         secret.encode(), f"{timestamp}.".encode() + body, hashlib.sha256
     ).hexdigest()
+    # Any one of them. During a rotation there are two, and which one is
+    # yours depends on whether you have deployed the new secret yet.
+    #
     # Constant time: a fast string comparison leaks how much of a forged
     # signature was right, one byte at a time.
-    if not hmac.compare_digest(expected, headers["X-Portico-Signature"]):
+    signatures = headers["X-Portico-Signature"].split(",")
+    if not any(hmac.compare_digest(expected, s.strip()) for s in signatures):
         return False
     # And reject anything too old to be current, or the signature only proves
     # the body was ours at some point in history.
     return abs(time.time() - int(timestamp)) < 300
 ```
+
+## Rotating the secret
+
+**Webhooks → Rotate secret**, or `POST /api/v1/webhooks/{id}/rotate-secret`.
+The new secret is shown once, along with `previousSecretExpiresAt`.
+
+For **24 hours** after that, every delivery carries two signatures: one with
+the new key and one with the old. Install the new secret at your end before
+the deadline; until then either verifies, so there is no moment where
+deliveries fail.
+
+That window is the whole point. Portico produces the signature and you check
+it, so you are the side with something to deploy — a rotation taking effect
+instantly would reject every delivery until you had.
+
+The subscription keeps its id, so the delivery history and any deduplication
+you do on delivery ids survive. Deleting and re-registering was the only
+previous remedy for a leaked key, and it threw both away.
+
+Rotating again before the window closes replaces the pending old key rather
+than keeping three. If a key has actually leaked and you cannot wait 24
+hours, rotate and then pause the subscription until your receiver is
+updated: pausing stops deliveries rather than signing them with a key
+somebody else holds.
 
 Use the **raw** body, before any JSON parsing. Re-serializing changes
 whitespace and key order, and the signature is over bytes.

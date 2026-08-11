@@ -566,6 +566,14 @@ export interface WebhookSubscription {
  */
 export interface CreatedWebhookSubscription extends WebhookSubscription {
   secret: string;
+  /**
+   * When the key this replaced stops being sent, on a rotation only. Absent
+   * on a first issue, because there is nothing it replaced.
+   *
+   * This is the receiver's deadline rather than ours: until it passes, every
+   * delivery carries both signatures and either verifies.
+   */
+  previousSecretExpiresAt?: string;
 }
 
 /** One attempt to deliver one event. */

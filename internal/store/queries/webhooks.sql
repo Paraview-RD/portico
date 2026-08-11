@@ -26,6 +26,18 @@ UPDATE webhook_subscriptions
 SET status = $1, updated_at = $2
 WHERE tenant_id = $3 AND id = $4;
 
+-- name: RotateWebhookSubscriptionSecret :exec
+-- The old key moves aside rather than being discarded, and is sent alongside
+-- the new one until it expires. Portico produces the signature and the
+-- receiver verifies it, so the receiver is the side that needs a window in
+-- which to deploy the new secret.
+UPDATE webhook_subscriptions
+SET secret = $1,
+    previous_secret = secret,
+    previous_secret_expires_at = $2,
+    updated_at = $3
+WHERE tenant_id = $4 AND id = $5;
+
 -- name: DeleteWebhookSubscription :exec
 -- Deleted rather than disabled, like a SCIM credential and unlike an
 -- account: what the audit trail refers to is the event, not the row.

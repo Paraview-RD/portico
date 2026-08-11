@@ -61,6 +61,12 @@ signature = "sha256=" + hex(hmac_sha256(secret, timestamp + "." + body))
 见过它的人——包括你自己的日志——都是**永久可重放**的，而一次被重放的 `user.disabled`
 在下游消费系统里就是对某一个人账号的拒绝服务。
 
+这个头里**可能不止一个签名**，以逗号分隔，任意一个验过即可。这发生在密钥轮换期间
+——那时每次投递会同时用新密钥和被它替换掉的旧密钥各签一次，见
+[轮换密钥](#轮换密钥)。**即使你从没轮换过也要按逗号切分**：把整个头当一个字符串
+比较的接收端一直工作正常，直到有人轮换的那一天，然后它会拒绝全部投递、而看上去
+一切健康。
+
 ```python
 import hashlib, hmac, time
 
@@ -69,14 +75,36 @@ def verify(secret: str, headers, body: bytes) -> bool:
     expected = "sha256=" + hmac.new(
         secret.encode(), f"{timestamp}.".encode() + body, hashlib.sha256
     ).hexdigest()
+    # 任意一个匹配即可。轮换期间有两个，哪一个是你的，取决于你是否
+    # 已经把新密钥部署上去。
+    #
     # 常数时间比较：一次快速的字符串比较会一个字节一个字节地
     # 泄露伪造签名猜对了多少。
-    if not hmac.compare_digest(expected, headers["X-Portico-Signature"]):
+    signatures = headers["X-Portico-Signature"].split(",")
+    if not any(hmac.compare_digest(expected, s.strip()) for s in signatures):
         return False
     # 再拒掉太旧的，否则签名只能证明这个请求体“在历史上某一刻”
     # 是我们发的。
     return abs(time.time() - int(timestamp)) < 300
 ```
+
+## 轮换密钥
+
+**事件订阅 → 轮换密钥**，或 `POST /api/v1/webhooks/{id}/rotate-secret`。新密钥
+只显示一次，同时返回 `previousSecretExpiresAt`。
+
+在那之后的 **24 小时**内，每次投递都带两个签名：一个用新密钥、一个用旧的。请在
+截止时间之前把新密钥装到你这边；在此期间两个都能验过，所以**不存在投递失败的时刻**。
+
+这个窗口就是它的全部意义。签名是 Portico 算的、由你来验，所以**需要部署东西的是你
+这一侧**——立刻生效的轮换会在你部署完之前拒掉每一次投递。
+
+订阅 id 不变，因此投递记录、以及你基于投递 id 做的去重都不受影响。此前密钥泄露的
+唯一补救是删掉重建，而那会把这两样一起丢掉。
+
+窗口未关就再次轮换，会**替换掉待退役的那把旧密钥**，而不是留下三把。如果密钥确实
+已经泄露、等不了 24 小时：先轮换，然后**暂停该订阅**直到接收端更新完——暂停是停止
+投递，而不是继续用一把别人也拿着的密钥去签名。
 
 用**原始**请求体，在任何 JSON 解析之前。重新序列化会改变空白和键的顺序，**而签名是
 对字节算的**。

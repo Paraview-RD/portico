@@ -2784,6 +2784,43 @@ paths:
         "404":
           $ref: "#/components/responses/NotFound"
 
+  /api/v1/webhooks/{id}/rotate-secret:
+    post:
+      tags: [Webhooks]
+      operationId: rotateWebhookSecret
+      summary: Issue a new signing secret, keeping the old one briefly.
+      description: |
+        Returns the new secret once, and `previousSecretExpiresAt`: the
+        moment the replaced key stops being sent.
+
+        Until then **every delivery carries both signatures**, comma
+        separated in `X-Portico-Signature`. A receiver must split on `,` and
+        accept any element. One that compares the whole header as a single
+        string verifies nothing for the whole overlap — and because it
+        rejects rather than errors, the symptom is deliveries failing at a
+        receiver that looks healthy.
+
+        The overlap exists because Portico produces the signature and the
+        receiver verifies it, so the receiver is the side with something to
+        deploy. A rotation that took effect instantly would break every
+        delivery until they had.
+
+        The subscription keeps its id. Deleting and re-registering was the
+        only previous remedy for a leaked key and it discarded the delivery
+        history along with the receiver's deduplication.
+      parameters:
+        - $ref: "#/components/parameters/ID"
+      responses:
+        "200":
+          description: The new secret, shown once.
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Envelope" }
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+
   /api/v1/webhooks/{id}/enable:
     post:
       tags: [Webhooks]

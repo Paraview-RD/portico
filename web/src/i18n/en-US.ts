@@ -465,6 +465,16 @@ export const enUS = {
   "webhooks.guideBody":
     "Subscribe when one of your own systems has to know the moment something changes, rather than asking every few minutes.\nVerify the signature::Every delivery is signed. A receiver that does not check it will act on anything anybody posts, including a forged account disabled.\nNotification, not synchronization::Retries mean the same event can arrive twice and order is not guaranteed, so the receiving end has to be idempotent.\nFor the whole roster::That is Directory integration, not this page.",
   "webhooks.new": "New subscription",
+  "webhooks.rotate": "Rotate secret",
+  "webhooks.rotateTitle": "Rotate the signing secret",
+  // Said before the button, not after. During the overlap each delivery
+  // carries two signatures, and a receiver comparing the whole header as one
+  // string verifies nothing until the old key is retired — which is a
+  // failure that looks like the endpoint working.
+  "webhooks.rotateConfirm":
+    'Issue a new signing secret for {0}? The old one keeps working for 24 hours, and during that window every delivery carries both signatures, comma separated. Check that your receiver splits the signature header on "," and accepts any of them before you continue — one that compares the whole header will reject everything until the window closes.',
+  "webhooks.rotateOverlap":
+    "The previous secret is accepted until {0}. Install this one at the receiver before then.",
   "webhooks.name": "Name",
   "webhooks.url": "Endpoint URL",
   "webhooks.urlHint":
