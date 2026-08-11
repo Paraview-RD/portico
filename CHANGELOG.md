@@ -12,6 +12,26 @@ Working toward 0.2.0. See
 
 ### Added
 
+- **A subscription can send custom headers**, for a receiver behind an API
+  gateway that wants an `Authorization` of its own. The signature says who
+  produced the body; the gateway is deciding whether to let the request
+  through at all, and the signature cannot answer that.
+- The values are sealed with `PORTICO_ENCRYPTION_KEY`, on the same footing
+  as a directory bind password — a credential this server stores and later
+  presents, so there is nothing to compare a digest against. **Without a key
+  configured, saving one is refused** rather than written in the clear. A
+  plaintext bearer token sitting in a table somebody dumps for support would
+  be worse than not offering the feature.
+- They are never served back. The API and the console report the names,
+  which answers "what is this subscription sending" without making the
+  listing a way to read every credential a tenant has stored.
+- A header that would change what the delivery *is* — rather than get it
+  past a door — is refused at registration, where somebody can still see the
+  message: the signature headers, `Content-Type`, `Content-Length`, `Host`,
+  a value carrying a line break, a name that is not an HTTP token, more than
+  ten of them. Portico sets its own headers **after** a subscription's, so
+  the order is a second defence that does not depend on that list being
+  complete.
 - **A webhook signing secret can be rotated**, with the key it replaces kept
   alive for 24 hours. Before this the only remedy for a leaked secret was to
   delete the subscription and register a new one — which changes the id the

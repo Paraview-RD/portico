@@ -37,6 +37,10 @@ type webhookRequest struct {
 	Name   string   `json:"name"`
 	URL    string   `json:"url"`
 	Events []string `json:"events"`
+	// Headers sent with every delivery, for a receiver behind a gateway that
+	// wants an Authorization of its own. Write-only: the values are sealed
+	// and only the names are ever served back.
+	Headers map[string]string `json:"headers"`
 }
 
 // CreateWebhook registers one and returns its signing secret, once.
@@ -50,7 +54,7 @@ func (h *Handler) CreateWebhook(w http.ResponseWriter, r *http.Request) {
 	}
 
 	created, err := h.webhooks.Create(r.Context(), actor, service.SubscriptionInput{
-		Name: req.Name, URL: req.URL, Events: req.Events,
+		Name: req.Name, URL: req.URL, Events: req.Events, Headers: req.Headers,
 	})
 	if err != nil {
 		httpx.Fail(w, r, err)

@@ -162,6 +162,10 @@ func New(cfg *config.Config, opts ...Option) (*Server, error) {
 			return nil, err
 		}
 	}
+	// The same key a bind password is sealed under. Attached here rather
+	// than at construction because the vault is built above, after the
+	// service that needs it.
+	webhooks.WithVault(vault)
 	directories := service.NewDirectoryService(st, users, audit, webhooks, vault)
 	scimHandler := scim.NewHandler(users, groups, scimCredentials, cfg.PublicURL)
 

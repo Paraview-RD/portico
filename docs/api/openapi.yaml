@@ -2784,6 +2784,14 @@ paths:
         "404":
           $ref: "#/components/responses/NotFound"
 
+  # createWebhook takes an optional `headers` object: names to values, sent
+  # with every delivery for a receiver behind a gateway. Values are sealed
+  # with PORTICO_ENCRYPTION_KEY and never served back — only the names are,
+  # as `headerNames`. Refused with NO_ENCRYPTION_KEY where no key is
+  # configured, rather than stored in the clear, and with
+  # INVALID_WEBHOOK_HEADER for a name Portico sets itself, a value carrying
+  # a line break, or more than ten of them.
+
   /api/v1/webhooks/{id}/rotate-secret:
     post:
       tags: [Webhooks]

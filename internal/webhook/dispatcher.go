@@ -66,13 +66,20 @@ type Result struct {
 // addresses: this function does not re-validate the URL, because the check
 // that matters is at connection time and re-checking here would only add a
 // resolution whose answer could differ from the one used.
-func Deliver(ctx context.Context, client *http.Client, url string, secrets []string, eventType, deliveryID string, body []byte) Result {
+func Deliver(ctx context.Context, client *http.Client, url string, secrets []string, headers map[string]string, eventType, deliveryID string, body []byte) Result {
 	req, err := http.NewRequestWithContext(ctx, http.MethodPost, url, bytes.NewReader(body))
 	if err != nil {
 		return Result{Err: err, Retryable: false}
 	}
 
 	now := time.Now()
+
+	// The subscription's own headers first, so nothing below can be
+	// overridden by one. The reserved-name check at registration is the
+	// other half; this is the half that does not depend on a list being
+	// complete.
+	applyHeaders(req, headers)
+
 	req.Header.Set("Content-Type", "application/json")
 	req.Header.Set("User-Agent", "Portico-Webhook/1")
 	req.Header.Set(HeaderEvent, eventType)

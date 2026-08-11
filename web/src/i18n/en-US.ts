@@ -468,6 +468,12 @@ export const enUS = {
   "webhooks.guideBody":
     "Subscribe when one of your own systems has to know the moment something changes, rather than asking every few minutes.\nVerify the signature::Every delivery is signed. A receiver that does not check it will act on anything anybody posts, including a forged account disabled.\nNotification, not synchronization::Retries mean the same event can arrive twice and order is not guaranteed, so the receiving end has to be idempotent.\nFor the whole roster::That is Directory integration, not this page.",
   "webhooks.new": "New subscription",
+  "webhooks.headers": "Custom headers",
+  "webhooks.headersHelp":
+    "Sent with every delivery, for a receiver behind a gateway that wants an Authorization of its own. The signature says who produced the body; this is for being let through the door at all. Values are encrypted at rest and never shown again — and refused outright where this deployment has no PORTICO_ENCRYPTION_KEY, rather than stored in the clear.",
+  "webhooks.headerName": "Header",
+  "webhooks.headerValue": "Value",
+  "webhooks.headerAdd": "Add a header",
   "webhooks.rotate": "Rotate secret",
   "webhooks.rotateTitle": "Rotate the signing secret",
   // Said before the button, not after. During the overlap each delivery

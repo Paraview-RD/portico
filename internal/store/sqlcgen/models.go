@@ -427,4 +427,5 @@ type WebhookSubscription struct {
 	UpdatedAt               time.Time
 	PreviousSecret          string
 	PreviousSecretExpiresAt *time.Time
+	Headers                 string
 }

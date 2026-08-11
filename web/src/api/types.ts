@@ -562,6 +562,12 @@ export interface WebhookSubscription {
   events: string[];
   status: "ACTIVE" | "DISABLED";
   createdAt: string;
+  /**
+   * The names of the custom headers this subscription sends, without their
+   * values. The values are credentials, sealed at rest and never served
+   * back — a name is enough to answer what a subscription is sending.
+   */
+  headerNames?: string[];
 }
 
 /**

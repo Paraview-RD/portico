@@ -6,6 +6,7 @@ import (
 	"database/sql"
 	"encoding/base64"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"log/slog"
 	"strings"
@@ -16,6 +17,7 @@ import (
 	"github.com/Paraview-RD/portico/internal/auth"
 	"github.com/Paraview-RD/portico/internal/httpx"
 	"github.com/Paraview-RD/portico/internal/model"
+	"github.com/Paraview-RD/portico/internal/secrets"
 	"github.com/Paraview-RD/portico/internal/store"
 	"github.com/Paraview-RD/portico/internal/store/sqlcgen"
 	"github.com/Paraview-RD/portico/internal/webhook"
@@ -31,6 +33,61 @@ import (
 type WebhookService struct {
 	store *store.Store
 	audit *AuditService
+	// vault may be nil, which is the default: a deployment with no
+	// PORTICO_ENCRYPTION_KEY runs, and refuses to store a custom header
+	// rather than writing somebody's bearer token into the table in the
+	// clear. See internal/secrets.
+	vault *secrets.Vault
+}
+
+// WithVault attaches the key custom headers are sealed under. Separate from
+// the constructor because the vault is built later in server.New, on the
+// same terms as WithEvents elsewhere.
+func (s *WebhookService) WithVault(v *secrets.Vault) *WebhookService {
+	s.vault = v
+	return s
+}
+
+// sealHeaders validates a set and returns it ready for the column.
+//
+// Refused outright where there is no key. A custom header is a credential
+// this server stores and later presents — there is nothing to compare a
+// digest against — so the choice is sealed or plaintext, and plaintext
+// bearer tokens in a table somebody dumps for support is worse than not
+// offering the feature at all.
+func (s *WebhookService) sealHeaders(headers map[string]string) (string, error) {
+	if len(headers) == 0 {
+		return "", nil
+	}
+	if err := webhook.ValidateHeaders(headers); err != nil {
+		return "", httpx.BadRequest("INVALID_WEBHOOK_HEADER", err.Error())
+	}
+
+	encoded, err := webhook.EncodeHeaders(headers)
+	if err != nil {
+		return "", err
+	}
+
+	sealed, err := s.vault.Seal(encoded)
+	if errors.Is(err, secrets.ErrNotConfigured) {
+		return "", ErrNoEncryptionKey
+	}
+	if err != nil {
+		return "", fmt.Errorf("seal webhook headers: %w", err)
+	}
+	return sealed, nil
+}
+
+// openHeaders is the reverse, at delivery time.
+func (s *WebhookService) openHeaders(sealed string) (map[string]string, error) {
+	if sealed == "" {
+		return nil, nil
+	}
+	encoded, err := s.vault.Open(sealed)
+	if err != nil {
+		return nil, fmt.Errorf("open webhook headers: %w", err)
+	}
+	return webhook.DecodeHeaders(encoded)
 }
 
 // NewWebhookService wires a WebhookService.
@@ -53,6 +110,10 @@ type Subscription struct {
 	Events    []string  `json:"events"`
 	Status    string    `json:"status"`
 	CreatedAt time.Time `json:"createdAt"`
+	// HeaderNames, without their values. Serving the values back would make
+	// this endpoint a way to read every bearer token the tenant has stored,
+	// which is the thing sealing them was for.
+	HeaderNames []string `json:"headerNames,omitempty"`
 }
 
 // CreatedSubscription is what creation returns, once.
@@ -75,6 +136,10 @@ type SubscriptionInput struct {
 	Name   string
 	URL    string
 	Events []string
+	// Headers are sent with every delivery. Values are credentials and are
+	// never served back — only the names are, which is enough to answer
+	// "what is this subscription sending".
+	Headers map[string]string
 }
 
 // SecretOverlap is how long the replaced key keeps being sent alongside the
@@ -153,6 +218,11 @@ func (s *WebhookService) Create(ctx context.Context, actor auth.Principal, in Su
 		return CreatedSubscription{}, err
 	}
 
+	sealedHeaders, err := s.sealHeaders(in.Headers)
+	if err != nil {
+		return CreatedSubscription{}, err
+	}
+
 	secret, err := newWebhookSecret()
 	if err != nil {
 		return CreatedSubscription{}, err
@@ -168,6 +238,7 @@ func (s *WebhookService) Create(ctx context.Context, actor auth.Principal, in Su
 			Url:       strings.TrimSpace(in.URL),
 			Secret:    secret,
 			Events:    strings.Join(in.Events, ","),
+			Headers:   sealedHeaders,
 			CreatedAt: now,
 		})
 	if err != nil {
@@ -188,6 +259,7 @@ func (s *WebhookService) Create(ctx context.Context, actor auth.Principal, in Su
 		Subscription: Subscription{
 			ID: id, Name: in.Name, URL: in.URL, Events: in.Events,
 			Status: string(model.StatusActive), CreatedAt: now,
+			HeaderNames: webhook.HeaderNames(in.Headers),
 		},
 		Secret: secret,
 	}, nil
@@ -202,7 +274,22 @@ func (s *WebhookService) List(ctx context.Context, tenantID string) ([]Subscript
 
 	out := make([]Subscription, 0, len(rows))
 	for _, row := range rows {
-		out = append(out, toSubscription(row))
+		sub := toSubscription(row)
+		// The names live inside the sealed blob, so listing them means
+		// opening it. Kept there rather than in a second plaintext column
+		// because two places holding the same names is two places to drift,
+		// and the cost is one decryption per subscription on a screen that
+		// shows a handful.
+		//
+		// A failure here leaves the names empty rather than failing the
+		// listing. The key can be taken out of the environment after a
+		// subscription was created with headers, and a screen that will not
+		// load is a worse way to learn that than a row whose headers are not
+		// described — the delivery failing is what says it properly.
+		if headers, err := s.openHeaders(row.Headers); err == nil {
+			sub.HeaderNames = webhook.HeaderNames(headers)
+		}
+		out = append(out, sub)
 	}
 	return out, nil
 }
@@ -210,11 +297,12 @@ func (s *WebhookService) List(ctx context.Context, tenantID string) ([]Subscript
 // toSubscription is the one place a row becomes the wire shape, so a field
 // added to one listing cannot be missing from another.
 func toSubscription(row sqlcgen.WebhookSubscription) Subscription {
-	return Subscription{
+	sub := Subscription{
 		ID: row.ID, Name: row.Name, URL: row.Url,
 		Events: strings.Split(row.Events, ","),
 		Status: row.Status, CreatedAt: row.CreatedAt,
 	}
+	return sub
 }
 
 // SetStatus pauses or resumes a subscription.

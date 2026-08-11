@@ -443,6 +443,12 @@ export const zhCN: Record<keyof typeof enUS, string> = {
   "webhooks.guideBody":
     "当你自己的系统需要在变更发生的那一刻就知道、而不是每隔几分钟去问一次时，用它。\n一定要验签::每次投递都带签名。接收端不验的话，任何人推一条伪造的「某某已被停用」它都会照做。\n是通知，不是同步::失败会重试，所以同一事件可能到达两次、顺序也不保证——接收端必须幂等。\n要的是整份名册::那是「目录对接」，不是这一页。",
   "webhooks.new": "新建订阅",
+  "webhooks.headers": "自定义请求头",
+  "webhooks.headersHelp":
+    "随每次投递一起发出，用于接收端处在 API 网关之后、网关要求它自己的 Authorization 的场景。签名回答的是「这个请求体是谁生成的」，而这个回答的是「让不让进门」。值加密存储且不再显示；若本部署没有配 PORTICO_ENCRYPTION_KEY，则直接拒绝保存而不是明文落库。",
+  "webhooks.headerName": "名称",
+  "webhooks.headerValue": "值",
+  "webhooks.headerAdd": "添加请求头",
   "webhooks.rotate": "轮换密钥",
   "webhooks.rotateTitle": "轮换签名密钥",
   // 说在按钮之前，不是之后。宽限期内每次投递带两个签名，而把整个头当一个

@@ -59,8 +59,22 @@ func (s *WebhookService) DispatchDue(ctx context.Context, tenantID string, clien
 			continue
 		}
 
+		// Opened per delivery rather than cached: the key can be taken out
+		// of the environment between passes, and a cache would go on sending
+		// a credential this process could no longer be trusted to hold.
+		headers, err := s.openHeaders(subscription.Headers)
+		if err != nil {
+			// Not sent without them. A receiver behind a gateway would answer
+			// 401, which is recorded as the receiver refusing — so the
+			// delivery would be marked failed for the wrong reason and
+			// nobody would look at the encryption key.
+			webhook.LogAttempt(ctx, subscription.ID, delivery.EventType,
+				webhook.Result{Err: err, Retryable: true})
+			continue
+		}
+
 		result := webhook.Deliver(ctx, client,
-			subscription.Url, signingSecrets(subscription, store.Now()),
+			subscription.Url, signingSecrets(subscription, store.Now()), headers,
 			delivery.EventType, delivery.ID, []byte(delivery.Payload))
 		webhook.LogAttempt(ctx, subscription.ID, delivery.EventType, result)
 

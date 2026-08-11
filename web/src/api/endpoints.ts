@@ -690,7 +690,18 @@ export const webhooksApi = {
 
   events: () => request<string[]>("/webhooks/events"),
 
-  create: (input: { name: string; url: string; events: string[] }) =>
+  /**
+   * `headers` are sent with every delivery, for a receiver behind a gateway
+   * that wants an Authorization of its own. Write-only: sealed with
+   * PORTICO_ENCRYPTION_KEY, and refused outright where no key is
+   * configured rather than stored in the clear.
+   */
+  create: (input: {
+    name: string;
+    url: string;
+    events: string[];
+    headers?: Record<string, string>;
+  }) =>
     request<CreatedWebhookSubscription>("/webhooks", {
       method: "POST",
       body: input,

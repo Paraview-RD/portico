@@ -21,6 +21,35 @@ it is on the same footing as the signing keys, and
 [backup-and-restore.md](backup-and-restore.md) says what that means for a
 database dump.
 
+## Custom headers
+
+A receiver behind an API gateway usually needs an `Authorization` of its
+own. The signature says who produced the body; the gateway is deciding
+whether to let the request through at all, and the signature cannot answer
+that. Set headers when registering the subscription.
+
+Values are sealed with `PORTICO_ENCRYPTION_KEY`, on the same footing as a
+directory bind password: a credential this server stores and later presents,
+so there is nothing to compare a digest against. **Without a key configured,
+saving one is refused** rather than written in the clear — the console says
+so. A subscription with no custom headers needs no key.
+
+They are never served back. The API and the console report the names; the
+values are known to whoever typed them.
+
+Refused at registration, rather than at delivery hours later:
+
+| | |
+|---|---|
+| `X-Portico-Signature`, `-Timestamp`, `-Event`, `-Delivery` | Setting these would let whoever registers a subscription choose what its receiver verifies |
+| `Content-Type`, `Content-Length`, `Host`, `User-Agent` | The body is JSON and the transport decides its length; overriding either produces a request that disagrees with itself |
+| A value containing a line break | Everything after it is read as another header, or as the body |
+| A name that is not an HTTP token | Same, one step earlier |
+| More than 10, or a value over 2048 characters | Every one is sent on every delivery |
+
+Portico sets its own headers **after** these, so the order is a second
+defence that does not depend on the list above being complete.
+
 ## Which destinations are allowed
 
 Https, publicly resolvable, and not an address inside your network. Refused:
@@ -96,6 +125,9 @@ def verify(secret: str, headers, body: bytes) -> bool:
     return abs(time.time() - int(timestamp)) < 300
 ```
 
+Use the **raw** body, before any JSON parsing. Re-serializing changes
+whitespace and key order, and the signature is over bytes.
+
 ## Rotating the secret
 
 **Webhooks → Rotate secret**, or `POST /api/v1/webhooks/{id}/rotate-secret`.
@@ -119,9 +151,6 @@ than keeping three. If a key has actually leaked and you cannot wait 24
 hours, rotate and then pause the subscription until your receiver is
 updated: pausing stops deliveries rather than signing them with a key
 somebody else holds.
-
-Use the **raw** body, before any JSON parsing. Re-serializing changes
-whitespace and key order, and the signature is over bytes.
 
 ## The body
 

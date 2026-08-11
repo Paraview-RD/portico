@@ -95,6 +95,12 @@ export function WebhooksPage() {
   const [name, setName] = useState("");
   const [url, setUrl] = useState("");
   const [selected, setSelected] = useState<string[]>([]);
+  // Rows rather than a JSON box. The values are credentials somebody pastes
+  // in, and a mistyped brace turning a bearer token into a parse error is a
+  // worse first experience than two fields.
+  const [headerRows, setHeaderRows] = useState<
+    { name: string; value: string }[]
+  >([]);
   const [submitting, setSubmitting] = useState(false);
   const [created, setCreated] = useState<CreatedWebhookSubscription | null>(
     null,
@@ -129,15 +135,22 @@ export function WebhooksPage() {
     setError("");
     setSubmitting(true);
     try {
+      const headers: Record<string, string> = {};
+      for (const row of headerRows) {
+        if (row.name.trim() !== "") headers[row.name.trim()] = row.value;
+      }
+
       const subscription = await webhooksApi.create({
         name,
         url,
         events: selected,
+        headers: Object.keys(headers).length > 0 ? headers : undefined,
       });
       setCreating(false);
       setName("");
       setUrl("");
       setSelected([]);
+      setHeaderRows([]);
       setCreated(subscription);
       await load();
     } catch (err) {
@@ -398,6 +411,66 @@ export function WebhooksPage() {
                   ))}
                 </div>
               ))}
+          </fieldset>
+
+          <fieldset className="flex flex-col gap-2">
+            <legend className="text-[length:var(--font-size-sm)] font-[weight:var(--font-weight-medium)]">
+              {t("webhooks.headers")}
+            </legend>
+            <p className="text-[length:var(--font-size-sm)] text-[var(--color-fg-muted)]">
+              {t("webhooks.headersHelp")}
+            </p>
+            {headerRows.map((row, index) => (
+              <div key={index} className="flex gap-2">
+                <Input
+                  placeholder={t("webhooks.headerName")}
+                  value={row.name}
+                  onChange={(e) =>
+                    setHeaderRows(
+                      headerRows.map((r, i) =>
+                        i === index ? { ...r, name: e.target.value } : r,
+                      ),
+                    )
+                  }
+                />
+                {/* type=password so a token pasted here is not left on
+                    screen behind whoever is doing the configuring. */}
+                <Input
+                  type="password"
+                  placeholder={t("webhooks.headerValue")}
+                  value={row.value}
+                  onChange={(e) =>
+                    setHeaderRows(
+                      headerRows.map((r, i) =>
+                        i === index ? { ...r, value: e.target.value } : r,
+                      ),
+                    )
+                  }
+                />
+                <Button
+                  type="button"
+                  size="sm"
+                  variant="secondary"
+                  onClick={() =>
+                    setHeaderRows(headerRows.filter((_, i) => i !== index))
+                  }
+                >
+                  {t("common.delete")}
+                </Button>
+              </div>
+            ))}
+            <div>
+              <Button
+                type="button"
+                size="sm"
+                variant="secondary"
+                onClick={() =>
+                  setHeaderRows([...headerRows, { name: "", value: "" }])
+                }
+              >
+                {t("webhooks.headerAdd")}
+              </Button>
+            </div>
           </fieldset>
         </form>
       </Modal>

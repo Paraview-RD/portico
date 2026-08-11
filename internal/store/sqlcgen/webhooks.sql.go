@@ -74,8 +74,8 @@ func (q *Queries) ClaimDueWebhookDeliveries(ctx context.Context, arg ClaimDueWeb
 
 const createWebhookSubscription = `-- name: CreateWebhookSubscription :exec
 INSERT INTO webhook_subscriptions (
-    id, tenant_id, name, url, secret, events, status, created_at, updated_at
-) VALUES ($1, $2, $3, $4, $5, $6, 'ACTIVE', $7, $7)
+    id, tenant_id, name, url, secret, events, headers, status, created_at, updated_at
+) VALUES ($1, $2, $3, $4, $5, $6, $7, 'ACTIVE', $8, $8)
 `
 
 type CreateWebhookSubscriptionParams struct {
@@ -85,6 +85,7 @@ type CreateWebhookSubscriptionParams struct {
 	Url       string
 	Secret    string
 	Events    string
+	Headers   string
 	CreatedAt time.Time
 }
 
@@ -96,6 +97,7 @@ func (q *Queries) CreateWebhookSubscription(ctx context.Context, arg CreateWebho
 		arg.Url,
 		arg.Secret,
 		arg.Events,
+		arg.Headers,
 		arg.CreatedAt,
 	)
 	return err
@@ -171,7 +173,7 @@ func (q *Queries) EnqueueWebhookDelivery(ctx context.Context, arg EnqueueWebhook
 }
 
 const getWebhookSubscription = `-- name: GetWebhookSubscription :one
-SELECT id, tenant_id, name, url, secret, events, status, created_at, updated_at, previous_secret, previous_secret_expires_at FROM webhook_subscriptions
+SELECT id, tenant_id, name, url, secret, events, status, created_at, updated_at, previous_secret, previous_secret_expires_at, headers FROM webhook_subscriptions
 WHERE tenant_id = $1 AND id = $2
 `
 
@@ -195,12 +197,13 @@ func (q *Queries) GetWebhookSubscription(ctx context.Context, arg GetWebhookSubs
 		&i.UpdatedAt,
 		&i.PreviousSecret,
 		&i.PreviousSecretExpiresAt,
+		&i.Headers,
 	)
 	return i, err
 }
 
 const listActiveWebhookSubscriptions = `-- name: ListActiveWebhookSubscriptions :many
-SELECT id, tenant_id, name, url, secret, events, status, created_at, updated_at, previous_secret, previous_secret_expires_at FROM webhook_subscriptions
+SELECT id, tenant_id, name, url, secret, events, status, created_at, updated_at, previous_secret, previous_secret_expires_at, headers FROM webhook_subscriptions
 WHERE tenant_id = $1 AND status = 'ACTIVE'
 `
 
@@ -225,6 +228,7 @@ func (q *Queries) ListActiveWebhookSubscriptions(ctx context.Context, tenantID s
 			&i.UpdatedAt,
 			&i.PreviousSecret,
 			&i.PreviousSecretExpiresAt,
+			&i.Headers,
 		); err != nil {
 			return nil, err
 		}
@@ -289,7 +293,7 @@ func (q *Queries) ListWebhookDeliveries(ctx context.Context, arg ListWebhookDeli
 }
 
 const listWebhookSubscriptions = `-- name: ListWebhookSubscriptions :many
-SELECT id, tenant_id, name, url, secret, events, status, created_at, updated_at, previous_secret, previous_secret_expires_at FROM webhook_subscriptions
+SELECT id, tenant_id, name, url, secret, events, status, created_at, updated_at, previous_secret, previous_secret_expires_at, headers FROM webhook_subscriptions
 WHERE tenant_id = $1
 ORDER BY created_at DESC
 `
@@ -315,6 +319,7 @@ func (q *Queries) ListWebhookSubscriptions(ctx context.Context, tenantID string)
 			&i.UpdatedAt,
 			&i.PreviousSecret,
 			&i.PreviousSecretExpiresAt,
+			&i.Headers,
 		); err != nil {
 			return nil, err
 		}
@@ -447,14 +452,15 @@ func (q *Queries) SetWebhookSubscriptionStatus(ctx context.Context, arg SetWebho
 
 const updateWebhookSubscription = `-- name: UpdateWebhookSubscription :exec
 UPDATE webhook_subscriptions
-SET name = $1, url = $2, events = $3, updated_at = $4
-WHERE tenant_id = $5 AND id = $6
+SET name = $1, url = $2, events = $3, headers = $4, updated_at = $5
+WHERE tenant_id = $6 AND id = $7
 `
 
 type UpdateWebhookSubscriptionParams struct {
 	Name      string
 	Url       string
 	Events    string
+	Headers   string
 	UpdatedAt time.Time
 	TenantID  string
 	ID        string
@@ -465,6 +471,7 @@ func (q *Queries) UpdateWebhookSubscription(ctx context.Context, arg UpdateWebho
 		arg.Name,
 		arg.Url,
 		arg.Events,
+		arg.Headers,
 		arg.UpdatedAt,
 		arg.TenantID,
 		arg.ID,
