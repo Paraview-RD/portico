@@ -26,7 +26,7 @@ jobs:
 
       # The frontend is compiled into the binary, so its toolchain has to be
       # present before GoReleaser runs its `before` hooks.
-      - uses: actions/setup-node@v4
+      - uses: actions/setup-node@v7
         with:
           node-version: "22"
           cache: npm
