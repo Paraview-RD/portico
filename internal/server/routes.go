@@ -288,7 +288,7 @@ func (s *Server) routes() http.Handler {
 	// somebody has not signed into yet, and it names where credentials come
 	// from rather than what any of them are.
 	r.Handle(docs.Prefix, http.RedirectHandler(docs.Prefix+"/", http.StatusMovedPermanently))
-	r.Handle(docs.Prefix+"/*", docs.Handler())
+	r.Handle(docs.Prefix+"/*", docsPolicy(docs.Handler()))
 
 	uiHandler := web.Handler()
 	r.NotFound(func(w http.ResponseWriter, r *http.Request) {
@@ -457,5 +457,32 @@ func (s *Server) handleReady(w http.ResponseWriter, r *http.Request) {
 
 	httpx.OK(w, readinessResponse{
 		Status: "ready", Version: Version, Database: "ok",
+	})
+}
+
+// docsPolicy widens script-src for the manual, and only for the manual.
+//
+// MkDocs Material puts three inline scripts on every page it builds, and the
+// application's policy — script-src 'self' — blocks all three. One of them
+// defines __md_get, so blocking it made Material's bundle throw on load: the
+// manual has been served with a dead search box and an unresponsive
+// light/dark toggle, reporting nothing, because a Content-Security-Policy is
+// enforced by a browser and by no test that runs without one.
+//
+// The header is replaced rather than added to. SecurityHeaders has already
+// set the application's policy by the time this runs, and two
+// Content-Security-Policy headers are intersected rather than merged — the
+// stricter one still blocks, so appending would look like a fix and change
+// nothing.
+//
+// Hashes rather than 'unsafe-inline', and scoped to this subtree rather than
+// set globally, because /docs is same-origin with a console holding a session
+// token: permitting arbitrary inline script anywhere on this origin would
+// spend exactly the protection the policy is there to buy.
+func docsPolicy(next http.Handler) http.Handler {
+	policy := httpx.ContentSecurityPolicy(docs.InlineScriptHashes()...)
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Security-Policy", policy)
+		next.ServeHTTP(w, r)
 	})
 }

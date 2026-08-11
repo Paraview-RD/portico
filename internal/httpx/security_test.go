@@ -3,6 +3,7 @@ package httpx_test
 import (
 	"net/http"
 	"net/http/httptest"
+	"strings"
 	"testing"
 
 	"github.com/Paraview-RD/portico/internal/httpx"
@@ -117,4 +118,42 @@ func TestClientIPUsesForwardingHeadersWhenTrusted(t *testing.T) {
 			t.Errorf("ClientIP = %q, want 198.51.100.7", got)
 		}
 	})
+}
+
+// The manual needs script-src widened and nothing else, and the way that goes
+// wrong is a second policy written out beside the first that then misses
+// whatever is added to it later.
+func TestExtraScriptSourcesChangeOnlyScriptSrc(t *testing.T) {
+	base := httpx.ContentSecurityPolicy()
+	widened := httpx.ContentSecurityPolicy("'sha256-aaa='", "'sha256-bbb='")
+
+	if !contains(widened, "script-src 'self' 'sha256-aaa=' 'sha256-bbb='") {
+		t.Errorf("the sources are not in script-src: %s", widened)
+	}
+	if contains(base, "sha256") {
+		t.Errorf("the application's own policy grew a hash: %s", base)
+	}
+
+	// Every directive but script-src is identical, compared as a set so a
+	// reordering is not a failure and a dropped directive is.
+	strip := func(policy string) map[string]bool {
+		out := map[string]bool{}
+		for _, directive := range strings.Split(policy, ";") {
+			directive = strings.TrimSpace(directive)
+			if directive == "" || strings.HasPrefix(directive, "script-src") {
+				continue
+			}
+			out[directive] = true
+		}
+		return out
+	}
+	got, want := strip(widened), strip(base)
+	if len(got) != len(want) {
+		t.Fatalf("widening changed %d directives beyond script-src", len(want)-len(got))
+	}
+	for directive := range want {
+		if !got[directive] {
+			t.Errorf("widening dropped %q", directive)
+		}
+	}
 }
