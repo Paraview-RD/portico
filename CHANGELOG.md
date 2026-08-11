@@ -617,8 +617,16 @@ Working toward 0.2.0. See
   response. All nine public endpoints resolve a tenant from the request and
   can answer `TENANT_NOT_FOUND` or `TENANT_DISABLED`, and none said so.
   Registration and password recovery can answer 503 when the deployment has
-  no way to send the message they depend on. Thirteen schemas are now
-  compared against their Go types by reflection, in both directions.
+  no way to send the message they depend on.
+
+  Twenty-two schemas are now compared against their Go types by reflection,
+  in both directions, and that comparison found six more: a subscription's
+  `headerNames` and a rotation's `previousSecretExpiresAt` were undescribed,
+  `POST /webhooks` accepts `headers` and the request body did not say so,
+  `rotate-secret` answered with the generic envelope so nothing typed carried
+  the new secret, and `Settings` omitted `showGuides` along with the three
+  OIDC lifetimes that [docs/federation.md](docs/federation.md) tells people
+  to set on that screen.
 
 ### Security
 
