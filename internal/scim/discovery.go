@@ -107,7 +107,16 @@ type ResourceType struct {
 	Endpoint    string       `json:"endpoint"`
 	Description string       `json:"description"`
 	Schema      string       `json:"schema"`
+	Extensions  []schemaRef  `json:"schemaExtensions,omitempty"`
 	Meta        resourceMeta `json:"meta"`
+}
+
+// schemaRef names an extension a resource type carries. Several directories
+// decide whether to send the enterprise attributes by looking for this, and
+// send none when it is absent however willing the server is to store them.
+type schemaRef struct {
+	Schema   string `json:"schema"`
+	Required bool   `json:"required"`
 }
 
 type resourceMeta struct {
@@ -128,6 +137,9 @@ func (h *Handler) resourceTypes(w http.ResponseWriter, _ *http.Request) {
 			Endpoint:    "/Users",
 			Description: "Portico accounts.",
 			Schema:      SchemaUser,
+			Extensions: []schemaRef{
+				{Schema: SchemaEnterpriseUser, Required: false},
+			},
 			Meta: resourceMeta{
 				ResourceType: "ResourceType",
 				Location:     base + "/ResourceTypes/User",
@@ -159,53 +171,129 @@ func (h *Handler) resourceTypes(w http.ResponseWriter, _ *http.Request) {
 
 // schemas serves the attribute definitions for the resources above.
 //
-// Deliberately minimal: the attributes this server actually reads, and no
-// more. A schema listing attributes nothing stores would invite a directory
-// to push them and report success.
+// What is listed here is what this server actually reads and returns, and
+// TestTheAdvertisedSchemaIsTheResourceServed holds the two together by
+// reflection — a schema listing attributes nothing stores would invite a
+// directory to push them and report success, and a schema omitting
+// attributes this server does read is how an administrator ends up believing
+// a department cannot be provisioned when it can.
+//
+// It was the second: six attributes were published for a resource carrying
+// twenty-two, and the enterprise extension — where employeeNumber, costCenter
+// and department live — was not published at all.
 func (h *Handler) schemas(w http.ResponseWriter, _ *http.Request) {
 	base := h.baseURL()
-	userSchema := map[string]any{
-		"schemas":     []string{"urn:ietf:params:scim:schemas:core:2.0:Schema"},
+	resources := []any{userSchema(base), enterpriseSchema(base), groupSchema(base)}
+
+	WriteResource(w, http.StatusOK, map[string]any{
+		"schemas":      []string{SchemaListResponse},
+		"totalResults": len(resources),
+		"startIndex":   1,
+		"itemsPerPage": len(resources),
+		"Resources":    resources,
+	})
+}
+
+func userSchema(base string) map[string]any {
+	return map[string]any{
+		"schemas":     []string{SchemaSchema},
 		"id":          SchemaUser,
 		"name":        "User",
 		"description": "Portico account",
 		"attributes": []map[string]any{
-			attr("userName", "string", "server", true, true),
+			attr("userName", "string", "readWrite", true, true),
 			attr("externalId", "string", "readWrite", false, true),
+			complexAttr("name", false,
+				attr("formatted", "string", "readWrite", false, false),
+				attr("familyName", "string", "readWrite", false, false),
+				attr("givenName", "string", "readWrite", false, false),
+				attr("middleName", "string", "readWrite", false, false),
+				attr("honorificPrefix", "string", "readWrite", false, false),
+				attr("honorificSuffix", "string", "readWrite", false, false)),
 			attr("displayName", "string", "readWrite", false, false),
+			attr("nickName", "string", "readWrite", false, false),
+			attr("profileUrl", "reference", "readWrite", false, false),
+			attr("title", "string", "readWrite", false, false),
+			attr("userType", "string", "readWrite", false, false),
+			attr("preferredLanguage", "string", "readWrite", false, false),
+			attr("locale", "string", "readWrite", false, false),
+			attr("timezone", "string", "readWrite", false, false),
 			attr("active", "boolean", "readWrite", false, false),
 			multiAttr("emails"),
 			multiAttr("phoneNumbers"),
+			multiAttr("photos"),
+			complexAttr("addresses", true,
+				attr("formatted", "string", "readWrite", false, false),
+				attr("streetAddress", "string", "readWrite", false, false),
+				attr("locality", "string", "readWrite", false, false),
+				attr("region", "string", "readWrite", false, false),
+				attr("postalCode", "string", "readWrite", false, false),
+				attr("country", "string", "readWrite", false, false),
+				attr("type", "string", "readWrite", false, false),
+				attr("primary", "boolean", "readWrite", false, false)),
+			// Read-only, and that is not a limitation of this server: a
+			// person is put into a group through the Group resource, which is
+			// where the membership lives. Writing it from both ends would
+			// make two requests disagree about which won.
+			complexAttr("groups", true,
+				attr("value", "string", "readOnly", false, false),
+				attr("display", "string", "readOnly", false, false),
+				attr("$ref", "reference", "readOnly", false, false),
+				attr("type", "string", "readOnly", false, false)),
 		},
 		"meta": map[string]any{
 			"resourceType": "Schema",
 			"location":     base + "/Schemas/" + SchemaUser,
 		},
 	}
+}
 
-	groupSchema := map[string]any{
-		"schemas":     []string{"urn:ietf:params:scim:schemas:core:2.0:Schema"},
+// enterpriseSchema is the extension, published as its own schema because
+// that is how a client discovers it exists. Without this document a directory
+// configured to send a department has no way to learn that this server reads
+// one — and several will not send an extension they cannot find here.
+func enterpriseSchema(base string) map[string]any {
+	return map[string]any{
+		"schemas":     []string{SchemaSchema},
+		"id":          SchemaEnterpriseUser,
+		"name":        "EnterpriseUser",
+		"description": "The enterprise extension attributes Portico stores",
+		"attributes": []map[string]any{
+			attr("employeeNumber", "string", "readWrite", false, false),
+			attr("costCenter", "string", "readWrite", false, false),
+			attr("department", "string", "readWrite", false, false),
+			complexAttr("manager", false,
+				attr("value", "string", "readWrite", false, false),
+				attr("displayName", "string", "readOnly", false, false),
+				attr("$ref", "reference", "readWrite", false, false)),
+		},
+		"meta": map[string]any{
+			"resourceType": "Schema",
+			"location":     base + "/Schemas/" + SchemaEnterpriseUser,
+		},
+	}
+}
+
+func groupSchema(base string) map[string]any {
+	return map[string]any{
+		"schemas":     []string{SchemaSchema},
 		"id":          SchemaGroup,
 		"name":        "Group",
 		"description": "A set of Portico accounts",
 		"attributes": []map[string]any{
 			attr("displayName", "string", "readWrite", true, true),
 			attr("externalId", "string", "readWrite", false, true),
-			multiAttr("members"),
+			complexAttr("members", true,
+				attr("value", "string", "readWrite", false, false),
+				attr("display", "string", "readOnly", false, false),
+				attr("$ref", "reference", "readWrite", false, false),
+				attr("type", "string", "readWrite", false, false)),
 		},
 		"meta": map[string]any{
 			"resourceType": "Schema",
 			"location":     base + "/Schemas/" + SchemaGroup,
 		},
 	}
-
-	WriteResource(w, http.StatusOK, map[string]any{
-		"schemas":      []string{SchemaListResponse},
-		"totalResults": 2,
-		"startIndex":   1,
-		"itemsPerPage": 2,
-		"Resources":    []any{userSchema, groupSchema},
-	})
 }
 
 func attr(name, typ, mutability string, required, unique bool) map[string]any {
@@ -220,14 +308,19 @@ func attr(name, typ, mutability string, required, unique bool) map[string]any {
 	}
 }
 
+// multiAttr is the value/type/primary shape SCIM uses for the several
+// contact attributes that share it.
 func multiAttr(name string) map[string]any {
+	return complexAttr(name, true,
+		attr("value", "string", "readWrite", true, false),
+		attr("type", "string", "readWrite", false, false),
+		attr("primary", "boolean", "readWrite", false, false))
+}
+
+func complexAttr(name string, multiValued bool, sub ...map[string]any) map[string]any {
 	return map[string]any{
-		"name": name, "type": "complex", "multiValued": true,
+		"name": name, "type": "complex", "multiValued": multiValued,
 		"required": false, "mutability": "readWrite", "returned": "default",
-		"subAttributes": []map[string]any{
-			attr("value", "string", "readWrite", true, false),
-			attr("type", "string", "readWrite", false, false),
-			attr("primary", "boolean", "readWrite", false, false),
-		},
+		"subAttributes": sub,
 	}
 }

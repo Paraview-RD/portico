@@ -52,6 +52,8 @@ const (
 	SchemaPatchOp        = "urn:ietf:params:scim:api:messages:2.0:PatchOp"
 	SchemaServiceConfig  = "urn:ietf:params:scim:schemas:core:2.0:ServiceProviderConfig"
 	SchemaResourceType   = "urn:ietf:params:scim:schemas:core:2.0:ResourceType"
+	// The schema of a schema, which is what /Schemas returns each entry as.
+	SchemaSchema = "urn:ietf:params:scim:schemas:core:2.0:Schema"
 )
 
 // Error is SCIM's error body. It is not Portico's envelope, deliberately:
