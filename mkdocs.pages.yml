@@ -1,0 +1,31 @@
+# The manual, built for a public address instead of for the binary.
+#
+# Everything is inherited from mkdocs.yml. Three things differ, and each one
+# is a consequence of the copy being somewhere other than inside a running
+# Portico:
+#
+#   site_url    canonical links and a usable sitemap need an absolute
+#               address. The embedded copy has none, because it is served
+#               from whatever host the operator put it on and cannot know it.
+#
+#   site_dir    somewhere other than internal/docs/site, so publishing never
+#               competes with the build that produces the binary. Both can
+#               run in the same working copy without one clobbering the
+#               other.
+#
+#   extra       a flag the announcement bar reads. mkdocs-overrides/main.html
+#               shows a notice on this build and not on the embedded one, and
+#               a config value is how a template can tell which build it is
+#               in.
+#
+# It exists as a separate file rather than as flags on a command line because
+# mkdocs has no --site-url, and because two builds that differ in three
+# specific ways are better written down than reconstructed from a workflow
+# step.
+INHERIT: ./mkdocs.yml
+
+site_url: https://paraview-rd.github.io/portico/
+site_dir: site-public
+
+extra:
+  published_site: true

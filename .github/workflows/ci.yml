@@ -171,6 +171,13 @@ jobs:
       # on an unrelated pull request.
       - run: pip install -r hack/docs-requirements.txt
       - run: ./hack/build-docs.sh
+      # And the published copy, which is the same source through a different
+      # config and can break on its own — a bad site_url, an override that
+      # reads a flag only this build sets. The workflow that publishes it
+      # runs on main and therefore after the merge, so without this line the
+      # first sign of a break is a red deployment on a branch nobody can fix
+      # without another pull request.
+      - run: mkdocs build -f mkdocs.pages.yml --strict
       # Report-only, deliberately. Translation lands in batches, and failing
       # the build on the first untranslated page would mean no batch could
       # ever be merged — the check exists to make the remainder visible, not

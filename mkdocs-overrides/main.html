@@ -1,36 +1,66 @@
 {% extends "base.html" %}
 
 {#
-  A page with no translation yet falls back to English rather than 404ing,
-  which is right: an English answer beats no answer. Falling back *silently*
-  is not — a reader would take it for current Chinese text when it is English
-  that may have moved on since anyone last compared the two.
+  The announcement bar, which carries two different things and is written as
+  one string because of how Material decides whether to draw it at all.
 
-  So the page says which it is, in the language they asked for.
+  ── What it says ─────────────────────────────────────────────────────────
+
+  1. That a page fell back to English.
+
+  A page with no translation yet falls back rather than 404ing, which is
+  right: an English answer beats no answer. Falling back *silently* is not —
+  a reader would take it for current Chinese text when it is English that may
+  have moved on since anyone last compared the two. So the page says which it
+  is, in the language they asked for.
 
   The two variables are the plugin's own and say exactly this and nothing
   else: i18n_page_locale is the language being built, i18n_file_locale is the
   language of the source file actually used. Different means fallback —
   whatever the file is called, and however many languages are added later.
 
-  Checked against a build: on /zh/ldap/ they are zh and en, on /zh/ (which is
-  translated) both zh, and on the English pages both en.
+  Checked against a build: on a zh page built from an English source they are
+  zh and en, on a translated one both zh, and on the English pages both en.
 
   A language with no line in notices gets the English sentence rather than
-  nothing, because silence is the failure this whole block exists to fix.
+  nothing, because silence is the failure this half of the block exists to
+  fix.
 
-  The whitespace markers below are load-bearing, and are the reason this is
-  written as one computed message rather than as prose wrapped in an `if`.
+  2. Which copy of the manual this is.
+
+  Only on the published one. The flag is set in mkdocs.pages.yml and absent
+  from mkdocs.yml, so the copy inside the binary says nothing — which is
+  right: it is already the manual for the version running it and has nothing
+  to disclaim.
+
+  The published copy does. It is built from main, so it can describe
+  behaviour that is not in anybody's release yet, and a reader who follows it
+  against an older deployment gets instructions for a product they do not
+  have. That is the hazard the embedding exists to avoid, and saying so is
+  the price of having a public address at all.
+
+  The page-specific notice goes first. The published one is on every page of
+  the public site and the eye learns to skip the bar; something that appears
+  on one page in twenty should land above the thing that is always there,
+  not under it.
+
+  ── Why it is one string ─────────────────────────────────────────────────
+
   Material renders the bar under `if self.announce()`, and what that tests is
   the block's *output*, which in Jinja is a string. An `if` that fails still
   leaves behind the newlines and indentation around it, and a string of
   whitespace is truthy — so the bar rendered on every page of the manual, 9px
   of near-black above the header, holding nothing. The markers here exist to
-  make the untranslated case emit exactly "" and not "\n  ".
+  make the nothing-to-say case emit exactly "" and not "\n  ".
 
-  One `set` and one output is the shape that keeps this true. Six tags with
-  markers on them is the same behaviour and five more places to leave one off,
-  which is how the bar appeared in the first place.
+  One `set` per message and one output is the shape that keeps this true.
+  Tags with markers on each is the same behaviour and more places to leave
+  one off, which is how the empty bar got here in the first place.
+
+  `|safe` is applied once, at the end, and is safe in the literal sense:
+  every string concatenated below is written in this file. Nothing here comes
+  from a page, from a config value an author supplies, or from anything else
+  that could carry markup somebody did not intend.
 #}
 {% block announce %}
 {%- set notices = {
@@ -39,8 +69,20 @@
 {%- set untranslated = i18n_page_locale is defined
                        and i18n_file_locale is defined
                        and i18n_file_locale != i18n_page_locale -%}
-{%- set message = notices.get(i18n_page_locale|string,
+{%- set fallback_notice = notices.get(i18n_page_locale|string,
       "This page has not been translated yet; it is shown in English.")
       if untranslated else "" -%}
-{{- message -}}
+
+{%- set published = {
+     "zh": '本站由 main 分支构建，可能描述尚未发布的行为。你运行的那份 Portico
+            自带对应版本的手册，在它的 <code>/docs</code> 下。'
+   } -%}
+{%- set published_notice = '<div class="portico-published-notice">' + published.get(
+      i18n_page_locale|string,
+      'Built from <code>main</code>, so it may describe behaviour that is not
+       in a release yet. The Portico you are running ships the manual for its
+       own version, at its <code>/docs</code>.') + '</div>'
+      if config.extra.published_site else "" -%}
+
+{{- (fallback_notice + published_notice)|safe -}}
 {% endblock %}

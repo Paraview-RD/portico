@@ -5,6 +5,15 @@
 # somewhere else drifts, and the failure mode is somebody following
 # instructions for a release they do not have.
 #
+# There is now a copy hosted somewhere else — mkdocs.pages.yml builds this
+# same source for GitHub Pages, because somebody deciding whether to run
+# Portico has to be able to read what it does before they install it. That
+# does not retract the paragraph above; it is the same trade-off, taken
+# knowingly, with the drift stated on the page instead of left to be
+# discovered. The published copy carries a bar saying which branch it was
+# built from and pointing at the reader's own /docs. This build does not,
+# and the flag that decides is set there and absent here.
+#
 #   ./hack/build-docs.sh      build it (and restore the .gitkeep mkdocs eats)
 #   mkdocs serve              write it, with reload
 #
