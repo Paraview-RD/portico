@@ -28,6 +28,9 @@ import (
 type ExternalIDPService struct {
 	store *store.Store
 	audit *AuditService
+	// users issues the session an accepted identity earns. The dependency
+	// is one-way: nothing in the account service knows this exists.
+	users *UserService
 	// vault may be nil, in which case saving a client secret is refused
 	// rather than written in the clear — the same position directory bind
 	// passwords and webhook headers take, and for the same reason: this is
@@ -42,8 +45,8 @@ type ExternalIDPService struct {
 }
 
 // NewExternalIDPService builds it.
-func NewExternalIDPService(st *store.Store, audit *AuditService, vault *secrets.Vault, publicURL string) *ExternalIDPService {
-	return &ExternalIDPService{store: st, audit: audit, vault: vault, publicURL: publicURL}
+func NewExternalIDPService(st *store.Store, users *UserService, audit *AuditService, vault *secrets.Vault, publicURL string) *ExternalIDPService {
+	return &ExternalIDPService{store: st, users: users, audit: audit, vault: vault, publicURL: publicURL}
 }
 
 // Errors this service returns.
