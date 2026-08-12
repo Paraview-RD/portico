@@ -10,17 +10,23 @@
 #   hack/dev.sh              build, run, and rebuild on change
 #   hack/dev.sh --reseed     drop the dev database and fill it first
 #   hack/dev.sh --once       build and run, without watching
-#   hack/dev.sh --no-web     never build the frontend
+#   hack/dev.sh --no-web     never build the console
+#   hack/dev.sh --no-docs    never build the manual
 #
 # For frontend work run `npm run dev` in web/ alongside this: Vite serves on
 # 5410 with hot module replacement and proxies /api here, so a component
 # change needs no rebuild at all — seconds against tens of them.
 #
-# This still rebuilds the embedded console when web/ changes, because the
-# alternative turned out to be worse. internal/web/dist is a build product
-# and is not in git, so pulling somebody else's console work changes no file
-# this script was watching: the address kept serving a UI built hours
-# earlier, from a checkout that no longer existed, with nothing to say so.
+# Three things are compiled into the binary and only two of them are in git.
+# internal/web/dist and internal/docs/site are build products, so pulling
+# somebody else's console or manual work changes no file a Go watcher would
+# look at: the address goes on serving a console and a manual built hours
+# earlier, from a checkout that no longer exists, with nothing to say so.
+# Both were caught that way rather than noticed — one by comparing a running
+# binary's vcs.revision against HEAD, the other by reading a page that was
+# missing a footer somebody had just added.
+#
+# So this reconciles all three at startup and watches all three afterwards.
 # An interface that is silently out of date is harder to catch than one that
 # is visibly broken.
 set -euo pipefail
@@ -54,12 +60,19 @@ PID=""
 reseed=false
 watch=true
 web=true
+docs=true
 for arg in "$@"; do
   case "$arg" in
     --reseed) reseed=true ;;
     --once) watch=false ;;
     --no-web) web=false ;;
-    -h|--help) sed -n '2,26p' "$0" | sed 's|^# \{0,1\}||'; exit 0 ;;
+    --no-docs) docs=false ;;
+    # Read to the first line that is not a comment, rather than to a line
+    # number. The number was already wrong once: the header grew and --help
+    # went on printing the first seventeen lines of a twenty-six line
+    # explanation, cut mid-sentence, which is the kind of thing nobody
+    # reports because it looks deliberate.
+    -h|--help) awk 'NR>1 && /^#/ {sub(/^# ?/, ""); print; next} NR>1 {exit}' "$0"; exit 0 ;;
     *) echo "dev.sh: unknown argument $arg" >&2; exit 2 ;;
   esac
 done
@@ -70,6 +83,21 @@ if [ "$web" = true ] && ! command -v npm >/dev/null 2>&1; then
   # server — as long as it says which one it is.
   echo "==> npm not found; leaving the embedded console as it is" >&2
   web=false
+fi
+
+if [ "$docs" = true ] && ! command -v mkdocs >/dev/null 2>&1; then
+  # Also not fatal, but it degrades worse than the console does, so it says
+  # which of the two situations this is. A stale manual is still a manual; a
+  # manual that was never built is a /docs/ that answers 404, and somebody
+  # who hits that should not have to work out that the cause is a missing
+  # Python package rather than a broken route.
+  if [ -s internal/docs/site/index.html ]; then
+    echo "==> mkdocs not found; leaving the embedded manual as it is" >&2
+  else
+    echo "==> mkdocs not found and no manual has been built; /docs/ will 404." >&2
+    echo "    pip install -r hack/docs-requirements.txt, then hack/build-docs.sh" >&2
+  fi
+  docs=false
 fi
 
 stop() {
@@ -95,54 +123,90 @@ if [ "$reseed" = true ]; then
 fi
 
 DIST="internal/web/dist"
+SITE="internal/docs/site"
 
-# The console is compiled into the binary by go:embed, so a change to it is
-# a change to the Go build's inputs — which is why this runs before the
-# build below rather than beside it.
+# Rebuild a directory the binary embeds, and put the old one back if the
+# build fails.
 #
-# The saved copy is not caution for its own sake. `npm run build` has a
-# prebuild step that deletes dist/assets before tsc has said whether the
-# code compiles, so a typo does not leave the previous console in place: it
-# leaves an index.html pointing at files that are no longer there, which
-# serves a blank page. Restoring is what makes the promise this script makes
-# about Go — a failed build keeps the last good one serving — true of the
-# console as well.
-build_web() {
-  [ "$web" = true ] || return 0
+# The saved copy is not caution for its own sake. Both builders clear their
+# output before they know whether the build will succeed — npm through a
+# prebuild step that deletes dist/assets before tsc has looked at anything,
+# mkdocs by cleaning site_dir on the way in. So a typo does not leave the
+# previous one in place: it leaves an index.html pointing at files that are
+# gone, which serves a blank page rather than an error. Restoring is what
+# makes the promise this script already made about Go — a failed build keeps
+# the last good one serving — true of the other two as well.
+#
+# One helper rather than two nearly identical blocks, because the point is
+# that the console and the manual behave the same way. Two copies would
+# eventually stop.
+rebuild_into() {
+  local dir="$1" label="$2" hint="$3"
+  shift 3
 
-  echo "==> building the console"
+  echo "==> building the ${label}"
   local saved
-  saved="$(mktemp -d -t portico-dist)"
-  cp -R "$DIST/." "$saved/" 2>/dev/null || true
+  saved="$(mktemp -d -t portico-build)"
+  cp -R "$dir/." "$saved/" 2>/dev/null || true
 
-  if (cd web && npm run build >/dev/null 2>&1); then
+  if "$@" >/dev/null 2>&1; then
     rm -rf "$saved"
     return 0
   fi
 
-  rm -rf "${DIST:?}/"* 2>/dev/null || true
-  cp -R "$saved/." "$DIST/" 2>/dev/null || true
+  rm -rf "${dir:?}/"* 2>/dev/null || true
+  cp -R "$saved/." "$dir/" 2>/dev/null || true
   rm -rf "$saved"
-  echo "==> the console did not build; the previous one is still embedded." >&2
-  echo "    Run 'npm run build' in web/ to see why." >&2
+  echo "==> the ${label} did not build; the previous one is still embedded." >&2
+  echo "    ${hint}" >&2
 }
 
-# Whether anything under web/ is newer than what was last built from it.
+npm_build() { (cd web && npm run build); }
+
+build_web() {
+  [ "$web" = true ] || return 0
+  rebuild_into "$DIST" console "Run 'npm run build' in web/ to see why." npm_build
+}
+
+build_docs() {
+  [ "$docs" = true ] || return 0
+  rebuild_into "$SITE" manual "Run hack/build-docs.sh to see why." ./hack/build-docs.sh
+}
+
+# Whether a source tree is newer than what was last built from it.
 #
-# This is the case the whole change exists for. dist is a build product and
-# is not in git, so switching branches or pulling somebody else's console
-# work leaves it untouched and older than the source it came from — and
-# nothing about a running server would tell you.
+# This is the case the whole arrangement exists for. dist and site are build
+# products and are not in git, so switching branches or pulling somebody
+# else's work leaves them untouched and older than the source they came
+# from — and nothing about a running server would tell you. A missing marker
+# counts as stale, which is what makes a fresh clone build both.
+newer_than() {
+  local marker="$1"
+  shift
+  [ -s "$marker" ] || return 0
+  [ -n "$(find "$@" -newer "$marker" 2>/dev/null | head -1)" ]
+}
+
 web_is_stale() {
   [ "$web" = true ] || return 1
-  [ -f "$DIST/index.html" ] || return 0
-  [ -n "$(find web/src web/index.html web/vite.config.ts web/package.json \
-            -newer "$DIST/index.html" 2>/dev/null | head -1)" ]
+  newer_than "$DIST/index.html" \
+    web/src web/index.html web/vite.config.ts web/package.json
+}
+
+docs_is_stale() {
+  [ "$docs" = true ] || return 1
+  newer_than "$SITE/index.html" docs mkdocs.yml
 }
 
 start() {
+  # Both before the Go build, not beside it: go:embed makes the console and
+  # the manual inputs to it, so a rebuilt one reaches the port only through
+  # a rebuilt binary.
   if web_is_stale; then
     build_web
+  fi
+  if docs_is_stale; then
+    build_docs
   fi
 
   echo "==> building"
@@ -170,18 +234,20 @@ fi
 # Polling rather than fswatch or air, so that this works on a checkout with
 # nothing installed but Go. A second of latency on a rebuild that takes
 # several is not worth a dependency.
-if [ "$web" = true ]; then
-  echo "==> watching Go and web sources; Ctrl-C to stop"
-else
-  echo "==> watching Go sources; Ctrl-C to stop"
-fi
+# Spelled out with if rather than `[ … ] && …`, which under `set -e` exits
+# the script the first time the condition is false.
+watching="Go"
+if [ "$web" = true ]; then watching="${watching}, web"; fi
+if [ "$docs" = true ]; then watching="${watching}, docs"; fi
+echo "==> watching ${watching} sources; Ctrl-C to stop"
 
 mtimes() { xargs stat -f '%m' 2>/dev/null | sort -rn | head -1; }
 
-# Two watches rather than one, because they must not see each other. The Go
-# watch is confined to .go and .sql; widening it to the web extensions would
-# sweep in internal/web/dist, which is what npm writes — so every console
-# build would look like a source change and start another one.
+# Three watches rather than one, because they must not see each other. The Go
+# watch is confined to .go and .sql: widening it to the web or markdown
+# extensions would sweep in internal/web/dist and internal/docs/site, which
+# are what the other two builders write — so every console or manual build
+# would look like a source change and start another one.
 newest_go() {
   find cmd internal migrations -name '*.go' -o -name '*.sql' 2>/dev/null | mtimes
 }
@@ -190,21 +256,32 @@ newest_web() {
   find web/src web/index.html web/vite.config.ts web/package.json \
     -type f 2>/dev/null | mtimes
 }
+newest_docs() {
+  [ "$docs" = true ] || return 0
+  find docs mkdocs.yml -type f 2>/dev/null | mtimes
+}
 
 last_go="$(newest_go)"
 last_web="$(newest_web)"
+last_docs="$(newest_docs)"
 while true; do
   sleep 1
   current_go="$(newest_go)"
   current_web="$(newest_web)"
+  current_docs="$(newest_docs)"
 
-  # Either one goes through start, which builds the console first when it is
-  # behind. A console change reaches the port only once something embeds it,
-  # so there is no path here that skips the Go build.
-  if [ "$current_web" != "$last_web" ]; then
+  # All of them go through start, which rebuilds whichever is behind before
+  # the Go build. A console or manual change reaches the port only once
+  # something embeds it, so there is no path here that skips that build.
+  if [ "$current_web" != "$last_web" ] || [ "$current_docs" != "$last_docs" ]; then
+    if [ "$current_web" != "$last_web" ]; then echo "==> console change detected"; fi
+    if [ "$current_docs" != "$last_docs" ]; then echo "==> manual change detected"; fi
     last_web="$current_web"
-    echo "==> console change detected"
+    last_docs="$current_docs"
     start
+    # Taken after the builds, not before: they write into internal/, and a
+    # value read earlier would make the next tick see their output as a
+    # source change.
     last_go="$(newest_go)"
     continue
   fi

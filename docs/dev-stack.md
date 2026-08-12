@@ -166,6 +166,7 @@ hack/dev.sh              # build, run on 8140, rebuild when the source changes
 hack/dev.sh --reseed     # drop the dev database and fill it first
 hack/dev.sh --once       # build and run without watching
 hack/dev.sh --no-web     # never build the console
+hack/dev.sh --no-docs    # never build the manual
 ```
 
 The address never moves, which is the whole point. Verifying a change had
@@ -192,27 +193,41 @@ alongside it: Vite serves on 5410 with hot module replacement and proxies
 `/api` to 8140, so a component change is instant, against tens of seconds
 here.
 
-**It still rebuilds the console when `web/` changes**, and checks at startup
-whether the embedded one is behind. That is not for the convenience of
-editing components through it — it is because `internal/web/dist` is a build
-product and is not in git. Switching branches or pulling somebody else's
-console work changes no file the Go watcher was looking at, so the address
-went on serving a console built hours earlier from a checkout that no longer
-existed, with nothing to say so. An interface that is silently out of date is
-harder to catch than one that is visibly broken; this was found by comparing
-a running binary's `vcs.revision` against `HEAD`, which is not something
-anybody does by accident.
+**It still rebuilds the console and the manual when their sources change**,
+and checks at startup whether either embedded copy is behind. That is not
+for the convenience of editing through it — it is because **three things are
+compiled into the binary and only one of them is in git**. `internal/web/dist`
+and `internal/docs/site` are build products, so switching branches or pulling
+somebody else's work changes no file a Go watcher would look at, and the
+address goes on serving a console and a manual built hours earlier, from a
+checkout that no longer exists.
 
-Pass `--no-web` to turn it off, and it turns itself off when `npm` is not
-installed — a server with a stale console beats no server, as long as it says
-which it is.
+Both were caught rather than noticed: the console by comparing a running
+binary's `vcs.revision` against `HEAD`, the manual by reading a page that was
+missing a footer somebody had just added. Neither is something anybody does
+by accident, which is the argument for the script doing it instead. An
+interface that is silently out of date is harder to catch than one that is
+visibly broken.
 
-**A console that does not compile leaves the previous one embedded**, the
-same promise the Go build makes. That one needs help: `npm run build` deletes
-`dist/assets` before `tsc` has said whether the code compiles, so a typo
-would otherwise leave an `index.html` pointing at files that are no longer
-there — a blank page rather than an error. The script keeps a copy and puts
-it back.
+`--no-web` and `--no-docs` turn them off, and each turns itself off when its
+toolchain is missing. The two degrade differently and the script says which
+situation it is in: a stale console is still a console, whereas a manual that
+was never built is a `/docs/` that answers 404 — and somebody meeting that
+should not have to work out that the cause is a missing Python package rather
+than a broken route.
+
+**Neither one leaves you worse off by failing.** A console or a manual that
+does not build leaves the previous one embedded, the same promise the Go
+build makes. That does not come free: `npm run build` deletes `dist/assets`
+before `tsc` has looked at anything, and `mkdocs` cleans `site_dir` on the
+way in — so a typo would otherwise leave an `index.html` pointing at files
+that are gone, which is a blank page rather than an error. The script keeps a
+copy and puts it back.
+
+One thing it does not do is read `exclude_docs`. Editing a page the manual
+excludes — `dev-stack.md`, the one you are reading — rebuilds a manual that
+cannot contain it. Parsing the exclusion list to avoid a few wasted seconds
+would be a second copy of a rule that already lives in `mkdocs.yml`.
 
 ## What the walkthrough proves
 
