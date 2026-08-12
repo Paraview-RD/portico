@@ -340,7 +340,7 @@ func (q *Queries) ListLDAPSyncRuns(ctx context.Context, arg ListLDAPSyncRunsPara
 }
 
 const listUsersFromLDAPSource = `-- name: ListUsersFromLDAPSource :many
-SELECT id, tenant_id, username, display_name, password_hash, phone, email, role, status, organization_id, token_version, source, external_id, failed_login_attempts, last_failed_login_at, locked_until, password_changed_at, created_at, updated_at, ldap_source_id, closed_at, verified_at, name_formatted, family_name, given_name, middle_name, honorific_prefix, honorific_suffix, nick_name, profile_url, photo_url, title, user_type, preferred_language, locale, timezone, address_formatted, street_address, locality, region, postal_code, country, employee_number, cost_center, department, manager_id FROM users
+SELECT id, tenant_id, username, display_name, password_hash, phone, email, role, status, organization_id, token_version, source, external_id, failed_login_attempts, last_failed_login_at, locked_until, password_changed_at, created_at, updated_at, ldap_source_id, closed_at, verified_at, name_formatted, family_name, given_name, middle_name, honorific_prefix, honorific_suffix, nick_name, profile_url, photo_url, title, user_type, preferred_language, locale, timezone, address_formatted, street_address, locality, region, postal_code, country, employee_number, cost_center, department, manager_id, must_change_password FROM users
 WHERE tenant_id = $1 AND ldap_source_id = $2
 `
 
@@ -407,6 +407,7 @@ func (q *Queries) ListUsersFromLDAPSource(ctx context.Context, arg ListUsersFrom
 			&i.CostCenter,
 			&i.Department,
 			&i.ManagerID,
+			&i.MustChangePassword,
 		); err != nil {
 			return nil, err
 		}

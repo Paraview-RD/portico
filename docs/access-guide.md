@@ -43,6 +43,7 @@ What is worth an alert:
 | `portico_sign_in_attempts_total{outcome="bad_credentials"}` | A rate climbing across many accounts is credential stuffing. Portico does not rate-limit; this is how you find out you need to. |
 | `portico_account_lockouts_total` | Counted where a lock is *applied*. A spike is either an attack or a policy set too tight for real people. |
 | `portico_sign_in_attempts_total{outcome="password_expired"}` | Only interesting just after enabling expiry, when it tells you how many people are about to contact you at once. |
+| `portico_sign_in_attempts_total{outcome="password_change_required"}` | Somebody signed in with the default bootstrap password. On day one that is you. On day two it means the default is still in place and being found. |
 | `portico_db_connections_wait_total` | Pool exhaustion, which presents as everything being slow with no errors and no slow query to find. This is the metric that names it. |
 | `portico_http_requests_total{status=~"5.."}` | The label holds the exact code, so this has to be a regular expression — `status="5xx"` matches no series at all and the alert built on it never fires. Client disconnects are reported as `499` and fall outside it, so a rise here is real. |
 
@@ -91,8 +92,8 @@ the MVP.
 | Credential | Where it comes from |
 |---|---|
 | Bootstrap administrator | Created on first start in the `default` tenant. Username from `PORTICO_INITIAL_ADMIN_USERNAME` (default `admin`). |
-| A further tenant's administrator | Created by `portico tenant create`; the password is printed once unless `--admin-password` is given. |
-| Bootstrap password | `PORTICO_INITIAL_ADMIN_PASSWORD` if set. Otherwise a random one is generated and **printed once** in the startup log — capture it then, it is stored nowhere. |
+| A further tenant's administrator | Created by `portico tenant create`; without `--admin-password` it takes the same default, on the same terms. |
+| Bootstrap password | `PORTICO_INITIAL_ADMIN_PASSWORD` if set. Otherwise the documented default `Portico@1`, which **sign-in refuses until it is replaced** — the first attempt answers `PASSWORD_CHANGE_REQUIRED` and the screen asks for a new password on the spot. |
 | JWT signing secret | `PORTICO_JWT_SECRET`. If unset, a random secret is generated per start, which silently invalidates every session on restart. Set it. |
 | Everyone else's password | Set by an administrator at creation, chosen by the user at self-registration, or set through a password-recovery link. |
 
@@ -110,11 +111,19 @@ committed `.env`. `.env.example` lists the variable names only.
     export PORTICO_JWT_SECRET=$(openssl rand -hex 32)
     docker compose -f deploy/docker-compose.yml up -d
     ```
-2. Read the startup log for the generated administrator password, unless you
-   set one.
-3. Open the UI, sign in, and change that password from **My profile**.
-   Changing it signs you out — that is expected, since a password change
-   revokes every existing token.
+2. Sign in as `admin` with `Portico@1`, unless you set a password of your
+   own. **Do this now rather than later.** That password is in this file, so
+   until somebody replaces it the account belongs to whoever reaches the
+   instance first — and whoever does gets to set a password you will not
+   know, on an account with no address to recover through.
+3. The sign-in is refused and the screen asks for a new password: enter the
+   default again as the current password, choose a replacement, and you are
+   signed in. There is no separate visit to **My profile** for this one, and
+   no sign-out afterwards — the replacement issues the session itself.
+
+If you set `PORTICO_INITIAL_ADMIN_PASSWORD`, none of step 3 happens: you
+chose a secret that is not published anywhere, so the account signs in
+normally.
 
 ## Password recovery
 

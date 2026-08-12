@@ -5,6 +5,8 @@ import (
 	"regexp"
 	"sort"
 	"testing"
+
+	"github.com/Paraview-RD/portico/internal/service"
 )
 
 // Every setting the server reads is a setting an operator can find.
@@ -140,5 +142,50 @@ func TestEveryExampleDSNUsesTheSamePort(t *testing.T) {
 		t.Error("the example connection strings disagree about the port; a " +
 			"reader who copies the wrong one reaches a database that is not " +
 			"this one, and is told nothing")
+	}
+}
+
+// Every document that states the bootstrap password states the same one.
+//
+// The default is a published credential now, which means it is written down
+// in five places an operator might read and in exactly one place the server
+// reads. Nothing obliged them to agree. A constant changed without the
+// documents is worse here than in most places: the reader does not discover
+// the drift as a broken link or a missing page, they discover it as a sign-in
+// that fails on a fresh installation, with the manual insisting the password
+// is right.
+//
+// The same failure has already happened once in this repository with the
+// example database port, which is why that check exists directly above.
+//
+// The value is not written here. This asserts agreement with the constant,
+// so changing the constant is a normal edit that reports which documents
+// still say the old thing.
+//
+// CHANGELOG.md and the requirements pages are deliberately absent. They are
+// a record of what was true when it was written, and a check that forced
+// history to be rewritten every time a default moved would be asking them
+// to stop being a record.
+func TestEveryDocumentedBootstrapPasswordIsTheOneTheServerUses(t *testing.T) {
+	files := []string{
+		"../../.env.example",
+		"../../SECURITY.md",
+		"../../docs/access-guide.md",
+		"../../docs/access-guide.zh.md",
+		"../../docs/dev-stack.md",
+	}
+
+	for _, path := range files {
+		content, err := os.ReadFile(path)
+		if err != nil {
+			t.Fatalf("read %s: %v", path, err)
+		}
+		if !contains(string(content), service.DefaultInitialAdminPassword) {
+			t.Errorf("%s does not name the bootstrap default password %q.\n"+
+				"Either it drifted from service.DefaultInitialAdminPassword, or "+
+				"the document stopped mentioning it — in which case take it out "+
+				"of this list rather than leaving a check that passes vacuously.",
+				path, service.DefaultInitialAdminPassword)
+		}
 	}
 }

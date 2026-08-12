@@ -31,6 +31,7 @@ export const errorsZhCN: Record<keyof typeof errorsEnUS, string> = {
   CURRENT_PASSWORD_MISMATCH: "当前密码不正确。",
   WEAK_PASSWORD: "该密码不符合要求。",
   PASSWORD_EXPIRED: "该密码已过期，登录前必须先更换。",
+  PASSWORD_CHANGE_REQUIRED: "该账号还在用默认密码，登录前必须先更换。",
   PASSWORD_NOT_EXPIRED: "该密码尚未过期。请登录后在个人中心修改。",
   PASSWORD_REUSED: "该密码最近使用过，请换一个没用过的。",
 

@@ -45,8 +45,8 @@ SELECT * FROM users WHERE tenant_id = $1 AND phone <> '' AND phone = $2 LIMIT 1;
 INSERT INTO users (
     id, tenant_id, username, display_name, password_hash, phone, email,
     role, status, organization_id, token_version, source,
-    password_changed_at, created_at, updated_at
-) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15);
+    password_changed_at, must_change_password, created_at, updated_at
+) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16);
 
 -- name: UpdateUserProfile :exec
 UPDATE users
@@ -89,10 +89,18 @@ WHERE tenant_id = sqlc.arg(tenant_id) AND id = sqlc.arg(id);
 -- name: UpdateUserPassword :exec
 -- Changing a password invalidates every token issued before it, and starts
 -- the clock again for expiry.
+--
+-- It also lifts a forced change, here rather than in the one caller that
+-- prompted it. Every way a password is set goes through this statement —
+-- self-service change, administrator reset, recovery by token, and the
+-- replace-before-sign-in path — and a flag cleared in only the last of them
+-- would leave an account that was reset by its administrator still refused
+-- at sign-in, with the reset itself reporting success.
 UPDATE users
 SET password_hash = sqlc.arg(password_hash),
     token_version = token_version + 1,
     password_changed_at = sqlc.arg(now)::timestamptz,
+    must_change_password = FALSE,
     updated_at = sqlc.arg(now)::timestamptz
 WHERE tenant_id = sqlc.arg(tenant_id) AND id = sqlc.arg(id);
 

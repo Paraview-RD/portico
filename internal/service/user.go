@@ -52,6 +52,19 @@ var (
 	ErrPasswordExpired = httpx.Unauthorized("PASSWORD_EXPIRED",
 		"This password has expired and must be changed before signing in.")
 
+	// ErrPasswordChangeRequired is returned when the password is right but is
+	// one the account may not keep — the documented default a release
+	// bootstraps its first administrator with.
+	//
+	// Separate from ErrPasswordExpired although both lead to the same form,
+	// because the two say different things to the person reading them. "This
+	// password has expired" in front of somebody who has just installed the
+	// software and typed the password the manual gave them describes nothing
+	// that happened, and the first thing they would do is go looking for the
+	// expiry setting they must have got wrong.
+	ErrPasswordChangeRequired = httpx.Unauthorized("PASSWORD_CHANGE_REQUIRED",
+		"This account is still on its default password, which must be replaced before signing in.")
+
 	ErrAccountDisabled = httpx.Unauthorized("ACCOUNT_DISABLED",
 		"This account has been disabled.")
 	ErrRegistrationDisabled = httpx.UnprocessableEntity("REGISTRATION_DISABLED",
@@ -286,7 +299,8 @@ func (s *UserService) List(ctx context.Context, tenantID string, q UserQuery, pa
 		`SELECT id, tenant_id, username, display_name, password_hash, phone, email, role, status,
 		        organization_id, token_version, source,
 		        failed_login_attempts, last_failed_login_at, locked_until,
-		        password_changed_at, external_id, ldap_source_id, closed_at, verified_at,
+		        password_changed_at, must_change_password,
+		        external_id, ldap_source_id, closed_at, verified_at,
 		        name_formatted, family_name, given_name, middle_name,
 		        honorific_prefix, honorific_suffix,
 		        nick_name, profile_url, photo_url,
@@ -308,7 +322,8 @@ func (s *UserService) List(ctx context.Context, tenantID string, q UserQuery, pa
 			&u.ID, &u.TenantID, &u.Username, &u.DisplayName, &u.PasswordHash, &u.Phone, &u.Email,
 			&u.Role, &u.Status, &u.OrganizationID, &u.TokenVersion, &u.Source,
 			&u.FailedLoginAttempts, &u.LastFailedLoginAt, &u.LockedUntil,
-			&u.PasswordChangedAt, &u.ExternalID, &u.LdapSourceID, &u.ClosedAt, &u.VerifiedAt,
+			&u.PasswordChangedAt, &u.MustChangePassword,
+			&u.ExternalID, &u.LdapSourceID, &u.ClosedAt, &u.VerifiedAt,
 			&u.NameFormatted, &u.FamilyName, &u.GivenName, &u.MiddleName,
 			&u.HonorificPrefix, &u.HonorificSuffix,
 			&u.NickName, &u.ProfileUrl, &u.PhotoUrl,
@@ -342,6 +357,10 @@ type CreateUserInput struct {
 	Role           model.Role
 	OrganizationID string
 	Source         model.UserSource
+	// MustChangePassword refuses this account at sign-in until the password
+	// is replaced. Set for a bootstrap administrator that took the documented
+	// default; nothing in the API offers it yet.
+	MustChangePassword bool
 }
 
 // Create adds an account to a tenant. The caller is responsible for having
@@ -406,9 +425,10 @@ func (s *UserService) Create(ctx context.Context, tenantID string, in CreateUser
 		Source:         string(in.Source),
 		// A password set at creation counts as set now, so a fresh account
 		// does not arrive already expired.
-		PasswordChangedAt: &now,
-		CreatedAt:         now,
-		UpdatedAt:         now,
+		PasswordChangedAt:  &now,
+		MustChangePassword: in.MustChangePassword,
+		CreatedAt:          now,
+		UpdatedAt:          now,
 	})
 	if err == nil {
 		// The password an account is created with goes into its history too.

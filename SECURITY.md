@@ -107,11 +107,20 @@ at the reverse proxy; never expose Portico directly.
 
 ### Operational notes with security consequences
 
-- **The bootstrap administrator password is printed to the startup log** when
-  you do not set one. Under Docker that log usually ends up in a log
-  aggregator where it persists and is broadly readable. Prefer setting
-  `PORTICO_INITIAL_ADMIN_PASSWORD` explicitly, and change it after first
-  sign-in either way.
+- **The bootstrap administrator starts on a published default password**
+  (`Portico@1`) when you do not set one, and cannot be signed into until that
+  password is replaced — the first sign-in returns
+  `PASSWORD_CHANGE_REQUIRED` and asks for a new one. This is a deliberate
+  trade against the generated-and-printed-once password it replaced, which
+  was stronger only for as long as the notice survived: operators regularly
+  lost it to a scrolled terminal or a discarded container log, and the
+  bootstrap account has no email or phone, so there was no way back in.
+  The exposure it leaves is real and short: **between first start and first
+  sign-in, anyone who can reach the port can claim the account**, and having
+  claimed it they set a password you do not know. Sign in immediately, or
+  set `PORTICO_INITIAL_ADMIN_PASSWORD` to a secret of your own — an account
+  bootstrapped that way is not forced to change and never holds a password
+  anybody can look up.
 - **`PORTICO_JWT_SECRET` must be at least 32 bytes**; the server refuses to
   start otherwise. Generate it with `openssl rand -hex 32`. Changing it
   signs everyone out.

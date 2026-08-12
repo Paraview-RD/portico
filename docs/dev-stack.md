@@ -112,15 +112,19 @@ fifty-five prints none anybody uses. Accounts the directory owns get it too,
 which a real deployment would never do: being able to sign in as one is how
 you see what the portal shows it.
 
-**That is not the initial administrator password.** A server started against
-an empty database creates one account from `PORTICO_INITIAL_ADMIN_USERNAME`
-(default `admin`) and `PORTICO_INITIAL_ADMIN_PASSWORD` — and when that is
-unset it generates one and prints it to stderr **once**, deliberately outside
-the structured logger, because logs are shipped somewhere searchable and a
-credential should not be. Miss it and there is no supported way back: that
-account has no email or phone, so password recovery has no channel, and there
-is no `portico user` subcommand. `docker logs` is the one recourse, until the
-logs roll.
+**That is a different account from the initial administrator**, which a
+server creates against an empty database from
+`PORTICO_INITIAL_ADMIN_USERNAME` (default `admin`) and
+`PORTICO_INITIAL_ADMIN_PASSWORD`. When that variable is unset the password is
+also `Portico@1` — the same string, from a separate constant in
+`internal/service/auth_flow.go`, because the two answer to different things:
+one has to satisfy the shipped policy on a real installation, the other only
+has to be typeable by whoever is being shown a demonstration.
+
+That account will not sign in until the password is replaced. The first
+attempt answers `PASSWORD_CHANGE_REQUIRED` and the sign-in screen asks for a
+new password there and then. It is the seeded `zhangwei` you want for
+day-to-day poking about; `admin` exists to prove the bootstrap works.
 
 What arrives:
 

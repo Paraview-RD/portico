@@ -407,6 +407,8 @@ type User struct {
 	Department string
 	// Who this person reports to. Not checked for cycles: one is a data-quality problem in the source system rather than something this schema can prevent.
 	ManagerID *string
+	// Sign-in refuses this account until the password is replaced. Set for a bootstrap administrator that took the documented default password; cleared by any path that sets a new one.
+	MustChangePassword bool
 }
 
 // Tenant-defined user attributes. The fixed, specification-derived ones are columns on users; see migration 00007.

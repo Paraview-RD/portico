@@ -47,6 +47,8 @@ func signInOutcome(err error) string {
 		return metrics.OutcomeDisabled
 	case errors.Is(err, ErrPasswordExpired):
 		return metrics.OutcomeExpired
+	case errors.Is(err, ErrPasswordChangeRequired):
+		return metrics.OutcomeChangeRequired
 	default:
 		return metrics.OutcomeError
 	}
@@ -172,6 +174,15 @@ func (s *UserService) Login(ctx context.Context, tenant model.Tenant, identifier
 		return Session{}, ErrPasswordExpired
 	}
 
+	// A password nobody chose is refused on the same terms and by the same
+	// route. This is what makes shipping a documented default password
+	// defensible: the credential in the manual gets somebody as far as the
+	// form that replaces it, and no further.
+	if row.MustChangePassword {
+		s.logLoginFailure(ctx, tenant.ID, row.ID, row.Username, ip, "default password not yet replaced")
+		return Session{}, ErrPasswordChangeRequired
+	}
+
 	// The password was right and nothing stood in the way, so whatever
 	// failures preceded it were somebody mistyping.
 	if row.FailedLoginAttempts > 0 || row.LockedUntil != nil {
@@ -223,7 +234,8 @@ func (s *UserService) Login(ctx context.Context, tenant model.Tenant, identifier
 }
 
 // ChangeExpiredPassword is the way back in for somebody whose password has
-// aged out.
+// aged out — or who is still on the default one a release bootstraps with,
+// which sign-in refuses on the same terms.
 //
 // It takes credentials rather than a session because there is no session to
 // take: Login refuses an expired password outright rather than issuing a
@@ -231,8 +243,9 @@ func (s *UserService) Login(ctx context.Context, tenant model.Tenant, identifier
 // password itself, applies the same lockout accounting a sign-in would, and
 // issues the session once the new password is set.
 //
-// It refuses when the password is *not* expired, so it cannot be used as an
-// alternative change-password endpoint that skips being signed in.
+// It refuses when the password is neither expired nor one that must be
+// replaced, so it cannot be used as an alternative change-password endpoint
+// that skips being signed in.
 func (s *UserService) ChangeExpiredPassword(ctx context.Context, tenant model.Tenant, identifier, currentPassword, newPassword, ip, userAgent string) (Session, error) {
 	identifier = strings.TrimSpace(identifier)
 	if identifier == "" || currentPassword == "" {
@@ -267,7 +280,7 @@ func (s *UserService) ChangeExpiredPassword(ctx context.Context, tenant model.Te
 	if model.Status(row.Status) != model.StatusActive {
 		return Session{}, ErrAccountDisabled
 	}
-	if !settings.PasswordPolicy().Expired(row.PasswordChangedAt, store.Now()) {
+	if !settings.PasswordPolicy().Expired(row.PasswordChangedAt, store.Now()) && !row.MustChangePassword {
 		return Session{}, httpx.BadRequest("PASSWORD_NOT_EXPIRED",
 			"This password has not expired. Sign in and change it from your profile.")
 	}
@@ -659,50 +672,72 @@ func (s *UserService) Register(ctx context.Context, tenantID string, in Register
 	return user, nil
 }
 
+// DefaultInitialAdminPassword is what a bootstrap administrator gets when
+// nobody chose a password for it.
+//
+// It is documented, published, and identical on every installation, which
+// would be indefensible on its own — so an account created with it cannot be
+// used until it is replaced. See EnsureInitialAdmin.
+//
+// The alternative, which this replaced, was a random password printed once
+// to stderr. That is stronger against somebody who reaches a fresh instance
+// first, and it failed people constantly: the line scrolled past, or the
+// container runtime dropped it, or it went to a log collector nobody could
+// read yet, and the deployment was then unopenable with no supported way
+// back in — the bootstrap account has no email or phone, so recovery has no
+// channel to use.
+//
+// Its own constant rather than the seeded demo password, though the two
+// currently read the same. They answer to different things: this one has to
+// satisfy the default policy on a real installation, and that one only has
+// to be typeable by whoever is being shown a demonstration.
+const DefaultInitialAdminPassword = "Portico@1"
+
 // EnsureInitialAdmin creates the bootstrap administrator when a tenant has
-// no users at all, and reports the generated password so it can be printed
-// once at startup.
+// no users at all.
 //
 // The check is per tenant, not per deployment: every tenant needs its own
 // first administrator, since no account can administer more than one. That
 // is also what lets the provisioning CLI reuse this when creating a tenant.
 //
-// Returning the password rather than storing it anywhere is deliberate: it
-// exists only in the startup output, and the operator is expected to change
-// it.
-func (s *UserService) EnsureInitialAdmin(ctx context.Context, tenantID, username, password string) (created bool, generatedPassword string, err error) {
+// A caller that supplied no password gets DefaultInitialAdminPassword and an
+// account that must replace it at first sign-in; mustChange reports that, so
+// the caller can say so where it announces the account. A caller that chose
+// one is left alone: they picked a secret that is not in any manual, and
+// forcing a change would break every unattended install that signs in with
+// the password it just configured.
+//
+// The test is the value, not how it arrived. Somebody who sets
+// PORTICO_INITIAL_ADMIN_PASSWORD to the published default has configured
+// the same publicly known credential as somebody who set nothing, and it is
+// the value being public that the forced change answers.
+func (s *UserService) EnsureInitialAdmin(ctx context.Context, tenantID, username, password string) (created bool, mustChange bool, err error) {
 	count, err := s.store.ForTenant(tenantID).CountUsers(ctx)
 	if err != nil {
-		return false, "", fmt.Errorf("count users: %w", err)
+		return false, false, fmt.Errorf("count users: %w", err)
 	}
 	if count > 0 {
-		return false, "", nil
+		return false, false, nil
 	}
 
 	if username == "" {
 		username = "admin"
 	}
-	generated := false
 	if password == "" {
-		// A random password beats a well-known default: an instance that is
-		// reachable before anyone finishes setup should not be trivially
-		// accessible.
-		password = uuid.NewString()
-		generated = true
+		password = DefaultInitialAdminPassword
 	}
+	mustChange = password == DefaultInitialAdminPassword
 
 	if _, err := s.Create(ctx, tenantID, CreateUserInput{
-		Username:    username,
-		DisplayName: "Administrator",
-		Password:    password,
-		Role:        model.RoleSuperAdmin,
-		Source:      model.SourceAdmin,
+		Username:           username,
+		DisplayName:        "Administrator",
+		Password:           password,
+		Role:               model.RoleSuperAdmin,
+		Source:             model.SourceAdmin,
+		MustChangePassword: mustChange,
 	}); err != nil {
-		return false, "", fmt.Errorf("create initial administrator: %w", err)
+		return false, false, fmt.Errorf("create initial administrator: %w", err)
 	}
 
-	if generated {
-		return true, password, nil
-	}
-	return true, "", nil
+	return true, mustChange, nil
 }

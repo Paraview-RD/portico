@@ -134,8 +134,9 @@ paths:
         The identifier is a username, an email address, or a phone number;
         all three reach the same account and produce the same credential.
 
-        A password that has expired is refused here rather than answered with
-        a token and a flag — see `/api/v1/auth/password/expired`.
+        A password that has expired, or that is the default a fresh
+        installation starts with, is refused here rather than answered with a
+        token and a flag — see `/api/v1/auth/password/expired`.
       security: []
       requestBody:
         required: true
@@ -165,8 +166,15 @@ paths:
           description: |
             The credential was refused. The `code` says which of the reasons
             it was: `INVALID_CREDENTIALS`, `ACCOUNT_LOCKED` after repeated
-            failed sign-ins, `ACCOUNT_DISABLED`, or `PASSWORD_EXPIRED` when
-            the password is right but too old to use.
+            failed sign-ins, `ACCOUNT_DISABLED`, `PASSWORD_EXPIRED` when the
+            password is right but too old to use, or
+            `PASSWORD_CHANGE_REQUIRED` when it is right but is the default a
+            fresh installation bootstraps its administrator with.
+
+            The last two are the same situation to a client: the password
+            was accepted and may not be kept. Both are answered by
+            `POST /auth/password/expired`, which takes the old password and
+            a new one and returns the session.
 
             All of them are 401 rather than a status per reason, because the
             distinction is in the body: a client branches on `code`, and the
@@ -451,12 +459,21 @@ paths:
     post:
       tags: [Authentication]
       operationId: changeExpiredPassword
-      summary: Replace an expired password, and sign in.
+      summary: Replace a password that may not be kept, and sign in.
       description: |
         Public by necessity: the caller cannot sign in, because sign-in
-        refuses an expired password rather than issuing a token and trusting
-        the client to act on a flag. Refuses if the password has not in fact
-        expired.
+        refuses such a password rather than issuing a token and trusting the
+        client to act on a flag.
+
+        Two things bring somebody here, and the request is the same for
+        both: a password that aged out under the tenant's expiry policy
+        (`PASSWORD_EXPIRED`), and the default password a fresh installation
+        bootstraps its first administrator with
+        (`PASSWORD_CHANGE_REQUIRED`).
+
+        Refuses with `PASSWORD_NOT_EXPIRED` when neither applies, so it
+        cannot serve as a change-password endpoint that skips being signed
+        in.
       security: []
       requestBody:
         required: true

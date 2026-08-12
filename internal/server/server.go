@@ -213,7 +213,7 @@ func (s *Server) Bootstrap(ctx context.Context) error {
 		return err
 	}
 
-	created, generatedPassword, err := s.users.EnsureInitialAdmin(
+	created, mustChange, err := s.users.EnsureInitialAdmin(
 		ctx, tenant.ID, s.cfg.InitialAdminUsername, s.cfg.InitialAdminPassword)
 	if err != nil {
 		return err
@@ -224,14 +224,18 @@ func (s *Server) Bootstrap(ctx context.Context) error {
 			"username", s.cfg.InitialAdminUsername, "tenant", tenant.Code)
 	}
 
-	if created && generatedPassword != "" {
-		// Deliberately not through the structured logger. Under any normal
-		// deployment those records are shipped to an aggregator, where a
-		// credential would persist indefinitely, be searchable, and be
-		// readable by a far wider group than "people who may administer
-		// this system". Writing it to stderr as plain text keeps it in the
-		// operator's terminal on first run without entering the log
-		// pipeline.
+	if created && mustChange {
+		// On stderr rather than through the structured logger, as the
+		// generated password this replaced was: those records are normally
+		// shipped to an aggregator, and this notice is for whoever is
+		// watching the terminal on first run.
+		//
+		// It says "now" and means it. The password below is in the manual
+		// and identical on every installation, so the window between this
+		// line and the first sign-in is the window in which anyone who can
+		// reach the port can claim the account — and having claimed it,
+		// they would set a password the operator does not know, on an
+		// account with no address to recover through.
 		fmt.Fprintf(os.Stderr, `
 ────────────────────────────────────────────────────────────────
   Initial administrator created
@@ -240,12 +244,15 @@ func (s *Server) Bootstrap(ctx context.Context) error {
     username:  %s
     password:  %s
 
-  This password is shown once and stored nowhere. Sign in and
-  change it. To choose it yourself instead, set
-  PORTICO_INITIAL_ADMIN_PASSWORD before first start.
+  This is the documented default. Sign in NOW: the account is
+  refused until the password is replaced, and the replacement is
+  the first thing the sign-in screen will ask for.
+
+  To choose the password yourself instead — and skip the forced
+  change — set PORTICO_INITIAL_ADMIN_PASSWORD before first start.
 ────────────────────────────────────────────────────────────────
 
-`, tenant.Code, s.cfg.InitialAdminUsername, generatedPassword)
+`, tenant.Code, s.cfg.InitialAdminUsername, service.DefaultInitialAdminPassword)
 	}
 
 	return nil
