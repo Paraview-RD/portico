@@ -69,8 +69,12 @@ cross-tenant role for the API to authorize:
 ```sh
 export PORTICO_DB_DSN=postgres://portico:secret@localhost:5443/portico?sslmode=disable
 
-portico tenant create --code acme --name "Acme Corp"   # prints a generated
-                                                       # admin password once
+portico tenant create --code acme --name "Acme Corp"   # admin on the default
+                                                       # password, which must
+                                                       # be replaced to sign in
+portico tenant create --code acme --name "Acme Corp" \
+  --admin-password "$(openssl rand -base64 18)"        # or choose one, and
+                                                       # skip the forced change
 portico tenant list
 portico tenant disable --code acme                     # refuses sign-in,
 portico tenant enable  --code acme                     # deletes nothing
