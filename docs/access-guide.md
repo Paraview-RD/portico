@@ -40,7 +40,7 @@ What is worth an alert:
 
 | Metric | Why |
 |---|---|
-| `portico_sign_in_attempts_total{outcome="bad_credentials"}` | A rate climbing across many accounts is credential stuffing. Portico does not rate-limit; this is how you find out you need to. |
+| `portico_sign_in_attempts_total{outcome="bad_credentials"}` | A rate climbing across many accounts is credential stuffing. The per-address floor will not stop it — an attacker spreading across addresses is exactly this shape — so this is how you find out the proxy's limit needs tightening. |
 | `portico_account_lockouts_total` | Counted where a lock is *applied*. A spike is either an attack or a policy set too tight for real people. |
 | `portico_sign_in_attempts_total{outcome="password_expired"}` | Only interesting just after enabling expiry, when it tells you how many people are about to contact you at once. |
 | `portico_sign_in_attempts_total{outcome="password_change_required"}` | Somebody signed in with the default bootstrap password. On day one that is you. On day two it means the default is still in place and being found. |
@@ -501,10 +501,17 @@ is not directly reachable.
 
 ### The sign-in endpoints have a floor of their own
 
-`/api/v1/auth/*` is throttled in-process: 60 requests per minute per client
-address, of which 10 may arrive at once. `PORTICO_AUTH_RATE_LIMIT` and
-`PORTICO_AUTH_RATE_LIMIT_BURST` change it; `PORTICO_AUTH_RATE_LIMIT=0` turns
-it off. A refusal is `429` with `Retry-After`.
+The writes under `/api/v1/auth/` are throttled in-process: 60 requests per
+minute per client address, of which 10 may arrive at once.
+`PORTICO_AUTH_RATE_LIMIT` and `PORTICO_AUTH_RATE_LIMIT_BURST` change it;
+`PORTICO_AUTH_RATE_LIMIT=0` turns it off. A refusal is `429` with
+`Retry-After`.
+
+Writes only: signing in, registering, asking for a reset. The two reads under
+the same prefix — whether registration is open, which recovery channels
+exist — are what the sign-in screen asks every time it loads, and counting
+them would spend an allowance meant for password attempts on drawing a
+page.
 
 **It does not replace the proxy limit below.** It counts per address and per
 process, so it does nothing about an attacker with many addresses, and one

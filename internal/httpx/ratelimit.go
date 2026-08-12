@@ -171,10 +171,19 @@ func (l *RateLimiter) sweep(now time.Time) {
 // holds these routes also holds /health and /ready, and an orchestrator
 // polling readiness every second must never be told to come back later —
 // that is an instance marked unhealthy by its own throttle.
+//
+// Writes only. The two GETs under this prefix — whether registration is
+// open, which recovery channels exist — are what the sign-in screen asks on
+// every load, and they cost a cheap read each. Counting them meant that
+// opening the page repeatedly, or a few colleagues doing so behind one
+// address, spent an allowance meant for the requests that cost a password
+// hash or an email. The browser suite found this before anybody else could:
+// it opens the sign-in screen dozens of times from one address, and the
+// throttle refused a page load rather than an attack.
 func RateLimitAuth(limiter *RateLimiter) func(http.Handler) http.Handler {
 	return func(next http.Handler) http.Handler {
 		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-			if limiter == nil || !isAuthPath(r.URL.Path) {
+			if limiter == nil || !isAuthPath(r.URL.Path) || !isCostly(r.Method) {
 				next.ServeHTTP(w, r)
 				return
 			}
@@ -196,4 +205,11 @@ func RateLimitAuth(limiter *RateLimiter) func(http.Handler) http.Handler {
 
 func isAuthPath(path string) bool {
 	return len(path) >= len(AuthRateLimitPath) && path[:len(AuthRateLimitPath)] == AuthRateLimitPath
+}
+
+// isCostly reports whether a method is one that does work worth rationing.
+// Everything under this prefix that costs a hash, a mail, or a row is a
+// POST; the reads are the sign-in screen asking what it should draw.
+func isCostly(method string) bool {
+	return method != http.MethodGet && method != http.MethodHead && method != http.MethodOptions
 }

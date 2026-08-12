@@ -230,7 +230,8 @@ export const errorsEnUS = {
   MALFORMED_BODY: "The request could not be read.",
   EMPTY_BODY: "The request had no content.",
   BODY_TOO_LARGE: "That request is too large.",
-  UNSUPPORTED_MEDIA_TYPE: "The request was sent in a format this endpoint does not read.",
+  UNSUPPORTED_MEDIA_TYPE:
+    "The request was sent in a format this endpoint does not read.",
   TOO_MANY_ATTEMPTS:
     "Too many attempts from this address. Please wait a moment and try again.",
   INVALID_PATH_PARAMETER: "That address is not valid.",

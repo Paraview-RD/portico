@@ -117,21 +117,21 @@ func TestOnlyTheAuthPathIsLimited(t *testing.T) {
 	handler := httpx.RateLimitAuth(limiter)(http.HandlerFunc(
 		func(w http.ResponseWriter, _ *http.Request) { w.WriteHeader(http.StatusOK) }))
 
-	status := func(path string) int {
+	status := func(method, path string) int {
 		recorder := httptest.NewRecorder()
-		handler.ServeHTTP(recorder, httptest.NewRequest(http.MethodGet, path, nil))
+		handler.ServeHTTP(recorder, httptest.NewRequest(method, path, nil))
 		return recorder.Code
 	}
 
-	if got := status("/api/v1/auth/login"); got != http.StatusOK {
+	if got := status(http.MethodPost, "/api/v1/auth/login"); got != http.StatusOK {
 		t.Fatalf("first request to the sign-in endpoint: got %d, want 200", got)
 	}
-	if got := status("/api/v1/auth/login"); got != http.StatusTooManyRequests {
+	if got := status(http.MethodPost, "/api/v1/auth/login"); got != http.StatusTooManyRequests {
 		t.Errorf("second request to the sign-in endpoint: got %d, want 429", got)
 	}
 
 	for i := 0; i < 20; i++ {
-		if got := status("/api/v1/ready"); got != http.StatusOK {
+		if got := status(http.MethodGet, "/api/v1/ready"); got != http.StatusOK {
 			t.Fatalf("readiness probe %d: got %d, want 200. A throttle that "+
 				"answers a health check with 429 marks its own instance down.",
 				i, got)
@@ -139,10 +139,47 @@ func TestOnlyTheAuthPathIsLimited(t *testing.T) {
 	}
 }
 
+// The reads under the same prefix are not rationed. Both are what the
+// sign-in screen asks on load — whether registration is open, which recovery
+// channels exist — and neither costs more than a cheap lookup. Counting them
+// meant a person opening the page a few times, or several colleagues behind
+// one address doing so, spent the allowance meant for password attempts.
+func TestReadsUnderTheAuthPathAreNotLimited(t *testing.T) {
+	limiter := httpx.NewRateLimiter(60, 1)
+	handler := httpx.RateLimitAuth(limiter)(http.HandlerFunc(
+		func(w http.ResponseWriter, _ *http.Request) { w.WriteHeader(http.StatusOK) }))
+
+	for i := 0; i < 20; i++ {
+		for _, path := range []string{
+			"/api/v1/auth/registration-status",
+			"/api/v1/auth/recovery-channels",
+		} {
+			recorder := httptest.NewRecorder()
+			handler.ServeHTTP(recorder, httptest.NewRequest(http.MethodGet, path, nil))
+			if recorder.Code != http.StatusOK {
+				t.Fatalf("%s on load %d: got %d, want 200. Opening the sign-in "+
+					"screen must not spend the allowance that exists for "+
+					"password attempts.", path, i, recorder.Code)
+			}
+		}
+	}
+
+	// And the writes still are, on the same limiter.
+	post := httptest.NewRequest(http.MethodPost, "/api/v1/auth/login", nil)
+	first := httptest.NewRecorder()
+	handler.ServeHTTP(first, post)
+	second := httptest.NewRecorder()
+	handler.ServeHTTP(second, httptest.NewRequest(http.MethodPost, "/api/v1/auth/login", nil))
+	if second.Code != http.StatusTooManyRequests {
+		t.Errorf("sign-in got %d after forty reads; the reads consumed the "+
+			"allowance or the limiter stopped applying", second.Code)
+	}
+}
+
 func TestRefusalCarriesRetryAfter(t *testing.T) {
 	limiter := httpx.NewRateLimiter(60, 1)
 	handler := httpx.RateLimitAuth(limiter)(http.HandlerFunc(
-		func(w http.ResponseWriter, _ *http.Request) {}))
+		func(_ http.ResponseWriter, _ *http.Request) {}))
 
 	recorder := httptest.NewRecorder()
 	handler.ServeHTTP(recorder, httptest.NewRequest(http.MethodPost, "/api/v1/auth/login", nil))
