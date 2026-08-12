@@ -61,6 +61,10 @@ export function FieldMappingEditor({
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState("");
+  // Off by default: the catalogue is also the answer to "what can I send?",
+  // and a list that starts empty answers that with silence. The filter is for
+  // coming back to something already configured, which is the other visit.
+  const [onlyConfigured, setOnlyConfigured] = useState(false);
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -129,66 +133,130 @@ export function FieldMappingEditor({
 
   const changed = fields.filter((field) => configured(rules[field.key])).length;
 
+  /** Rows to draw, which the filter narrows without touching what is saved. */
+  function rowsIn(group: CatalogueField["group"]): CatalogueField[] {
+    return fields.filter(
+      (field) =>
+        field.group === group &&
+        (!onlyConfigured || configured(rules[field.key])),
+    );
+  }
+
   return (
     <Modal
       open
       onClose={onClose}
       title={t("fieldMappings.title") + " — " + recipientName}
     >
-      <div className="space-y-4">
-        <p className="text-sm text-muted-foreground">
+      <div className="space-y-3">
+        <p className="text-sm text-[var(--color-fg-muted)]">
           {t("fieldMappings.intro")}
         </p>
         {error ? <Alert tone="danger">{error}</Alert> : null}
 
         {loading ? (
-          <p className="text-sm text-muted-foreground">{t("common.loading")}</p>
+          <p className="text-sm text-[var(--color-fg-muted)]">
+            {t("common.loading")}
+          </p>
         ) : (
-          groupOrder.map((group) => {
-            const inGroup = fields.filter((field) => field.group === group);
-            if (inGroup.length === 0) return null;
-            return (
-              <section key={group} className="space-y-2">
-                <h3 className="text-sm font-medium">
-                  {t(`fieldGroup.${group}` as TranslationKey)}
-                </h3>
-                <div className="space-y-1">
-                  {inGroup.map((field) => {
-                    const rule = rules[field.key] ?? {
-                      targetName: "",
-                      suppressed: false,
-                    };
-                    return (
-                      <div
-                        key={field.key}
-                        className="grid grid-cols-[1fr_1fr_auto] items-center gap-2"
-                      >
-                        <div className="min-w-0">
-                          <div className="truncate text-sm">
-                            {labelOf(field)}
+          <>
+            {/* The filter sits above the header rather than in it: it changes
+                what the table shows, not what a column means. */}
+            <label className="flex items-center gap-2 text-sm">
+              <input
+                type="checkbox"
+                checked={onlyConfigured}
+                onChange={(event) => setOnlyConfigured(event.target.checked)}
+              />
+              {t("fieldMappings.onlyConfigured")}
+              <span className="text-[var(--color-fg-muted)]">({changed})</span>
+            </label>
+
+            {/* A header, so that the middle column does not have to be
+                explained by its own placeholder. */}
+            <div
+              className="grid grid-cols-[minmax(0,1fr)_12rem_4rem] items-center
+                gap-3 border-b border-[var(--color-border)] pb-1
+                text-xs text-[var(--color-fg-muted)]"
+            >
+              <span>{t("fieldMappings.columnField")}</span>
+              <span>{t("fieldMappings.columnTarget")}</span>
+              <span className="w-16 text-center whitespace-nowrap">
+                {t("fieldMappings.suppress")}
+              </span>
+            </div>
+
+            {onlyConfigured && changed === 0 ? (
+              <p className="py-2 text-sm text-[var(--color-fg-muted)]">
+                {t("fieldMappings.none")}
+              </p>
+            ) : null}
+
+            {groupOrder.map((group) => {
+              const inGroup = rowsIn(group);
+              if (inGroup.length === 0) return null;
+              return (
+                <section key={group} className="pt-3">
+                  <h3 className="pb-1 text-xs font-medium tracking-wide text-[var(--color-fg-muted)] uppercase">
+                    {t(`fieldGroup.${group}` as TranslationKey)}
+                  </h3>
+                  <div>
+                    {inGroup.map((field) => {
+                      const rule = rules[field.key] ?? {
+                        targetName: "",
+                        suppressed: false,
+                      };
+                      const isSet = configured(rule);
+                      return (
+                        <div
+                          key={field.key}
+                          className={
+                            "grid grid-cols-[minmax(0,1fr)_12rem_4rem] items-center " +
+                            "gap-3 border-l-2 py-1 pl-2 " +
+                            // A configured row is the one somebody came back
+                            // for. Three of them among forty are otherwise
+                            // indistinguishable from the rest.
+                            (isSet
+                              ? "border-[var(--color-primary)] bg-[var(--color-bg-subtle)]"
+                              : "border-transparent")
+                          }
+                        >
+                          <div className="flex min-w-0 items-baseline gap-2">
+                            <span className="shrink-0 text-sm">
+                              {labelOf(field)}
+                            </span>
+                            {/* The key is what the API stores and what whoever
+                                writes the receiving end needs, so it stays
+                                visible — but it is secondary, so it no longer
+                                takes a line of its own. */}
+                            <code
+                              className="truncate text-xs text-[var(--color-fg-muted)]"
+                              title={field.key}
+                            >
+                              {field.key}
+                            </code>
                             {field.disabled ? (
                               <Badge tone="neutral">
                                 {t("fieldMappings.retired")}
                               </Badge>
                             ) : null}
                           </div>
-                          <code className="text-xs text-muted-foreground">
-                            {field.key}
-                          </code>
-                        </div>
-                        <Input
-                          value={rule.targetName}
-                          disabled={rule.suppressed}
-                          placeholder={t("fieldMappings.defaultName")}
-                          onChange={(event) =>
-                            update(field.key, {
-                              targetName: event.target.value,
-                            })
-                          }
-                        />
-                        <label className="flex items-center gap-1 text-xs whitespace-nowrap">
+                          <Input
+                            value={rule.targetName}
+                            disabled={rule.suppressed}
+                            placeholder={t("fieldMappings.defaultName")}
+                            onChange={(event) =>
+                              update(field.key, {
+                                targetName: event.target.value,
+                              })
+                            }
+                          />
                           <input
                             type="checkbox"
+                            className="w-16"
+                            aria-label={
+                              t("fieldMappings.suppress") + " " + field.key
+                            }
                             checked={rule.suppressed}
                             onChange={(event) =>
                               update(field.key, {
@@ -199,15 +267,14 @@ export function FieldMappingEditor({
                               })
                             }
                           />
-                          {t("fieldMappings.suppress")}
-                        </label>
-                      </div>
-                    );
-                  })}
-                </div>
-              </section>
-            );
-          })
+                        </div>
+                      );
+                    })}
+                  </div>
+                </section>
+              );
+            })}
+          </>
         )}
 
         <div className="flex items-center justify-between gap-2">

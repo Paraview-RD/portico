@@ -5,7 +5,14 @@
 # The point is that the address never moves. Verifying a change meant starting
 # a server, finding a free port because the last one was still held, telling
 # somebody the new number, and doing it again an hour later — so this pins
-# 8140 and restarts in place instead.
+# 8410 and restarts in place instead.
+#
+# 8410 is the port a deployment defaults to, which is the whole reason to use
+# it here: it is the number already in muscle memory and in every bookmark.
+# This used to pin 8140 to stay clear of an instance of an older release that
+# was parked on 8410, and 8140 turned out to be a digit-swap of 8410 close
+# enough that nobody could tell which window was showing current code. The
+# older instance is gone; one address, and it is the obvious one.
 #
 #   hack/dev.sh              build, run, and rebuild on change
 #   hack/dev.sh --reseed     drop the dev database and fill it first
@@ -37,7 +44,7 @@ cd "$(dirname "$0")/.."
 # change between runs is one that cannot be bookmarked, and re-keying is not
 # free: the encryption key seals directory bind passwords and webhook
 # headers, so a fresh one on every start leaves the seeded ones unopenable.
-PORT="${PORTICO_DEV_PORT:-8140}"
+PORT="${PORTICO_DEV_PORT:-8410}"
 DB="${PORTICO_DEV_DB:-portico_seed}"
 DB_HOST="${PORTICO_DEV_DB_HOST:-localhost:5443}"
 DB_USER="${PORTICO_DEV_DB_USER:-portico}"

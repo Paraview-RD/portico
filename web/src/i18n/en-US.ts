@@ -743,7 +743,10 @@ export const enUS = {
   // the rules are the same rules — see docs/field-mappings.md.
   "fieldMappings.title": "Fields",
   "fieldMappings.intro":
-    "Leave a row empty and this recipient receives the field under the name it always has. Type a name to send it under that name instead; tick the box to stop sending it. Fields with no default are only sent if you name one.",
+    "An empty row means this recipient keeps receiving the field under the name it always has. Most of the catalogue is not sent by default — those only go out if you name one.",
+  "fieldMappings.columnField": "Field",
+  "fieldMappings.columnTarget": "Send as",
+  "fieldMappings.onlyConfigured": "Only what is configured",
   "fieldMappings.defaultName": "Default name",
   "fieldMappings.suppress": "Do not send",
   "fieldMappings.retired": "Retired",
