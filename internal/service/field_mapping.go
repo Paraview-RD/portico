@@ -52,6 +52,12 @@ var (
 	// hazard as a claim onto `sub`, one protocol down.
 	ErrPayloadNameTaken = httpx.BadRequest("PAYLOAD_NAME_TAKEN",
 		"The event payload already uses that name for something else.")
+	// ErrClaimNameTaken is the same guard one protocol over. OpenID Connect
+	// does not reserve `tenant_id` or `role` — they are this project's own
+	// claims — so nothing else would stop a department being sent as the
+	// tenant, in a claim a relying party reads as the tenant.
+	ErrClaimNameTaken = httpx.BadRequest("CLAIM_NAME_TAKEN",
+		"This application already receives another field under that claim name.")
 )
 
 // reservedClaims are the names an OpenID Connect mapping may not take.
@@ -277,8 +283,15 @@ func (s *FieldMappingService) normalize(ctx context.Context, tenantID string, re
 		}
 		seenTarget[in.TargetName] = true
 
-		if ref.OAuthClientID != "" && reservedClaims[strings.ToLower(in.TargetName)] {
-			return nil, ErrReservedClaimName
+		if ref.OAuthClientID != "" {
+			if reservedClaims[strings.ToLower(in.TargetName)] {
+				return nil, ErrReservedClaimName
+			}
+			// And the claims this system sends of its own accord, which the
+			// specification does not reserve and which are just as occupied.
+			if owner, taken := oidcClaimOwners[in.TargetName]; taken && owner != in.SourceKey {
+				return nil, ErrClaimNameTaken
+			}
 		}
 		if ref.WebhookSubscriptionID != "" {
 			if owners, taken := webhookTopLevelOwners[in.TargetName]; taken && !owners[in.SourceKey] {

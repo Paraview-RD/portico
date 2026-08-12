@@ -261,6 +261,8 @@ export const errorsEnUS = {
   PAYLOAD_NAME_TAKEN:
     "The event already uses that name for something else. Choose another.",
   RECIPIENT_NOT_FOUND: "No such application or subscription.",
+  CLAIM_NAME_TAKEN:
+    "This application already receives another field under that claim name.",
 };
 
 /** Every code this table knows. */
