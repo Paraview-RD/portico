@@ -86,7 +86,7 @@ working", "which delivery is stuck") have no past to answer from.
 # something real to synchronize against.
 docker compose -f deploy/dev-stack/compose.yml up -d
 
-PORTICO_DB_DSN='postgres://portico:portico@localhost:5432/portico?sslmode=disable' \
+PORTICO_DB_DSN='postgres://portico:portico@localhost:5443/portico?sslmode=disable' \
   go run ./cmd/seed
 ```
 
