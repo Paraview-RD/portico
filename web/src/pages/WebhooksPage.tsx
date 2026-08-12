@@ -4,6 +4,7 @@ import { webhooksApi } from "../api/endpoints";
 import type {
   CreatedWebhookSubscription,
   WebhookDelivery,
+  WebhookSnapshot,
   WebhookSubscription,
 } from "../api/types";
 import { FieldMappingEditor } from "../components/FieldMappingEditor";
@@ -108,6 +109,15 @@ export function WebhooksPage() {
   );
   const [deleting, setDeleting] = useState<WebhookSubscription | null>(null);
   const [rotating, setRotating] = useState<WebhookSubscription | null>(null);
+  // Behind a confirmation, and reported afterwards. This queues the largest
+  // delivery the product makes — every account, organization and group the
+  // tenant has — and an operator who pressed it by accident should learn
+  // that from a dialog rather than from their receiver falling over.
+  const [snapshotting, setSnapshotting] =
+    useState<WebhookSubscription | null>(null);
+  const [snapshotResult, setSnapshotResult] = useState<WebhookSnapshot | null>(
+    null,
+  );
   const [inspecting, setInspecting] = useState<WebhookSubscription | null>(
     null,
   );
@@ -184,6 +194,23 @@ export function WebhooksPage() {
     setInspecting(subscription);
     try {
       setDeliveries(await webhooksApi.deliveries(subscription.id));
+    } catch (err) {
+      setError(describeError(err));
+    }
+  }
+
+  async function snapshot() {
+    if (!snapshotting) return;
+    setError("");
+    const subscription = snapshotting;
+    setSnapshotting(null);
+    try {
+      setSnapshotResult(await webhooksApi.snapshot(subscription.id));
+      // The delivery list is where the pages can be watched, so the result
+      // dialog is a summary rather than a progress bar: nothing here polls.
+      if (inspecting?.id === subscription.id) {
+        setDeliveries(await webhooksApi.deliveries(subscription.id));
+      }
     } catch (err) {
       setError(describeError(err));
     }
@@ -306,6 +333,13 @@ export function WebhooksPage() {
                     {subscription.status === "ACTIVE"
                       ? t("common.disable")
                       : t("common.enable")}
+                  </Button>
+                  <Button
+                    size="sm"
+                    variant="secondary"
+                    onClick={() => setSnapshotting(subscription)}
+                  >
+                    {t("webhooks.snapshot")}
                   </Button>
                   <Button
                     size="sm"
@@ -485,6 +519,36 @@ export function WebhooksPage() {
             </div>
           </fieldset>
         </form>
+      </Modal>
+
+      <ConfirmDialog
+        open={snapshotting !== null}
+        title={t("webhooks.snapshotTitle")}
+        message={t("webhooks.snapshotConfirm", snapshotting?.name ?? "")}
+        onCancel={() => setSnapshotting(null)}
+        onConfirm={() => void snapshot()}
+      />
+
+      <Modal
+        open={snapshotResult !== null}
+        title={t("webhooks.snapshotQueued")}
+        onClose={() => setSnapshotResult(null)}
+        footer={
+          <Button onClick={() => setSnapshotResult(null)}>
+            {t("common.done")}
+          </Button>
+        }
+      >
+        <div className="flex flex-col gap-4">
+          <p className="text-sm">
+            {t(
+              "webhooks.snapshotSummary",
+              String(snapshotResult?.pages ?? 0),
+              (snapshotResult?.scope ?? []).join(", "),
+            )}
+          </p>
+          <Alert tone="warning">{t("webhooks.snapshotReconcile")}</Alert>
+        </div>
       </Modal>
 
       <ConfirmDialog

@@ -21,6 +21,7 @@ import { renderWithLanguage } from "../test/render";
 
 const list = vi.fn();
 const events = vi.fn();
+const snapshot = vi.fn();
 
 vi.mock("../api/endpoints", () => ({
   webhooksApi: {
@@ -31,6 +32,7 @@ vi.mock("../api/endpoints", () => ({
     enable: vi.fn(),
     disable: vi.fn(),
     deliveries: vi.fn(),
+    snapshot: (id: string) => snapshot(id),
   },
 }));
 
@@ -89,5 +91,51 @@ describe("choosing which events to receive", () => {
 
     expect(await screen.findByText("账号")).toBeTruthy();
     expect(screen.getByText("组织")).toBeTruthy();
+  });
+});
+
+describe("sending a snapshot", () => {
+  const subscription = {
+    id: "sub-1",
+    name: "mirror",
+    url: "https://203.0.113.10/portico",
+    events: "*",
+    status: "ACTIVE",
+    createdAt: "2026-01-01T00:00:00Z",
+    updatedAt: "2026-01-01T00:00:00Z",
+  };
+
+  it("asks first, because this is the largest delivery the product makes", async () => {
+    list.mockResolvedValue([subscription]);
+    renderWithLanguage(<WebhooksPage />, "zh-CN");
+
+    await userEvent.click(await screen.findByRole("button", { name: /发送快照/ }));
+
+    // Nothing has been queued yet. A button that fired on the first click
+    // would send every account in the tenant to somebody's endpoint because
+    // an operator's mouse slipped.
+    expect(snapshot).not.toHaveBeenCalled();
+    expect(await screen.findByText(/最大的一次投递/)).toBeTruthy();
+  });
+
+  it("reports what it queued, and what the receiver has to do about it", async () => {
+    list.mockResolvedValue([subscription]);
+    snapshot.mockResolvedValue({
+      syncId: "run-1",
+      scope: ["user", "group"],
+      counts: { user: 55, group: 4 },
+      pages: 2,
+    });
+    renderWithLanguage(<WebhooksPage />, "zh-CN");
+
+    await userEvent.click(await screen.findByRole("button", { name: /发送快照/ }));
+    await userEvent.click(await screen.findByRole("button", { name: /确认|确定/ }));
+
+    expect(snapshot).toHaveBeenCalledWith("sub-1");
+    expect(await screen.findByText(/已排队 2 次分页投递/)).toBeTruthy();
+    // The demand on the receiver is on the screen that says the snapshot
+    // went, not only in the manual: this is the moment somebody is about to
+    // tell their counterpart what to expect.
+    expect(screen.getByText(/按 id 对账/)).toBeTruthy();
   });
 });

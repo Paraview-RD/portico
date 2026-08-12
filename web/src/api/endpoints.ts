@@ -36,6 +36,7 @@ import type {
   User,
   UserSession,
   WebhookDelivery,
+  WebhookSnapshot,
   WebhookSubscription,
   CatalogueField,
   FieldMapping,
@@ -754,6 +755,14 @@ export const webhooksApi = {
 
   enable: (id: string) =>
     request<void>(`/webhooks/${segment(id)}/enable`, { method: "POST" }),
+
+  // Queues a copy of everything that already exists. Answers when the pages
+  // are queued, not when the receiver has taken them — the delivery list is
+  // where progress is read.
+  snapshot: (id: string) =>
+    request<WebhookSnapshot>(`/webhooks/${segment(id)}/snapshot`, {
+      method: "POST",
+    }),
 
   disable: (id: string) =>
     request<void>(`/webhooks/${segment(id)}/disable`, { method: "POST" }),
