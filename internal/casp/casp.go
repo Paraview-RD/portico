@@ -25,6 +25,7 @@ import (
 	"github.com/Paraview-RD/portico/internal/auth"
 	"github.com/Paraview-RD/portico/internal/model"
 	"github.com/Paraview-RD/portico/internal/service"
+	"github.com/Paraview-RD/portico/internal/store"
 )
 
 // Paths, relative to an issuer. The shapes are the specification's.
@@ -52,15 +53,22 @@ type Server struct {
 	publicURL string
 	tenants   *service.TenantService
 	cas       *service.CASService
+	catalogue *service.FieldCatalogue
+	mappings  *service.FieldMappingService
 	audit     *service.AuditService
 }
 
 // New wires the server.
-func New(publicURL string, tenants *service.TenantService, cas *service.CASService, audit *service.AuditService) *Server {
+func New(publicURL string, tenants *service.TenantService, cas *service.CASService,
+	catalogue *service.FieldCatalogue, mappings *service.FieldMappingService,
+	audit *service.AuditService,
+) *Server {
 	return &Server{
 		publicURL: strings.TrimSuffix(publicURL, "/"),
 		tenants:   tenants,
 		cas:       cas,
+		catalogue: catalogue,
+		mappings:  mappings,
 		audit:     audit,
 	}
 }
@@ -185,7 +193,23 @@ func (s *Server) serveValidate(w http.ResponseWriter, r *http.Request, tenant mo
 		return
 	}
 
-	writeSuccess(w, validated.User, tenant, withAttributes)
+	var items []casAttribute
+	if withAttributes {
+		out, err := s.outboundFor(r.Context(), tenant.ID, serviceURL)
+		if err != nil {
+			// The ticket was valid, so this is the registration lookup or the
+			// rules failing rather than the caller being wrong. Answering
+			// with the defaults would send a field somebody suppressed.
+			writeFailure(w, "INTERNAL_ERROR", "could not assemble the attributes")
+			return
+		}
+		items, err = s.casAttributes(r.Context(), validated.User, tenant, out)
+		if err != nil {
+			writeFailure(w, "INTERNAL_ERROR", "could not assemble the attributes")
+			return
+		}
+	}
+	writeSuccess(w, validated.User, withAttributes, items)
 }
 
 // The CAS 2.0/3.0 response documents. The element and attribute names are
@@ -207,15 +231,31 @@ type authenticationSuccess struct {
 // attributes is the CAS 3.0 addition. The names match the OpenID claims and
 // the SAML attributes, so a service integrated over one protocol sees the
 // same facts under the same names over another.
+//
+// A list rather than a struct with fixed tags, because a CAS attribute's name
+// is its element name and a service may rename one. A struct field cannot
+// carry a name decided at runtime. The order below is written by the caller
+// and is the order it has always been, so an unconfigured service receives
+// the same document it received before any of this existed.
 type attributes struct {
-	DisplayName      string `xml:"cas:displayName,omitempty"`
-	Email            string `xml:"cas:email,omitempty"`
-	Phone            string `xml:"cas:phone,omitempty"`
-	TenantID         string `xml:"cas:tenant_id,omitempty"`
-	TenantCode       string `xml:"cas:tenant_code,omitempty"`
-	Role             string `xml:"cas:role,omitempty"`
-	OrganizationID   string `xml:"cas:organization_id,omitempty"`
-	OrganizationName string `xml:"cas:organization_name,omitempty"`
+	Items []casAttribute
+}
+
+// casAttribute is one element, named at runtime.
+//
+// The `cas:` prefix is part of the local name rather than a real namespace
+// binding, exactly as the fixed tags had it — several clients match on the
+// literal string, and switching to a proper namespace would rename every
+// element for them.
+type casAttribute struct {
+	XMLName xml.Name
+	Value   string `xml:",chardata"`
+}
+
+// casElement builds one, adding the prefix a mapping does not have to know
+// about.
+func casElement(name, value string) casAttribute {
+	return casAttribute{XMLName: xml.Name{Local: "cas:" + name}, Value: value}
 }
 
 type authenticationFailure struct {
@@ -225,26 +265,78 @@ type authenticationFailure struct {
 
 const casNamespace = "http://www.yale.edu/tp/cas"
 
-func writeSuccess(w http.ResponseWriter, user model.User, tenant model.Tenant, withAttributes bool) {
+func writeSuccess(w http.ResponseWriter, user model.User, withAttributes bool, items []casAttribute) {
 	success := &authenticationSuccess{
 		// The username, not the account id: CAS clients show this to people
 		// and key local records on it, and every CAS deployment in existence
-		// expects a username here.
+		// expects a username here. It is not mappable for the same reason
+		// `sub` is not: a service keying its records on it needs it to mean
+		// one thing.
 		User: user.Username,
 	}
+	// Whenever CAS 3.0 validation was asked for, even if every attribute
+	// turned out to be suppressed. The element was always written before, and
+	// a client that checks whether it is there would read its disappearance
+	// as "this is a CAS 2.0 response" rather than as "this service receives
+	// nothing".
 	if withAttributes {
-		success.Attributes = &attributes{
-			DisplayName:      user.DisplayName,
-			Email:            user.Email,
-			Phone:            user.Phone,
-			TenantID:         tenant.ID,
-			TenantCode:       tenant.Code,
-			Role:             string(user.Role),
-			OrganizationID:   user.OrganizationID,
-			OrganizationName: user.OrganizationName,
-		}
+		success.Attributes = &attributes{Items: items}
 	}
 	writeResponse(w, &serviceResponse{XMLNS: casNamespace, Success: success})
+}
+
+// casAttributes is the response's attribute list, in the order it has always
+// been written, with a service's rules applied.
+func (s *Server) casAttributes(ctx context.Context, user model.User, tenant model.Tenant, out service.Outbound) ([]casAttribute, error) {
+	values := []struct{ key, value string }{
+		{"display_name", user.DisplayName},
+		{"email", user.Email},
+		{"phone", user.Phone},
+		{"tenant_id", tenant.ID},
+		{"tenant_code", tenant.Code},
+		{"role", string(user.Role)},
+		{"organization_id", user.OrganizationID},
+		{"organization_name", user.OrganizationName},
+	}
+
+	items := make([]casAttribute, 0, len(values))
+	for _, v := range values {
+		// Empty stays absent, which is what the omitempty tags did.
+		if v.value == "" {
+			continue
+		}
+		if name, send := service.CASAttributeFor(out, v.key); send {
+			items = append(items, casElement(name, v.value))
+		}
+	}
+
+	if s.catalogue == nil {
+		return items, nil
+	}
+	added, err := s.catalogue.CASAdditions(ctx, tenant.ID, user, out)
+	if err != nil {
+		return nil, err
+	}
+	for _, a := range added {
+		items = append(items, casElement(a.Name, a.Value))
+	}
+	return items, nil
+}
+
+// outboundFor reads what one registered service is configured to receive.
+//
+// An error is returned rather than swallowed, for the reason the other two
+// protocols give: a suppression is somebody's decision that this service must
+// not receive a field, and falling back to the defaults would send it anyway.
+func (s *Server) outboundFor(ctx context.Context, tenantID, serviceURL string) (service.Outbound, error) {
+	if s.mappings == nil {
+		return service.Outbound{}, nil
+	}
+	registered, err := s.cas.Match(ctx, tenantID, serviceURL)
+	if err != nil {
+		return service.Outbound{}, err
+	}
+	return s.mappings.OutboundFor(ctx, tenantID, store.RecipientRef{CASServiceID: registered.ID})
 }
 
 func writeFailure(w http.ResponseWriter, code, message string) {

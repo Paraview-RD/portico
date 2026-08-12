@@ -38,6 +38,11 @@ type WebhookService struct {
 	// rather than writing somebody's bearer token into the table in the
 	// clear. See internal/secrets.
 	vault *secrets.Vault
+
+	// catalogue and mappings may both be nil, which means every payload is
+	// delivered exactly as it always was. See WithFieldMappings.
+	catalogue *FieldCatalogue
+	mappings  *FieldMappingService
 }
 
 // WithVault attaches the key custom headers are sealed under. Separate from
@@ -397,6 +402,10 @@ func (s *WebhookService) publish(ctx context.Context, tenantID, eventType string
 	}
 
 	now := store.Now()
+	// Prepared here and resolved on first use, so an event nobody has
+	// configured mappings for costs nothing beyond this allocation.
+	overlay := s.overlayFor(tenantID, eventType, data)
+
 	for _, subscription := range subscriptions {
 		if !webhook.Selects(subscription.Events, eventType) {
 			continue
@@ -409,7 +418,7 @@ func (s *WebhookService) publish(ctx context.Context, tenantID, eventType string
 		// account somebody has since re-enabled.
 		body, err := json.Marshal(webhook.Envelope{
 			ID: deliveryID, Type: eventType, Tenant: tenantID,
-			OccurredAt: now, Data: data,
+			OccurredAt: now, Data: overlay.dataFor(ctx, subscription.ID),
 		})
 		if err != nil {
 			return fmt.Errorf("render event: %w", err)

@@ -35,6 +35,9 @@ import type {
   UserSession,
   WebhookDelivery,
   WebhookSubscription,
+  CatalogueField,
+  FieldMapping,
+  RecipientKind,
 } from "./types";
 
 /** Builds a query string, omitting empty values. */
@@ -775,4 +778,40 @@ export const groupsApi = {
    * have a home screen.
    */
   forMe: () => request<GroupRef[]>("/users/me/groups"),
+};
+
+/** The field catalogue: everything that may be mapped, for this tenant. */
+export const fieldsApi = {
+  list: () => request<CatalogueField[]>("/fields"),
+};
+
+/**
+ * Where each recipient's rules live.
+ *
+ * Four paths rather than one, because the id in each is the one that
+ * recipient's own screens use — an OAuth client is addressed by its client
+ * id, the other three by their row id.
+ */
+const mappingPath: Record<RecipientKind, (id: string) => string> = {
+  oauth: (id) => `/applications/oauth-clients/${segment(id)}/field-mappings`,
+  saml: (id) =>
+    `/applications/saml-service-providers/${segment(id)}/field-mappings`,
+  cas: (id) => `/applications/cas-services/${segment(id)}/field-mappings`,
+  webhook: (id) => `/webhooks/${segment(id)}/field-mappings`,
+};
+
+export const fieldMappingsApi = {
+  list: (kind: RecipientKind, id: string) =>
+    request<FieldMapping[]>(mappingPath[kind](id)),
+
+  /**
+   * Replaces the whole set. A save is a table somebody edited, so merging
+   * would leave the rows they deleted still in place — the one outcome
+   * nobody expects from a save. An empty list restores the defaults.
+   */
+  replace: (kind: RecipientKind, id: string, mappings: FieldMapping[]) =>
+    request<FieldMapping[]>(mappingPath[kind](id), {
+      method: "PUT",
+      body: { mappings },
+    }),
 };

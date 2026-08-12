@@ -6,6 +6,7 @@ import type {
   WebhookDelivery,
   WebhookSubscription,
 } from "../api/types";
+import { FieldMappingEditor } from "../components/FieldMappingEditor";
 import { useErrorMessage, useT } from "../i18n";
 import type { Translate } from "../i18n";
 import type { TranslationKey } from "../i18n/en-US";
@@ -111,6 +112,10 @@ export function WebhooksPage() {
     null,
   );
   const [deliveries, setDeliveries] = useState<WebhookDelivery[]>([]);
+  // What this subscriber receives, and under what name. Its own dialog rather
+  // than a section of the create form: it is edited long after registration,
+  // usually because the receiving end asked for a different name.
+  const [mapping, setMapping] = useState<WebhookSubscription | null>(null);
 
   const load = useCallback(async () => {
     try {
@@ -285,6 +290,13 @@ export function WebhooksPage() {
                     onClick={() => void inspect(subscription)}
                   >
                     {t("webhooks.deliveries")}
+                  </Button>
+                  <Button
+                    size="sm"
+                    variant="secondary"
+                    onClick={() => setMapping(subscription)}
+                  >
+                    {t("fieldMappings.open")}
                   </Button>
                   <Button
                     size="sm"
@@ -561,6 +573,15 @@ export function WebhooksPage() {
         onConfirm={() => void remove()}
         onCancel={() => setDeleting(null)}
       />
+
+      {mapping ? (
+        <FieldMappingEditor
+          kind="webhook"
+          recipientId={mapping.id}
+          recipientName={mapping.name}
+          onClose={() => setMapping(null)}
+        />
+      ) : null}
     </>
   );
 }

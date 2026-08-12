@@ -206,6 +206,28 @@ const (
 	ActionGroupMemberReplace = "GROUP_MEMBER_REPLACE"
 
 	ActionSettingsUpdate = "SETTINGS_UPDATE"
+
+	// Tenant-defined user attributes. Defining one and recording a value
+	// against it are separate verbs for the same reason group membership is
+	// separate from renaming a group: "who added a badge-number field" and
+	// "when did this person's badge number change" are asked by different
+	// people. The delete verb carries how many values went with it, because
+	// that is the whole of what was lost and it does not come back.
+	ActionUserAttributeDefine  = "USER_ATTRIBUTE_DEFINE"
+	ActionUserAttributeUpdate  = "USER_ATTRIBUTE_UPDATE"
+	ActionUserAttributeEnable  = "USER_ATTRIBUTE_ENABLE"
+	ActionUserAttributeDisable = "USER_ATTRIBUTE_DISABLE"
+	ActionUserAttributeDelete  = "USER_ATTRIBUTE_DELETE"
+	// The keys that changed, never the values: an entry carrying those would
+	// be a second copy of whatever a tenant records about its people, in a
+	// table with a different retention period.
+	ActionUserAttributeSet = "USER_ATTRIBUTE_SET"
+
+	// One verb for a whole application's mapping set, because a save replaces
+	// the set rather than editing rows: "these are the rules now" is the change
+	// that happened, and six entries describing it row by row would be six
+	// entries about one decision.
+	ActionFieldMappingReplace = "FIELD_MAPPING_REPLACE"
 )
 
 // There is deliberately no verb for a downstream synchronisation.

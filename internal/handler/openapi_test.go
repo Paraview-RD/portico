@@ -73,6 +73,15 @@ var bodies = map[string]any{
 	"authorizeOAuth":           authorizeRequest{},
 	"authorizeSAML":            samlAuthenticateRequest{},
 	"authorizeCAS":             casAuthorizeRequest{},
+
+	"defineUserAttribute": userAttributeRequest{},
+	"updateUserAttribute": userAttributeRequest{},
+
+	// One editor writes all four, so one struct describes all four bodies.
+	"replaceOAuthClientFieldMappings":     fieldMappingRequest{},
+	"replaceServiceProviderFieldMappings": fieldMappingRequest{},
+	"replaceCASServiceFieldMappings":      fieldMappingRequest{},
+	"replaceWebhookFieldMappings":         fieldMappingRequest{},
 }
 
 // notJSON are the two operations that take a file rather than a document.
@@ -80,6 +89,12 @@ var bodies = map[string]any{
 var notJSON = map[string]bool{
 	"uploadApplicationLogo": true,
 	"importUsers":           true,
+	// A free-form object rather than a document with named fields: the keys
+	// are whatever attributes this tenant defined, so there is no struct to
+	// compare against and there could not be one. What the keys may be is
+	// checked at a different boundary — the service refuses a key the
+	// catalogue does not hold.
+	"setUserAttributeValues": true,
 }
 
 func TestEveryRequestBodyDescribesWhatTheHandlerReads(t *testing.T) {

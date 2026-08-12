@@ -63,6 +63,8 @@ type Seeder struct {
 	scim     *service.SCIMCredentialService
 	webhooks *service.WebhookService
 	dirs     *service.DirectoryService
+	attrs    *service.UserAttributeService
+	mappings *service.FieldMappingService
 	audit    *service.AuditService
 
 	// canSeal records whether this deployment has PORTICO_ENCRYPTION_KEY.
@@ -120,7 +122,9 @@ func New(st *store.Store, cfg *config.Config) *Seeder {
 	// nothing will scrape is not worth the allocation; the service tolerates
 	// nil for exactly this case.
 	users := service.NewUserService(st, audit, settings, tokens, nil)
-	webhooks := service.NewWebhookService(st, audit)
+	fields := service.NewFieldCatalogue(st)
+	mappings := service.NewFieldMappingService(st, audit, fields)
+	webhooks := service.NewWebhookService(st, audit).WithFieldMappings(fields, mappings)
 
 	// A vault only when a key is configured. Without one the directory
 	// service refuses to store a bind password, which is correct behaviour
@@ -148,6 +152,8 @@ func New(st *store.Store, cfg *config.Config) *Seeder {
 		scim:     service.NewSCIMCredentialService(st, audit),
 		webhooks: webhooks,
 		dirs:     service.NewDirectoryService(st, users, audit, webhooks, vault),
+		attrs:    service.NewUserAttributeService(st, audit),
+		mappings: mappings,
 		audit:    audit,
 		canSeal:  vault != nil,
 	}
@@ -165,6 +171,9 @@ type Summary struct {
 	Groups        int
 	Applications  int
 	Subscriptions int
+	// FieldMappings is rules, not recipients: the interesting number is how
+	// much has been decided, not how many things could have decided something.
+	FieldMappings int
 	Directories   int
 	AuditEntries  int
 	Sessions      int

@@ -15,6 +15,7 @@ import (
 	"github.com/Paraview-RD/portico/internal/oidcp"
 	"github.com/Paraview-RD/portico/internal/samlp"
 	"github.com/Paraview-RD/portico/internal/scim"
+	"github.com/Paraview-RD/portico/internal/service"
 	"github.com/Paraview-RD/portico/internal/web"
 )
 
@@ -129,6 +130,12 @@ func (s *Server) routes() http.Handler {
 				// changes role, status, and organization — a form editing a
 				// job title must not be able to send a role at all.
 				r.Put("/{id}/profile", h.SetUserProfile)
+				// The attributes this tenant defined for itself, kept apart
+				// from the profile for the same reason the profile is kept
+				// apart from role and status: one form editing one kind of
+				// thing cannot reach the others by accident.
+				r.Get("/{id}/attributes", h.GetUserAttributeValues)
+				r.Put("/{id}/attributes", h.SetUserAttributeValues)
 				// The tenant's accounts as a spreadsheet, taking the same
 				// filters the listing does. Audited: this is every
 				// attribute of every account leaving in one request.
@@ -206,6 +213,15 @@ func (s *Server) routes() http.Handler {
 				r.Post("/{clientID}/enable", h.EnableClient)
 				r.Post("/{clientID}/disable", h.DisableClient)
 				r.Post("/{clientID}/rotate-secret", h.RotateClientSecret)
+
+				// What this application receives, and under what name. An
+				// empty list means the documented defaults, which is what
+				// every application registered before this feature existed
+				// has and keeps.
+				r.Get("/{clientID}/field-mappings",
+					h.ListFieldMappings(service.RecipientOAuthClient, "clientID"))
+				r.Put("/{clientID}/field-mappings",
+					h.ReplaceFieldMappings(service.RecipientOAuthClient, "clientID"))
 			})
 
 			// These two are addressed by the registration's own id, not by
@@ -222,6 +238,11 @@ func (s *Server) routes() http.Handler {
 				r.Put("/{id}", h.UpdateServiceProvider)
 				r.Post("/{id}/enable", h.EnableServiceProvider)
 				r.Post("/{id}/disable", h.DisableServiceProvider)
+
+				r.Get("/{id}/field-mappings",
+					h.ListFieldMappings(service.RecipientSAMLProvider, "id"))
+				r.Put("/{id}/field-mappings",
+					h.ReplaceFieldMappings(service.RecipientSAMLProvider, "id"))
 			})
 
 			r.Route("/applications/cas-services", func(r chi.Router) {
@@ -231,6 +252,11 @@ func (s *Server) routes() http.Handler {
 				r.Put("/{id}", h.UpdateCASService)
 				r.Post("/{id}/enable", h.EnableCASService)
 				r.Post("/{id}/disable", h.DisableCASService)
+
+				r.Get("/{id}/field-mappings",
+					h.ListFieldMappings(service.RecipientCASService, "id"))
+				r.Put("/{id}/field-mappings",
+					h.ReplaceFieldMappings(service.RecipientCASService, "id"))
 			})
 
 			// Issuing and revoking the credentials a directory syncs with.
@@ -247,6 +273,14 @@ func (s *Server) routes() http.Handler {
 				r.Post("/{id}/enable", h.EnableWebhook)
 				r.Post("/{id}/disable", h.DisableWebhook)
 				r.Delete("/{id}", h.DeleteWebhook)
+
+				// The same rules as an application's, over the event body
+				// rather than over a claim set. A subscription with none
+				// receives what it always received.
+				r.Get("/{id}/field-mappings",
+					h.ListFieldMappings(service.RecipientWebhook, "id"))
+				r.Put("/{id}/field-mappings",
+					h.ReplaceFieldMappings(service.RecipientWebhook, "id"))
 			})
 
 			// Directories Portico reads accounts out of, which is the
@@ -261,6 +295,23 @@ func (s *Server) routes() http.Handler {
 				r.Post("/{id}/disable", h.DisableDirectory)
 				r.Post("/{id}/sync", h.SyncDirectory)
 				r.Get("/{id}/runs", h.ListDirectoryRuns)
+			})
+
+			// Everything that may be mapped, in either direction: the
+			// built-in vocabulary and this tenant's own together. Read-only,
+			// and the picker on every mapping form is drawn from it.
+			r.Get("/fields", h.ListFields)
+
+			r.Route("/user-attributes", func(r chi.Router) {
+				r.Get("/", h.ListUserAttributes)
+				r.Post("/", h.DefineUserAttribute)
+				r.Put("/{id}", h.UpdateUserAttribute)
+				// Retiring keeps every recorded value; deleting discards
+				// them. Two verbs rather than one, because the second is not
+				// recoverable and should not be reachable by a checkbox.
+				r.Post("/{id}/enable", h.EnableUserAttribute)
+				r.Post("/{id}/disable", h.DisableUserAttribute)
+				r.Delete("/{id}", h.DeleteUserAttribute)
 			})
 
 			r.Route("/scim-credentials", func(r chi.Router) {

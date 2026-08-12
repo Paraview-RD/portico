@@ -2050,6 +2050,61 @@ paths:
         "404":
           $ref: "#/components/responses/NotFound"
 
+  /api/v1/applications/oauth-clients/{clientID}/field-mappings:
+    get:
+      tags: [Applications]
+      operationId: listOAuthClientFieldMappings
+      summary: What this recipient receives, and under what name.
+      description: |
+        An empty list is the ordinary answer and means the documented
+        defaults — which is what everything registered before this feature
+        existed has, and keeps. A rule here means somebody decided something.
+
+        `targetName` becomes a claim name. The registered claims OpenID
+        Connect acts on — `sub`, `iss`, `aud`, `exp` and the rest — are
+        refused: renaming a department to `nickname` is somebody's business,
+        renaming it to `sub` would tell an application that one person is
+        another, in a token it has every reason to trust.
+      parameters:
+        - $ref: "#/components/parameters/ClientID"
+      responses:
+        "200":
+          description: The rules, by source key.
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/FieldMappingListEnvelope" }
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+    put:
+      tags: [Applications]
+      operationId: replaceOAuthClientFieldMappings
+      summary: Replace the whole set.
+      description: |
+        A replacement rather than a merge: what is being sent is a table
+        somebody edited, and merging would leave the rows the form deleted
+        still in place. Sending an empty list restores the defaults.
+      parameters:
+        - $ref: "#/components/parameters/ClientID"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/FieldMappingRequest" }
+      responses:
+        "200":
+          description: The rules as they now stand.
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/FieldMappingListEnvelope" }
+        "400":
+          $ref: "#/components/responses/ValidationFailed"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+
   /api/v1/applications/saml-service-providers:
     get:
       tags: [Applications]
@@ -2188,6 +2243,58 @@ paths:
         "404":
           $ref: "#/components/responses/NotFound"
 
+  /api/v1/applications/saml-service-providers/{id}/field-mappings:
+    get:
+      tags: [Applications]
+      operationId: listServiceProviderFieldMappings
+      summary: What this recipient receives, and under what name.
+      description: |
+        An empty list is the ordinary answer and means the documented
+        defaults — which is what everything registered before this feature
+        existed has, and keeps. A rule here means somebody decided something.
+
+        `targetName` is the attribute Name, which is what a service provider
+        actually maps on; `friendlyName` sits beside it and is advisory.
+      parameters:
+        - $ref: "#/components/parameters/ID"
+      responses:
+        "200":
+          description: The rules, by source key.
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/FieldMappingListEnvelope" }
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+    put:
+      tags: [Applications]
+      operationId: replaceServiceProviderFieldMappings
+      summary: Replace the whole set.
+      description: |
+        A replacement rather than a merge: what is being sent is a table
+        somebody edited, and merging would leave the rows the form deleted
+        still in place. Sending an empty list restores the defaults.
+      parameters:
+        - $ref: "#/components/parameters/ID"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/FieldMappingRequest" }
+      responses:
+        "200":
+          description: The rules as they now stand.
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/FieldMappingListEnvelope" }
+        "400":
+          $ref: "#/components/responses/ValidationFailed"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+
   /api/v1/applications/cas-services:
     get:
       tags: [Applications]
@@ -2317,6 +2424,57 @@ paths:
         "404":
           $ref: "#/components/responses/NotFound"
 
+
+  /api/v1/applications/cas-services/{id}/field-mappings:
+    get:
+      tags: [Applications]
+      operationId: listCASServiceFieldMappings
+      summary: What this recipient receives, and under what name.
+      description: |
+        An empty list is the ordinary answer and means the documented
+        defaults — which is what everything registered before this feature
+        existed has, and keeps. A rule here means somebody decided something.
+
+        `targetName` becomes an attribute in the ticket validation response.
+      parameters:
+        - $ref: "#/components/parameters/ID"
+      responses:
+        "200":
+          description: The rules, by source key.
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/FieldMappingListEnvelope" }
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+    put:
+      tags: [Applications]
+      operationId: replaceCASServiceFieldMappings
+      summary: Replace the whole set.
+      description: |
+        A replacement rather than a merge: what is being sent is a table
+        somebody edited, and merging would leave the rows the form deleted
+        still in place. Sending an empty list restores the defaults.
+      parameters:
+        - $ref: "#/components/parameters/ID"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/FieldMappingRequest" }
+      responses:
+        "200":
+          description: The rules as they now stand.
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/FieldMappingListEnvelope" }
+        "400":
+          $ref: "#/components/responses/ValidationFailed"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
   /api/v1/directories:
     get:
       tags: [Directories]
@@ -2665,6 +2823,255 @@ paths:
         "422":
           $ref: "#/components/responses/ValidationFailed"
 
+  /api/v1/fields:
+    get:
+      tags: [Field mapping]
+      operationId: listFields
+      summary: Everything that may be mapped, in either direction.
+      description: |
+        One vocabulary serving two directions. Outbound an entry is a source —
+        a fact Portico holds, to be sent under whatever name an application
+        expects. Inbound it is a target — a fact a directory attribute may be
+        written into.
+
+        `inbound` is false for the entries a directory may not write, and
+        `outboundOnlyBecause` then says why. Some of those are privilege
+        boundaries — a directory may not set `role`, because an attribute
+        granting administrator would be escalation in a system Portico does not
+        own — and some are merely facts Portico owns. The reason is there so a
+        reader can tell which.
+
+        The list is the built-in half followed by this tenant's own, in a stable
+        order: it is drawn as a picker, and a picker whose order changes between
+        page loads is one nobody can build a habit with.
+      responses:
+        "200":
+          description: The catalogue.
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/FieldListEnvelope" }
+        "403":
+          $ref: "#/components/responses/Forbidden"
+
+  /api/v1/user-attributes:
+    get:
+      tags: [Field mapping]
+      operationId: listUserAttributes
+      summary: The attributes this tenant defined for itself.
+      description: |
+        Disabled ones are included. The console shows them so they can be
+        enabled again, and a mapping that names one should read as "configured
+        but switched off" rather than as a mapping to nothing.
+      responses:
+        "200":
+          description: The definitions.
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/UserAttributeListEnvelope" }
+        "403":
+          $ref: "#/components/responses/Forbidden"
+    post:
+      tags: [Field mapping]
+      operationId: defineUserAttribute
+      summary: Define an attribute.
+      description: |
+        For a fact SCIM's schema has no name for — a badge number, a contract
+        end date, a site code. Without this the alternative is to overload
+        `costCenter`.
+
+        `key` is fixed at creation. It is what a mapping stores, so renaming it
+        would silently stop a mapping that names it, in a system Portico does
+        not own and cannot warn. It also has to be unique across the built-in
+        catalogue as well as this tenant's own.
+
+        How many a tenant may define is bounded, and not because of storage:
+        every definition is a candidate for outbound mapping and a mapped
+        attribute is bytes in every token.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/UserAttributeRequest" }
+      responses:
+        "200":
+          description: Defined.
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/UserAttributeEnvelope" }
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "409":
+          $ref: "#/components/responses/Conflict"
+        "422":
+          $ref: "#/components/responses/ValidationFailed"
+
+  /api/v1/user-attributes/{id}:
+    put:
+      tags: [Field mapping]
+      operationId: updateUserAttribute
+      summary: Change an attribute's label, kind, or ordering.
+      description: |
+        `key` is ignored here. See the note on creating one.
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema: { type: string }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/UserAttributeRequest" }
+      responses:
+        "200":
+          description: Updated.
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/UserAttributeEnvelope" }
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "422":
+          $ref: "#/components/responses/ValidationFailed"
+    delete:
+      tags: [Field mapping]
+      operationId: deleteUserAttribute
+      summary: Remove an attribute and every value recorded against it.
+      description: |
+        Not the ordinary way to stop using one. Disabling keeps the values, and
+        the values are often the answer to a question somebody asks later. This
+        discards them, and the audit entry records how many went.
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema: { type: string }
+      responses:
+        "200":
+          description: Deleted.
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Envelope" }
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+
+  /api/v1/user-attributes/{id}/enable:
+    post:
+      tags: [Field mapping]
+      operationId: enableUserAttribute
+      summary: Bring a retired attribute back.
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema: { type: string }
+      responses:
+        "200":
+          description: Enabled.
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/UserAttributeEnvelope" }
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+
+  /api/v1/user-attributes/{id}/disable:
+    post:
+      tags: [Field mapping]
+      operationId: disableUserAttribute
+      summary: Retire an attribute, keeping every recorded value.
+      description: |
+        The ordinary way to stop using one. It stops being shown on a form and
+        stops being sent; nothing recorded against it is lost.
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema: { type: string }
+      responses:
+        "200":
+          description: Disabled.
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/UserAttributeEnvelope" }
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+
+  /api/v1/users/{id}/attributes:
+    get:
+      tags: [Field mapping]
+      operationId: getUserAttributeValues
+      summary: One account's custom attribute values.
+      description: |
+        Keyed by the attribute's key rather than by its id, because the key is
+        what the rest of the system refers to. Values of disabled attributes are
+        absent: one that is neither shown nor sent is not part of the account as
+        anybody sees it.
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema: { type: string }
+      responses:
+        "200":
+          description: The values.
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/UserAttributeValuesEnvelope" }
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+    put:
+      tags: [Field mapping]
+      operationId: setUserAttributeValues
+      summary: Record custom attribute values for an account.
+      description: |
+        A key absent from the body is left alone and an empty value clears it,
+        which is the same contract the profile endpoint has: a form showing
+        three of an account's attributes must not blank the ones it did not
+        show.
+
+        Clearing removes the value rather than storing an empty string, so that
+        "never filled in" and "deliberately blank" stay distinguishable —
+        nothing is ever sent empty, and a stored empty string would be a value
+        that is configured and silently never arrives.
+
+        Values are checked against the attribute's kind and stored in a
+        canonical form: a yes/no recorded as "Yes" and another as "true" would
+        otherwise reach an application as two different facts.
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema: { type: string }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              additionalProperties: { type: string }
+              example: { badge_number: "A-10293", work_mode: "HYBRID" }
+      responses:
+        "200":
+          description: The values as stored.
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/UserAttributeValuesEnvelope" }
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "422":
+          $ref: "#/components/responses/ValidationFailed"
+
   /api/v1/scim-credentials/{id}:
     delete:
       tags: [Provisioning]
@@ -2854,6 +3261,66 @@ paths:
   # INVALID_WEBHOOK_HEADER for a name Portico sets itself, a value carrying
   # a line break, or more than ten of them.
 
+
+  /api/v1/webhooks/{id}/field-mappings:
+    get:
+      tags: [Webhooks]
+      operationId: listWebhookFieldMappings
+      summary: What this recipient receives, and under what name.
+      description: |
+        An empty list is the ordinary answer and means the documented
+        defaults — which is what everything registered before this feature
+        existed has, and keeps. A rule here means somebody decided something.
+
+        Applied over the event body rather than to a claim set. A rename
+        lifts the value to the top level of `data` and removes it from where
+        it was, so a nested field like `profile.department` arrives as one
+        top-level key. Additions land at the top level too.
+
+        Two things this does not reach. Group events have no mappable
+        vocabulary and are delivered unchanged. And a delivery already queued
+        keeps the body it was rendered with — an event describes what
+        happened, so re-rendering it later would deliver a "disabled" event
+        describing an account somebody has since re-enabled.
+      parameters:
+        - $ref: "#/components/parameters/ID"
+      responses:
+        "200":
+          description: The rules, by source key.
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/FieldMappingListEnvelope" }
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+    put:
+      tags: [Webhooks]
+      operationId: replaceWebhookFieldMappings
+      summary: Replace the whole set.
+      description: |
+        A replacement rather than a merge: what is being sent is a table
+        somebody edited, and merging would leave the rows the form deleted
+        still in place. Sending an empty list restores the defaults.
+      parameters:
+        - $ref: "#/components/parameters/ID"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/FieldMappingRequest" }
+      responses:
+        "200":
+          description: The rules as they now stand.
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/FieldMappingListEnvelope" }
+        "400":
+          $ref: "#/components/responses/ValidationFailed"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
   /api/v1/webhooks/{id}/rotate-secret:
     post:
       tags: [Webhooks]
@@ -4197,6 +4664,165 @@ components:
             data:
               type: array
               items: { $ref: "#/components/schemas/CASService" }
+
+    Field:
+      type: object
+      description: One entry of the field catalogue.
+      properties:
+        key:
+          type: string
+          description: |
+            Stable, and what a mapping stores. Never translated and never
+            reused.
+        group:
+          type: string
+          enum: [identity, profile, organization, tenant, custom]
+        kind:
+          type: string
+          enum: [TEXT, NUMBER, BOOLEAN, DATE, SELECT]
+        label:
+          type: string
+          description: |
+            Present for a tenant-defined field, whose name is whatever somebody
+            typed. Absent for a built-in one, whose label the console holds in
+            its own message catalogue — a built-in has to read the same in both
+            languages, and a stored string cannot do that.
+        custom: { type: boolean }
+        inbound:
+          type: boolean
+          description: Whether a directory may write this.
+        outboundOnlyBecause:
+          type: string
+          description: Present exactly when `inbound` is false.
+        allowedValues:
+          type: array
+          items: { type: string }
+        disabled:
+          type: boolean
+          description: A retired tenant-defined attribute. Its values are kept.
+
+    FieldListEnvelope:
+      allOf:
+        - $ref: "#/components/schemas/Envelope"
+        - type: object
+          properties:
+            data:
+              type: array
+              items: { $ref: "#/components/schemas/Field" }
+
+    FieldMapping:
+      type: object
+      description: |
+        One rule: a fact Portico holds, and the name this recipient expects
+        it under. The `sourceKey` is a field catalogue key — see
+        `GET /api/v1/fields` for the list, which covers the built-in
+        vocabulary and whatever attributes the tenant defined for itself.
+      properties:
+        sourceKey: { type: string, example: department }
+        targetName:
+          type: string
+          description: |
+            The name on the wire. Absent when the rule is a suppression.
+          example: dept
+        friendlyName:
+          type: string
+          description: SAML's second, human-readable name. Ignored elsewhere.
+        suppressed:
+          type: boolean
+          description: |
+            Removes a name the defaults would have sent. A flag rather than
+            an empty `targetName`, because "send nothing" and "send under a
+            name I have not chosen yet" are different intentions.
+      required: [sourceKey]
+
+    FieldMappingRequest:
+      type: object
+      properties:
+        mappings:
+          type: array
+          items: { $ref: "#/components/schemas/FieldMapping" }
+      required: [mappings]
+
+    FieldMappingListEnvelope:
+      allOf:
+        - $ref: "#/components/schemas/Envelope"
+        - type: object
+          properties:
+            data:
+              type: array
+              items: { $ref: "#/components/schemas/FieldMapping" }
+
+    UserAttributeDefinition:
+      type: object
+      properties:
+        id: { type: string }
+        tenantId: { type: string }
+        key: { type: string, description: "Fixed at creation." }
+        label: { type: string }
+        description: { type: string }
+        kind:
+          type: string
+          enum: [TEXT, NUMBER, BOOLEAN, DATE, SELECT]
+        allowedValues:
+          type: array
+          items: { type: string }
+        required:
+          type: boolean
+          description: |
+            An administrator's form will not save without it. It deliberately
+            does not apply to a directory synchronization: a required attribute
+            no LDAP entry carries would turn one form rule into a refusal to
+            import anybody.
+        sortOrder: { type: integer }
+        status: { $ref: "#/components/schemas/Status" }
+        createdAt: { type: string, format: date-time }
+        updatedAt: { type: string, format: date-time }
+
+    UserAttributeRequest:
+      type: object
+      required: [label, kind]
+      properties:
+        key:
+          type: string
+          description: |
+            Required on creation, ignored on update. 3 to 40 characters of
+            lower-case letters, digits, and underscores, starting with a letter.
+        label: { type: string }
+        description: { type: string }
+        kind:
+          type: string
+          enum: [TEXT, NUMBER, BOOLEAN, DATE, SELECT]
+        allowedValues:
+          type: array
+          items: { type: string }
+          description: Required for SELECT, ignored otherwise.
+        required: { type: boolean }
+        sortOrder: { type: integer }
+
+    UserAttributeEnvelope:
+      allOf:
+        - $ref: "#/components/schemas/Envelope"
+        - type: object
+          properties:
+            data: { $ref: "#/components/schemas/UserAttributeDefinition" }
+
+    UserAttributeListEnvelope:
+      allOf:
+        - $ref: "#/components/schemas/Envelope"
+        - type: object
+          properties:
+            data:
+              type: array
+              items: { $ref: "#/components/schemas/UserAttributeDefinition" }
+
+    UserAttributeValuesEnvelope:
+      allOf:
+        - $ref: "#/components/schemas/Envelope"
+        - type: object
+          properties:
+            data:
+              type: object
+              additionalProperties: { type: string }
 
     SCIMCredentialListEnvelope:
       allOf:

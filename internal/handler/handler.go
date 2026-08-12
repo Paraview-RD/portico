@@ -45,6 +45,13 @@ type Handler struct {
 	groups *service.GroupService
 	// Uploaded pictures for application tiles.
 	logos *service.ApplicationLogoService
+	// The attributes a tenant defined for itself, and the catalogue of
+	// everything that may be mapped in either direction.
+	attributes *service.UserAttributeService
+	fields     *service.FieldCatalogue
+	// fieldMappings is what each recipient receives; fields is the
+	// vocabulary it may name.
+	fieldMappings *service.FieldMappingService
 	// oidc is here for one endpoint: the seam where Portico's own sign-in
 	// hands a person back to the OpenID Provider. The provider's own
 	// endpoints do not go through this layer at all.
@@ -74,6 +81,9 @@ func New(
 	webhooks *service.WebhookService,
 	groups *service.GroupService,
 	logos *service.ApplicationLogoService,
+	attributes *service.UserAttributeService,
+	fields *service.FieldCatalogue,
+	fieldMappings *service.FieldMappingService,
 	oidc *oidcp.Providers,
 	samlProviders *samlp.Providers,
 	casServer *casp.Server,
@@ -87,6 +97,7 @@ func New(
 		samlKeys: samlKeys, casServices: casServices,
 		scimCredentials: scimCredentials, directories: directories,
 		webhooks: webhooks, groups: groups, logos: logos,
+		attributes: attributes, fields: fields, fieldMappings: fieldMappings,
 		oidc: oidc, saml: samlProviders, cas: casServer,
 	}
 }

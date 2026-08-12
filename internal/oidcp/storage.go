@@ -55,6 +55,13 @@ type Storage struct {
 	// token.
 	settings *service.SettingsService
 
+	// catalogue and mappings are what a client receives, and under what name.
+	// Both may be nil, which means every client receives the documented
+	// defaults — the state every deployment is in until somebody configures
+	// something, and the one a test that only cares about sign-in wants.
+	catalogue *service.FieldCatalogue
+	mappings  *service.FieldMappingService
+
 	// loginURL builds where a browser is sent to sign in, given an
 	// authorization request id. The provider hands this to the client, which
 	// returns it from LoginURL.
@@ -70,12 +77,15 @@ func NewStorage(
 	clients *service.OAuthClientService,
 	keys *service.SigningKeyService,
 	settings *service.SettingsService,
+	catalogue *service.FieldCatalogue,
+	mappings *service.FieldMappingService,
 	loginURL func(string) string,
 ) *Storage {
 	return &Storage{
 		tenant: tenant, issuer: issuer, store: st,
 		users: users, clients: clients, keys: keys,
-		settings: settings,
+		settings:  settings,
+		catalogue: catalogue, mappings: mappings,
 		loginURL: loginURL,
 	}
 }
@@ -468,8 +478,16 @@ func (s *Storage) SetUserinfoFromScopes(context.Context, *oidc.UserInfo, string,
 }
 
 // SetUserinfoFromRequest fills claims for a token being issued.
+//
+// One of the two places the client is known, so one of the two where a
+// per-application mapping can be applied. See SetUserinfoFromToken for the
+// other side of that.
 func (s *Storage) SetUserinfoFromRequest(ctx context.Context, userinfo *oidc.UserInfo, request op.IDTokenRequest, scopes []string) error {
-	return s.setUserinfo(ctx, userinfo, request.GetSubject(), scopes)
+	out, err := s.outboundFor(ctx, request.GetClientID())
+	if err != nil {
+		return err
+	}
+	return s.setUserinfo(ctx, userinfo, request.GetSubject(), scopes, out)
 }
 
 // SetUserinfoFromToken fills claims for the userinfo endpoint.
@@ -477,7 +495,19 @@ func (s *Storage) SetUserinfoFromToken(ctx context.Context, userinfo *oidc.UserI
 	// The scopes are not available here, so everything the account has is
 	// returned. That is what userinfo is for, and the access token presented
 	// to reach it was issued for this subject.
-	return s.setUserinfo(ctx, userinfo, subject, []string{oidc.ScopeOpenID, oidc.ScopeProfile, oidc.ScopeEmail, oidc.ScopePhone})
+	//
+	// Neither is the client. An access token here is a bare identifier with
+	// no stored row behind it, so there is nothing to look a client id up
+	// from — and without one, no per-application rule can be applied. This
+	// endpoint therefore answers with the documented defaults whatever a
+	// client has configured, which is a real gap and not a rounding: an
+	// application told not to receive a phone number still receives one here.
+	// It is written down in docs/field-mappings.md and pinned by a test
+	// rather than left to be discovered. Closing it needs the client to
+	// become recoverable from the token; see the note on CreateAccessToken.
+	return s.setUserinfo(ctx, userinfo, subject,
+		[]string{oidc.ScopeOpenID, oidc.ScopeProfile, oidc.ScopeEmail, oidc.ScopePhone},
+		service.Outbound{})
 }
 
 // errInactiveToken reports a token whose subject may no longer use it.
@@ -505,8 +535,13 @@ func (s *Storage) SetIntrospectionFromToken(ctx context.Context, response *oidc.
 	// IntrospectionResponse embeds the userinfo claim groups rather than a
 	// UserInfo, so it is filled through one and copied across.
 	var userinfo oidc.UserInfo
+	// Defaults, for the same reason userinfo uses them: introspection is
+	// answered for a resource server presenting somebody else's access
+	// token, so the client the token was issued to is not recoverable here
+	// either.
 	err = s.setUserinfo(ctx, &userinfo, subject,
-		[]string{oidc.ScopeOpenID, oidc.ScopeProfile, oidc.ScopeEmail, oidc.ScopePhone})
+		[]string{oidc.ScopeOpenID, oidc.ScopeProfile, oidc.ScopeEmail, oidc.ScopePhone},
+		service.Outbound{})
 	if err != nil {
 		return err
 	}
@@ -515,12 +550,33 @@ func (s *Storage) SetIntrospectionFromToken(ctx context.Context, response *oidc.
 }
 
 // GetPrivateClaimsFromScopes puts Portico's own claims in the access token.
-func (s *Storage) GetPrivateClaimsFromScopes(ctx context.Context, userID, _ string, _ []string) (map[string]any, error) {
+//
+// The client id was discarded here until mappings existed. It is the second
+// of the two places one is known, and a resource server reading the access
+// token has to see the same names the relying party sees in the ID token —
+// a claim renamed in one and not the other would be a rename that half the
+// integration missed.
+func (s *Storage) GetPrivateClaimsFromScopes(ctx context.Context, userID, clientID string, _ []string) (map[string]any, error) {
 	user, err := s.users.Get(ctx, s.tenant.ID, userID)
 	if err != nil {
 		return nil, err
 	}
-	return s.privateClaims(user), nil
+	out, err := s.outboundFor(ctx, clientID)
+	if err != nil {
+		return nil, err
+	}
+
+	claims := s.privateClaims(user, out)
+	if s.catalogue != nil {
+		additions, err := s.catalogue.OIDCAdditions(ctx, s.tenant.ID, user, out)
+		if err != nil {
+			return nil, err
+		}
+		for name, value := range additions {
+			claims[name] = value
+		}
+	}
+	return claims, nil
 }
 
 // privateClaims are the claims that are Portico's own rather than OpenID's:
@@ -531,17 +587,65 @@ func (s *Storage) GetPrivateClaimsFromScopes(ctx context.Context, userID, _ stri
 // relying party reads identity from the ID token and a resource server from
 // the access token, and a claim present in only one of them is a claim
 // half the integrations cannot see.
-func (s *Storage) privateClaims(user model.User) map[string]any {
-	claims := map[string]any{
+func (s *Storage) privateClaims(user model.User, out service.Outbound) map[string]any {
+	values := map[string]string{
 		"tenant_id":   s.tenant.ID,
 		"tenant_code": s.tenant.Code,
 		"role":        string(user.Role),
 	}
 	if user.OrganizationID != "" {
-		claims["organization_id"] = user.OrganizationID
-		claims["organization_name"] = user.OrganizationName
+		values["organization_id"] = user.OrganizationID
+		values["organization_name"] = user.OrganizationName
+	}
+
+	// Through the rules even when there are none: an empty set returns every
+	// name unchanged, so this is the same map it has always been.
+	claims := make(map[string]any, len(values))
+	for key, value := range values {
+		if name, send, _ := service.ClaimFor(out, key); send {
+			claims[name] = value
+		}
 	}
 	return claims
+}
+
+// outboundFor reads what one client is configured to receive.
+//
+// An error is returned rather than swallowed. A suppression is somebody's
+// decision that an application must not receive a field, so quietly falling
+// back to the defaults would send it anyway — the opposite of what was asked
+// for, at the one moment nobody is watching. The account was read from the
+// same database a moment earlier, so a failure here is not a routine
+// condition.
+func (s *Storage) outboundFor(ctx context.Context, clientID string) (service.Outbound, error) {
+	if s.mappings == nil || clientID == "" {
+		return service.Outbound{}, nil
+	}
+	client, err := s.clients.Get(ctx, s.tenant.ID, clientID)
+	if err != nil {
+		return service.Outbound{}, err
+	}
+	return s.mappings.OutboundFor(ctx, s.tenant.ID, store.RecipientRef{OAuthClientID: client.ID})
+}
+
+// claim sends one value under whatever name the rules give it.
+//
+// under sends the value under a name a rule chose; assign is what to do when
+// the name is unchanged, because several of these
+// claims are typed fields on UserInfo and setting the field is what puts them
+// in the document. A rename cannot use it — for those claims the field *is*
+// the name — so the value is appended instead. Doing both would send the fact
+// twice under two names, which is what somebody renaming it is trying to stop.
+func claim(out service.Outbound, key string, under func(name string), assign func()) {
+	name, send, renamed := service.ClaimFor(out, key)
+	switch {
+	case !send:
+		return
+	case renamed:
+		under(name)
+	default:
+		assign()
+	}
 }
 
 // GetKeyByIDAndClientID serves private_key_jwt client authentication, which
@@ -561,7 +665,7 @@ func (s *Storage) Health(ctx context.Context) error {
 	return s.store.DB().PingContext(ctx)
 }
 
-func (s *Storage) setUserinfo(ctx context.Context, userinfo *oidc.UserInfo, subject string, scopes []string) error {
+func (s *Storage) setUserinfo(ctx context.Context, userinfo *oidc.UserInfo, subject string, scopes []string, out service.Outbound) error {
 	user, err := s.users.Get(ctx, s.tenant.ID, subject)
 	if err != nil {
 		return err
@@ -571,35 +675,68 @@ func (s *Storage) setUserinfo(ctx context.Context, userinfo *oidc.UserInfo, subj
 	// The ID token is built from this object, so anything omitted here is
 	// absent from the ID token however faithfully the access token carries
 	// it.
-	for name, value := range s.privateClaims(user) {
+	for name, value := range s.privateClaims(user, out) {
 		userinfo.AppendClaims(name, value)
 	}
 	for _, scope := range scopes {
 		switch scope {
 		case oidc.ScopeProfile:
-			userinfo.Name = user.DisplayName
-			userinfo.PreferredUsername = user.Username
-			userinfo.UpdatedAt = oidc.FromTime(user.UpdatedAt)
+			claim(out, "display_name",
+				func(name string) { userinfo.AppendClaims(name, user.DisplayName) },
+				func() { userinfo.Name = user.DisplayName })
+			claim(out, "username",
+				func(name string) { userinfo.AppendClaims(name, user.Username) },
+				func() { userinfo.PreferredUsername = user.Username })
+			claim(out, "updated_at",
+				func(name string) { userinfo.AppendClaims(name, user.UpdatedAt.UTC().Format(time.RFC3339)) },
+				func() { userinfo.UpdatedAt = oidc.FromTime(user.UpdatedAt) })
 		case oidc.ScopeEmail:
 			if user.Email != "" {
-				userinfo.Email = user.Email
-				// Not verified: this version never asks anyone to prove an
-				// address, so claiming otherwise would be a lie a relying
-				// party might act on.
-				//
-				// Through AppendClaims rather than the field beside it. The
-				// field is tagged omitempty over a bool, so assigning false
-				// removes the claim from the document altogether — and a
-				// relying party that distinguishes "absent" from "false"
-				// then learns nothing, while discovery advertises the claim.
-				// Saying false is the whole point.
-				userinfo.AppendClaims("email_verified", false)
+				claim(out, "email",
+					func(name string) { userinfo.AppendClaims(name, user.Email) },
+					func() {
+						userinfo.Email = user.Email
+						// Not verified: this version never asks anyone to
+						// prove an address, so claiming otherwise would be a
+						// lie a relying party might act on.
+						//
+						// Through AppendClaims rather than the field beside
+						// it. The field is tagged omitempty over a bool, so
+						// assigning false removes the claim from the document
+						// altogether — and a relying party that distinguishes
+						// "absent" from "false" then learns nothing, while
+						// discovery advertises the claim. Saying false is the
+						// whole point.
+						//
+						// Inside this branch, so it follows the claim it
+						// describes: a party reading `mail` has no reason to
+						// look at `email_verified`, and one no longer
+						// receiving the address at all should not be told
+						// anything about an address it cannot see.
+						userinfo.AppendClaims("email_verified", false)
+					})
 			}
 		case oidc.ScopePhone:
 			if user.Phone != "" {
-				userinfo.PhoneNumber = user.Phone
-				userinfo.AppendClaims("phone_number_verified", false)
+				claim(out, "phone",
+					func(name string) { userinfo.AppendClaims(name, user.Phone) },
+					func() {
+						userinfo.PhoneNumber = user.Phone
+						userinfo.AppendClaims("phone_number_verified", false)
+					})
 			}
+		}
+	}
+
+	// The facts the default claim set never carried, which is most of the
+	// catalogue and the larger half of what this feature is for.
+	if s.catalogue != nil {
+		additions, err := s.catalogue.OIDCAdditions(ctx, s.tenant.ID, user, out)
+		if err != nil {
+			return err
+		}
+		for name, value := range additions {
+			userinfo.AppendClaims(name, value)
 		}
 	}
 	return nil

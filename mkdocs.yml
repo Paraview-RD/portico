@@ -127,6 +127,7 @@ nav:
   - Provisioning: scim.md
   - Federation: federation.md
   - Webhooks: webhooks.md
+  - Field mappings: field-mappings.md
   - Integrations: integrations.md
   - Settings and audit: settings.md
   - Backup and restore: backup-and-restore.md

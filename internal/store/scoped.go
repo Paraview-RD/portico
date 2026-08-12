@@ -1161,6 +1161,155 @@ func (s *Scoped) ListOrganizationAttachedUsers(ctx context.Context, organization
 	})
 }
 
+// --- per-recipient field mappings ---------------------------------------
+
+// RecipientRef names one thing that receives fields, without saying what kind
+// it is. Exactly one field is set, which the schema also enforces: four
+// nullable foreign keys and a CHECK, so that the database keeps the reference
+// honest and takes the mappings away with the recipient.
+//
+// Not "application": three of the four are, and a webhook subscription is not.
+// It is the one Portico pushes to rather than answers, and it is what an
+// administrator usually means by synchronising to a downstream system.
+type RecipientRef struct {
+	OAuthClientID         string
+	SAMLSPID              string
+	CASServiceID          string
+	WebhookSubscriptionID string
+}
+
+func (r RecipientRef) ids() (oauth, saml, cas, hook *string) {
+	if r.OAuthClientID != "" {
+		oauth = &r.OAuthClientID
+	}
+	if r.SAMLSPID != "" {
+		saml = &r.SAMLSPID
+	}
+	if r.CASServiceID != "" {
+		cas = &r.CASServiceID
+	}
+	if r.WebhookSubscriptionID != "" {
+		hook = &r.WebhookSubscriptionID
+	}
+	return oauth, saml, cas, hook
+}
+
+// ListFieldMappings returns one recipient's mappings.
+func (s *Scoped) ListFieldMappings(ctx context.Context, ref RecipientRef) ([]sqlcgen.FieldMapping, error) {
+	oauth, saml, cas, hook := ref.ids()
+	return s.q.ListFieldMappings(ctx, sqlcgen.ListFieldMappingsParams{
+		TenantID: s.tenantID, OauthClientID: oauth, SamlSpID: saml,
+		CasServiceID: cas, WebhookSubscriptionID: hook,
+	})
+}
+
+// ListRecipientsMappingField answers which recipients receive one fact, across
+// all four kinds at once.
+func (s *Scoped) ListRecipientsMappingField(ctx context.Context, sourceKey string) ([]sqlcgen.FieldMapping, error) {
+	return s.q.ListRecipientsMappingField(ctx,
+		sqlcgen.ListRecipientsMappingFieldParams{TenantID: s.tenantID, SourceKey: sourceKey})
+}
+
+// DeleteFieldMappings clears one recipient's set, which is what a save does
+// before writing the set the form holds.
+func (s *Scoped) DeleteFieldMappings(ctx context.Context, ref RecipientRef) error {
+	oauth, saml, cas, hook := ref.ids()
+	return s.q.DeleteFieldMappings(ctx, sqlcgen.DeleteFieldMappingsParams{
+		TenantID: s.tenantID, OauthClientID: oauth, SamlSpID: saml,
+		CasServiceID: cas, WebhookSubscriptionID: hook,
+	})
+}
+
+// CreateFieldMapping writes one row.
+func (s *Scoped) CreateFieldMapping(ctx context.Context, arg sqlcgen.CreateFieldMappingParams) error {
+	arg.TenantID = s.tenantID
+	return s.q.CreateFieldMapping(ctx, arg)
+}
+
+// --- tenant-defined user attributes -----------------------------------
+
+// ListUserAttributeDefinitions returns the tenant's own attribute definitions,
+// disabled ones included: the console shows those so they can be enabled
+// again, and the field catalogue marks them rather than hiding them.
+func (s *Scoped) ListUserAttributeDefinitions(ctx context.Context) ([]sqlcgen.UserAttributeDefinition, error) {
+	return s.q.ListUserAttributeDefinitions(ctx, s.tenantID)
+}
+
+// GetUserAttributeDefinition returns one by id.
+func (s *Scoped) GetUserAttributeDefinition(ctx context.Context, id string) (sqlcgen.UserAttributeDefinition, error) {
+	return s.q.GetUserAttributeDefinition(ctx,
+		sqlcgen.GetUserAttributeDefinitionParams{TenantID: s.tenantID, ID: id})
+}
+
+// GetUserAttributeDefinitionByKey returns one by the key a mapping stores.
+func (s *Scoped) GetUserAttributeDefinitionByKey(ctx context.Context, key string) (sqlcgen.UserAttributeDefinition, error) {
+	return s.q.GetUserAttributeDefinitionByKey(ctx,
+		sqlcgen.GetUserAttributeDefinitionByKeyParams{TenantID: s.tenantID, Key: key})
+}
+
+// CountUserAttributeDefinitions is for the per-tenant bound.
+func (s *Scoped) CountUserAttributeDefinitions(ctx context.Context) (int64, error) {
+	return s.q.CountUserAttributeDefinitions(ctx, s.tenantID)
+}
+
+// CreateUserAttributeDefinition adds one.
+func (s *Scoped) CreateUserAttributeDefinition(ctx context.Context, arg sqlcgen.CreateUserAttributeDefinitionParams) error {
+	arg.TenantID = s.tenantID
+	return s.q.CreateUserAttributeDefinition(ctx, arg)
+}
+
+// UpdateUserAttributeDefinition changes the editable parts. The key is not
+// among them; it is what a mapping stores.
+func (s *Scoped) UpdateUserAttributeDefinition(ctx context.Context, arg sqlcgen.UpdateUserAttributeDefinitionParams) error {
+	arg.TenantID = s.tenantID
+	return s.q.UpdateUserAttributeDefinition(ctx, arg)
+}
+
+// UpdateUserAttributeDefinitionStatus retires one or brings it back, keeping
+// every value already recorded against it.
+func (s *Scoped) UpdateUserAttributeDefinitionStatus(ctx context.Context, id, status string, now time.Time) error {
+	return s.q.UpdateUserAttributeDefinitionStatus(ctx,
+		sqlcgen.UpdateUserAttributeDefinitionStatusParams{
+			TenantID: s.tenantID, ID: id, Status: status, UpdatedAt: now,
+		})
+}
+
+// DeleteUserAttributeDefinition removes one and, by the cascade, every value
+// recorded against it.
+func (s *Scoped) DeleteUserAttributeDefinition(ctx context.Context, id string) error {
+	return s.q.DeleteUserAttributeDefinition(ctx,
+		sqlcgen.DeleteUserAttributeDefinitionParams{TenantID: s.tenantID, ID: id})
+}
+
+// ListUserAttributeValues returns one account's custom values with the key and
+// kind of each, so a caller needs no second query to render or send them.
+func (s *Scoped) ListUserAttributeValues(ctx context.Context, userID string) ([]sqlcgen.ListUserAttributeValuesRow, error) {
+	return s.q.ListUserAttributeValues(ctx,
+		sqlcgen.ListUserAttributeValuesParams{TenantID: s.tenantID, UserID: userID})
+}
+
+// SetUserAttributeValue writes one, replacing whatever was there.
+func (s *Scoped) SetUserAttributeValue(ctx context.Context, arg sqlcgen.SetUserAttributeValueParams) error {
+	arg.TenantID = s.tenantID
+	return s.q.SetUserAttributeValue(ctx, arg)
+}
+
+// DeleteUserAttributeValue clears one. It removes the row rather than storing
+// an empty string, so "never filled in" and "deliberately blank" stay
+// distinguishable.
+func (s *Scoped) DeleteUserAttributeValue(ctx context.Context, userID, definitionID string) error {
+	return s.q.DeleteUserAttributeValue(ctx,
+		sqlcgen.DeleteUserAttributeValueParams{
+			TenantID: s.tenantID, UserID: userID, DefinitionID: definitionID,
+		})
+}
+
+// CountUserAttributeValues answers "who has filled this in".
+func (s *Scoped) CountUserAttributeValues(ctx context.Context, definitionID string) (int64, error) {
+	return s.q.CountUserAttributeValues(ctx,
+		sqlcgen.CountUserAttributeValuesParams{TenantID: s.tenantID, DefinitionID: definitionID})
+}
+
 // --- application logos -----------------------------------------------
 
 // CreateApplicationLogo stores an uploaded picture.

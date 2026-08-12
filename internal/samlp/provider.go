@@ -67,6 +67,8 @@ type Providers struct {
 	users     *service.UserService
 	providers *service.SAMLServiceProviderService
 	keys      *service.SAMLKeyService
+	catalogue *service.FieldCatalogue
+	mappings  *service.FieldMappingService
 	audit     *service.AuditService
 }
 
@@ -78,6 +80,8 @@ func NewProviders(
 	users *service.UserService,
 	providers *service.SAMLServiceProviderService,
 	keys *service.SAMLKeyService,
+	catalogue *service.FieldCatalogue,
+	mappings *service.FieldMappingService,
 	audit *service.AuditService,
 ) *Providers {
 	return &Providers{
@@ -87,6 +91,8 @@ func NewProviders(
 		users:     users,
 		providers: providers,
 		keys:      keys,
+		catalogue: catalogue,
+		mappings:  mappings,
 		audit:     audit,
 	}
 }

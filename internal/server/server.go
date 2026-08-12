@@ -129,20 +129,26 @@ func New(cfg *config.Config, opts ...Option) (*Server, error) {
 
 	clients := service.NewOAuthClientService(st, audit)
 	keys := service.NewSigningKeyService(st)
+	// Built here rather than beside the other application services below,
+	// because the OpenID Provider needs them: what a client receives is
+	// decided while its token is being assembled.
+	fields := service.NewFieldCatalogue(st)
+	fieldMappings := service.NewFieldMappingService(st, audit, fields)
 	providers := oidcp.NewProviders(cfg.PublicURL, federationCryptoKey(cfg.JWTSecret),
-		st, tenants, users, clients, keys, settings, audit)
+		st, tenants, users, clients, keys, settings, fields, fieldMappings, audit)
 
 	serviceProviders := service.NewSAMLServiceProviderService(st, audit)
 	samlKeys := service.NewSAMLKeyService(st)
 	samlProviders := samlp.NewProviders(cfg.PublicURL,
-		st, tenants, users, serviceProviders, samlKeys, audit)
+		st, tenants, users, serviceProviders, samlKeys, fields, fieldMappings, audit)
 
 	casServices := service.NewCASService(st, users, audit)
-	casServer := casp.New(cfg.PublicURL, tenants, casServices, audit)
+	casServer := casp.New(cfg.PublicURL, tenants, casServices, fields, fieldMappings, audit)
 
 	groups := service.NewGroupService(st, audit)
 	logos := service.NewApplicationLogoService(st)
-	webhooks := service.NewWebhookService(st, audit)
+	attributes := service.NewUserAttributeService(st, audit)
+	webhooks := service.NewWebhookService(st, audit).WithFieldMappings(fields, fieldMappings)
 	// Attached after construction: the webhook service is built from the same
 	// store and the account operations only need to know it exists.
 	users.WithEvents(webhooks)
@@ -174,7 +180,8 @@ func New(cfg *config.Config, opts ...Option) (*Server, error) {
 		store: st,
 		handler: handler.New(users, orgs, audit, settings, tenants, recovery, verification, sessions,
 			clients, serviceProviders, samlKeys, casServices, scimCredentials,
-			directories, webhooks, groups, logos, providers, samlProviders, casServer),
+			directories, webhooks, groups, logos, attributes, fields, fieldMappings,
+			providers, samlProviders, casServer),
 		middleware:    auth.NewMiddleware(tokens, users, sessions),
 		metrics:       registry,
 		scim:          scimHandler,
