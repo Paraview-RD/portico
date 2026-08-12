@@ -47,6 +47,8 @@ export const errorsEnUS = {
   WEAK_PASSWORD: "That password does not meet the requirements.",
   PASSWORD_EXPIRED:
     "This password has expired and must be changed before signing in.",
+  PASSWORD_CHANGE_REQUIRED:
+    "This account is still on its default password, which must be replaced before signing in.",
   PASSWORD_NOT_EXPIRED:
     "This password has not expired. Sign in and change it from your profile.",
   PASSWORD_REUSED:

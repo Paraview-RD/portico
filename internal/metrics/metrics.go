@@ -97,7 +97,7 @@ func New() *Registry {
 	// distinguish a healthy instance from one that has not reported yet.
 	for _, outcome := range []string{
 		OutcomeSuccess, OutcomeBadCredentials, OutcomeLocked,
-		OutcomeDisabled, OutcomeExpired, OutcomeError,
+		OutcomeDisabled, OutcomeExpired, OutcomeChangeRequired, OutcomeError,
 	} {
 		m.signIns.WithLabelValues(outcome)
 	}
@@ -121,6 +121,12 @@ const (
 	// enabled expiry needs to see how many people that is without it looking
 	// like an attack.
 	OutcomeExpired = "password_expired"
+	// Somebody signed in with the default password a release bootstraps its
+	// first administrator with. Separate from password_expired because it
+	// answers a different question, and one worth an alert: on a deployment
+	// past its first day this counting up means the default is still in
+	// place and being found.
+	OutcomeChangeRequired = "password_change_required"
 	// The attempt could not be judged — the database was unreachable, or
 	// something else failed before an outcome existed. Counted rather than
 	// dropped, so that "sign-ins stopped" is visibly different from

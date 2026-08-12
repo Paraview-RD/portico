@@ -185,7 +185,7 @@ func (q *Queries) ListActiveOrganizations(ctx context.Context, tenantID string) 
 }
 
 const listOrganizationAttachedUsers = `-- name: ListOrganizationAttachedUsers :many
-SELECT u.id, u.tenant_id, u.username, u.display_name, u.password_hash, u.phone, u.email, u.role, u.status, u.organization_id, u.token_version, u.source, u.external_id, u.failed_login_attempts, u.last_failed_login_at, u.locked_until, u.password_changed_at, u.created_at, u.updated_at, u.ldap_source_id, u.closed_at, u.verified_at, u.name_formatted, u.family_name, u.given_name, u.middle_name, u.honorific_prefix, u.honorific_suffix, u.nick_name, u.profile_url, u.photo_url, u.title, u.user_type, u.preferred_language, u.locale, u.timezone, u.address_formatted, u.street_address, u.locality, u.region, u.postal_code, u.country, u.employee_number, u.cost_center, u.department, u.manager_id FROM users u
+SELECT u.id, u.tenant_id, u.username, u.display_name, u.password_hash, u.phone, u.email, u.role, u.status, u.organization_id, u.token_version, u.source, u.external_id, u.failed_login_attempts, u.last_failed_login_at, u.locked_until, u.password_changed_at, u.created_at, u.updated_at, u.ldap_source_id, u.closed_at, u.verified_at, u.name_formatted, u.family_name, u.given_name, u.middle_name, u.honorific_prefix, u.honorific_suffix, u.nick_name, u.profile_url, u.photo_url, u.title, u.user_type, u.preferred_language, u.locale, u.timezone, u.address_formatted, u.street_address, u.locality, u.region, u.postal_code, u.country, u.employee_number, u.cost_center, u.department, u.manager_id, u.must_change_password FROM users u
 JOIN user_organization_attachments a
   ON a.tenant_id = u.tenant_id AND a.user_id = u.id
 WHERE a.tenant_id = $1 AND a.organization_id = $2
@@ -253,6 +253,7 @@ func (q *Queries) ListOrganizationAttachedUsers(ctx context.Context, arg ListOrg
 			&i.CostCenter,
 			&i.Department,
 			&i.ManagerID,
+			&i.MustChangePassword,
 		); err != nil {
 			return nil, err
 		}

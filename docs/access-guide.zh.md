@@ -38,6 +38,7 @@
 | `portico_sign_in_attempts_total{outcome="bad_credentials"}` | 跨多个账号一起上涨，就是撞库。Portico 不做限流；这是你得知"需要限流了"的方式。 |
 | `portico_account_lockouts_total` | 在锁**生效**的地方计数。骤增要么是攻击，要么是策略对真人来说定得太紧。 |
 | `portico_sign_in_attempts_total{outcome="password_expired"}` | 只在刚打开密码有效期时有意思——它告诉你有多少人即将同时来找你。 |
+| `portico_sign_in_attempts_total{outcome="password_change_required"}` | 有人用引导默认密码登录了。第一天，那是你；第二天还在涨，说明默认密码没换掉，而且已经被人找到了。 |
 | `portico_db_connections_wait_total` | 连接池耗尽。它表现为"什么都慢、没有报错、也找不到慢查询"，而这个指标是唯一叫得出它名字的东西。 |
 | `portico_http_requests_total{status=~"5.."}` | 这个 label 里是**精确的状态码**，所以只能用正则——`status="5xx"` 匹配不到任何一条序列，照它写的告警永远不会触发。客户端断连被记为 `499`，落在这个正则之外，所以这里上涨是真的。 |
 
@@ -79,8 +80,8 @@ Portico 自己保存账号——MVP 里没有外部身份提供方。
 | 凭据 | 从哪里来 |
 |---|---|
 | 引导管理员 | 首次启动时在 `default` 租户里创建。用户名来自 `PORTICO_INITIAL_ADMIN_USERNAME`（默认 `admin`）。 |
-| 其它租户的管理员 | 由 `portico tenant create` 创建；不给 `--admin-password` 的话密码只打印一次。 |
-| 引导密码 | 设了 `PORTICO_INITIAL_ADMIN_PASSWORD` 就用它。否则生成一个随机密码，并在启动日志里**只打印一次**——当场记下来，它没有被存在任何地方。 |
+| 其它租户的管理员 | 由 `portico tenant create` 创建；不给 `--admin-password` 的话，用的是同一个默认密码，规则也一样。 |
+| 引导密码 | 设了 `PORTICO_INITIAL_ADMIN_PASSWORD` 就用它。否则是文档里写明的默认密码 `Portico@1`，而且**不换掉就登不进去**——第一次登录返回 `PASSWORD_CHANGE_REQUIRED`，登录页当场要求设置新密码。 |
 | JWT 签名密钥 | `PORTICO_JWT_SECRET`。不设的话每次启动都会生成一个随机密钥，**重启会静默作废所有会话**。请设置它。 |
 | 其他所有人的密码 | 由管理员在创建时设定、由用户自助注册时选择，或者通过密码找回链接设置。 |
 
@@ -98,9 +99,16 @@ Portico 自己保存账号——MVP 里没有外部身份提供方。
     export PORTICO_JWT_SECRET=$(openssl rand -hex 32)
     docker compose -f deploy/docker-compose.yml up -d
     ```
-2. 如果你没有自己设密码，去启动日志里读那个生成的管理员密码。
-3. 打开界面登录，然后在**个人中心**改掉那个密码。改密码会让你退出登录——这是预期
-   行为，因为一次改密会撤销所有既有令牌。
+2. 用 `admin` / `Portico@1` 登录——除非你自己设了密码。**现在就做，别拖。** 这个密
+   码写在本文件里，所以在有人换掉它之前，这个账号属于最先够到这台实例的人；而对
+   方一旦换了密码，你就不知道新密码是什么了，而这个账号没有邮箱也没有手机号，没有
+   找回的通道。
+3. 这次登录会被拒绝，登录页当场要求设置新密码：把默认密码再输一遍当作当前密码，
+   选一个新的，就登进去了。**不需要**再去**个人中心**改一次，也不会因此被登出——
+   换密码这一步本身就会签发会话。
+
+如果你设了 `PORTICO_INITIAL_ADMIN_PASSWORD`，第 3 步不会发生：你选的密码没有公开
+在任何地方，账号正常登录。
 
 ## 密码找回
 

@@ -102,7 +102,9 @@ func runTenantCreate(args []string) error {
     username:  %s
     password:  %s
 
-  Shown once and stored nowhere. Sign in and change it.
+  This is the documented default, the same on every installation.
+  Sign in now: the account is refused until it is replaced, and
+  the sign-in screen asks for the replacement straight away.
 ────────────────────────────────────────────────────────────────
 
 `, created.Tenant.Code, created.AdminUsername, created.AdminPassword)

@@ -129,8 +129,9 @@ Configuration is entirely environment variables:
                                    both say nothing: en-US (default) | zh-CN.
                                    A tag with no messages is refused at start
   PORTICO_INITIAL_ADMIN_USERNAME   bootstrap admin name (default "admin")
-  PORTICO_INITIAL_ADMIN_PASSWORD   bootstrap admin password; generated and
-                                   printed once if unset
+  PORTICO_INITIAL_ADMIN_PASSWORD   bootstrap admin password. Unset means the
+                                   documented default, which must be replaced
+                                   at first sign-in
   PORTICO_LOG_LEVEL                debug | info | warn | error (default "info")
 
 Portico serves plain HTTP and does not rate-limit sign-in attempts. Run it

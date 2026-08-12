@@ -56,11 +56,20 @@ export function LoginPage() {
   const [error, setError] = useState("");
   const [submitting, setSubmitting] = useState(false);
   const [registrationOpen, setRegistrationOpen] = useState(false);
-  // Set when the server says the password is right but too old to use. The
+  // Set when the server says the password is right but may not be kept. The
   // form then asks for a replacement rather than leaving somebody staring
   // at an error with no way forward — which is what an expiry policy
   // produces if the screen does not know about it.
-  const [mustReplacePassword, setMustReplacePassword] = useState(false);
+  //
+  // The reason is kept, not just the fact, because the two cases are the
+  // same form and different news: one password aged out under a policy, the
+  // other is the default a fresh installation ships with. A person who has
+  // just installed this and typed what the manual told them would go looking
+  // for an expiry setting they never set.
+  const [replaceReason, setReplaceReason] = useState<
+    "" | "EXPIRED" | "DEFAULT"
+  >("");
+  const mustReplacePassword = replaceReason !== "";
   const [newPassword, setNewPassword] = useState("");
   const [systemName, setSystemName] = useState("Portico");
 
@@ -120,8 +129,14 @@ export function LoginPage() {
       // Not an error to report and stop at: it is a different form. The
       // password field keeps what was typed, because it is still needed as
       // the current password.
-      if (err instanceof ApiError && err.code === "PASSWORD_EXPIRED") {
-        setMustReplacePassword(true);
+      if (
+        err instanceof ApiError &&
+        (err.code === "PASSWORD_EXPIRED" ||
+          err.code === "PASSWORD_CHANGE_REQUIRED")
+      ) {
+        setReplaceReason(
+          err.code === "PASSWORD_EXPIRED" ? "EXPIRED" : "DEFAULT",
+        );
         setError("");
         return;
       }
@@ -166,7 +181,11 @@ export function LoginPage() {
 
       {mustReplacePassword && (
         <div className="mb-4">
-          <Alert tone="danger">{t("login.passwordExpired")}</Alert>
+          <Alert tone="danger">
+            {replaceReason === "DEFAULT"
+              ? t("login.passwordChangeRequired")
+              : t("login.passwordExpired")}
+          </Alert>
         </div>
       )}
 

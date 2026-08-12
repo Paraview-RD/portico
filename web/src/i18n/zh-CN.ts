@@ -90,6 +90,8 @@ export const zhCN: Record<keyof typeof enUS, string> = {
   "login.newPassword": "新密码",
   "login.passwordExpired":
     "该密码已过期。请再输入一次当前密码，并设置新密码后继续。",
+  "login.passwordChangeRequired":
+    "该账号还在用默认密码。请再输入一次当前密码，并设置新密码后继续。",
   "login.submit": "登录",
   "login.signingIn": "登录中…",
   "login.noAccount": "还没有账号？",

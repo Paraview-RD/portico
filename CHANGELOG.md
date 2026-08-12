@@ -418,6 +418,31 @@ Working toward 0.2.0. See
 
 ### Changed
 
+- **The bootstrap administrator starts on a documented default password —
+  `Portico@1` — and cannot be signed into until that password is replaced.**
+  It replaces a random password printed once to stderr, which was stronger
+  only for as long as the notice survived: the line scrolled past, or the
+  container log was discarded, and the deployment was then unopenable. The
+  bootstrap account has no email or phone, so recovery had no channel to
+  use, and there is no `portico user` subcommand — `docker logs` was the
+  only recourse, until the logs rolled.
+- The forced change is what makes a published default defensible, and it is
+  not a flag the client is trusted to act on: sign-in refuses outright with
+  `PASSWORD_CHANGE_REQUIRED` and issues no token at all. The way through is
+  `POST /auth/password/expired`, which already existed for expired
+  passwords, takes the old password and a new one, and returns the session
+  itself. The sign-in screen does this in place, on the same form.
+- **The window this leaves is real.** Between first start and first sign-in,
+  anyone who can reach the port can claim the account with a password from
+  the manual — and having claimed it, they set one you do not know. The
+  startup banner says to sign in now rather than to sign in and change it,
+  and `SECURITY.md` states the trade. Setting
+  `PORTICO_INITIAL_ADMIN_PASSWORD` opts out entirely: an account
+  bootstrapped with a password somebody chose is not forced to change and
+  never holds a password anybody can look up.
+- A new `portico_sign_in_attempts_total{outcome="password_change_required"}`
+  counts it. On day one that series is you. Past day one it means the
+  default is still in place and being found.
 - **The manual no longer grows with the monitor.** It was reported as type
   that is too large, and the size was not one anybody chose: Material scales
   the root with the viewport — 125%, then 137.5% past 100em, then 150% past

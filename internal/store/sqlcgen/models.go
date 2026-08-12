@@ -390,6 +390,8 @@ type User struct {
 	Department string
 	// Who this person reports to. Not checked for cycles: one is a data-quality problem in the source system rather than something this schema can prevent.
 	ManagerID *string
+	// Sign-in refuses this account until the password is replaced. Set for a bootstrap administrator that took the documented default password; cleared by any path that sets a new one.
+	MustChangePassword bool
 }
 
 // Additional organizations a person is attached to. Advisory: grants nothing, synchronizes nowhere, and does not change users.organization_id, which remains the one authoritative membership.

@@ -76,8 +76,10 @@ type NewTenant struct {
 	Tenant model.Tenant
 	// AdminUsername is the administrator created alongside the tenant.
 	AdminUsername string
-	// AdminPassword is set only when one was generated, in which case this
-	// is the only time it is ever available.
+	// AdminPassword is set only when the caller chose none, in which case
+	// the account took the documented default and must replace it before it
+	// can be signed into. When the caller supplied one this is empty —
+	// repeating a password back to whoever just typed it says nothing.
 	AdminPassword string
 }
 
@@ -96,7 +98,7 @@ func (p *Provisioner) CreateTenant(ctx context.Context, code, name, adminUsernam
 		adminUsername = "admin"
 	}
 
-	_, generated, err := p.users.EnsureInitialAdmin(ctx, tenant.ID, adminUsername, adminPassword)
+	_, tookTheDefault, err := p.users.EnsureInitialAdmin(ctx, tenant.ID, adminUsername, adminPassword)
 	if err != nil {
 		// The tenant row survives. Removing it here would need a delete path
 		// that exists for no other reason, and re-running with the same code
@@ -106,10 +108,15 @@ func (p *Provisioner) CreateTenant(ctx context.Context, code, name, adminUsernam
 				"create the account manually or drop the tenant row", code, err)
 	}
 
+	password := ""
+	if tookTheDefault {
+		password = service.DefaultInitialAdminPassword
+	}
+
 	return NewTenant{
 		Tenant:        tenant,
 		AdminUsername: adminUsername,
-		AdminPassword: generated,
+		AdminPassword: password,
 	}, nil
 }
 

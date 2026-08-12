@@ -11,8 +11,11 @@
 # with `:?`, so compose stops and says which one is missing rather than
 # bringing up a database whose password came from a file in this repository.
 #
-# On first start the server creates an administrator and prints a generated
-# password once, to stderr. Set PORTICO_INITIAL_ADMIN_PASSWORD to choose it.
+# On first start the server creates an administrator on the documented
+# default password and prints it to stderr. Sign in straight away: the
+# account is refused until that password is replaced, and until somebody
+# replaces it, anybody who can reach the port could. Set
+# PORTICO_INITIAL_ADMIN_PASSWORD to choose a password instead.
 
 services:
   db:

@@ -99,6 +99,12 @@ export const enUS = {
   "login.newPassword": "New password",
   "login.passwordExpired":
     "This password has expired. Enter it once more and choose a new one to continue.",
+  // Its own sentence rather than the expiry one. Somebody who has just
+  // installed this and typed the password the manual gave them is not
+  // looking at an expiry; telling them they are would send them hunting for
+  // a setting they never touched.
+  "login.passwordChangeRequired":
+    "This account is still on its default password. Enter it once more and choose a new one to continue.",
   "login.submit": "Sign in",
   "login.signingIn": "Signing in…",
   "login.noAccount": "Don't have an account?",
