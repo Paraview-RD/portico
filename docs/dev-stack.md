@@ -86,13 +86,41 @@ working", "which delivery is stuck") have no past to answer from.
 # something real to synchronize against.
 docker compose -f deploy/dev-stack/compose.yml up -d
 
-PORTICO_DB_DSN='postgres://portico:portico@localhost:5443/portico?sslmode=disable' \
+PORTICO_DB_DSN='postgres://portico:portico@localhost:5443/portico_seed?sslmode=disable' \
+PORTICO_ENCRYPTION_KEY=deadbeefdeadbeefdeadbeefdeadbeefdeadbeefdeadbeefdeadbeefdeadbeef \
   go run ./cmd/seed
 ```
 
-It prints a summary and the one password every seeded account shares. Sign in
-as `zhangwei` in the default tenant, or as the same name in tenant `acme` to
-see how little carries across.
+**Set `PORTICO_ENCRYPTION_KEY`, and use the same value when you start the
+server.** The seed writes a directory bind password and a subscription's
+custom headers, both sealed under it; a fresh key on the next start leaves
+those unopenable, and the symptom is a directory that fails at bind rather
+than anything naming the key. `hack/dev.sh` below pins one so this cannot
+happen.
+
+Every seeded account shares one password:
+
+| | |
+|---|---|
+| Password | `Portico@1` |
+| Administrator | `zhangwei` in the default tenant (there is no `admin`) |
+| The same name in `acme` | a different person, to show how little carries across |
+
+It is `internal/seed/people.go`, a constant, with no flag or variable to
+override it — one password rather than fifty-five, because a seed that prints
+fifty-five prints none anybody uses. Accounts the directory owns get it too,
+which a real deployment would never do: being able to sign in as one is how
+you see what the portal shows it.
+
+**That is not the initial administrator password.** A server started against
+an empty database creates one account from `PORTICO_INITIAL_ADMIN_USERNAME`
+(default `admin`) and `PORTICO_INITIAL_ADMIN_PASSWORD` — and when that is
+unset it generates one and prints it to stderr **once**, deliberately outside
+the structured logger, because logs are shipped somewhere searchable and a
+credential should not be. Miss it and there is no supported way back: that
+account has no email or phone, so password recovery has no channel, and there
+is no `portico user` subcommand. `docker logs` is the one recourse, until the
+logs roll.
 
 What arrives:
 
@@ -126,6 +154,40 @@ shut: one seeds a database and asserts every list the console draws has rows
 in it, and one walks the router and fails if any collection endpoint is
 neither seeded nor named as deliberately empty with a reason. Adding a screen
 without seeding it is a red build.
+
+## One instance, one port
+
+```bash
+hack/dev.sh              # build, run on 8140, rebuild when Go source changes
+hack/dev.sh --reseed     # drop the dev database and fill it first
+hack/dev.sh --once       # build and run without watching
+```
+
+The address never moves, which is the whole point. Verifying a change had
+come to mean starting a server, finding a free port because the last one was
+still held, telling somebody the new number, and repeating it an hour later.
+This pins **8140** and restarts in place.
+
+8140 rather than 8410 on purpose: 8410 is what a deployment defaults to, and
+a developer's machine usually has one of those running already. Vite's proxy
+points here too, so `npm run dev` in `web/` reaches this instance rather than
+whatever else is listening.
+
+**A failed build leaves the previous one serving.** Otherwise a typo takes
+the address away, and an address that disappears is not one anybody can rely
+on.
+
+The port, database and both keys are fixed in the script — the keys because
+re-keying is not free, as the seed section above explains. Override any of
+them with `PORTICO_DEV_PORT`, `PORTICO_DEV_DB`, or by exporting the real
+variables before running it.
+
+**For frontend work, do not use this loop.** Run `npm run dev` in `web/`
+alongside it: Vite serves on 5410 with hot module replacement and proxies
+`/api` to 8140, so a component change is instant and needs no Go rebuild at
+all. This script is only for changes to Go source, where a rebuild is
+unavoidable — about ten seconds, polled once a second, with no watcher to
+install.
 
 ## What the walkthrough proves
 
