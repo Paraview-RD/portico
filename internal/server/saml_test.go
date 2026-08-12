@@ -948,3 +948,91 @@ func TestThePostBindingPageIsAllowedToDoItsJob(t *testing.T) {
 			want, policy)
 	}
 }
+
+// The request id is not a credential, and the callback no longer treats it
+// as one.
+//
+// That endpoint is a top-level browser navigation, so it cannot be asked for
+// a token — and it hands the assertion to whoever asked, to be posted onward
+// to the service provider. The OpenID Connect callback is not exposed the
+// same way: it hands its code to the relying party's registered address, so
+// an id recovered from a log buys nothing there. Here it bought an assertion
+// for the person who had signed in.
+//
+// The id is in the sign-in URL the browser is sent to, which is to say in
+// browser history and in any proxy log on the way. So completing a request
+// now also issues a secret, returned only in the authenticated response that
+// completes it, and the callback requires it.
+func TestTheSAMLCallbackRefusesTheRequestIdAlone(t *testing.T) {
+	f := newFederationTest(t)
+
+	sp := newTestSP(t, "https://binding.example.com/saml")
+	f.registerSP(model.DefaultTenantCode, sp.metadata())
+	sp.configure(f, samlp.TenantMount(model.DefaultTenantCode))
+
+	request, _ := sp.sp.MakeAuthenticationRequest(
+		sp.sp.GetSSOBindingLocation(saml.HTTPRedirectBinding),
+		saml.HTTPRedirectBinding, saml.HTTPPostBinding)
+	authURL, _ := request.Redirect("", sp.sp)
+
+	client := &http.Client{CheckRedirect: func(*http.Request, []*http.Request) error {
+		return http.ErrUseLastResponse
+	}}
+	res, _ := client.Get(authURL.String())
+	_ = res.Body.Close()
+	loginURL, _ := url.Parse(res.Header.Get("Location"))
+	requestID := loginURL.Query().Get("saml_request")
+
+	token := f.post("/api/v1/auth/login", "", map[string]string{
+		"identifier": adminUsername, "password": adminPassword,
+	})["token"].(string)
+	redirectTo := f.post("/api/v1/saml/authenticate", token, map[string]string{
+		"samlRequestId": requestID,
+	})["redirectTo"].(string)
+
+	// What an attacker has: the id, from the sign-in URL. Everything else
+	// about the callback address is public.
+	callback, err := url.Parse(redirectTo)
+	if err != nil {
+		t.Fatalf("parse the callback address: %v", err)
+	}
+	if callback.Query().Get(samlp.CompletionSecretParam) == "" {
+		t.Fatal("the completed request carries no secret, so this test would " +
+			"pass against the very thing it is checking for")
+	}
+
+	withoutSecret := *callback
+	withoutSecret.RawQuery = "id=" + url.QueryEscape(requestID)
+
+	guessed := *callback
+	guessed.RawQuery = "id=" + url.QueryEscape(requestID) +
+		"&" + samlp.CompletionSecretParam + "=not-the-secret"
+
+	for name, attempt := range map[string]url.URL{
+		"with the id alone":   withoutSecret,
+		"with a wrong secret": guessed,
+	} {
+		attempted, err := http.Get(attempt.String())
+		if err != nil {
+			t.Fatalf("callback %s: %v", name, err)
+		}
+		body, _ := io.ReadAll(attempted.Body)
+		_ = attempted.Body.Close()
+
+		if attempted.StatusCode == http.StatusOK {
+			t.Errorf("the callback answered %s with 200; anybody holding the "+
+				"id can be handed an assertion for somebody else's sign-in", name)
+		}
+		if samlResponseForm.FindStringSubmatch(string(body)) != nil {
+			t.Errorf("the callback produced an assertion %s", name)
+		}
+	}
+
+	// And the refusals did not consume the request. Deleting it on a
+	// mismatch would let anybody holding a leaked id destroy a sign-in in
+	// progress, which trades a hard attack for an easy one.
+	if body := f.get(redirectTo); samlResponseForm.FindStringSubmatch(body) == nil {
+		t.Errorf("the person who actually signed in was refused after somebody "+
+			"else guessed at their request:\n%s", body)
+	}
+}

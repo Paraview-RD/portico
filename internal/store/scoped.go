@@ -654,10 +654,15 @@ func (s *Scoped) GetSAMLAuthRequest(ctx context.Context, id string, now time.Tim
 		sqlcgen.GetSAMLAuthRequestParams{TenantID: s.tenantID, ID: id, ExpiresAt: now})
 }
 
-// CompleteSAMLAuthRequest records who signed in.
-func (s *Scoped) CompleteSAMLAuthRequest(ctx context.Context, id, subject string) error {
-	return s.q.CompleteSAMLAuthRequest(ctx,
-		sqlcgen.CompleteSAMLAuthRequestParams{TenantID: s.tenantID, ID: id, Subject: &subject})
+// CompleteSAMLAuthRequest records who signed in and the hashed secret the
+// callback must present to mint the assertion.
+func (s *Scoped) CompleteSAMLAuthRequest(ctx context.Context, id, subject, secretHash string) error {
+	return s.q.CompleteSAMLAuthRequest(ctx, sqlcgen.CompleteSAMLAuthRequestParams{
+		TenantID:         s.tenantID,
+		ID:               id,
+		Subject:          &subject,
+		CompletionSecret: secretHash,
+	})
 }
 
 // DeleteSAMLAuthRequest removes a request once its assertion has been sent.

@@ -276,6 +276,8 @@ type SamlAuthRequest struct {
 	Done       bool
 	CreatedAt  time.Time
 	ExpiresAt  time.Time
+	// SHA-256 of a one-time value issued when the request is completed and required at the callback, so knowing the request id is not enough to be handed an assertion. Empty means no assertion can be minted.
+	CompletionSecret string
 }
 
 type SamlServiceProvider struct {

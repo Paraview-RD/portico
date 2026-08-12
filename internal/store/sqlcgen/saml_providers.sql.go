@@ -12,20 +12,26 @@ import (
 
 const completeSAMLAuthRequest = `-- name: CompleteSAMLAuthRequest :exec
 UPDATE saml_auth_requests
-SET subject = $1, done = TRUE
-WHERE tenant_id = $2 AND id = $3
+SET subject = $1, done = TRUE, completion_secret = $2
+WHERE tenant_id = $3 AND id = $4
 `
 
 type CompleteSAMLAuthRequestParams struct {
-	Subject  *string
-	TenantID string
-	ID       string
+	Subject          *string
+	CompletionSecret string
+	TenantID         string
+	ID               string
 }
 
-// Records who signed in. Until this runs the request has no subject and
-// cannot produce an assertion.
+// Records who signed in, and the secret the callback must present. Until
+// this runs the request has no subject and cannot produce an assertion.
 func (q *Queries) CompleteSAMLAuthRequest(ctx context.Context, arg CompleteSAMLAuthRequestParams) error {
-	_, err := q.db.ExecContext(ctx, completeSAMLAuthRequest, arg.Subject, arg.TenantID, arg.ID)
+	_, err := q.db.ExecContext(ctx, completeSAMLAuthRequest,
+		arg.Subject,
+		arg.CompletionSecret,
+		arg.TenantID,
+		arg.ID,
+	)
 	return err
 }
 
@@ -126,7 +132,7 @@ func (q *Queries) DeleteSAMLAuthRequest(ctx context.Context, arg DeleteSAMLAuthR
 }
 
 const getSAMLAuthRequest = `-- name: GetSAMLAuthRequest :one
-SELECT id, tenant_id, issuer, request_xml, relay_state, sp_entity_id, subject, done, created_at, expires_at FROM saml_auth_requests
+SELECT id, tenant_id, issuer, request_xml, relay_state, sp_entity_id, subject, done, created_at, expires_at, completion_secret FROM saml_auth_requests
 WHERE tenant_id = $1 AND id = $2 AND expires_at > $3
 LIMIT 1
 `
@@ -151,6 +157,7 @@ func (q *Queries) GetSAMLAuthRequest(ctx context.Context, arg GetSAMLAuthRequest
 		&i.Done,
 		&i.CreatedAt,
 		&i.ExpiresAt,
+		&i.CompletionSecret,
 	)
 	return i, err
 }
