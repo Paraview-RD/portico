@@ -94,7 +94,9 @@ curl -X PUT https://<host>/api/v1/applications/oauth-clients/wiki/field-mappings
 **SAML** —— 目标是属性的 `Name`，这才是服务提供方实际据以映射的那个。
 `friendlyName` 在旁边，仅供参考；设置它不会改变 SP 的匹配行为。
 
-**CAS** —— 目标是票据校验响应里的一个属性。
+**CAS** —— 目标是票据校验响应里的**元素名**，`cas:` 前缀会自动补上。
+`cas:user` **不是**属性，也不可映射：每个 CAS 客户端都拿它做本地记录的主键，
+它是 `sub` 在这个协议里的对应物。
 
 **Webhook** —— 目标是事件 `data` 对象**顶层**的一个键。这一种有另外三种没有
 的额外影响，见下节。

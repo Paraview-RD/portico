@@ -143,7 +143,7 @@ func New(cfg *config.Config, opts ...Option) (*Server, error) {
 		st, tenants, users, serviceProviders, samlKeys, fields, fieldMappings, audit)
 
 	casServices := service.NewCASService(st, users, audit)
-	casServer := casp.New(cfg.PublicURL, tenants, casServices, audit)
+	casServer := casp.New(cfg.PublicURL, tenants, casServices, fields, fieldMappings, audit)
 
 	groups := service.NewGroupService(st, audit)
 	logos := service.NewApplicationLogoService(st)

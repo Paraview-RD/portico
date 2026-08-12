@@ -106,7 +106,10 @@ deliberate ones.
 provider actually maps on. `friendlyName` sits beside it and is advisory;
 setting it does not change what the SP matches.
 
-**CAS** — the target is an attribute in the ticket validation response.
+**CAS** — the target is an element name in the ticket validation response;
+the `cas:` prefix is added for you. `cas:user` is **not** an attribute and not
+mappable: it is what every CAS client keys its local record on, and it is the
+counterpart of `sub` one protocol over.
 
 **Webhooks** — the target is a key at the top level of the event's `data`
 object. This one has consequences the others do not, below.

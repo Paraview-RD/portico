@@ -293,6 +293,11 @@ func (s *FieldMappingService) normalize(ctx context.Context, tenantID string, re
 				return nil, ErrClaimNameTaken
 			}
 		}
+		if ref.CASServiceID != "" {
+			if owner, taken := casAttributeOwners[in.TargetName]; taken && owner != in.SourceKey {
+				return nil, ErrClaimNameTaken
+			}
+		}
 		if ref.SAMLSPID != "" {
 			if owner, taken := samlAttributeOwners[in.TargetName]; taken && owner != in.SourceKey {
 				return nil, ErrClaimNameTaken
