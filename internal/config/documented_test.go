@@ -91,9 +91,9 @@ func contains(haystack, needle string) bool {
 
 // Every example connection string names the same port.
 //
-// Six files print one — README, .env.example, both access guides, the
-// dev-stack page, and testdb's own comment — and no two of them were obliged
-// to agree. Two said 5443 and the rest 5432, which I read as a typo in the
+// Seven files print one — both READMEs, .env.example, both access guides,
+// the dev-stack page, and testdb's own comment — and no two of them were
+// obliged to agree. Two said 5443 and the rest 5432, which I read as a typo in the
 // two and corrected, when it was the convention: 5443 is the host mapping
 // deploy/docker-compose.yml offers, and 5432 is PostgreSQL's default and
 // therefore the port most likely to already belong to another project on a
@@ -112,6 +112,7 @@ func TestEveryExampleDSNUsesTheSamePort(t *testing.T) {
 
 	files := []string{
 		"../../README.md",
+		"../../README.zh.md",
 		"../../.env.example",
 		"../../docs/access-guide.md",
 		"../../docs/access-guide.zh.md",
@@ -211,12 +212,13 @@ func TestEveryDocumentedBootstrapPasswordIsTheOneTheServerUses(t *testing.T) {
 // listed — and the fourth did not exist.
 //
 // The welcome screen was the only place that said it then. It is now also
-// the first thing README offers and a section in both access guides, so the
-// same drift has three more places to hide.
+// the first thing both READMEs offer and a section in both access guides, so
+// the same drift has four more places to hide.
 func TestEveryDemoSignInNamesTheSeededPassword(t *testing.T) {
 	files := []string{
 		"../../.devcontainer/setup.sh",
 		"../../README.md",
+		"../../README.zh.md",
 		"../../docs/access-guide.md",
 		"../../docs/access-guide.zh.md",
 	}

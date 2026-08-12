@@ -10,10 +10,11 @@ import (
 //
 // Every workflow resolves its toolchain through `go-version-file: go.mod`,
 // so raising that line raises CI and a release build without anybody
-// touching them. What it does not raise is the three places a person reads:
-// README and CONTRIBUTING, which are what somebody consults before
-// installing anything, and the release image's base, which is what actually
-// compiles the binary shipped.
+// touching them. What it does not raise is the places a person reads: the
+// two READMEs and CONTRIBUTING, which are what somebody consults before
+// installing anything, and the image base that actually compiles the binary.
+// A translated README is the likeliest of them to be forgotten, which is
+// the reason it is on the list rather than trusted to be updated alongside.
 //
 // Those went stale exactly as you would expect — README and CONTRIBUTING
 // named a version two releases behind what the module required, so a
@@ -39,6 +40,7 @@ func TestTheDocumentedGoVersionIsTheOneTheModuleRequires(t *testing.T) {
 	// image pins the same minor. Both are the same number.
 	for path, pattern := range map[string]*regexp.Regexp{
 		"../../README.md":         regexp.MustCompile(`Go (\d+\.\d+)\+`),
+		"../../README.zh.md":      regexp.MustCompile(`Go (\d+\.\d+)\+`),
 		"../../CONTRIBUTING.md":   regexp.MustCompile(`Go (\d+\.\d+)\+`),
 		"../../deploy/Dockerfile": regexp.MustCompile(`golang:(\d+\.\d+)`),
 	} {
