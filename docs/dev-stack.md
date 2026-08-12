@@ -162,9 +162,10 @@ without seeding it is a red build.
 ## One instance, one port
 
 ```bash
-hack/dev.sh              # build, run on 8140, rebuild when Go source changes
+hack/dev.sh              # build, run on 8140, rebuild when the source changes
 hack/dev.sh --reseed     # drop the dev database and fill it first
 hack/dev.sh --once       # build and run without watching
+hack/dev.sh --no-web     # never build the console
 ```
 
 The address never moves, which is the whole point. Verifying a change had
@@ -188,10 +189,30 @@ variables before running it.
 
 **For frontend work, do not use this loop.** Run `npm run dev` in `web/`
 alongside it: Vite serves on 5410 with hot module replacement and proxies
-`/api` to 8140, so a component change is instant and needs no Go rebuild at
-all. This script is only for changes to Go source, where a rebuild is
-unavoidable — about ten seconds, polled once a second, with no watcher to
-install.
+`/api` to 8140, so a component change is instant, against tens of seconds
+here.
+
+**It still rebuilds the console when `web/` changes**, and checks at startup
+whether the embedded one is behind. That is not for the convenience of
+editing components through it — it is because `internal/web/dist` is a build
+product and is not in git. Switching branches or pulling somebody else's
+console work changes no file the Go watcher was looking at, so the address
+went on serving a console built hours earlier from a checkout that no longer
+existed, with nothing to say so. An interface that is silently out of date is
+harder to catch than one that is visibly broken; this was found by comparing
+a running binary's `vcs.revision` against `HEAD`, which is not something
+anybody does by accident.
+
+Pass `--no-web` to turn it off, and it turns itself off when `npm` is not
+installed — a server with a stale console beats no server, as long as it says
+which it is.
+
+**A console that does not compile leaves the previous one embedded**, the
+same promise the Go build makes. That one needs help: `npm run build` deletes
+`dist/assets` before `tsc` has said whether the code compiles, so a typo
+would otherwise leave an `index.html` pointing at files that are no longer
+there — a blank page rather than an error. The script keeps a copy and puts
+it back.
 
 ## What the walkthrough proves
 
