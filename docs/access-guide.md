@@ -115,7 +115,8 @@ the way in.
 
 | | |
 |---|---|
-| Sign in as | `zhangwei` or `chenjing` (super administrator), `liyan` (ordinary user) |
+| Sign in as | `admin` (super administrator), `liyan` (ordinary user) |
+| Also seeded | `zhangwei` and `chenjing`, both super administrators; most of the seeded history is `zhangwei`'s, so that is the account with a past to look at |
 | Password | `Portico@1`, shared by every seeded account |
 | Second tenant | `acme`, holding the same names with almost nothing carried across |
 | Mail | a Mailpit inbox on a second forwarded port; nothing leaves the machine |

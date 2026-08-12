@@ -43,9 +43,9 @@ cat <<'EOF'
 
   Sign in with any seeded account. They all share one password:
 
-      zhangwei   张伟    super administrator
-      chenjing   陈静    super administrator
-      liyan      李燕    ordinary user
+      admin      Administrator   super administrator
+      zhangwei   张伟            super administrator, with a history
+      liyan      李燕            ordinary user
 
       password:  Portico@1
 
