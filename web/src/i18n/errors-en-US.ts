@@ -260,6 +260,7 @@ export const errorsEnUS = {
     "OpenID Connect reserves that name and relies on what it means. Choose another.",
   PAYLOAD_NAME_TAKEN:
     "The event already uses that name for something else. Choose another.",
+  RECIPIENT_NOT_FOUND: "No such application or subscription.",
 };
 
 /** Every code this table knows. */

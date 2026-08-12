@@ -2050,6 +2050,61 @@ paths:
         "404":
           $ref: "#/components/responses/NotFound"
 
+  /api/v1/applications/oauth-clients/{clientID}/field-mappings:
+    get:
+      tags: [Applications]
+      operationId: listOAuthClientFieldMappings
+      summary: What this recipient receives, and under what name.
+      description: |
+        An empty list is the ordinary answer and means the documented
+        defaults — which is what everything registered before this feature
+        existed has, and keeps. A rule here means somebody decided something.
+
+        `targetName` becomes a claim name. The registered claims OpenID
+        Connect acts on — `sub`, `iss`, `aud`, `exp` and the rest — are
+        refused: renaming a department to `nickname` is somebody's business,
+        renaming it to `sub` would tell an application that one person is
+        another, in a token it has every reason to trust.
+      parameters:
+        - $ref: "#/components/parameters/ClientID"
+      responses:
+        "200":
+          description: The rules, by source key.
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/FieldMappingListEnvelope" }
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+    put:
+      tags: [Applications]
+      operationId: replaceOAuthClientFieldMappings
+      summary: Replace the whole set.
+      description: |
+        A replacement rather than a merge: what is being sent is a table
+        somebody edited, and merging would leave the rows the form deleted
+        still in place. Sending an empty list restores the defaults.
+      parameters:
+        - $ref: "#/components/parameters/ClientID"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/FieldMappingRequest" }
+      responses:
+        "200":
+          description: The rules as they now stand.
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/FieldMappingListEnvelope" }
+        "400":
+          $ref: "#/components/responses/ValidationFailed"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+
   /api/v1/applications/saml-service-providers:
     get:
       tags: [Applications]
@@ -2188,6 +2243,58 @@ paths:
         "404":
           $ref: "#/components/responses/NotFound"
 
+  /api/v1/applications/saml-service-providers/{id}/field-mappings:
+    get:
+      tags: [Applications]
+      operationId: listServiceProviderFieldMappings
+      summary: What this recipient receives, and under what name.
+      description: |
+        An empty list is the ordinary answer and means the documented
+        defaults — which is what everything registered before this feature
+        existed has, and keeps. A rule here means somebody decided something.
+
+        `targetName` is the attribute Name, which is what a service provider
+        actually maps on; `friendlyName` sits beside it and is advisory.
+      parameters:
+        - $ref: "#/components/parameters/ID"
+      responses:
+        "200":
+          description: The rules, by source key.
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/FieldMappingListEnvelope" }
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+    put:
+      tags: [Applications]
+      operationId: replaceServiceProviderFieldMappings
+      summary: Replace the whole set.
+      description: |
+        A replacement rather than a merge: what is being sent is a table
+        somebody edited, and merging would leave the rows the form deleted
+        still in place. Sending an empty list restores the defaults.
+      parameters:
+        - $ref: "#/components/parameters/ID"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/FieldMappingRequest" }
+      responses:
+        "200":
+          description: The rules as they now stand.
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/FieldMappingListEnvelope" }
+        "400":
+          $ref: "#/components/responses/ValidationFailed"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+
   /api/v1/applications/cas-services:
     get:
       tags: [Applications]
@@ -2317,6 +2424,57 @@ paths:
         "404":
           $ref: "#/components/responses/NotFound"
 
+
+  /api/v1/applications/cas-services/{id}/field-mappings:
+    get:
+      tags: [Applications]
+      operationId: listCASServiceFieldMappings
+      summary: What this recipient receives, and under what name.
+      description: |
+        An empty list is the ordinary answer and means the documented
+        defaults — which is what everything registered before this feature
+        existed has, and keeps. A rule here means somebody decided something.
+
+        `targetName` becomes an attribute in the ticket validation response.
+      parameters:
+        - $ref: "#/components/parameters/ID"
+      responses:
+        "200":
+          description: The rules, by source key.
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/FieldMappingListEnvelope" }
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+    put:
+      tags: [Applications]
+      operationId: replaceCASServiceFieldMappings
+      summary: Replace the whole set.
+      description: |
+        A replacement rather than a merge: what is being sent is a table
+        somebody edited, and merging would leave the rows the form deleted
+        still in place. Sending an empty list restores the defaults.
+      parameters:
+        - $ref: "#/components/parameters/ID"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/FieldMappingRequest" }
+      responses:
+        "200":
+          description: The rules as they now stand.
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/FieldMappingListEnvelope" }
+        "400":
+          $ref: "#/components/responses/ValidationFailed"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
   /api/v1/directories:
     get:
       tags: [Directories]
@@ -3103,6 +3261,66 @@ paths:
   # INVALID_WEBHOOK_HEADER for a name Portico sets itself, a value carrying
   # a line break, or more than ten of them.
 
+
+  /api/v1/webhooks/{id}/field-mappings:
+    get:
+      tags: [Webhooks]
+      operationId: listWebhookFieldMappings
+      summary: What this recipient receives, and under what name.
+      description: |
+        An empty list is the ordinary answer and means the documented
+        defaults — which is what everything registered before this feature
+        existed has, and keeps. A rule here means somebody decided something.
+
+        Applied over the event body rather than to a claim set. A rename
+        lifts the value to the top level of `data` and removes it from where
+        it was, so a nested field like `profile.department` arrives as one
+        top-level key. Additions land at the top level too.
+
+        Two things this does not reach. Group events have no mappable
+        vocabulary and are delivered unchanged. And a delivery already queued
+        keeps the body it was rendered with — an event describes what
+        happened, so re-rendering it later would deliver a "disabled" event
+        describing an account somebody has since re-enabled.
+      parameters:
+        - $ref: "#/components/parameters/ID"
+      responses:
+        "200":
+          description: The rules, by source key.
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/FieldMappingListEnvelope" }
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+    put:
+      tags: [Webhooks]
+      operationId: replaceWebhookFieldMappings
+      summary: Replace the whole set.
+      description: |
+        A replacement rather than a merge: what is being sent is a table
+        somebody edited, and merging would leave the rows the form deleted
+        still in place. Sending an empty list restores the defaults.
+      parameters:
+        - $ref: "#/components/parameters/ID"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/FieldMappingRequest" }
+      responses:
+        "200":
+          description: The rules as they now stand.
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/FieldMappingListEnvelope" }
+        "400":
+          $ref: "#/components/responses/ValidationFailed"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
   /api/v1/webhooks/{id}/rotate-secret:
     post:
       tags: [Webhooks]
@@ -4491,6 +4709,48 @@ components:
             data:
               type: array
               items: { $ref: "#/components/schemas/Field" }
+
+    FieldMapping:
+      type: object
+      description: |
+        One rule: a fact Portico holds, and the name this recipient expects
+        it under. The `sourceKey` is a field catalogue key — see
+        `GET /api/v1/fields` for the list, which covers the built-in
+        vocabulary and whatever attributes the tenant defined for itself.
+      properties:
+        sourceKey: { type: string, example: department }
+        targetName:
+          type: string
+          description: |
+            The name on the wire. Absent when the rule is a suppression.
+          example: dept
+        friendlyName:
+          type: string
+          description: SAML's second, human-readable name. Ignored elsewhere.
+        suppressed:
+          type: boolean
+          description: |
+            Removes a name the defaults would have sent. A flag rather than
+            an empty `targetName`, because "send nothing" and "send under a
+            name I have not chosen yet" are different intentions.
+      required: [sourceKey]
+
+    FieldMappingRequest:
+      type: object
+      properties:
+        mappings:
+          type: array
+          items: { $ref: "#/components/schemas/FieldMapping" }
+      required: [mappings]
+
+    FieldMappingListEnvelope:
+      allOf:
+        - $ref: "#/components/schemas/Envelope"
+        - type: object
+          properties:
+            data:
+              type: array
+              items: { $ref: "#/components/schemas/FieldMapping" }
 
     UserAttributeDefinition:
       type: object

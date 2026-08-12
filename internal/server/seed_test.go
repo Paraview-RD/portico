@@ -122,6 +122,37 @@ func seededCollections(t *testing.T, api *apiTest, admin string) []collection {
 			screen: "Groups — members",
 		})
 	}
+	// The mapping tables, one per recipient kind. Seeded so that an empty one
+	// means "nobody has decided anything here" rather than "this screen was
+	// never wired up" — which from the console look the same, and which is the
+	// distinction this whole feature turns on.
+	//
+	// The OAuth one is addressed by client id rather than row id, because that
+	// is what every other route under that prefix uses.
+	if clientID := firstClientID(t, api, admin); clientID != "" {
+		lists = append(lists, collection{
+			path:   "/api/v1/applications/oauth-clients/" + clientID + "/field-mappings",
+			screen: "Application detail — fields (OIDC)",
+		})
+	}
+	if id := firstID(t, api, admin, "/api/v1/applications/saml-service-providers"); id != "" {
+		lists = append(lists, collection{
+			path:   "/api/v1/applications/saml-service-providers/" + id + "/field-mappings",
+			screen: "Application detail — fields (SAML)",
+		})
+	}
+	if id := firstID(t, api, admin, "/api/v1/applications/cas-services"); id != "" {
+		lists = append(lists, collection{
+			path:   "/api/v1/applications/cas-services/" + id + "/field-mappings",
+			screen: "Application detail — fields (CAS)",
+		})
+	}
+	if id := firstID(t, api, admin, "/api/v1/webhooks"); id != "" {
+		lists = append(lists, collection{
+			path:   "/api/v1/webhooks/" + id + "/field-mappings",
+			screen: "Webhook detail — fields",
+		})
+	}
 	// A named account rather than the first row, because these two are only
 	// interesting for somebody the seed gave a group and a device to. The
 	// bootstrap administrator has neither, and asserting against whoever
@@ -152,6 +183,25 @@ func firstID(t *testing.T, api *apiTest, token, path string) string {
 		return ""
 	}
 	return rows[0].ID
+}
+
+// firstClientID reads the client id — not the row id — of the first
+// registered OAuth client, which is how that prefix's routes address one.
+func firstClientID(t *testing.T, api *apiTest, token string) string {
+	t.Helper()
+
+	res := api.do(http.MethodGet, "/api/v1/applications/oauth-clients", token, nil)
+	if res.Status != http.StatusOK {
+		t.Errorf("list oauth clients: %d %s", res.Status, res.Code)
+		return ""
+	}
+	var rows []struct {
+		ClientID string `json:"clientId"`
+	}
+	if err := json.Unmarshal(res.Data, &rows); err != nil || len(rows) == 0 {
+		return ""
+	}
+	return rows[0].ClientID
 }
 
 // userID finds a seeded account by the username the seed gave it.
@@ -261,6 +311,10 @@ func TestEverySeededCollectionIsAccountedFor(t *testing.T) {
 		"/api/v1/groups/{id}/members", "/api/v1/users/{id}/groups",
 		"/api/v1/users/{id}/sessions", "/api/v1/fields",
 		"/api/v1/user-attributes", "/api/v1/users/{id}/attributes",
+		"/api/v1/applications/oauth-clients/{clientID}/field-mappings",
+		"/api/v1/applications/saml-service-providers/{id}/field-mappings",
+		"/api/v1/applications/cas-services/{id}/field-mappings",
+		"/api/v1/webhooks/{id}/field-mappings",
 	} {
 		covered[c] = true
 	}

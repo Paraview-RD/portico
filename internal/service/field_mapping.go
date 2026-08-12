@@ -67,6 +67,68 @@ var reservedClaims = map[string]bool{
 	"client_id": true, "token_type": true, "active": true,
 }
 
+// RecipientKind is which of the four a path segment is addressing.
+type RecipientKind string
+
+// The four, which differ only in which table the id is looked up in.
+const (
+	RecipientOAuthClient  RecipientKind = "OAUTH_CLIENT"
+	RecipientSAMLProvider RecipientKind = "SAML_SERVICE_PROVIDER"
+	RecipientCASService   RecipientKind = "CAS_SERVICE"
+	RecipientWebhook      RecipientKind = "WEBHOOK_SUBSCRIPTION"
+)
+
+// ErrRecipientNotFound is what naming one that is not there gets.
+//
+// Checked before writing rather than left to the foreign key. A mistyped id
+// would otherwise surface as a constraint violation — a 500, describing a
+// column, for what is an ordinary wrong-address mistake.
+var ErrRecipientNotFound = httpx.NotFound("RECIPIENT_NOT_FOUND",
+	"No such application or subscription.")
+
+// Recipient resolves an addressed recipient, confirming it exists in this
+// tenant. The reference it returns is what every other method here takes.
+func (s *FieldMappingService) Recipient(ctx context.Context, tenantID string, kind RecipientKind, id string) (store.RecipientRef, error) {
+	q := s.store.ForTenant(tenantID)
+
+	switch kind {
+	case RecipientOAuthClient:
+		// Addressed by the client id an integration was given, not by the row
+		// id, because that is what every other route under this prefix uses
+		// and what an administrator has in front of them. The mapping stores
+		// the row id, which is what the foreign key points at.
+		client, err := q.GetOAuthClient(ctx, id)
+		if err != nil {
+			return store.RecipientRef{}, ErrRecipientNotFound
+		}
+		return store.RecipientRef{OAuthClientID: client.ID}, nil
+
+	case RecipientSAMLProvider:
+		provider, err := q.GetSAMLServiceProviderByID(ctx, id)
+		if err != nil {
+			return store.RecipientRef{}, ErrRecipientNotFound
+		}
+		return store.RecipientRef{SAMLSPID: provider.ID}, nil
+
+	case RecipientCASService:
+		casService, err := q.GetCASServiceByID(ctx, id)
+		if err != nil {
+			return store.RecipientRef{}, ErrRecipientNotFound
+		}
+		return store.RecipientRef{CASServiceID: casService.ID}, nil
+
+	case RecipientWebhook:
+		subscription, err := q.GetWebhookSubscription(ctx, id)
+		if err != nil {
+			return store.RecipientRef{}, ErrRecipientNotFound
+		}
+		return store.RecipientRef{WebhookSubscriptionID: subscription.ID}, nil
+
+	default:
+		return store.RecipientRef{}, ErrRecipientNotFound
+	}
+}
+
 // FieldMappingInput is one rule as an administrator describes it.
 type FieldMappingInput struct {
 	SourceKey    string

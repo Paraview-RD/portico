@@ -79,6 +79,7 @@ func report(s seed.Summary) {
   applications   %d
   directories    %d
   subscriptions  %d
+  field mappings %d
   audit entries  %d
   sessions       %d
   deliveries     %d
@@ -89,7 +90,7 @@ default tenant, or the same name in tenant %q to see how little of it carries
 across.
 `,
 		s.Tenants, s.Users, s.Organizations, s.Groups, s.Applications,
-		s.Directories, s.Subscriptions, s.AuditEntries, s.Sessions,
+		s.Directories, s.Subscriptions, s.FieldMappings, s.AuditEntries, s.Sessions,
 		s.Deliveries, s.SyncRuns,
 		seed.DemoPassword, "zhangwei", seed.TenantSecond)
 }

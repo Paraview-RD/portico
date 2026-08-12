@@ -15,6 +15,7 @@ import (
 	"github.com/Paraview-RD/portico/internal/oidcp"
 	"github.com/Paraview-RD/portico/internal/samlp"
 	"github.com/Paraview-RD/portico/internal/scim"
+	"github.com/Paraview-RD/portico/internal/service"
 	"github.com/Paraview-RD/portico/internal/web"
 )
 
@@ -212,6 +213,15 @@ func (s *Server) routes() http.Handler {
 				r.Post("/{clientID}/enable", h.EnableClient)
 				r.Post("/{clientID}/disable", h.DisableClient)
 				r.Post("/{clientID}/rotate-secret", h.RotateClientSecret)
+
+				// What this application receives, and under what name. An
+				// empty list means the documented defaults, which is what
+				// every application registered before this feature existed
+				// has and keeps.
+				r.Get("/{clientID}/field-mappings",
+					h.ListFieldMappings(service.RecipientOAuthClient, "clientID"))
+				r.Put("/{clientID}/field-mappings",
+					h.ReplaceFieldMappings(service.RecipientOAuthClient, "clientID"))
 			})
 
 			// These two are addressed by the registration's own id, not by
@@ -228,6 +238,11 @@ func (s *Server) routes() http.Handler {
 				r.Put("/{id}", h.UpdateServiceProvider)
 				r.Post("/{id}/enable", h.EnableServiceProvider)
 				r.Post("/{id}/disable", h.DisableServiceProvider)
+
+				r.Get("/{id}/field-mappings",
+					h.ListFieldMappings(service.RecipientSAMLProvider, "id"))
+				r.Put("/{id}/field-mappings",
+					h.ReplaceFieldMappings(service.RecipientSAMLProvider, "id"))
 			})
 
 			r.Route("/applications/cas-services", func(r chi.Router) {
@@ -237,6 +252,11 @@ func (s *Server) routes() http.Handler {
 				r.Put("/{id}", h.UpdateCASService)
 				r.Post("/{id}/enable", h.EnableCASService)
 				r.Post("/{id}/disable", h.DisableCASService)
+
+				r.Get("/{id}/field-mappings",
+					h.ListFieldMappings(service.RecipientCASService, "id"))
+				r.Put("/{id}/field-mappings",
+					h.ReplaceFieldMappings(service.RecipientCASService, "id"))
 			})
 
 			// Issuing and revoking the credentials a directory syncs with.
@@ -253,6 +273,14 @@ func (s *Server) routes() http.Handler {
 				r.Post("/{id}/enable", h.EnableWebhook)
 				r.Post("/{id}/disable", h.DisableWebhook)
 				r.Delete("/{id}", h.DeleteWebhook)
+
+				// The same rules as an application's, over the event body
+				// rather than over a claim set. A subscription with none
+				// receives what it always received.
+				r.Get("/{id}/field-mappings",
+					h.ListFieldMappings(service.RecipientWebhook, "id"))
+				r.Put("/{id}/field-mappings",
+					h.ReplaceFieldMappings(service.RecipientWebhook, "id"))
 			})
 
 			// Directories Portico reads accounts out of, which is the

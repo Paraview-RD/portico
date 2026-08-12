@@ -177,7 +177,7 @@ func New(cfg *config.Config, opts ...Option) (*Server, error) {
 		store: st,
 		handler: handler.New(users, orgs, audit, settings, tenants, recovery, verification, sessions,
 			clients, serviceProviders, samlKeys, casServices, scimCredentials,
-			directories, webhooks, groups, logos, attributes, fields,
+			directories, webhooks, groups, logos, attributes, fields, fieldMappings,
 			providers, samlProviders, casServer),
 		middleware:    auth.NewMiddleware(tokens, users, sessions),
 		metrics:       registry,
