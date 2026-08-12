@@ -144,7 +144,8 @@ func New(cfg *config.Config, opts ...Option) (*Server, error) {
 	logos := service.NewApplicationLogoService(st)
 	attributes := service.NewUserAttributeService(st, audit)
 	fields := service.NewFieldCatalogue(st)
-	webhooks := service.NewWebhookService(st, audit)
+	fieldMappings := service.NewFieldMappingService(st, audit, fields)
+	webhooks := service.NewWebhookService(st, audit).WithFieldMappings(fields, fieldMappings)
 	// Attached after construction: the webhook service is built from the same
 	// store and the account operations only need to know it exists.
 	users.WithEvents(webhooks)

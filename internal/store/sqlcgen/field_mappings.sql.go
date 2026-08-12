@@ -10,34 +10,37 @@ import (
 	"time"
 )
 
-const createApplicationFieldMapping = `-- name: CreateApplicationFieldMapping :exec
-INSERT INTO application_field_mappings (
-    id, tenant_id, oauth_client_id, saml_sp_id, cas_service_id,
+const createFieldMapping = `-- name: CreateFieldMapping :exec
+INSERT INTO field_mappings (
+    id, tenant_id,
+    oauth_client_id, saml_sp_id, cas_service_id, webhook_subscription_id,
     source_key, target_name, friendly_name, suppressed, created_at, updated_at
-) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11)
+) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12)
 `
 
-type CreateApplicationFieldMappingParams struct {
-	ID            string
-	TenantID      string
-	OauthClientID *string
-	SamlSpID      *string
-	CasServiceID  *string
-	SourceKey     string
-	TargetName    string
-	FriendlyName  string
-	Suppressed    bool
-	CreatedAt     time.Time
-	UpdatedAt     time.Time
+type CreateFieldMappingParams struct {
+	ID                    string
+	TenantID              string
+	OauthClientID         *string
+	SamlSpID              *string
+	CasServiceID          *string
+	WebhookSubscriptionID *string
+	SourceKey             string
+	TargetName            string
+	FriendlyName          string
+	Suppressed            bool
+	CreatedAt             time.Time
+	UpdatedAt             time.Time
 }
 
-func (q *Queries) CreateApplicationFieldMapping(ctx context.Context, arg CreateApplicationFieldMappingParams) error {
-	_, err := q.db.ExecContext(ctx, createApplicationFieldMapping,
+func (q *Queries) CreateFieldMapping(ctx context.Context, arg CreateFieldMappingParams) error {
+	_, err := q.db.ExecContext(ctx, createFieldMapping,
 		arg.ID,
 		arg.TenantID,
 		arg.OauthClientID,
 		arg.SamlSpID,
 		arg.CasServiceID,
+		arg.WebhookSubscriptionID,
 		arg.SourceKey,
 		arg.TargetName,
 		arg.FriendlyName,
@@ -48,75 +51,82 @@ func (q *Queries) CreateApplicationFieldMapping(ctx context.Context, arg CreateA
 	return err
 }
 
-const deleteApplicationFieldMappings = `-- name: DeleteApplicationFieldMappings :exec
-DELETE FROM application_field_mappings
+const deleteFieldMappings = `-- name: DeleteFieldMappings :exec
+DELETE FROM field_mappings
 WHERE tenant_id = $1
   AND oauth_client_id IS NOT DISTINCT FROM $2
   AND saml_sp_id IS NOT DISTINCT FROM $3
   AND cas_service_id IS NOT DISTINCT FROM $4
+  AND webhook_subscription_id IS NOT DISTINCT FROM $5
 `
 
-type DeleteApplicationFieldMappingsParams struct {
-	TenantID      string
-	OauthClientID *string
-	SamlSpID      *string
-	CasServiceID  *string
+type DeleteFieldMappingsParams struct {
+	TenantID              string
+	OauthClientID         *string
+	SamlSpID              *string
+	CasServiceID          *string
+	WebhookSubscriptionID *string
 }
 
-// Clears one application's set. A save replaces the whole set rather than
+// Clears one recipient's set. A save replaces the whole set rather than
 // upserting row by row, because that is what the form is: a table somebody
-// edited. Row-by-row would need three different ON CONFLICT targets and would
+// edited. Row-by-row would need four different ON CONFLICT targets and would
 // leave whatever the form deleted still in place.
-func (q *Queries) DeleteApplicationFieldMappings(ctx context.Context, arg DeleteApplicationFieldMappingsParams) error {
-	_, err := q.db.ExecContext(ctx, deleteApplicationFieldMappings,
+func (q *Queries) DeleteFieldMappings(ctx context.Context, arg DeleteFieldMappingsParams) error {
+	_, err := q.db.ExecContext(ctx, deleteFieldMappings,
 		arg.TenantID,
 		arg.OauthClientID,
 		arg.SamlSpID,
 		arg.CasServiceID,
+		arg.WebhookSubscriptionID,
 	)
 	return err
 }
 
-const listApplicationFieldMappings = `-- name: ListApplicationFieldMappings :many
-SELECT id, tenant_id, oauth_client_id, saml_sp_id, cas_service_id, source_key, target_name, friendly_name, suppressed, created_at, updated_at FROM application_field_mappings
+const listFieldMappings = `-- name: ListFieldMappings :many
+SELECT id, tenant_id, oauth_client_id, saml_sp_id, cas_service_id, webhook_subscription_id, source_key, target_name, friendly_name, suppressed, created_at, updated_at FROM field_mappings
 WHERE tenant_id = $1
   AND oauth_client_id IS NOT DISTINCT FROM $2
   AND saml_sp_id IS NOT DISTINCT FROM $3
   AND cas_service_id IS NOT DISTINCT FROM $4
+  AND webhook_subscription_id IS NOT DISTINCT FROM $5
 ORDER BY source_key
 `
 
-type ListApplicationFieldMappingsParams struct {
-	TenantID      string
-	OauthClientID *string
-	SamlSpID      *string
-	CasServiceID  *string
+type ListFieldMappingsParams struct {
+	TenantID              string
+	OauthClientID         *string
+	SamlSpID              *string
+	CasServiceID          *string
+	WebhookSubscriptionID *string
 }
 
-// One application's mappings. The caller passes the id of whichever kind of
-// application it has and nulls for the other two; IS NOT DISTINCT FROM matches
+// One recipient's mappings. The caller passes the id of whichever kind of
+// recipient it has and nulls for the other three; IS NOT DISTINCT FROM matches
 // the null columns, and the CHECK constraint guarantees that identifies exactly
-// one application rather than a set.
-func (q *Queries) ListApplicationFieldMappings(ctx context.Context, arg ListApplicationFieldMappingsParams) ([]ApplicationFieldMapping, error) {
-	rows, err := q.db.QueryContext(ctx, listApplicationFieldMappings,
+// one recipient rather than a set.
+func (q *Queries) ListFieldMappings(ctx context.Context, arg ListFieldMappingsParams) ([]FieldMapping, error) {
+	rows, err := q.db.QueryContext(ctx, listFieldMappings,
 		arg.TenantID,
 		arg.OauthClientID,
 		arg.SamlSpID,
 		arg.CasServiceID,
+		arg.WebhookSubscriptionID,
 	)
 	if err != nil {
 		return nil, err
 	}
 	defer rows.Close()
-	items := []ApplicationFieldMapping{}
+	items := []FieldMapping{}
 	for rows.Next() {
-		var i ApplicationFieldMapping
+		var i FieldMapping
 		if err := rows.Scan(
 			&i.ID,
 			&i.TenantID,
 			&i.OauthClientID,
 			&i.SamlSpID,
 			&i.CasServiceID,
+			&i.WebhookSubscriptionID,
 			&i.SourceKey,
 			&i.TargetName,
 			&i.FriendlyName,
@@ -137,34 +147,35 @@ func (q *Queries) ListApplicationFieldMappings(ctx context.Context, arg ListAppl
 	return items, nil
 }
 
-const listApplicationsMappingField = `-- name: ListApplicationsMappingField :many
-SELECT id, tenant_id, oauth_client_id, saml_sp_id, cas_service_id, source_key, target_name, friendly_name, suppressed, created_at, updated_at FROM application_field_mappings
+const listRecipientsMappingField = `-- name: ListRecipientsMappingField :many
+SELECT id, tenant_id, oauth_client_id, saml_sp_id, cas_service_id, webhook_subscription_id, source_key, target_name, friendly_name, suppressed, created_at, updated_at FROM field_mappings
 WHERE tenant_id = $1 AND source_key = $2 AND suppressed = FALSE
 `
 
-type ListApplicationsMappingFieldParams struct {
+type ListRecipientsMappingFieldParams struct {
 	TenantID  string
 	SourceKey string
 }
 
-// Which applications receive one fact, across all three protocols at once.
-// This is the disclosure question — "who gets department" — and answering it in
-// one query is most of why the three protocols share a table.
-func (q *Queries) ListApplicationsMappingField(ctx context.Context, arg ListApplicationsMappingFieldParams) ([]ApplicationFieldMapping, error) {
-	rows, err := q.db.QueryContext(ctx, listApplicationsMappingField, arg.TenantID, arg.SourceKey)
+// Which recipients receive one fact, across all four kinds at once. This is the
+// disclosure question — "who gets department" — and answering it in one query
+// is most of why they share a table.
+func (q *Queries) ListRecipientsMappingField(ctx context.Context, arg ListRecipientsMappingFieldParams) ([]FieldMapping, error) {
+	rows, err := q.db.QueryContext(ctx, listRecipientsMappingField, arg.TenantID, arg.SourceKey)
 	if err != nil {
 		return nil, err
 	}
 	defer rows.Close()
-	items := []ApplicationFieldMapping{}
+	items := []FieldMapping{}
 	for rows.Next() {
-		var i ApplicationFieldMapping
+		var i FieldMapping
 		if err := rows.Scan(
 			&i.ID,
 			&i.TenantID,
 			&i.OauthClientID,
 			&i.SamlSpID,
 			&i.CasServiceID,
+			&i.WebhookSubscriptionID,
 			&i.SourceKey,
 			&i.TargetName,
 			&i.FriendlyName,

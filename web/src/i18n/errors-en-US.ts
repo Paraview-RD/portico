@@ -250,6 +250,16 @@ export const errorsEnUS = {
   INVALID_USER_ATTRIBUTE_VALUE:
     "That value does not match the attribute's kind.",
   UNKNOWN_FIELD: "No such field. Only fields from the catalogue can be mapped.",
+  MAPPING_TARGET_REQUIRED:
+    "Give the name this recipient expects, or switch the field off.",
+  DUPLICATE_MAPPING_SOURCE:
+    "This field is already mapped. One rule per field — two would be settled by whichever was read first.",
+  DUPLICATE_MAPPING_TARGET:
+    "Two fields are being sent under the same name. Only one would arrive, and not the one you pick.",
+  RESERVED_CLAIM_NAME:
+    "OpenID Connect reserves that name and relies on what it means. Choose another.",
+  PAYLOAD_NAME_TAKEN:
+    "The event already uses that name for something else. Choose another.",
 };
 
 /** Every code this table knows. */

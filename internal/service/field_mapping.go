@@ -43,7 +43,15 @@ var (
 	ErrReservedClaimName = httpx.BadRequest("RESERVED_CLAIM_NAME",
 		"That claim name is reserved by OpenID Connect and carries a meaning the protocol depends on.")
 	ErrDuplicateMappingSource = httpx.BadRequest("DUPLICATE_MAPPING_SOURCE",
-		"Each field can be mapped once per application. Two rules for one field would be settled by whichever was read first.")
+		"Each field can be mapped once per recipient. Two rules for one field would be settled by whichever was read first.")
+	ErrDuplicateMappingTarget = httpx.BadRequest("DUPLICATE_MAPPING_TARGET",
+		"Two fields are being sent under the same name. Only one of them would arrive, and which one is not something you can choose.")
+	// ErrPayloadNameTaken guards a webhook rename landing on a key the event
+	// already uses for something else. A mapping onto `id` would put a
+	// department where a subscriber reads the account's identifier — the same
+	// hazard as a claim onto `sub`, one protocol down.
+	ErrPayloadNameTaken = httpx.BadRequest("PAYLOAD_NAME_TAKEN",
+		"The event payload already uses that name for something else.")
 )
 
 // reservedClaims are the names an OpenID Connect mapping may not take.
@@ -71,8 +79,8 @@ type FieldMappingInput struct {
 }
 
 // Mappings returns one application's rules.
-func (s *FieldMappingService) Mappings(ctx context.Context, tenantID string, ref store.ApplicationRef) ([]model.FieldMapping, error) {
-	rows, err := s.store.ForTenant(tenantID).ListApplicationFieldMappings(ctx, ref)
+func (s *FieldMappingService) Mappings(ctx context.Context, tenantID string, ref store.RecipientRef) ([]model.FieldMapping, error) {
+	rows, err := s.store.ForTenant(tenantID).ListFieldMappings(ctx, ref)
 	if err != nil {
 		return nil, fmt.Errorf("list field mappings: %w", err)
 	}
@@ -93,22 +101,23 @@ func (s *FieldMappingService) Mappings(ctx context.Context, tenantID string, ref
 // would leave the rows the form deleted still in place, which is the one
 // outcome nobody expects from a save.
 //
-// oidc says whether this application speaks OpenID Connect, which decides
-// whether the reserved-claim refusal applies. A SAML attribute called `sub` is
-// unremarkable.
-func (s *FieldMappingService) Replace(ctx context.Context, actor auth.Principal, ref store.ApplicationRef, oidc bool, inputs []FieldMappingInput) ([]model.FieldMapping, error) {
+// Which names are refused depends on the recipient rather than on a flag the
+// caller passes: OpenID Connect's registered claims mean nothing to a SAML
+// service provider, where an attribute called `sub` is unremarkable.
+func (s *FieldMappingService) Replace(ctx context.Context, actor auth.Principal, ref store.RecipientRef, inputs []FieldMappingInput) ([]model.FieldMapping, error) {
 	tenantID := actor.TenantID
 
-	normalized, err := s.normalize(ctx, tenantID, oidc, inputs)
+	normalized, err := s.normalize(ctx, tenantID, ref, inputs)
 	if err != nil {
 		return nil, err
 	}
 
 	now := store.Now()
-	oauthID, samlID, casID := optionalID(ref.OAuthClientID), optionalID(ref.SAMLSPID), optionalID(ref.CASServiceID)
+	oauthID, samlID := optionalID(ref.OAuthClientID), optionalID(ref.SAMLSPID)
+	casID, hookID := optionalID(ref.CASServiceID), optionalID(ref.WebhookSubscriptionID)
 
 	// In one transaction, because a save is a replacement: a clear that
-	// committed without its rewrite would leave an application receiving the
+	// committed without its rewrite would leave a recipient receiving the
 	// defaults, silently, until somebody pressed save again.
 	//
 	// The tenant is passed explicitly here rather than through the scoped
@@ -116,17 +125,19 @@ func (s *FieldMappingService) Replace(ctx context.Context, actor auth.Principal,
 	// wrapper binds a connection and a transaction is a different one. The
 	// statements themselves still filter on it.
 	err = s.store.WithTx(func(tx *sqlcgen.Queries) error {
-		err := tx.DeleteApplicationFieldMappings(ctx, sqlcgen.DeleteApplicationFieldMappingsParams{
-			TenantID: tenantID, OauthClientID: oauthID, SamlSpID: samlID, CasServiceID: casID,
+		err := tx.DeleteFieldMappings(ctx, sqlcgen.DeleteFieldMappingsParams{
+			TenantID: tenantID, OauthClientID: oauthID, SamlSpID: samlID,
+			CasServiceID: casID, WebhookSubscriptionID: hookID,
 		})
 		if err != nil {
 			return fmt.Errorf("clear field mappings: %w", err)
 		}
 		for _, in := range normalized {
-			err := tx.CreateApplicationFieldMapping(ctx, sqlcgen.CreateApplicationFieldMappingParams{
+			err := tx.CreateFieldMapping(ctx, sqlcgen.CreateFieldMappingParams{
 				ID:            uuid.NewString(),
 				TenantID:      tenantID,
-				OauthClientID: oauthID, SamlSpID: samlID, CasServiceID: casID,
+				OauthClientID: oauthID, SamlSpID: samlID,
+				CasServiceID: casID, WebhookSubscriptionID: hookID,
 				SourceKey:    in.SourceKey,
 				TargetName:   in.TargetName,
 				FriendlyName: in.FriendlyName,
@@ -157,15 +168,19 @@ func (s *FieldMappingService) Replace(ctx context.Context, actor auth.Principal,
 	s.audit.Log(ctx, tenantID, AuditEntry{
 		Kind: model.LogOperation, Action: model.ActionFieldMappingReplace,
 		ActorID: actor.UserID, ActorName: actor.Username,
-		TargetType: targetFieldMapping, TargetID: applicationRefID(ref),
+		TargetType: targetFieldMapping, TargetID: recipientRefID(ref),
 		Detail: strings.Join(summary, "; "),
 	})
 
 	return s.Mappings(ctx, tenantID, ref)
 }
 
-func (s *FieldMappingService) normalize(ctx context.Context, tenantID string, oidc bool, inputs []FieldMappingInput) ([]FieldMappingInput, error) {
+func (s *FieldMappingService) normalize(ctx context.Context, tenantID string, ref store.RecipientRef, inputs []FieldMappingInput) ([]FieldMappingInput, error) {
 	seen := map[string]bool{}
+	// Targets as well as sources. Two facts sent under one name is the same
+	// ambiguity as one fact sent twice, settled the same way — by whichever
+	// was written last — and it is easier to do by accident.
+	seenTarget := map[string]bool{}
 	out := make([]FieldMappingInput, 0, len(inputs))
 
 	for _, in := range inputs {
@@ -195,21 +210,33 @@ func (s *FieldMappingService) normalize(ctx context.Context, tenantID string, oi
 		if in.TargetName == "" {
 			return nil, ErrMappingTargetRequired
 		}
-		if oidc && reservedClaims[strings.ToLower(in.TargetName)] {
+		if seenTarget[in.TargetName] {
+			return nil, ErrDuplicateMappingTarget
+		}
+		seenTarget[in.TargetName] = true
+
+		if ref.OAuthClientID != "" && reservedClaims[strings.ToLower(in.TargetName)] {
 			return nil, ErrReservedClaimName
+		}
+		if ref.WebhookSubscriptionID != "" {
+			if owners, taken := webhookTopLevelOwners[in.TargetName]; taken && !owners[in.SourceKey] {
+				return nil, ErrPayloadNameTaken
+			}
 		}
 		out = append(out, in)
 	}
 	return out, nil
 }
 
-// applicationRefID is whichever id the reference carries, for the audit trail.
-func applicationRefID(ref store.ApplicationRef) string {
+// recipientRefID is whichever id the reference carries, for the audit trail.
+func recipientRefID(ref store.RecipientRef) string {
 	switch {
 	case ref.OAuthClientID != "":
 		return ref.OAuthClientID
 	case ref.SAMLSPID != "":
 		return ref.SAMLSPID
+	case ref.WebhookSubscriptionID != "":
+		return ref.WebhookSubscriptionID
 	default:
 		return ref.CASServiceID
 	}
@@ -230,7 +257,7 @@ type Outbound struct {
 // An application with none gets an empty set, and every method below then leaves
 // the defaults exactly as they were. That is the property the whole feature
 // rests on: an upgrade changes nothing until somebody decides something.
-func (s *FieldMappingService) OutboundFor(ctx context.Context, tenantID string, ref store.ApplicationRef) (Outbound, error) {
+func (s *FieldMappingService) OutboundFor(ctx context.Context, tenantID string, ref store.RecipientRef) (Outbound, error) {
 	mappings, err := s.Mappings(ctx, tenantID, ref)
 	if err != nil {
 		return Outbound{}, err

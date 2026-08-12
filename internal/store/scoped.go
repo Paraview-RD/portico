@@ -1161,19 +1161,24 @@ func (s *Scoped) ListOrganizationAttachedUsers(ctx context.Context, organization
 	})
 }
 
-// --- per-application field mappings ------------------------------------
+// --- per-recipient field mappings ---------------------------------------
 
-// ApplicationRef names one registered application without saying which of the
-// three protocols it speaks. Exactly one field is set, which the schema also
-// enforces: three nullable foreign keys and a CHECK, so that the database keeps
-// the reference honest and takes the mappings away with the application.
-type ApplicationRef struct {
-	OAuthClientID string
-	SAMLSPID      string
-	CASServiceID  string
+// RecipientRef names one thing that receives fields, without saying what kind
+// it is. Exactly one field is set, which the schema also enforces: four
+// nullable foreign keys and a CHECK, so that the database keeps the reference
+// honest and takes the mappings away with the recipient.
+//
+// Not "application": three of the four are, and a webhook subscription is not.
+// It is the one Portico pushes to rather than answers, and it is what an
+// administrator usually means by synchronising to a downstream system.
+type RecipientRef struct {
+	OAuthClientID         string
+	SAMLSPID              string
+	CASServiceID          string
+	WebhookSubscriptionID string
 }
 
-func (r ApplicationRef) ids() (oauth, saml, cas *string) {
+func (r RecipientRef) ids() (oauth, saml, cas, hook *string) {
 	if r.OAuthClientID != "" {
 		oauth = &r.OAuthClientID
 	}
@@ -1183,37 +1188,42 @@ func (r ApplicationRef) ids() (oauth, saml, cas *string) {
 	if r.CASServiceID != "" {
 		cas = &r.CASServiceID
 	}
-	return oauth, saml, cas
+	if r.WebhookSubscriptionID != "" {
+		hook = &r.WebhookSubscriptionID
+	}
+	return oauth, saml, cas, hook
 }
 
-// ListApplicationFieldMappings returns one application's mappings.
-func (s *Scoped) ListApplicationFieldMappings(ctx context.Context, ref ApplicationRef) ([]sqlcgen.ApplicationFieldMapping, error) {
-	oauth, saml, cas := ref.ids()
-	return s.q.ListApplicationFieldMappings(ctx, sqlcgen.ListApplicationFieldMappingsParams{
-		TenantID: s.tenantID, OauthClientID: oauth, SamlSpID: saml, CasServiceID: cas,
+// ListFieldMappings returns one recipient's mappings.
+func (s *Scoped) ListFieldMappings(ctx context.Context, ref RecipientRef) ([]sqlcgen.FieldMapping, error) {
+	oauth, saml, cas, hook := ref.ids()
+	return s.q.ListFieldMappings(ctx, sqlcgen.ListFieldMappingsParams{
+		TenantID: s.tenantID, OauthClientID: oauth, SamlSpID: saml,
+		CasServiceID: cas, WebhookSubscriptionID: hook,
 	})
 }
 
-// ListApplicationsMappingField answers which applications receive one fact,
-// across all three protocols at once.
-func (s *Scoped) ListApplicationsMappingField(ctx context.Context, sourceKey string) ([]sqlcgen.ApplicationFieldMapping, error) {
-	return s.q.ListApplicationsMappingField(ctx,
-		sqlcgen.ListApplicationsMappingFieldParams{TenantID: s.tenantID, SourceKey: sourceKey})
+// ListRecipientsMappingField answers which recipients receive one fact, across
+// all four kinds at once.
+func (s *Scoped) ListRecipientsMappingField(ctx context.Context, sourceKey string) ([]sqlcgen.FieldMapping, error) {
+	return s.q.ListRecipientsMappingField(ctx,
+		sqlcgen.ListRecipientsMappingFieldParams{TenantID: s.tenantID, SourceKey: sourceKey})
 }
 
-// DeleteApplicationFieldMappings clears one application's set, which is what a
-// save does before writing the set the form holds.
-func (s *Scoped) DeleteApplicationFieldMappings(ctx context.Context, ref ApplicationRef) error {
-	oauth, saml, cas := ref.ids()
-	return s.q.DeleteApplicationFieldMappings(ctx, sqlcgen.DeleteApplicationFieldMappingsParams{
-		TenantID: s.tenantID, OauthClientID: oauth, SamlSpID: saml, CasServiceID: cas,
+// DeleteFieldMappings clears one recipient's set, which is what a save does
+// before writing the set the form holds.
+func (s *Scoped) DeleteFieldMappings(ctx context.Context, ref RecipientRef) error {
+	oauth, saml, cas, hook := ref.ids()
+	return s.q.DeleteFieldMappings(ctx, sqlcgen.DeleteFieldMappingsParams{
+		TenantID: s.tenantID, OauthClientID: oauth, SamlSpID: saml,
+		CasServiceID: cas, WebhookSubscriptionID: hook,
 	})
 }
 
-// CreateApplicationFieldMapping writes one row.
-func (s *Scoped) CreateApplicationFieldMapping(ctx context.Context, arg sqlcgen.CreateApplicationFieldMappingParams) error {
+// CreateFieldMapping writes one row.
+func (s *Scoped) CreateFieldMapping(ctx context.Context, arg sqlcgen.CreateFieldMappingParams) error {
 	arg.TenantID = s.tenantID
-	return s.q.CreateApplicationFieldMapping(ctx, arg)
+	return s.q.CreateFieldMapping(ctx, arg)
 }
 
 // --- tenant-defined user attributes -----------------------------------

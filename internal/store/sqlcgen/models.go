@@ -10,21 +10,6 @@ import (
 	"time"
 )
 
-// Per-application renames, additions, and suppressions. The defaults stay in code — see internal/service/field_catalogue.go.
-type ApplicationFieldMapping struct {
-	ID            string
-	TenantID      string
-	OauthClientID *string
-	SamlSpID      *string
-	CasServiceID  *string
-	SourceKey     string
-	TargetName    string
-	FriendlyName  string
-	Suppressed    bool
-	CreatedAt     time.Time
-	UpdatedAt     time.Time
-}
-
 // Uploaded pictures for application tiles. Referenced by path from the logo_uri columns.
 type ApplicationLogo struct {
 	ID          string
@@ -77,6 +62,22 @@ type CasTicket struct {
 	ConsumedAt *time.Time
 	CreatedAt  time.Time
 	ExpiresAt  time.Time
+}
+
+// Per-recipient renames, additions, and suppressions. The defaults stay in code — see internal/service/field_catalogue.go.
+type FieldMapping struct {
+	ID                    string
+	TenantID              string
+	OauthClientID         *string
+	SamlSpID              *string
+	CasServiceID          *string
+	WebhookSubscriptionID *string
+	SourceKey             string
+	TargetName            string
+	FriendlyName          string
+	Suppressed            bool
+	CreatedAt             time.Time
+	UpdatedAt             time.Time
 }
 
 type Group struct {

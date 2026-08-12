@@ -208,4 +208,11 @@ export const errorsZhCN: Record<keyof typeof errorsEnUS, string> = {
     "自定义属性数量已达上限。每一个都可能被映射出站，而映射出去的属性就是每个令牌里的字节。",
   INVALID_USER_ATTRIBUTE_VALUE: "这个值与该属性的类型不符。",
   UNKNOWN_FIELD: "没有这个字段。只有字段目录里的字段可以被映射。",
+  MAPPING_TARGET_REQUIRED: "填上对方期望的名称，或者把这个字段关掉。",
+  DUPLICATE_MAPPING_SOURCE:
+    "这个字段已经映射过了。一个字段只能有一条规则，两条的话谁生效取决于先读到哪条。",
+  DUPLICATE_MAPPING_TARGET:
+    "两个字段用了同一个名称发送。只有一个会到达，而且不是你能选的那个。",
+  RESERVED_CLAIM_NAME: "这个名称由 OpenID Connect 保留，协议本身依赖它的含义。请换一个。",
+  PAYLOAD_NAME_TAKEN: "事件载荷里这个名称已经用于别的字段了。请换一个。",
 };
