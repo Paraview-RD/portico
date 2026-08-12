@@ -13,7 +13,7 @@
 | OpenID 发现 | `http://<host>:8410/.well-known/openid-configuration` | 默认租户。其它租户在 `/t/<code>/…` |
 | SAML 元数据 | `http://<host>:8410/saml/metadata` | 交给服务提供方。其它租户在 `/t/<code>/saml/metadata` |
 | CAS | `http://<host>:8410/cas` | 客户端里的 "CAS server URL"。其它租户在 `/t/<code>/cas` |
-| SCIM 2.0 | `http://<host>:8410/scim/v2` | 目录要的那个"基础地址"。认证用 **接入 → 目录供给** 里签发的 bearer 令牌，**不是**管理员会话——见 [目录供给](scim.md) |
+| SCIM 2.0 | `http://<host>:8410/scim/v2` | 目录要的那个"基础地址"。认证用 **接入 → 目录对接** 里签发的 bearer 令牌，**不是**管理员会话——见 [目录供给](scim.md) |
 | 指标 | `http://<host>:9410/metrics` | **独立端口，默认关闭，且不做认证。** 见下 |
 
 端口由 `PORTICO_ADDR` 决定（默认 `:8410`）。开发时前端还会跑一个 Vite 服务在
@@ -297,7 +297,7 @@ token、access token、userinfo、内省端点一视同仁——抑制没法靠�
 6. 保存 bind 密码需要部署上设了 `PORTICO_ENCRYPTION_KEY`。没有它，**保存会被拒绝**，
    而不是把凭据明文写下去。
 
-完整细节，包括一次执行**拒绝**做什么，在 [目录对接](ldap.md)。
+完整细节，包括一次执行**拒绝**做什么，在 [从目录读取](ldap.md)。
 
 典型流程——让目录持续维护账号：
 
