@@ -213,7 +213,8 @@ export const errorsZhCN: Record<keyof typeof errorsEnUS, string> = {
     "这个字段已经映射过了。一个字段只能有一条规则，两条的话谁生效取决于先读到哪条。",
   DUPLICATE_MAPPING_TARGET:
     "两个字段用了同一个名称发送。只有一个会到达，而且不是你能选的那个。",
-  RESERVED_CLAIM_NAME: "这个名称由 OpenID Connect 保留，协议本身依赖它的含义。请换一个。",
+  RESERVED_CLAIM_NAME:
+    "这个名称由 OpenID Connect 保留，协议本身依赖它的含义。请换一个。",
   PAYLOAD_NAME_TAKEN: "事件载荷里这个名称已经用于别的字段了。请换一个。",
   RECIPIENT_NOT_FOUND: "这个应用或订阅不存在。",
   CLAIM_NAME_TAKEN: "这个应用已经在用这个 claim 名称接收另一个字段了。",

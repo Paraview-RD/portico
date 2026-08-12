@@ -631,3 +631,46 @@ export interface GroupRef {
   id: string;
   displayName: string;
 }
+
+/**
+ * One entry of the field catalogue: something that may be mapped.
+ *
+ * A key, never a column name. The catalogue exists so that a configuration
+ * cannot name `password_hash` — see docs/field-mappings.md.
+ */
+export interface CatalogueField {
+  key: string;
+  group: "identity" | "profile" | "organization" | "tenant" | "custom";
+  kind: "TEXT" | "NUMBER" | "BOOLEAN" | "DATE" | "SELECT";
+  /**
+   * Filled in for a tenant's own attributes, whose name is whatever somebody
+   * typed. Empty for a built-in, whose label the console holds under
+   * `fields.<key>` — a built-in has to read the same in both languages, and a
+   * stored string can only be one of them.
+   */
+  label?: string;
+  custom: boolean;
+  inbound: boolean;
+  outboundOnlyBecause?: string;
+  allowedValues?: string[];
+  /** A tenant attribute that has been retired. Its values are kept. */
+  disabled?: boolean;
+}
+
+/**
+ * One rule: a fact Portico holds, and the name a recipient expects it under.
+ *
+ * `suppressed` is a flag rather than an empty `targetName` because "send
+ * nothing" and "send under a name I have not chosen yet" are different
+ * intentions that one empty string cannot hold.
+ */
+export interface FieldMapping {
+  sourceKey: string;
+  targetName?: string;
+  /** SAML's second, human-readable name. Ignored by the other three. */
+  friendlyName?: string;
+  suppressed?: boolean;
+}
+
+/** Which kind of recipient a mapping belongs to. */
+export type RecipientKind = "oauth" | "saml" | "cas" | "webhook";

@@ -684,6 +684,22 @@ export const zhCN: Record<keyof typeof enUS, string> = {
   // 内置字段不存标签，是刻意的：它必须在两种语言里都读得通，而数据库里的一个
   // 字符串只能是其中一种。这些是映射选择器实际画出来的文字。少一条的键会直接
   // 渲染成键名本身——只有写目录的人看得懂。
+  // 映射编辑器。四种接收方共用一个界面，因为规则是同一套——见
+  // docs/field-mappings.md。
+  "fieldMappings.title": "字段",
+  "fieldMappings.intro":
+    "留空表示这个接收方按它一直以来的名称收到该字段。填一个名称就改用那个名称发送；勾选则不再发送。默认不发送的字段，只有你给了名称才会发出去。",
+  "fieldMappings.defaultName": "默认名称",
+  "fieldMappings.suppress": "不发送",
+  "fieldMappings.retired": "已停用",
+  "fieldMappings.none": "未配置——这个接收方按默认值接收。",
+  "fieldMappings.count": "已配置 {n} 条",
+  "fieldMappings.open": "字段",
+  "fieldGroup.identity": "身份",
+  "fieldGroup.profile": "个人资料",
+  "fieldGroup.organization": "组织",
+  "fieldGroup.tenant": "租户",
+  "fieldGroup.custom": "自定义属性",
   "fields.user_id": "账号 ID",
   "fields.username": "账号名",
   "fields.display_name": "显示名称",

@@ -45,6 +45,7 @@ import {
   Th,
   DocsLink,
 } from "../components/ui";
+import { FieldMappingEditor } from "../components/FieldMappingEditor";
 import { useErrorMessage, useT } from "../i18n";
 
 export function ApplicationsPage() {
@@ -72,6 +73,14 @@ export function ApplicationsPage() {
   const [editingProvider, setEditingProvider] =
     useState<SAMLServiceProvider | null>(null);
   const [editingCAS, setEditingCAS] = useState<CASService | null>(null);
+  // What one application receives, and under what name. One dialog for all
+  // three protocols — the rules are the same rules, and only the path the
+  // editor writes to differs.
+  const [mapping, setMapping] = useState<{
+    kind: "oauth" | "saml" | "cas";
+    id: string;
+    name: string;
+  } | null>(null);
   const [creating, setCreating] = useState(false);
 
   const [confirming, setConfirming] = useState<{
@@ -273,6 +282,19 @@ export function ApplicationsPage() {
                         >
                           {t("common.edit")}
                         </Button>
+                        <Button
+                          size="sm"
+                          variant="ghost"
+                          onClick={() =>
+                            setMapping({
+                              kind: "oauth",
+                              id: client.clientId,
+                              name: client.name,
+                            })
+                          }
+                        >
+                          {t("fieldMappings.open")}
+                        </Button>
                         {client.confidential && (
                           <Button
                             size="sm"
@@ -374,6 +396,19 @@ export function ApplicationsPage() {
                         >
                           {t("common.edit")}
                         </Button>
+                        <Button
+                          size="sm"
+                          variant="ghost"
+                          onClick={() =>
+                            setMapping({
+                              kind: "saml",
+                              id: provider.id,
+                              name: provider.name,
+                            })
+                          }
+                        >
+                          {t("fieldMappings.open")}
+                        </Button>
                         <StatusButton
                           active={provider.status === "ACTIVE"}
                           onToggle={(enable) =>
@@ -443,6 +478,19 @@ export function ApplicationsPage() {
                           onClick={() => setEditingCAS(svc)}
                         >
                           {t("common.edit")}
+                        </Button>
+                        <Button
+                          size="sm"
+                          variant="ghost"
+                          onClick={() =>
+                            setMapping({
+                              kind: "cas",
+                              id: svc.id,
+                              name: svc.name,
+                            })
+                          }
+                        >
+                          {t("fieldMappings.open")}
                         </Button>
                         <StatusButton
                           active={svc.status === "ACTIVE"}
@@ -531,6 +579,15 @@ export function ApplicationsPage() {
         onConfirm={() => confirming && void runAction(confirming.run)}
         onCancel={() => setConfirming(null)}
       />
+
+      {mapping ? (
+        <FieldMappingEditor
+          kind={mapping.kind}
+          recipientId={mapping.id}
+          recipientName={mapping.name}
+          onClose={() => setMapping(null)}
+        />
+      ) : null}
     </>
   );
 }

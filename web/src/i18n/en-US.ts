@@ -733,6 +733,23 @@ export const enUS = {
   // These are what the mapping picker draws. A key with no entry here would
   // render as its own key — readable to whoever wrote the catalogue and to
   // nobody else.
+  // The mapping editor. One screen for all four kinds of recipient, because
+  // the rules are the same rules — see docs/field-mappings.md.
+  "fieldMappings.title": "Fields",
+  "fieldMappings.intro":
+    "Leave a row empty and this recipient receives the field under the name it always has. Type a name to send it under that name instead; tick the box to stop sending it. Fields with no default are only sent if you name one.",
+  "fieldMappings.defaultName": "Default name",
+  "fieldMappings.suppress": "Do not send",
+  "fieldMappings.retired": "Retired",
+  "fieldMappings.none":
+    "Nothing configured — this recipient receives the defaults.",
+  "fieldMappings.count": "{n} configured",
+  "fieldMappings.open": "Fields",
+  "fieldGroup.identity": "Identity",
+  "fieldGroup.profile": "Profile",
+  "fieldGroup.organization": "Organization",
+  "fieldGroup.tenant": "Tenant",
+  "fieldGroup.custom": "Your own attributes",
   "fields.user_id": "Account ID",
   "fields.username": "Username",
   "fields.display_name": "Display name",
