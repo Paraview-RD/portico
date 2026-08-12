@@ -122,7 +122,7 @@ plugins:
             Home: 首页
             Getting in: 访问指南
             Organizations and groups: 组织与用户组
-            Reading a directory: 目录对接
+            Reading a directory: 从目录读取
             Provisioning: 目录供给
             Federation: 单点登录
             Webhooks: 事件订阅

@@ -14,7 +14,7 @@ what each role can actually do.
 | OpenID discovery | `http://<host>:8410/.well-known/openid-configuration` | The default tenant. Others at `/t/<code>/…` |
 | SAML metadata | `http://<host>:8410/saml/metadata` | Hand this to a service provider. Others at `/t/<code>/saml/metadata` |
 | CAS | `http://<host>:8410/cas` | The client's "CAS server URL". Others at `/t/<code>/cas` |
-| SCIM 2.0 | `http://<host>:8410/scim/v2` | The "base URL" a directory asks for. Authenticated by a bearer token issued under **Integration → Provisioning**, not by an administrator session — see [scim.md](scim.md) |
+| SCIM 2.0 | `http://<host>:8410/scim/v2` | The "base URL" a directory asks for. Authenticated by a bearer token issued under **Integration → Directory integration**, not by an administrator session — see [scim.md](scim.md) |
 | Metrics | `http://<host>:9410/metrics` | **A separate port, off by default, and not authenticated.** See below |
 
 The port is `PORTICO_ADDR` (default `:8410`). In development the frontend

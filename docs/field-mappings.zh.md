@@ -287,8 +287,8 @@ webhook 收到的任何东西。这是「告诉一个接收方它期待的形状
 
 如果提升之后 `profile` 空了，整个对象会被删掉，而不是发一个 `{}`。
 
-**群组事件不参与映射。**`group.created`、`group.updated`、`group.deleted`、
-`group.members_changed` 携带的是群组，而字段目录里没有群组词汇。它们的载荷会
+**用户组事件不参与映射。**`group.created`、`group.updated`、`group.deleted`、
+`group.members_changed` 携带的是用户组，而字段目录里没有用户组词汇。它们的载荷会
 原样投递，即使该订阅已经为账号配置了规则。这是一个决定，不是遗漏。
 
 **已入队的投递保持它被渲染时的形态。**载荷是在事件发生时渲染的，不是在发送

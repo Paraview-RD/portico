@@ -15,7 +15,7 @@
 
 两个方向，而这个区别比听上去重要：
 
-- **[目录对接](ldap.md)** —— Portico 主动连接你的 Active Directory 或
+- **[从目录读取](ldap.md)** —— Portico 主动连接你的 Active Directory 或
   OpenLDAP，把账号拉过来。**由 Portico 发起，并且 Portico 要保管一份凭据。**
 - **[目录供给](scim.md)** —— 你的目录通过 SCIM 2.0 主动把账号推进来。
   **由目录发起，凭据由目录保管。**
