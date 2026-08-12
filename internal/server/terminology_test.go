@@ -87,6 +87,12 @@ func TestTheDocumentsUseTheConsolesChineseTerms(t *testing.T) {
 		t.Fatalf("no Chinese documentation found: %v", err)
 	}
 
+	// The front page is translated too, and it sits outside docs/ where no
+	// glob and no translation count reaches it. It is a reader's first
+	// Chinese page rather than their fifth, which makes it the worst one to
+	// disagree with the console.
+	pages = append(pages, "../../README.zh.md")
+
 	for _, page := range pages {
 		content, err := os.ReadFile(page)
 		if err != nil {

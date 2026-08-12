@@ -23,6 +23,18 @@ missing or misspelled key is a compile error**, not a raw key rendered in
 the interface at runtime. The error tables are typed the same way, for the
 same reason.
 
+Prose is translated as a sibling file rather than a key: `docs/ldap.md` and
+`docs/ldap.zh.md`. `hack/untranslated.sh` counts those, and CI prints the
+count — a page with no translation does not fail the build, because then no
+batch of translations could ever be merged.
+
+`README.zh.md` follows the same naming and is **outside** that script, which
+only looks in `docs/`. Nothing counts it, so what keeps it honest is that it
+is named in the Go tests that pin a document to the thing it describes: the
+toolchain versions, the layout diagram, the example connection string, and
+the seeded demo password. Anything factual added to one README wants either
+the same line in the other or a test that notices.
+
 Verify with `npm run typecheck`. Note that a bare `npx tsc --noEmit` checks
 *nothing* here — the root `tsconfig.json` is a project-references stub with
 `"files": []`, so it silently type-checks zero files. Use the script.

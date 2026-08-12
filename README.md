@@ -1,5 +1,7 @@
 # Portico
 
+*English · [简体中文](README.zh.md)*
+
 A self-hostable identity platform: standard single sign-on, multi-tenant
 isolation, and a complete self-service flow — a single Go binary with the
 web UI compiled in, backed by PostgreSQL.
@@ -26,7 +28,11 @@ bulk, import from a spreadsheet and export back to one. An account carries
 the attributes a directory actually has for it — job title, department,
 employee number, name parts, locale, address — named after SCIM 2.0's
 schema, so what your directory holds lands in the right field instead of
-being dropped. Describing somebody and deciding their access are separate
+being dropped. What it holds that has no field here, a tenant defines for
+itself — **System → User attributes**, as text, a number, a yes/no, a date,
+or one of a list it writes out — and from then on the attribute is on every
+account form and in the field catalogue, addressable exactly like a built-in
+one. Describing somebody and deciding their access are separate
 endpoints, which is what lets people maintain their own details without that
 being a way to change a role. Accounts are disabled, never deleted, so the
 audit trail stays intact. An organization is where somebody sits: one of
@@ -39,7 +45,8 @@ which is advisory: it grants nothing, synchronizes nowhere, and leaves the
 one authoritative membership alone. Each organization may name whoever is
 responsible for it, which likewise grants nothing: this version has two fixed
 roles, and a field that quietly became a third would be the worst way to
-acquire one.
+acquire one. [docs/organizations.md](docs/organizations.md) puts the two
+shapes side by side, for deciding which of them a given fact belongs in.
 
 **Reading accounts out of a directory** — connect to an Active Directory or
 OpenLDAP and pull users in, reconciled on the directory's own stable
@@ -61,6 +68,20 @@ changes, with retries and a delivery history you can read when a subscriber
 says they received nothing. Destinations are restricted to public HTTPS and
 re-checked at connection time, so a tenant administrator cannot use Portico
 as a proxy into the network it runs in.
+[docs/webhooks.md](docs/webhooks.md) has the event list, the signature a
+receiver verifies, and how long a failing one is retried for.
+
+**Fields under the names the other side reads** — a service provider matches
+on the name it is given, so a system looking for `dept` throws away the
+`department` it was sent, and the field looks absent from both ends. Any
+field in the catalogue can be renamed or added on the way out, per
+application and separately per webhook subscription. Which of the two a rule
+does is not a choice: the ten claims OpenID Connect already sends get
+renamed, and everything else — the twenty-five SCIM profile attributes, the
+organization, whatever the tenant defined — is added by naming it. A rule
+reaches that one application or that one subscriber and nothing else.
+[docs/field-mappings.md](docs/field-mappings.md) has the catalogue, the ten,
+and what a mapping cannot do.
 
 **Metrics** — Prometheus, on a separate listener that only exists if you
 configure one, with no tenant or request-path labels.
@@ -74,9 +95,9 @@ password recovery by email, and profile maintenance, with no administrator in
 the loop. Password rules are per tenant: a minimum length that no policy can
 lower, plus optional composition rules, reuse checks, and expiry — the last
 three off by default, and documented as the compliance features they are
-rather than the security ones they are not. Recovery needs an SMTP relay; point `PORTICO_SMTP_HOST` at whatever
-you already run. SMS recovery is defined as a provider interface and ships
-without one.
+rather than the security ones they are not. Recovery needs an SMTP relay;
+point `PORTICO_SMTP_HOST` at whatever you already run. SMS recovery is
+defined as a provider interface and ships without one.
 
 **A home screen, for everybody** — signing in lands on the applications you
 can open, your account at a glance, and your last few sign-ins, rather than
@@ -108,7 +129,15 @@ worth reading before deploying.
 
 **Audit log** — sign-ins, operations, authorization, registrations,
 organization changes, and every application registration, filterable by type
-and time range.
+and time range. [docs/settings.md](docs/settings.md) covers what it records,
+and is honest about what it will not tell you.
+
+**Screens that explain themselves** — every administrative screen opens with
+a few sentences on what it is for and what a change there reaches, each
+linking into the manual for the rest. A tenant whose operators have read them
+four hundred times turns them off in its own settings; they are on by
+default, because a screen nobody can interpret costs more than an
+explanation somebody no longer needs.
 
 **Bilingual UI** — English and 简体中文, switchable at runtime.
 
@@ -134,8 +163,10 @@ builds the console, the manual and the server, seeds a database with people,
 organizations, applications and history, and opens the console in a browser
 tab. Nothing to install and nothing to configure.
 
-Sign in as `zhangwei` (super administrator) or `liyan` (ordinary user);
-every seeded account shares the password `Portico@1`. The same names exist
+Sign in as `admin` (super administrator) or `liyan` (ordinary user); every
+seeded account shares the password `Portico@1`. `zhangwei` is a second
+administrator, and the one most of the seeded history is attributed to, so
+sign in as that one to see an account with a past. The same names exist
 in a second tenant, `acme`, with almost nothing carried across, which is the
 shortest way to see what multi-tenant means here. Mail goes to a Mailpit
 inbox on a second forwarded port rather than anywhere real, so a password
@@ -174,8 +205,10 @@ PORTICO_DB_DSN=postgres://portico:portico@localhost:5443/portico?sslmode=disable
 PORTICO_JWT_SECRET=$(openssl rand -hex 32) ./portico
 ```
 
-Requires Go 1.26+ and Node 22+. That is what `go.mod` declares and what the
-release image builds with, so it is one answer rather than three.
+Requires Go 1.26+ and Node 22+ — what `go.mod` declares and what CI and the
+release build run, so the floor is one answer rather than three. Both are
+floors, not pins: the from-source Docker image below builds the console on a
+newer Node than this asks for.
 
 ### Docker
 
@@ -193,6 +226,13 @@ default except `PORTICO_DB_DSN`, which has none: unset, the server says so
 and exits. Set `PORTICO_JWT_SECRET` explicitly too — it does not stop a
 start, but without it a random secret is generated per start and every
 session dies on restart.
+
+Keep both of those wherever you keep secrets, because neither is in the
+database and a restore needs them: `PORTICO_JWT_SECRET` signs the sessions and
+`PORTICO_ENCRYPTION_KEY` opens the directory bind passwords a dump only holds
+the ciphertext of. A `pg_dump` on its own is therefore not a backup of this
+system — [docs/backup-and-restore.md](docs/backup-and-restore.md) says what to
+copy and what each omission costs when you use the copy.
 
 ### Tenants
 
@@ -305,7 +345,7 @@ internal/
   docs/            embeds this documentation, served from the binary
 migrations/        schema, embedded and applied at startup
 web/               React + Vite frontend
-docs/              conventions, requirements, access guide
+docs/              the manual, plus the conventions and the requirements
 deploy/            Dockerfile and compose
 ```
 

@@ -99,7 +99,7 @@ func TestLayeringRules(t *testing.T) {
 	}
 }
 
-// Both layout diagrams name every package, and name nothing else.
+// Every layout diagram names every package, and names nothing else.
 //
 // The table above reads itself, which the document says leaves one direction
 // free to drift: a package added to the tree and to neither diagram. That is
@@ -112,11 +112,19 @@ func TestLayeringRules(t *testing.T) {
 // A diagram that lists most of the packages is worse than none, because it
 // reads as complete. So both directions are checked: every package appears,
 // and everything that appears is a package.
-func TestBothLayoutDiagramsNameEveryPackage(t *testing.T) {
+//
+// The Chinese README carries a third copy of the tree. Its descriptions are
+// translated but its names cannot be, so it drifts on exactly the terms the
+// other two do and is checked on the same ones.
+func TestEveryLayoutDiagramNamesEveryPackage(t *testing.T) {
 	onDisk := packagesOnDisk(t)
 	commands := directoriesIn(t, "../../cmd")
 
-	for _, doc := range []string{"../../README.md", "../../docs/code-conventions.md"} {
+	for _, doc := range []string{
+		"../../README.md",
+		"../../README.zh.md",
+		"../../docs/code-conventions.md",
+	} {
 		t.Run(filepath.Base(doc), func(t *testing.T) {
 			listed := layoutDiagram(t, doc)
 
