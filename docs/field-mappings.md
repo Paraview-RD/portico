@@ -27,6 +27,15 @@ list, never a column name — see [the note below](#why-a-list-and-not-a-column-
 rather than present and blank, so a service provider that never receives a
 field it mapped should look at the account rather than at the mapping.
 
+One asymmetry to know about, in webhook payloads only. That rule governs what a
+*mapping* sends. The default `profile` object inside a `user.*` event has
+always carried its members as empty strings when the account has no value for
+them, and still does — so an account with no cost centre shows
+`profile.costCenter: ""` in the default body and nothing at all if you map
+`cost_center` to a name of your own. Both are true statements about the same
+account and they are not written the same way. Changing the default body would
+be a breaking change for every existing subscriber, so it has not been made.
+
 ## What a rule does
 
 Three things, and a rule does exactly one of them:

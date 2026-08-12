@@ -82,6 +82,17 @@ func (c *FieldCatalogue) FieldValues(ctx context.Context, tenantID string, user 
 	// The tenant, last and unconditionally: it is the one fact that does not
 	// depend on the account at all.
 	values["tenant_id"] = tenantID
+	// And its code, which is what a downstream system actually recognises —
+	// an id is a UUID nobody outside this database has ever seen.
+	//
+	// Read rather than assumed absent. The catalogue offers `tenant_code` as
+	// a mappable field, and a mappable field that never has a value is worse
+	// than one that is not offered: this feature promises that a field never
+	// received means the account has no value for it, so an empty one here
+	// would make the promise a lie.
+	if tenant, err := c.store.Queries.GetTenantByID(ctx, tenantID); err == nil {
+		values["tenant_code"] = tenant.Code
+	}
 
 	// Dropped here rather than at every call site. An absent key and an empty
 	// one would otherwise mean the same thing to a caller and different things
