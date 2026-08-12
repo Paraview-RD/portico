@@ -18,14 +18,29 @@
 
   A language with no line in notices gets the English sentence rather than
   nothing, because silence is the failure this whole block exists to fix.
+
+  The whitespace markers below are load-bearing, and are the reason this is
+  written as one computed message rather than as prose wrapped in an `if`.
+  Material renders the bar under `if self.announce()`, and what that tests is
+  the block's *output*, which in Jinja is a string. An `if` that fails still
+  leaves behind the newlines and indentation around it, and a string of
+  whitespace is truthy — so the bar rendered on every page of the manual, 9px
+  of near-black above the header, holding nothing. The markers here exist to
+  make the untranslated case emit exactly "" and not "\n  ".
+
+  One `set` and one output is the shape that keeps this true. Six tags with
+  markers on them is the same behaviour and five more places to leave one off,
+  which is how the bar appeared in the first place.
 #}
 {% block announce %}
-  {% set notices = {
-       "zh": "本页尚无中文版本，下面显示的是英文原文。"
-     } %}
-  {% if i18n_page_locale is defined and i18n_file_locale is defined
-        and i18n_file_locale != i18n_page_locale %}
-    {{ notices.get(i18n_page_locale|string,
-         "This page has not been translated yet; it is shown in English.") }}
-  {% endif %}
+{%- set notices = {
+     "zh": "本页尚无中文版本，下面显示的是英文原文。"
+   } -%}
+{%- set untranslated = i18n_page_locale is defined
+                       and i18n_file_locale is defined
+                       and i18n_file_locale != i18n_page_locale -%}
+{%- set message = notices.get(i18n_page_locale|string,
+      "This page has not been translated yet; it is shown in English.")
+      if untranslated else "" -%}
+{{- message -}}
 {% endblock %}
