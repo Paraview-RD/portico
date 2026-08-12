@@ -85,3 +85,60 @@ func contains(haystack, needle string) bool {
 	}
 	return false
 }
+
+// Every example connection string names the same port.
+//
+// Six files print one — README, .env.example, both access guides, the
+// dev-stack page, and testdb's own comment — and no two of them were obliged
+// to agree. Two said 5443 and the rest 5432, which I read as a typo in the
+// two and corrected, when it was the convention: 5443 is the host mapping
+// deploy/docker-compose.yml offers, and 5432 is PostgreSQL's default and
+// therefore the port most likely to already belong to another project on a
+// developer's machine. Following the corrected file connected to somebody
+// else's database and succeeded.
+//
+// The port itself is not the point and this test does not name one. What it
+// holds is that the six agree, so the next person to change one changes all
+// six or hears about it.
+//
+// CI is excluded deliberately: its service container binds 5432 in a fresh
+// runner, where there is nothing to collide with, and that file is not an
+// example anybody copies.
+func TestEveryExampleDSNUsesTheSamePort(t *testing.T) {
+	pattern := regexp.MustCompile(`postgres://[^@\s]+@(?:localhost|127\.0\.0\.1):(\d+)/`)
+
+	files := []string{
+		"../../README.md",
+		"../../.env.example",
+		"../../docs/access-guide.md",
+		"../../docs/access-guide.zh.md",
+		"../../docs/dev-stack.md",
+		"../../internal/testdb/testdb.go",
+	}
+
+	ports := map[string][]string{}
+	for _, path := range files {
+		content, err := os.ReadFile(path)
+		if err != nil {
+			t.Fatalf("read %s: %v", path, err)
+		}
+		found := pattern.FindAllStringSubmatch(string(content), -1)
+		if len(found) == 0 {
+			t.Errorf("%s no longer shows an example connection string; if that "+
+				"is deliberate, take it out of this list", path)
+			continue
+		}
+		for _, match := range found {
+			ports[match[1]] = append(ports[match[1]], path)
+		}
+	}
+
+	if len(ports) > 1 {
+		for port, where := range ports {
+			t.Errorf("port %s is used by %v", port, where)
+		}
+		t.Error("the example connection strings disagree about the port; a " +
+			"reader who copies the wrong one reaches a database that is not " +
+			"this one, and is told nothing")
+	}
+}
