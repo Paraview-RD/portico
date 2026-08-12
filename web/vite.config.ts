@@ -33,14 +33,14 @@ export default defineConfig({
     // The API runs as a separate process in development; in production the
     // same binary serves both, so the frontend always uses relative paths.
     //
-    // 8140 is where hack/dev.sh pins that process. It is deliberately not
-    // 8410 — the port a deployment defaults to — because a developer's
-    // machine tends to have one of those already running, and proxying into
-    // it means editing a component and testing it against somebody else's
-    // database.
+    // 8410 is where hack/dev.sh pins that process, and it is the port a
+    // deployment defaults to — which is the point: one address, the one
+    // already in muscle memory. This proxied 8140 while an instance of an
+    // older release was parked on 8410, and the two numbers were a digit-swap
+    // apart, so which window showed current code was a coin toss.
     proxy: {
       '/api': {
-        target: `http://localhost:${process.env.PORTICO_DEV_PORT ?? 8140}`,
+        target: `http://localhost:${process.env.PORTICO_DEV_PORT ?? 8410}`,
         changeOrigin: true,
       },
     },
