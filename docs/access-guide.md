@@ -304,6 +304,53 @@ Typical journey — let a directory keep the accounts up to date:
 *not* provisioned, which is what they need before they start rather than
 after.
 
+**Webhooks** is the third direction: not accounts arriving or being pulled
+in, but Portico telling another system that something changed.
+
+Typical journey — tell a downstream system when accounts change:
+
+1. **Webhooks** → **New subscription**. The destination must be public
+   HTTPS. Loopback, private ranges, link-local — which is where cloud
+   metadata lives — and carrier-grade NAT are refused, and the address is
+   checked again at connection time, so a name that resolves publicly now
+   and privately later does not work either. This is not a hardening option
+   to weigh: it is what stops a subscription being used to reach the network
+   Portico runs in.
+2. **The signing secret is shown once.** It is not recoverable — but unlike
+   a client secret it is not hashed either, because it signs rather than
+   authenticates. What that means for backups is in
+   [backup-and-restore.md](backup-and-restore.md).
+3. Give the receiving team [webhooks.md](webhooks.md) before they write the
+   handler. The verification example there splits `X-Portico-Signature` on
+   `,`, and that detail is not decoration — see rotation below.
+4. **Deliveries** shows what was attempted, what came back, and how many
+   times. Five attempts spread over roughly half an hour, then the delivery
+   is marked failed; records are kept thirty days. This is the screen that
+   distinguishes "we never sent it" from "your endpoint answered 500 five
+   times", without asking the receiver to go and read their own logs.
+5. **Disable** stops delivery and keeps the subscription and its history;
+   **delete** is for an integration that is gone.
+
+**Rotating a secret asks something of the receiver.** A rotation issues a new
+key and keeps the old one alive for twenty-four hours, during which **every
+delivery carries both signatures, comma separated**, and either verifies. A
+receiver that compares the whole header as one string works perfectly until
+the day somebody rotates, and then rejects everything while looking healthy.
+The console says so before it starts a rotation; this is the same warning,
+for whoever reads the guide instead.
+
+**Custom headers need `PORTICO_ENCRYPTION_KEY`.** A subscription can send
+headers of its own, for a receiver behind a gateway that wants an
+`Authorization` of its own — the signature says who produced the body, which
+is not the question a gateway is asking. Their values are credentials, so
+they are sealed with the same key that seals a directory bind password, and
+**without that variable set the save is refused** rather than the value being
+written in the clear. They are never served back: the API and this screen
+report the header *names*, which answers "what is this subscription sending"
+without making a listing a way to read every credential the tenant holds.
+Headers that would change what the delivery *is* — the signature headers,
+`Content-Type`, `Host` — are refused at registration.
+
 ### User (`USER`)
 
 Signing in lands on **Home**: the applications registered in their tenant
