@@ -44,7 +44,19 @@ jobs:
       # that changes under the build turns somebody else's release into a
       # failure here.
       - run: pip install -r hack/docs-requirements.txt
+      # `enablement` creates the Pages site if it does not exist, using this
+      # workflow's own token, rather than failing on `Get Pages site failed`
+      # until somebody with admin opens Settings → Pages and picks a source.
+      # That is what the first deployment did. The site it creates is the one
+      # this file already describes — built by Actions, from this workflow —
+      # so the setting and the workflow cannot disagree about which is true.
+      #
+      # It does not bypass anything: if the organization forbids public Pages
+      # sites, the API refuses this exactly as it refuses the settings page,
+      # and the failure moves one step later with a clearer message.
       - uses: actions/configure-pages@v5
+        with:
+          enablement: true
       # Not hack/build-docs.sh — that one builds the embedded copy and puts
       # back the .gitkeep that `go:embed` needs. This config writes somewhere
       # else and nothing embeds it.
