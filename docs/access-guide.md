@@ -267,6 +267,24 @@ Typical journey — connect an application:
 6. **Audit logs** → the registration is recorded with the redirect URIs or
    assertion consumer services it permits.
 
+Typical journey — record something about people that Portico has no field for:
+
+1. **System → User attributes** → **New attribute**. Give it a key, a label,
+   and a type — text, number, yes/no, date, or a choice from a list you write
+   out. Mark it required if an account form should not be finished without it.
+2. It appears on every account form from then on: **Users** → any account →
+   **Attributes**. Existing accounts keep whatever they had, which is nothing,
+   and the server does not refuse them for it — required binds the form, not
+   the accounts that predate the attribute.
+3. The key cannot be changed later, because a field mapping stores that key. A
+   rename would leave the rule pointing at nothing while its editor still
+   looked fine.
+4. **Retire** takes it off the form and keeps every value recorded so far.
+   **Delete** discards the definition and all of those values, and cannot be
+   undone. They are two controls rather than one toggle for that reason.
+5. It is now in the field catalogue like any built-in — but nothing sends it
+   until an application or a subscription names it. See the next journey.
+
 Typical journey — the downstream system reads the wrong field name:
 
 1. **Applications** (or **Webhooks**) → find it → **Fields**.

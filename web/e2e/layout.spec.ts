@@ -30,6 +30,7 @@ const screens = [
   { label: "Webhooks", heading: /event subscriptions/i },
   { label: "Audit logs", heading: "Audit logs" },
   { label: "Settings", heading: "Settings" },
+  { label: "User attributes", heading: "User attributes" },
   { label: "My profile", heading: /profile/i },
 ];
 

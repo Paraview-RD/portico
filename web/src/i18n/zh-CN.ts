@@ -747,4 +747,58 @@ export const zhCN: Record<keyof typeof enUS, string> = {
   "fields.organization_manager_name": "组织负责人",
   "fields.tenant_id": "租户 ID",
   "fields.tenant_code": "租户编码",
+
+  "nav.userAttributes": "用户属性",
+  "userAttributes.title": "用户属性",
+  "userAttributes.subtitle":
+    "除了每个部署都有的那些字段之外，本租户还需要记录关于一个人的哪些信息。",
+  "userAttributes.guideTitle": "在这里定义，在每个账号上填写",
+  "userAttributes.guideBody":
+    "在这里定义的属性会出现在每个账号的资料里，同时进入字段目录 —— 成为应用或 webhook 可以收到的又一项内容。但在有映射指名它之前，它不会被发送出去。停用一个属性只是把它从表单上撤下，已记录的取值全部保留；删除则会把这些取值一并丢弃。",
+  "userAttributes.new": "定义属性",
+  "userAttributes.edit": "编辑属性",
+  "userAttributes.colLabel": "名称",
+  "userAttributes.colKey": "键名",
+  "userAttributes.colKind": "类型",
+  "userAttributes.colRequired": "必填",
+  "userAttributes.colStatus": "状态",
+  "userAttributes.isRequired": "必填",
+  "userAttributes.inUse": "使用中",
+  "userAttributes.retired": "已停用",
+  "userAttributes.retire": "停用",
+  "userAttributes.restore": "恢复",
+  "userAttributes.key": "键名",
+  "userAttributes.keyHint":
+    "应用和字段映射通过它来引用这个属性。3 到 40 个字符，只能用小写字母、数字和下划线，且以字母开头。定义之后不可更改。",
+  "userAttributes.keyFixed":
+    "定义后即固定：字段映射存的就是这个键名，改掉它会让指名它的那条规则悄悄失效。",
+  "userAttributes.label": "名称",
+  "userAttributes.description": "说明",
+  "userAttributes.descriptionHint":
+    "显示在账号表单里该字段下方，供填写的人参考。",
+  "userAttributes.kindLabel": "类型",
+  "userAttributes.kind.TEXT": "文本",
+  "userAttributes.kind.NUMBER": "数字",
+  "userAttributes.kind.BOOLEAN": "是 / 否",
+  "userAttributes.kind.DATE": "日期",
+  "userAttributes.kind.SELECT": "单选",
+  "userAttributes.allowedValues": "可选值",
+  "userAttributes.allowedValuesHint": "每行一个。除此之外的取值不会被接受。",
+  "userAttributes.required": "必填",
+  "userAttributes.requiredHint":
+    "账号表单在没有填写时不允许保存。已经存在的账号保持原样。",
+  "userAttributes.sortOrder": "排序",
+  "userAttributes.sortOrderHint": "数字越小，在账号表单里越靠前。",
+  "userAttributes.confirmDeleteTitle": "删除这个属性？",
+  "userAttributes.confirmDelete":
+    "删除「{0}」会丢弃所有账号上记录的该属性取值，且无法撤销。如果只是不想再采集它、但想保留已有数据，请改用停用。",
+
+  "userValues.title": "属性",
+  "userValues.intro":
+    "本租户自己定义的那些属性。留空表示不记录 —— 清空一个字段就是把原来的值删掉。",
+  "userValues.none": "本租户还没有定义自己的属性。",
+  "userValues.saved": "已保存",
+  "userValues.selectNone": "未填写",
+  "userValues.booleanTrue": "是",
+  "userValues.booleanFalse": "否",
 };

@@ -33,6 +33,7 @@ const screens = [
   { label: "Directory integration", api: "**/api/v1/directories" },
   { label: "Webhooks", api: "**/api/v1/webhooks" },
   { label: "Audit logs", api: "**/api/v1/audit-logs*" },
+  { label: "User attributes", api: "**/api/v1/user-attributes" },
 ];
 
 for (const screen of screens) {

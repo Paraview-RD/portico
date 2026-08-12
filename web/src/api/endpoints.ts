@@ -21,6 +21,8 @@ import type {
   RegisteredClient,
   RegistrationStatus,
   UserProfile,
+  UserAttributeDefinition,
+  UserAttributeInput,
   Role,
   CreatedWebhookSubscription,
   Group,
@@ -305,6 +307,29 @@ export const userApi = {
 
   setOwnProfile: (profile: UserProfile) =>
     request<User>("/users/me/profile", { method: "PUT", body: profile }),
+
+  /**
+   * This account's answers to the tenant's own attributes, keyed by
+   * attribute key — the same key a mapping stores, not the row id, so a
+   * caller reading both never has to join them.
+   *
+   * Retired attributes are left out, which is why the values editor does not
+   * filter them itself.
+   */
+  attributes: (id: string) =>
+    request<Record<string, string>>(`/users/${segment(id)}/attributes`),
+
+  /**
+   * Writes the answers. A key left out of the map is left alone; a key sent
+   * empty is cleared, because "never filled in" and "deliberately blank" are
+   * the same answer here, and keeping a row for the second would leave
+   * something nobody can tell apart from a typo.
+   */
+  setAttributes: (id: string, values: Record<string, string>) =>
+    request<Record<string, string>>(`/users/${segment(id)}/attributes`, {
+      method: "PUT",
+      body: { values },
+    }),
 
   /**
    * Enables or disables several accounts.
@@ -783,6 +808,49 @@ export const groupsApi = {
 /** The field catalogue: everything that may be mapped, for this tenant. */
 export const fieldsApi = {
   list: () => request<CatalogueField[]>("/fields"),
+};
+
+/**
+ * The tenant's own attributes — the half of the catalogue somebody defines.
+ *
+ * Retiring and deleting are separate calls rather than one status field,
+ * because they answer different questions: retiring takes an attribute off
+ * the forms and keeps every value recorded under it, and deleting discards
+ * them. A single control for both would make the second look undoable.
+ */
+export const userAttributesApi = {
+  /** Includes the retired ones, which the definitions screen has to show. */
+  list: () => request<UserAttributeDefinition[]>("/user-attributes"),
+
+  define: (input: UserAttributeInput) =>
+    request<UserAttributeDefinition>("/user-attributes", {
+      method: "POST",
+      body: input,
+    }),
+
+  /** `key` is ignored by the server; everything else is replaced. */
+  update: (id: string, input: UserAttributeInput) =>
+    request<UserAttributeDefinition>(`/user-attributes/${segment(id)}`, {
+      method: "PUT",
+      body: input,
+    }),
+
+  enable: (id: string) =>
+    request<UserAttributeDefinition>(`/user-attributes/${segment(id)}/enable`, {
+      method: "POST",
+    }),
+
+  disable: (id: string) =>
+    request<UserAttributeDefinition>(
+      `/user-attributes/${segment(id)}/disable`,
+      { method: "POST" },
+    ),
+
+  /** Discards every value recorded under it, and cannot be undone. */
+  remove: (id: string) =>
+    request<{ status: string }>(`/user-attributes/${segment(id)}`, {
+      method: "DELETE",
+    }),
 };
 
 /**

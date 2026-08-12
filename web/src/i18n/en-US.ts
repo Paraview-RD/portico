@@ -801,6 +801,66 @@ export const enUS = {
   "fields.organization_manager_name": "Organization manager",
   "fields.tenant_id": "Tenant ID",
   "fields.tenant_code": "Tenant code",
+
+  // The definitions screen for the catalogue's other half: whatever this
+  // tenant decided it needs to record about somebody.
+  "nav.userAttributes": "User attributes",
+  "userAttributes.title": "User attributes",
+  "userAttributes.subtitle":
+    "What this tenant records about somebody, beyond the fields every deployment has.",
+  "userAttributes.guideTitle": "Defined here, answered on each account",
+  "userAttributes.guideBody":
+    "An attribute defined here appears on every account's profile, and joins the field catalogue as one more thing an application or a webhook may be sent. It is not sent until a mapping names it. Retiring one takes it off the forms and keeps every answer already recorded; deleting one discards them.",
+  "userAttributes.new": "Define an attribute",
+  "userAttributes.edit": "Edit attribute",
+  "userAttributes.colLabel": "Name",
+  "userAttributes.colKey": "Key",
+  "userAttributes.colKind": "Type",
+  "userAttributes.colRequired": "Required",
+  "userAttributes.colStatus": "Status",
+  "userAttributes.isRequired": "Required",
+  "userAttributes.inUse": "In use",
+  "userAttributes.retired": "Retired",
+  "userAttributes.retire": "Retire",
+  "userAttributes.restore": "Restore",
+  "userAttributes.key": "Key",
+  "userAttributes.keyHint":
+    "How applications and mappings will refer to it. 3 to 40 characters: lower-case letters, digits, and underscores, starting with a letter. It cannot be changed afterwards.",
+  "userAttributes.keyFixed":
+    "Fixed once defined, because a field mapping stores it — changing it would silently stop whichever rule names it.",
+  "userAttributes.label": "Name",
+  "userAttributes.description": "Description",
+  "userAttributes.descriptionHint":
+    "Shown under the field on the account form, for whoever has to fill it in.",
+  "userAttributes.kindLabel": "Type",
+  "userAttributes.kind.TEXT": "Text",
+  "userAttributes.kind.NUMBER": "Number",
+  "userAttributes.kind.BOOLEAN": "Yes / no",
+  "userAttributes.kind.DATE": "Date",
+  "userAttributes.kind.SELECT": "One of a list",
+  "userAttributes.allowedValues": "Permitted values",
+  "userAttributes.allowedValuesHint":
+    "One per line. Nothing else will be accepted as an answer.",
+  "userAttributes.required": "Required",
+  "userAttributes.requiredHint":
+    "An account form will not save without an answer. Accounts that already exist keep whatever they have.",
+  "userAttributes.sortOrder": "Position",
+  "userAttributes.sortOrderHint":
+    "Lower numbers appear first on the account form.",
+  "userAttributes.confirmDeleteTitle": "Delete this attribute?",
+  "userAttributes.confirmDelete":
+    "Deleting “{0}” discards every answer recorded under it, on every account, and cannot be undone. To stop asking for it while keeping what it holds, retire it instead.",
+
+  // The values half, on the account screen.
+  "userValues.title": "Attributes",
+  "userValues.intro":
+    "This tenant's own attributes. An empty field is not recorded at all — clearing one removes what was there.",
+  "userValues.none":
+    "This tenant has not defined any attributes of its own yet.",
+  "userValues.saved": "Saved",
+  "userValues.selectNone": "Not set",
+  "userValues.booleanTrue": "Yes",
+  "userValues.booleanFalse": "No",
 } as const;
 
 export type TranslationKey = keyof typeof enUS;

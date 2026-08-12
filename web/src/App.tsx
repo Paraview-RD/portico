@@ -16,6 +16,7 @@ import { RegisterPage } from "./pages/RegisterPage";
 import { ResetPasswordPage } from "./pages/ResetPasswordPage";
 import { VerifyPage } from "./pages/VerifyPage";
 import { SettingsPage } from "./pages/SettingsPage";
+import { UserAttributesPage } from "./pages/UserAttributesPage";
 import { UsersPage } from "./pages/UsersPage";
 import { WebhooksPage } from "./pages/WebhooksPage";
 import { useRouter } from "./router";
@@ -157,6 +158,8 @@ function AuthenticatedRoute({
       return <AuditLogsPage />;
     case "/settings":
       return <SettingsPage />;
+    case "/user-attributes":
+      return <UserAttributesPage />;
     case "/profile":
       return <ProfilePage />;
     default:

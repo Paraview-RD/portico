@@ -26,6 +26,11 @@ const entries = [
   { group: "Integration", label: "Webhooks", path: "/webhooks" },
   { group: "Audit", label: "Audit logs", path: "/audit-logs" },
   { group: "System", label: "Settings", path: "/settings" },
+  {
+    group: "System",
+    label: "User attributes",
+    path: "/user-attributes",
+  },
   { group: "Account", label: "My profile", path: "/profile" },
 ];
 
@@ -164,6 +169,7 @@ test("an ordinary user is offered nothing they cannot use", async ({
     "Webhooks",
     "Audit logs",
     "Settings",
+    "User attributes",
   ]) {
     await expect(
       nav.getByRole("button", { name: label, exact: true }),

@@ -31,6 +31,7 @@ export type Route =
   | "/webhooks"
   | "/audit-logs"
   | "/settings"
+  | "/user-attributes"
   | "/profile";
 
 const routes: Route[] = [
@@ -48,6 +49,7 @@ const routes: Route[] = [
   "/webhooks",
   "/audit-logs",
   "/settings",
+  "/user-attributes",
   "/profile",
 ];
 

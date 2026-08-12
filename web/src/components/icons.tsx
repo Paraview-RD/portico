@@ -209,6 +209,18 @@ export function GuideIcon(props: IconProps) {
   );
 }
 
+/** A form with a field on it: the attributes an account is asked for. */
+export function AttributesIcon(props: IconProps) {
+  return (
+    <Svg {...props}>
+      <path d="M5 3h14a1 1 0 0 1 1 1v16a1 1 0 0 1-1 1H5a1 1 0 0 1-1-1V4a1 1 0 0 1 1-1Z" />
+      <path d="M8 8h8" />
+      <path d="M8 12h8" />
+      <path d="M8 16h4" />
+    </Svg>
+  );
+}
+
 export function TenantIcon(props: IconProps) {
   return (
     <Svg {...props}>
