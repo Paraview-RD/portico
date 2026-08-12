@@ -1,0 +1,127 @@
+# The world Portico needs, for a Codespace.
+#
+# Four services and only one of them is ours: `app` is the container the
+# editor attaches to and where the server is built and run, and the other
+# three are what it talks to. That split is the same one deploy/dev-stack
+# makes, and for the same reason — the thing under test is the binary you
+# just built, not an image somebody released.
+#
+# The directory and the inbox are not redefined here. They are extended from
+# deploy/dev-stack/compose.yml, which is where they are maintained and where
+# the LDAP seed lives. Compose resolves a bind mount in an extended service
+# relative to the file it was defined in, so the seed still comes from
+# deploy/dev-stack/ldap/ rather than from this directory — verified with
+# `docker compose config` rather than assumed, because getting it wrong
+# produces a directory that starts empty and a walkthrough with nobody in it.
+
+services:
+  app:
+    image: mcr.microsoft.com/devcontainers/base:ubuntu
+
+    volumes:
+      - ../..:/workspaces:cached
+
+    # The editor supplies the process; this keeps the container alive without
+    # one.
+    command: sleep infinity
+
+    # Reached by service name, not by localhost. In a compose devcontainer
+    # each service has its own network namespace, so the 127.0.0.1 bindings
+    # in dev-stack's file publish on the Docker host and are no use from
+    # here. `db`, `ldap` and `mailpit` are the names that work.
+    environment:
+      PORTICO_ADDR: ":8410"
+      PORTICO_DB_DSN: postgres://portico:portico@db:5432/portico?sslmode=disable
+
+      # Fixed rather than generated, and that is safe here for the same
+      # reason web/playwright.config.ts allows itself a literal password: a
+      # Codespace is one person's throwaway machine, the database is created
+      # empty beside it, and both are destroyed together. Neither value
+      # leaves this file and neither reaches a deployment — deploy/
+      # docker-compose.yml refuses to start without being given its own.
+      PORTICO_JWT_SECRET: codespace-development-only-jwt-secret-not-a-real-one
+      # 32 bytes of hex, which the server checks — a readable sentence here
+      # got as far as seeding and then stopped it, correctly. Written as a
+      # visible pattern rather than as random-looking hex so that a secret
+      # scanner, and a person reading this file, can both tell at a glance
+      # that nothing was leaked.
+      PORTICO_ENCRYPTION_KEY: c0dec0dec0dec0dec0dec0dec0dec0dec0dec0dec0dec0dec0dec0dec0dec0de
+
+      # The bootstrap administrator, so that the account the server creates
+      # on first start has a password somebody can be told. Without this it
+      # generates one and prints it to stderr, which in a Codespace is a log
+      # nobody reads. Deliberately the same password the seeded accounts
+      # use — see internal/seed.DemoPassword.
+      PORTICO_INITIAL_ADMIN_PASSWORD: Portico-2026-demo
+
+      # Mail goes to Mailpit and stops there. A demo environment that can
+      # send real mail is a demo environment that can send mail to anybody.
+      PORTICO_SMTP_HOST: mailpit
+      PORTICO_SMTP_PORT: "1025"
+      PORTICO_SMTP_ENCRYPTION: none
+      PORTICO_SMTP_FROM: portico@example.test
+
+    # All three, and not only the database. Without naming them here the
+    # tooling starts what `app` declares and nothing else, which produced a
+    # Codespace with a console and no directory to synchronize from and no
+    # inbox to receive its mail — the two things this environment exists to
+    # demonstrate beyond the console itself.
+    #
+    # The database waits for healthy because migrations run against it
+    # seconds later and a connection refused there stops everything. The
+    # other two only have to be on their way: nobody presses Synchronize in
+    # the first twenty seconds, and making the editor wait for an LDAP
+    # server to answer its own health probe is a slower start bought for
+    # nothing.
+    depends_on:
+      db:
+        condition: service_healthy
+      ldap:
+        condition: service_started
+      mailpit:
+        condition: service_started
+
+  db:
+    image: postgres:17-alpine
+    environment:
+      POSTGRES_USER: portico
+      POSTGRES_PASSWORD: portico
+      POSTGRES_DB: portico
+    # No volume. The point of this database is to be thrown away and rebuilt
+    # by cmd/seed, and a persisted one would mean a rebuilt Codespace coming
+    # back with yesterday's half-finished experiment in it.
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U portico -d portico"]
+      interval: 2s
+      timeout: 5s
+      retries: 30
+
+  # Two fields are overridden in both, and both overrides were earned by
+  # watching `docker compose up` refuse to start.
+  #
+  # `container_name` is dropped rather than changed. A fixed name is outside
+  # the project namespace, so it collides with anything else holding that
+  # name — including a previous, failed run of this very file. Renaming only
+  # moves the collision; letting compose name the container is what removes
+  # it.
+  #
+  # `ports` is emptied because nothing needs to reach these from the host.
+  # dev-stack publishes them so that a binary running on the laptop can find
+  # them; here the only client is `app`, which reaches them by service name
+  # over the compose network. Publishing them anyway meant fighting a laptop
+  # that already had the dev stack up on 3890, 1026 and 8426 — and the
+  # Mailpit web interface is reached through forwardPorts' `mailpit:8025`,
+  # which does not need a published port either.
+  ldap:
+    extends:
+      file: ../deploy/dev-stack/compose.yml
+      service: ldap
+    container_name: !reset null
+    ports: !reset []
+
+  mailpit:
+    extends:
+      file: ../deploy/dev-stack/compose.yml
+      service: mailpit
+    container_name: !reset null
+    ports: !reset []
