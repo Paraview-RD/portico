@@ -296,7 +296,16 @@ func (p *Providers) Complete(ctx context.Context, actor auth.Principal, requestI
 		return Authentication{}, ErrProviderDisabled
 	}
 
-	if err := q.CompleteSAMLAuthRequest(ctx, row.ID, actor.UserID); err != nil {
+	// The secret the callback will have to present. Generated here because
+	// here is the one point in the flow where the person is known: this call
+	// carries their session, and the value goes back in its response and
+	// nowhere else.
+	secret, err := newCompletionSecret()
+	if err != nil {
+		return Authentication{}, fmt.Errorf("generate completion secret: %w", err)
+	}
+
+	if err := q.CompleteSAMLAuthRequest(ctx, row.ID, actor.UserID, hashSecret(secret)); err != nil {
 		return Authentication{}, fmt.Errorf("complete authentication request: %w", err)
 	}
 
@@ -312,7 +321,9 @@ func (p *Providers) Complete(ctx context.Context, actor auth.Principal, requestI
 		// reachable at two mounts, and a service provider that fetched
 		// metadata from one has the other's entity id on file as a
 		// stranger's.
-		RedirectTo:          row.Issuer + CallbackPath + "?id=" + url.QueryEscape(row.ID),
+		RedirectTo: row.Issuer + CallbackPath +
+			"?id=" + url.QueryEscape(row.ID) +
+			"&" + CompletionSecretParam + "=" + url.QueryEscape(secret),
 		ServiceProviderName: provider.Name,
 	}, nil
 }

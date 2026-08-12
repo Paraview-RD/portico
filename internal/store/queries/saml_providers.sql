@@ -50,11 +50,11 @@ WHERE tenant_id = $1 AND id = $2 AND expires_at > $3
 LIMIT 1;
 
 -- name: CompleteSAMLAuthRequest :exec
--- Records who signed in. Until this runs the request has no subject and
--- cannot produce an assertion.
+-- Records who signed in, and the secret the callback must present. Until
+-- this runs the request has no subject and cannot produce an assertion.
 UPDATE saml_auth_requests
-SET subject = $1, done = TRUE
-WHERE tenant_id = $2 AND id = $3;
+SET subject = $1, done = TRUE, completion_secret = $2
+WHERE tenant_id = $3 AND id = $4;
 
 -- name: DeleteSAMLAuthRequest :exec
 DELETE FROM saml_auth_requests WHERE tenant_id = $1 AND id = $2;

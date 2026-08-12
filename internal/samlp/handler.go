@@ -3,7 +3,10 @@ package samlp
 import (
 	"context"
 	"crypto/rand"
+	"crypto/sha256"
+	"crypto/subtle"
 	"encoding/base64"
+	"encoding/hex"
 	"encoding/xml"
 	"fmt"
 	"net/http"
@@ -93,6 +96,25 @@ func (p *Providers) serveCallback(w http.ResponseWriter, r *http.Request, idp *s
 		// Reached without signing in. Nothing here decides who anybody is —
 		// that happens against Portico's own API, with a password.
 		http.Error(w, "this sign-in request has not been completed", http.StatusForbidden)
+		return
+	}
+
+	// And that it is the same browser that signed in.
+	//
+	// This endpoint cannot ask for a credential: it is a top-level
+	// navigation, so there is no header to put one in. Without the secret,
+	// the id alone mints an assertion for the person who signed in and hands
+	// it to whoever presented it — and the id is in the sign-in URL, which
+	// is to say in browser history and any proxy log along the way. The
+	// OpenID Connect callback does not have this problem because it hands
+	// its code to the relying party's registered address; this one hands the
+	// assertion to the caller, to be posted onward.
+	//
+	// The row is deliberately not deleted on a mismatch. Doing so would let
+	// anybody holding a leaked id destroy a sign-in in progress, which
+	// trades a hard attack for an easy one.
+	if !matchesCompletionSecret(row.CompletionSecret, r.URL.Query().Get(CompletionSecretParam)) {
+		http.Error(w, "this sign-in request cannot be completed from here", http.StatusForbidden)
 		return
 	}
 
@@ -231,6 +253,46 @@ func sessionIndex() (string, error) {
 		return "", fmt.Errorf("generate session index: %w", err)
 	}
 	return base64.RawURLEncoding.EncodeToString(raw), nil
+}
+
+// CompletionSecretParam names the one-time secret in the callback URL.
+//
+// Short because it sits beside the id in an address bar, and opaque because
+// naming it "token" would invite somebody to try their access token in it.
+const CompletionSecretParam = "s"
+
+// newCompletionSecret returns the value the callback must present.
+//
+// 32 bytes, which is not a size chosen for guessing — an attacker gets one
+// attempt per request and the request is gone after it — but because it also
+// has to survive being in a URL that may end up somewhere it should not, for
+// as long as that URL is anywhere.
+func newCompletionSecret() (string, error) {
+	raw := make([]byte, 32)
+	if _, err := rand.Read(raw); err != nil {
+		return "", err
+	}
+	return base64.RawURLEncoding.EncodeToString(raw), nil
+}
+
+// hashSecret is what is stored. A value that mints an assertion should not
+// be readable in a database dump, on the same terms as an authorization
+// code.
+func hashSecret(secret string) string {
+	sum := sha256.Sum256([]byte(secret))
+	return hex.EncodeToString(sum[:])
+}
+
+// matchesCompletionSecret reports whether presented is the secret this row
+// was completed with. Constant time, and an empty stored secret never
+// matches — a request from before this existed, or one that somehow reached
+// the callback without being completed, has nothing to compare against and
+// must not be treated as having passed.
+func matchesCompletionSecret(stored, presented string) bool {
+	if stored == "" || presented == "" {
+		return false
+	}
+	return subtle.ConstantTimeCompare([]byte(stored), []byte(hashSecret(presented))) == 1
 }
 
 func newRequestID() string {

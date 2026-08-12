@@ -395,6 +395,42 @@ on. Nothing in Portico builds or checks an XML signature; a hand-rolled one
 is the most reliable way to ship a SAML implementation that accepts forged
 assertions.
 
+### How a sign-in resumes
+
+An authentication request arrives as a plain browser navigation with no
+credential on it, so Portico parks the request, sends the browser to its own
+sign-in screen, and finishes the protocol afterwards. Three addresses are
+involved and they are not equally sensitive:
+
+1. `/t/<code>/saml/sso` — where the service provider sends the browser.
+2. `/login?saml_request=<id>` — Portico's sign-in screen, told which request
+   it is completing. **The id is in this URL**, which means it is in browser
+   history and in any proxy log along the way.
+3. `/t/<code>/saml/sso/callback` — mints the assertion and posts it onward.
+
+The third is where the assertion is created, and it cannot ask for a
+credential: a top-level navigation has nowhere to put one. So it must
+recognize the browser some other way, and the id is not it — an id is
+something several logs have.
+
+Completing a request therefore issues a one-time secret. It is generated
+inside `POST /api/v1/saml/authenticate`, which is the authenticated call the
+console makes once somebody has signed in, returned only in that response,
+and appended to the callback address the console then navigates to. The
+callback requires it and compares in constant time; the stored copy is a
+SHA-256, on the same terms as an authorization code.
+
+An id recovered from a log is now just an id. A failed attempt does not
+consume the request either — deleting it on a mismatch would let anybody
+holding a leaked id destroy a sign-in in progress, which trades a hard
+attack for an easy one.
+
+This has no counterpart in the OpenID Connect flow, and the difference is
+worth being clear about: that callback hands its code to the relying party's
+*registered* address, so holding its id gets an attacker nothing. A SAML
+assertion is handed to the browser that asked, to be posted onward — which
+is what makes the caller's identity matter here and not there.
+
 ### Deliberately not implemented
 
 - **Identity-provider-initiated sign-on.** There is no request to correlate
