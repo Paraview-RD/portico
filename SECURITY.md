@@ -58,7 +58,7 @@ can exhaust CPU and stall writes. Account lockout does nothing about this:
 the attempts still arrive and are still evaluated.
 
 The writes under `/api/v1/auth/` are therefore throttled in-process — 60
-requests per minute per client address, 10 of which may arrive at once,
+requests per minute per client address, 30 of which may arrive at once,
 adjustable with
 `PORTICO_AUTH_RATE_LIMIT` and `PORTICO_AUTH_RATE_LIMIT_BURST` and
 switchable off with a limit of `0`. Understand what that buys, which is

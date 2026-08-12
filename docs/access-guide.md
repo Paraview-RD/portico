@@ -502,7 +502,7 @@ is not directly reachable.
 ### The sign-in endpoints have a floor of their own
 
 The writes under `/api/v1/auth/` are throttled in-process: 60 requests per
-minute per client address, of which 10 may arrive at once.
+minute per client address, of which 30 may arrive at once.
 `PORTICO_AUTH_RATE_LIMIT` and `PORTICO_AUTH_RATE_LIMIT_BURST` change it;
 `PORTICO_AUTH_RATE_LIMIT=0` turns it off. A refusal is `429` with
 `Retry-After`.

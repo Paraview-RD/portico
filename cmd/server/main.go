@@ -119,7 +119,7 @@ Configuration is entirely environment variables:
                                    not a replacement for a throttle in the
                                    proxy — it is per address and per process
   PORTICO_AUTH_RATE_LIMIT_BURST    how many of that minute's allowance may
-                                   arrive at once (default 10)
+                                   arrive at once (default 30)
   PORTICO_PUBLIC_URL               where people reach this deployment. Used for
                                    password-recovery links and as the OpenID
                                    Connect issuer identifier

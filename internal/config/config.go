@@ -91,15 +91,23 @@ type Config struct {
 	// log IP.
 	TrustProxyHeaders bool
 
-	// AuthRateLimit is how many requests one client address may make to
-	// /api/v1/auth/* per minute, and AuthRateLimitBurst how many of that
+	// AuthRateLimit is how many writes one client address may make under
+	// /api/v1/auth/ per minute, and AuthRateLimitBurst how many of that
 	// allowance may arrive at once. Zero disables the limiter entirely.
 	//
 	// On by default, which is the point: the throttle that matters belongs in
 	// the reverse proxy, but the proxy is a deployment decision and this is
 	// not. A first run, a demonstration, a container somebody exposed to try
 	// it out — all of them reach the sign-in endpoint with nothing in front,
-	// and two of those endpoints cost a password hash whatever the answer.
+	// and signing in costs a password hash whatever the answer.
+	//
+	// The burst is the number that was measured rather than chosen. Ten was
+	// the first guess and the browser suite refused it: forty-odd sign-ins
+	// from one address inside a minute, which is also what one office behind
+	// one NAT address looks like at nine in the morning. The sustained rate
+	// is what bounds the CPU an attacker can buy; the burst only decides how
+	// many people may arrive together, so raising it costs little and being
+	// wrong about it costs a working deployment.
 	AuthRateLimit      int
 	AuthRateLimitBurst int
 
@@ -166,7 +174,7 @@ func Load() (*Config, error) {
 	if err != nil {
 		return nil, err
 	}
-	rateLimitBurst, err := envInt("PORTICO_AUTH_RATE_LIMIT_BURST", 10)
+	rateLimitBurst, err := envInt("PORTICO_AUTH_RATE_LIMIT_BURST", 30)
 	if err != nil {
 		return nil, err
 	}

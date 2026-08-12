@@ -392,7 +392,7 @@ Portico 提供的是明文 HTTP，请求限流交给反向代理。两者都是�
 
 ### 登录端点自带一条下限
 
-`/api/v1/auth/` 下的**写**操作在进程内有限流：每个客户端地址每分钟 60 次，其中 10 次
+`/api/v1/auth/` 下的**写**操作在进程内有限流：每个客户端地址每分钟 60 次，其中 30 次
 可以一次性打进来。用 `PORTICO_AUTH_RATE_LIMIT` 和 `PORTICO_AUTH_RATE_LIMIT_BURST`
 调整，`PORTICO_AUTH_RATE_LIMIT=0` 关闭。被拒的请求返回 `429`，并带 `Retry-After`。
 
