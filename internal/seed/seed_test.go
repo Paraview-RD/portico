@@ -7,7 +7,9 @@ import (
 	"testing"
 	"time"
 
+	"github.com/Paraview-RD/portico/internal/auth"
 	"github.com/Paraview-RD/portico/internal/config"
+	"github.com/Paraview-RD/portico/internal/model"
 	"github.com/Paraview-RD/portico/internal/seed"
 	"github.com/Paraview-RD/portico/internal/store"
 	"github.com/Paraview-RD/portico/internal/testdb"
@@ -167,5 +169,67 @@ ORDER BY t.code, u.username`)
 	}
 	if fingerprints[0] == "" {
 		t.Error("the fingerprint is empty, so this test compared nothing")
+	}
+}
+
+// Both tenants have an `admin`, and it can actually sign in.
+//
+// A seeded database has no bootstrap administrator — the server creates one
+// only when a tenant holds no users at all, and the seed has already filled
+// it — so `admin` was the first name anybody typed and the first thing that
+// failed. That reads as a broken seed rather than as a name that was never
+// there.
+//
+// The password is checked rather than assumed. Every account here is created
+// through the service layer under the first tenant's deliberately strict
+// policy, so "the row exists" and "this password opens it" are different
+// questions, and the second is the one somebody at a sign-in screen is
+// asking. The credential check is the real one: the stored value is a hash,
+// and comparing it to DemoPassword is what a sign-in does.
+func TestBothTenantsHaveAnAdminThatCanSignIn(t *testing.T) {
+	st, _, _ := seedOnce(t)
+
+	for _, code := range []string{seed.TenantMain, seed.TenantSecond} {
+		var hash, display string
+		var role string
+		var mustChange bool
+		row := st.ForTenant(code).DB().QueryRow(`
+SELECT u.password_hash, u.display_name, u.role, u.must_change_password
+FROM users u JOIN tenants t ON t.id = u.tenant_id
+WHERE t.code = $1 AND u.username = 'admin'`, code)
+		if err := row.Scan(&hash, &display, &role, &mustChange); err != nil {
+			t.Errorf("tenant %s has no account named admin: %v", code, err)
+			continue
+		}
+
+		if !auth.CheckPassword(hash, seed.DemoPassword) {
+			t.Errorf("tenant %s: admin does not open with the seeded password; "+
+				"an account nobody can sign in as is not a seeded account", code)
+		}
+		if role != string(model.RoleSuperAdmin) {
+			t.Errorf("tenant %s: admin has role %s, want SUPER_ADMIN", code, role)
+		}
+		// Deliberately not forced, unlike a release's bootstrap administrator.
+		// A demonstration that opens with a password change demonstrates the
+		// wrong thing, and this password is in the repository anyway.
+		if mustChange {
+			t.Errorf("tenant %s: admin is required to change its password; "+
+				"the seed is not a release and has nothing to protect", code)
+		}
+	}
+
+	// The two are different people. A single `admin` visible from both
+	// tenants would be the isolation failure the second tenant exists to
+	// make visible.
+	var mainName, secondName string
+	_ = st.ForTenant(seed.TenantMain).DB().QueryRow(
+		`SELECT u.display_name FROM users u JOIN tenants t ON t.id = u.tenant_id
+		 WHERE t.code = $1 AND u.username = 'admin'`, seed.TenantMain).Scan(&mainName)
+	_ = st.ForTenant(seed.TenantSecond).DB().QueryRow(
+		`SELECT u.display_name FROM users u JOIN tenants t ON t.id = u.tenant_id
+		 WHERE t.code = $1 AND u.username = 'admin'`, seed.TenantSecond).Scan(&secondName)
+	if mainName == "" || mainName == secondName {
+		t.Errorf("the two admins are %q and %q; they must be distinguishable "+
+			"on sight or the tenant boundary is not visible", mainName, secondName)
 	}
 }

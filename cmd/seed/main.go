@@ -85,12 +85,12 @@ func report(s seed.Summary) {
   deliveries     %d
   sync runs      %d
 
-Sign in as any seeded account with the password %q — for example %q in the
-default tenant, or the same name in tenant %q to see how little of it carries
-across.
+Sign in as any seeded account with the password %q — %q in the default
+tenant, or the same name in tenant %q, which is a different person entirely
+and shows how little carries across.
 `,
 		s.Tenants, s.Users, s.Organizations, s.Groups, s.Applications,
 		s.Directories, s.Subscriptions, s.FieldMappings, s.AuditEntries, s.Sessions,
 		s.Deliveries, s.SyncRuns,
-		seed.DemoPassword, "zhangwei", seed.TenantSecond)
+		seed.DemoPassword, "admin", seed.TenantSecond)
 }
