@@ -292,3 +292,31 @@ html {
 .md-footer-meta {
   background-color: var(--md-primary-fg-color--dark);
 }
+
+/* The height of that bar, which the colour made visible.
+ *
+ * Material spends 115px on it: a 78px row holding one or two links, over a
+ * 37px strip holding one line of small print. Against a near-black footer
+ * that reads as the page ending; against a saturated blue it reads as a
+ * band, and a band that size competes with the content above it.
+ *
+ * The 78px is mostly margin around a link box that is 49px tall, so the
+ * margin is what comes in. Only the two outside the link: the 11px under
+ * each title sits *inside* it, and taking that as well shortened the footer
+ * by a further 3px while shrinking the tap target from 49px to 41px. 3px
+ * nobody can see, against 8px off a thing a thumb has to hit — 44px is the
+ * usual floor and 41 is under it. So the title keeps its margin.
+ *
+ *   115px  Material's own
+ *    97px  this, tap target unchanged at 49px
+ *    94px  also taking the title's margin, tap target 41px
+ *
+ * Measured in a browser at each value rather than reasoned about. The
+ * title's line-height is `normal`, so its box is whatever the font decides,
+ * and the arithmetic that says otherwise is the arithmetic that produced
+ * the 41px above without noticing.
+ */
+.md-footer__link {
+  margin-top: 0.2rem;
+  margin-bottom: 0.1rem;
+}
