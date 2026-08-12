@@ -480,6 +480,18 @@ export const enUS = {
   "webhooks.headerName": "Header",
   "webhooks.headerValue": "Value",
   "webhooks.headerAdd": "Add a header",
+  "webhooks.snapshot": "Send a snapshot",
+  "webhooks.snapshotTitle": "Send everything that already exists",
+  // Says the size before the confirmation, because the size is the reason to
+  // think twice: this is every account, organization and group the tenant
+  // has, in one run.
+  "webhooks.snapshotConfirm":
+    "Queue a copy of every account, organization and group for “{0}”? This is the largest delivery Portico makes. The receiver gets sync.started, then pages, then sync.completed.",
+  "webhooks.snapshotQueued": "Snapshot queued",
+  "webhooks.snapshotSummary":
+    "{0} page deliveries queued, covering: {1}. Watch them under Deliveries — nothing here polls.",
+  "webhooks.snapshotReconcile":
+    "A snapshot is not taken atomically. An account edited while it runs may arrive as a page or as a live event, in either order — the receiver must reconcile by id and prefer the newer occurredAt.",
   "webhooks.rotate": "Rotate secret",
   "webhooks.rotateTitle": "Rotate the signing secret",
   // Said before the button, not after. During the overlap each delivery

@@ -451,6 +451,15 @@ export const zhCN: Record<keyof typeof enUS, string> = {
   "webhooks.headerName": "名称",
   "webhooks.headerValue": "值",
   "webhooks.headerAdd": "添加请求头",
+  "webhooks.snapshot": "发送快照",
+  "webhooks.snapshotTitle": "把已经存在的数据全部发过去",
+  "webhooks.snapshotConfirm":
+    "为「{0}」排出一份包含全部账号、组织与用户组的副本？**这是 Portico 最大的一次投递。** 接收方会先收到 sync.started，然后是分页，最后是 sync.completed。",
+  "webhooks.snapshotQueued": "快照已排队",
+  "webhooks.snapshotSummary":
+    "已排队 {0} 次分页投递，覆盖：{1}。到「投递记录」里看进度——这里不轮询。",
+  "webhooks.snapshotReconcile":
+    "快照不是原子的。同步期间被改过的账号，可能以某一页的形态到、也可能以实时事件的形态到，顺序不定——接收方必须按 id 对账，并让 occurredAt 更新的那个胜出。",
   "webhooks.rotate": "轮换密钥",
   "webhooks.rotateTitle": "轮换签名密钥",
   // 说在按钮之前，不是之后。宽限期内每次投递带两个签名，而把整个头当一个

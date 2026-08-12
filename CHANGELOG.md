@@ -12,6 +12,38 @@ Working toward 0.2.0. See
 
 ### Added
 
+- **A new subscription can be sent everything that already exists.** Events
+  describe changes, so one created today had missed every change before it —
+  and the delivery history could not fill the gap, because finished
+  deliveries are removed after thirty days and the rows that survive say what
+  happened rather than what is. A receiver building a mirror had no way to
+  make the first copy of it.
+- `POST /api/v1/webhooks/{id}/snapshot`, and a button beside the
+  subscription, queue `sync.started`, paged `sync.users` /
+  `sync.organizations` / `sync.groups`, then `sync.completed` — through the
+  same endpoint, signature, retries and **field mappings** as every other
+  event, so a receiver parses one shape rather than two.
+- Not `user.created` per existing account, which was the tempting shortcut: a
+  receiver backfilled that way would hold an account "created" today that has
+  been on the payroll for six years, and the audit trail and delivery history
+  would both record it permanently. Pages rather than one event each, because
+  the unit that matters to a receiver is a batch it can write in one
+  transaction — fifty thousand accounts is a hundred deliveries here against
+  fifty thousand any other way.
+- Which kinds arrive follows what the subscription selected, so one that
+  asked for group events alone is not sent the account list.
+- **It asks something of the receiver.** A snapshot is not atomic: an account
+  edited while it runs may arrive as a page or as a live event, in either
+  order, so the receiver must reconcile by `id` and prefer the newer
+  `occurredAt`. That is in both manuals and on the screen that reports the
+  snapshot went, on the same footing as the demand secret rotation already
+  makes.
+- One run at a time per subscription, enforced by asking the queue rather
+  than by a flag — a flag needs clearing, and a process that died
+  mid-snapshot would leave one set forever with nothing to notice. A disabled
+  subscription is refused outright rather than having the largest delivery
+  this product makes queued against the moment somebody re-enables it.
+
 - **Two manual chapters that had no page**: organizations and groups, and
   settings and the audit trail. Five administrative screens had an
   explanation at the top and nowhere to send a reader who wanted more, so

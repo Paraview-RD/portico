@@ -587,6 +587,19 @@ export interface CreatedWebhookSubscription extends WebhookSubscription {
   previousSecretExpiresAt?: string;
 }
 
+/**
+ * What a snapshot queued.
+ *
+ * Counts are objects, pages are deliveries: the two differ by the page size,
+ * and an operator watching the delivery list is counting the second.
+ */
+export interface WebhookSnapshot {
+  syncId: string;
+  scope: string[];
+  counts: Record<string, number>;
+  pages: number;
+}
+
 /** One attempt to deliver one event. */
 export interface WebhookDelivery {
   id: string;
