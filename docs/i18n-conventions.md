@@ -90,6 +90,37 @@ substitutions is usually two strings.
 in any language where the name does not come last. Put the placeholder in
 the string.
 
+## One Chinese word per concept
+
+The console decides. A reader who meets a term on screen and then in the
+manual is meeting the same product, and the screen is where they meet it
+first — so where the two disagree, the manual is what changes.
+
+| Concept | 简体中文 | Where it is settled |
+|---|---|---|
+| access token | 访问令牌 | `web/src/i18n/zh-CN.ts` |
+| refresh token | 刷新令牌 | `web/src/i18n/zh-CN.ts` |
+| ID token | ID 令牌 | `web/src/i18n/zh-CN.ts` |
+
+**A document may give the English once**, at the term's first appearance,
+as 访问令牌（access token）. After that it is Chinese. The gloss is not
+decoration: these three are wire vocabulary — an integrator reading this
+page is looking at `refresh_token` in a JSON body and at somebody else's
+English specification, and a Chinese-only manual would make them guess
+which of the two documents is talking about the same thing.
+
+This list is short because it is enforced. `TestTheDocumentsUseTheConsolesChineseTerms`
+reads this table, checks each Chinese term against the console bundle, and
+checks the Chinese manual for bare English outside of code — so a row added
+here is a row that has to be true everywhere, and a row that stops being
+true fails the build. Add a term when the same concept has been written two
+ways, not in anticipation.
+
+Code is exempt, deliberately and by construction: fenced blocks and
+backticked spans are removed before the check looks. `refresh_token` is a
+grant type and a JSON field, and a manual that rendered it in Chinese would
+be describing a request nobody can send.
+
 ## What does not get translated
 
 - **Server-side messages and logs.** The API's `message` is English; logs

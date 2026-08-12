@@ -58,8 +58,8 @@ https://id.example.com
 | Grant | 授权码，**强制 PKCE** |
 | PKCE 方法 | 仅 `S256` |
 | 签名 | RS256，公钥在 issuer 的 `/keys` |
-| 访问令牌 | JWT。默认 15 分钟，可在**系统设置**里改，取值 1–60 |
-| ID token | 跟随访问令牌 |
+| 访问令牌（access token） | JWT。默认 15 分钟，可在**系统设置**里改，取值 1–60 |
+| ID 令牌（ID token） | 跟随访问令牌 |
 | Refresh token | 默认 30 天，可改，取值 1–90；**每次使用都轮换** |
 | 最长会话时长 | 默认关闭。开启后，一条刷新链从最初那次登录起算满这么多天即终止，无论中间刷新得多勤 |
 | 客户端认证 | `client_secret_basic`、`client_secret_post`，或无（公共客户端） |
@@ -115,7 +115,7 @@ portico client disable --id grafana    # 拒绝新的登录；不删除任何东
 
 加 `--tenant acme` 可以注册到默认租户之外的租户里。
 
-默认 scope 是 `openid profile email`。**需要 refresh token 的客户端必须同时用
+默认 scope 是 `openid profile email`。**需要刷新令牌（refresh token）的客户端必须同时用
 `--scope offline_access` 注册**——**一个客户端没有注册过的 scope 会被丢弃而不是被拒绝**，
 所以症状是一个不含 `refresh_token` 的令牌响应，而且哪里都没有错误：
 
@@ -165,7 +165,7 @@ portico client register --id grafana --name Grafana \
 | `role` | `SUPER_ADMIN` 或 `USER` |
 | `organization_id`、`organization_name` | 账号有组织时才出现 |
 
-这些在 ID token、访问令牌和 userinfo 响应里**都有**。依赖方从 ID token 读身份，资源
+这些在 ID 令牌、访问令牌和 userinfo 响应里**都有**。依赖方从 ID 令牌读身份，资源
 服务器从访问令牌读；**一个只出现在其中之一里的 claim，是一半集成方看不见的 claim**。
 
 `email_verified` 和 `phone_number_verified` **永远是 `false`**。本版本从不要求任何人
@@ -174,9 +174,9 @@ portico client register --id grafana --name Grafana \
 ## 关于撤销，说实话
 
 三件事会结束一个会话：退出登录、改密码、管理员停用账号。三者都会**立即撤销每一个
-依赖方持有的 refresh token**。它们的区别在于，各自结束了多少个 Portico 自己的会话：
+依赖方持有的刷新令牌**。它们的区别在于，各自结束了多少个 Portico 自己的会话：
 
-| | Portico 自己的会话 | 依赖方的 refresh token |
+| | Portico 自己的会话 | 依赖方的刷新令牌 |
 |---|---|---|
 | 退出登录 | 只有正在退出的那一个 | 全部 |
 | **退出所有设备** | 全部 | 全部 |
@@ -197,7 +197,7 @@ portico client register --id grafana --name Grafana \
 - issuer 的 `/oauth/introspect` 端点对一个已停用账号**立刻**回 `active: false`，供那
   些需要比过期更早拿到答案的资源服务器使用。
 
-**"退出 Portico 时一并撤销依赖方的 refresh token"是一个选择，不是一项义务。** 不动它
+**"退出 Portico 时一并撤销依赖方的刷新令牌"是一个选择，不是一项义务。** 不动它
 们也说得过去——那正是应用自己的 `end_session` 端点的用处。Portico 不那样做，是因为在
 一个单点登录系统里，**点下"退出"的那个人理解的就是"退出我登录进去的那些东西"，而做得
 比这更少，才是真正要命的意外**。
@@ -227,7 +227,7 @@ portico client rotate-key --tenant acme
 | | 退出登录 / 改密码 / 停用 |
 |---|---|
 | Portico 自己的会话 | 立即结束——退出登录结束正在退出的那一个，另外两件结束全部；见上表 |
-| OIDC refresh token | 被撤销 |
+| OIDC 刷新令牌 | 被撤销 |
 | OIDC 访问令牌 | **无法收回**；等它到期（默认十五分钟，最长一小时），或者用 introspect |
 | SAML | **没有东西可撤销**——不存在服务端会话，因为没有单点登出。服务提供方自己的会话完全不受影响，按它自己的规则结束。 |
 | CAS | **没有东西可撤销**——一张票只活一分钟且一次性，而且没有 ticket-granting ticket。某个服务自己的会话与 SAML 一样，是它自己的事。 |
@@ -238,13 +238,13 @@ portico client rotate-key --tenant acme
 
 ## 已知限制
 
-- **过期的 refresh token 会在过期后再多活三十天。** 每小时的清理只有在一条轮换链里的
+- **过期的刷新令牌会在过期后再多活三十天。** 每小时的清理只有在一条轮换链里的
   每一个令牌都既已过期、又已过期满三十天时才移除它，而且只按整条链移除。**在过期当天
   就删掉那一行会破坏重用检测**：一个**既已过期、又已被用掉**的令牌被出示时，仍然会触
-  发整条链的撤销，而这正是一个被盗的 refresh token 被抓住的方式。**那一行是证据，所以
+  发整条链的撤销，而这正是一个被盗的刷新令牌被抓住的方式。**那一行是证据，所以
   它比凭据活得久。**
 - **访问令牌无法被撤销。** 见上；`/revoke` 端点会接受它们并按 RFC 7009 的要求成功应答，
-  但真正被撤销的只有 refresh token。
+  但真正被撤销的只有刷新令牌。
 - **没有授权确认页**，如上所述。
 - **没有 `private_key_jwt`**，所以一个只能用这种方式认证的客户端无法被注册。
 - **SAML 与 CAS 都没有单点登出**，因此没有办法结束应用为自己创建的会话。见上表。
