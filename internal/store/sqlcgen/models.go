@@ -64,6 +64,35 @@ type CasTicket struct {
 	ExpiresAt  time.Time
 }
 
+type ExternalIdentity struct {
+	ID         string
+	TenantID   string
+	ProviderID string
+	UserID     string
+	// The provider's `sub`. Unique within that issuer only, which is why the provider is part of the key.
+	Subject    string
+	Email      string
+	CreatedAt  time.Time
+	LastUsedAt *time.Time
+}
+
+// An OpenID Provider this deployment sends people to. Portico is the relying party here, not the issuer.
+type ExternalIdentityProvider struct {
+	ID           string
+	TenantID     string
+	Name         string
+	ButtonLabel  string
+	Issuer       string
+	ClientID     string
+	ClientSecret string
+	Scopes       string
+	// Whether email_verified from this provider may bind a first-time login to an existing account by address. Off by default: it delegates account security to whoever runs that provider.
+	TrustVerifiedEmail bool
+	Status             string
+	CreatedAt          time.Time
+	UpdatedAt          time.Time
+}
+
 // Per-recipient renames, additions, and suppressions. The defaults stay in code — see internal/service/field_catalogue.go.
 type FieldMapping struct {
 	ID                    string
