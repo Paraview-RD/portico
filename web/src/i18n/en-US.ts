@@ -725,6 +725,56 @@ export const enUS = {
   "nav.group.audit": "Audit",
   "nav.group.system": "System",
   "nav.group.account": "Account",
+
+  // The field catalogue's built-in half.
+  //
+  // A built-in has no stored label, on purpose: it has to read the same in
+  // both languages, and a string in the database can only be one of them.
+  // These are what the mapping picker draws. A key with no entry here would
+  // render as its own key — readable to whoever wrote the catalogue and to
+  // nobody else.
+  "fields.user_id": "Account ID",
+  "fields.username": "Username",
+  "fields.display_name": "Display name",
+  "fields.email": "Email address",
+  "fields.phone": "Phone number",
+  "fields.role": "Role",
+  "fields.status": "Status",
+  "fields.external_id": "External ID",
+  "fields.updated_at": "Last updated",
+  "fields.name_formatted": "Full name",
+  "fields.family_name": "Family name",
+  "fields.given_name": "Given name",
+  "fields.middle_name": "Middle name",
+  "fields.honorific_prefix": "Title (prefix)",
+  "fields.honorific_suffix": "Title (suffix)",
+  "fields.nick_name": "Nickname",
+  "fields.profile_url": "Profile URL",
+  "fields.photo_url": "Photo URL",
+  "fields.title": "Job title",
+  "fields.user_type": "Employment type",
+  "fields.preferred_language": "Preferred language",
+  "fields.locale": "Locale",
+  "fields.timezone": "Time zone",
+  "fields.address_formatted": "Address",
+  "fields.street_address": "Street address",
+  "fields.locality": "City",
+  "fields.region": "Region",
+  "fields.postal_code": "Postal code",
+  "fields.country": "Country",
+  "fields.employee_number": "Employee number",
+  "fields.cost_center": "Cost centre",
+  "fields.department": "Department",
+  "fields.manager_id": "Manager's account ID",
+  "fields.manager_name": "Manager's name",
+  "fields.organization_id": "Organization ID",
+  "fields.organization_name": "Organization name",
+  "fields.organization_code": "Organization code",
+  "fields.organization_parent_code": "Parent organization code",
+  "fields.organization_path": "Organization path",
+  "fields.organization_manager_name": "Organization manager",
+  "fields.tenant_id": "Tenant ID",
+  "fields.tenant_code": "Tenant code",
 } as const;
 
 export type TranslationKey = keyof typeof enUS;
