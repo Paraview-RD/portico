@@ -41,7 +41,7 @@ These are deliberate MVP scope decisions, not oversights. They are listed
 here rather than only in the requirements document because they change how
 you must deploy Portico.
 
-### There is no request rate limiting, and that has an availability consequence
+### The request rate limiting is a floor, not a defence
 
 Portico locks an account after repeated failed sign-ins — five within
 fifteen minutes by default, configurable per tenant in **Settings**, and
@@ -57,10 +57,27 @@ single-writer database, enough concurrent sign-in requests from one source
 can exhaust CPU and stall writes. Account lockout does nothing about this:
 the attempts still arrive and are still evaluated.
 
-**You must place Portico behind a reverse proxy that rate-limits
+`/api/v1/auth/*` is therefore throttled in-process — 60 requests per minute
+per client address, 10 of which may arrive at once, adjustable with
+`PORTICO_AUTH_RATE_LIMIT` and `PORTICO_AUTH_RATE_LIMIT_BURST` and
+switchable off with a limit of `0`. Understand what that buys, which is
+less than it sounds:
+
+- It counts **per address**. An attacker with a botnet, or anyone behind a
+  large NAT, is not what it stops.
+- It counts **per process**. Two instances behind a load balancer allow
+  twice as much, and a restart forgets everything.
+- With `PORTICO_TRUST_PROXY_HEADERS` off — the default — every request
+  behind a proxy carries the proxy's address, so the whole deployment
+  shares one allowance.
+
+**You must still place Portico behind a reverse proxy that rate-limits
 `/api/v1/auth/*`.** See [docs/access-guide.md](docs/access-guide.md) for a
-worked nginx and Caddy configuration. The bundled `docker-compose.yml` binds
-to `127.0.0.1` for this reason — do not change that to `0.0.0.0` without a
+worked nginx and Caddy configuration. The in-process limit exists because
+the proxy is a deployment decision and a first run is not: it makes an
+instance with nothing in front of it cost an attacker something, which is
+different from making it safe. The bundled `docker-compose.yml` binds to
+`127.0.0.1` for this reason — do not change that to `0.0.0.0` without a
 proxy in front.
 
 ### There is no TLS
@@ -200,9 +217,10 @@ would leak through response time — seconds, not microseconds — whatever the
 body said. Everything past the account lookup is detached, and a test
 measures the gap.
 
-Three things this deliberately does not do. It does not rate-limit requests
-— that is the reverse proxy's job, along with the rest of `/api/v1/auth/*`;
-account lockout is a different control and covers a different attack. It does not
+Three things this deliberately does not do. It has no throttle of its own
+beyond the per-address floor every `/api/v1/auth/*` endpoint shares — the
+limit that matters is still the reverse proxy's, and account lockout is a
+third control covering a third attack. It does not
 verify a changed email address, so a user may point their own recovery at an
 inbox they do not read; that locks them out rather than letting anyone in,
 and the per-tenant unique index stops them taking an address another account

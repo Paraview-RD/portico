@@ -111,6 +111,14 @@ func UnprocessableEntity(code, message string) *Error {
 	return NewError(http.StatusUnprocessableEntity, code, message)
 }
 
+// TooManyRequests reports a caller who has been refused for their rate
+// rather than for anything about the request. It is the one 4xx here that
+// says nothing about whether the request would otherwise have succeeded,
+// which is the point: an attacker learns only that they were too fast.
+func TooManyRequests(code, message string) *Error {
+	return NewError(http.StatusTooManyRequests, code, message)
+}
+
 // Internal reports a server-side failure. The cause is logged; the client
 // gets a generic message so internals are not leaked.
 func Internal(err error) *Error {

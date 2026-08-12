@@ -33,9 +33,18 @@ const errorBundlePath = "../../web/src/i18n/errors-en-US.ts"
 // codeAtCallSite matches the constructors errors are built with. A code
 // written in some other shape is missed rather than invented, so this fails
 // quietly rather than falsely — hence the floor asserted below.
+//
+// The package qualifier is optional because httpx builds errors of its own,
+// and inside that package the call has no qualifier to match. That was a
+// blind spot: the codes a request is refused with before it ever reaches a
+// handler — a body that is not JSON, a body that is too large, a wrong
+// content type — were invisible here, and UNSUPPORTED_MEDIA_TYPE had indeed
+// never been translated. Nothing outside httpx calls these names bare, so
+// making the qualifier optional widens what is seen without widening what is
+// matched.
 var codeAtCallSite = regexp.MustCompile(
-	`httpx\.(?:BadRequest|NotFound|Unauthorized|Forbidden|Conflict|` +
-		`UnprocessableEntity|Internal|NewError)\(\s*(?:[^,()]+,\s*)?"([A-Z][A-Z0-9_]+)"`)
+	`(?:httpx\.)?\b(?:BadRequest|NotFound|Unauthorized|Forbidden|Conflict|` +
+		`UnprocessableEntity|TooManyRequests|Internal|NewError)\(\s*(?:[^,()]+,\s*)?"([A-Z][A-Z0-9_]+)"`)
 
 // bundleKey matches an entry in the English bundle.
 var bundleKey = regexp.MustCompile(`(?m)^\s*([A-Z][A-Z0-9_]+):`)

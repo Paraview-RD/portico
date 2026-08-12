@@ -490,14 +490,40 @@ responses, and the user list shows which happened.
 
 ## Before you expose this
 
-Portico serves plain HTTP and does not rate-limit requests. Both are
-deliberate — it delegates them to the reverse proxy rather than
-reimplementing them — but that makes the proxy mandatory, not optional, for
-anything reachable beyond localhost. See [SECURITY.md](https://github.com/Paraview-RD/portico/blob/main/SECURITY.md) for
+Portico serves plain HTTP and leaves rate limiting to the reverse proxy.
+Both are deliberate — it delegates them rather than reimplementing them —
+but that makes the proxy mandatory, not optional, for anything reachable
+beyond localhost. See [SECURITY.md](https://github.com/Paraview-RD/portico/blob/main/SECURITY.md) for
 why.
 
 The bundled compose file binds to `127.0.0.1` so the default configuration
 is not directly reachable.
+
+### The sign-in endpoints have a floor of their own
+
+`/api/v1/auth/*` is throttled in-process: 60 requests per minute per client
+address, of which 10 may arrive at once. `PORTICO_AUTH_RATE_LIMIT` and
+`PORTICO_AUTH_RATE_LIMIT_BURST` change it; `PORTICO_AUTH_RATE_LIMIT=0` turns
+it off. A refusal is `429` with `Retry-After`.
+
+**It does not replace the proxy limit below.** It counts per address and per
+process, so it does nothing about an attacker with many addresses, and one
+office behind a single NAT address shares one allowance. What it covers is
+the case the proxy cannot: an instance with nothing in front of it — a first
+run, a demonstration, a container somebody exposed to try it out — where
+`/api/v1/auth/login` costs a password hash per request whatever the answer.
+
+Two other things worth knowing about it:
+
+- **`PORTICO_TRUST_PROXY_HEADERS` decides what "one address" means.** Behind
+  a proxy with it left off, every request carries the proxy's address, so
+  the whole deployment shares one bucket. Turn it on — but only with a proxy
+  in front that rewrites `X-Forwarded-For`, since otherwise a caller can
+  choose their own bucket, and their own line in the audit log.
+- **It is not the account lockout.** Lockout is per account, configured at
+  runtime under **Settings → Security**, and locks after a threshold of
+  failures. This is per address and counts every request, successful or not.
+  Neither substitutes for the other.
 
 ### nginx
 

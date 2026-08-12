@@ -91,6 +91,18 @@ type Config struct {
 	// log IP.
 	TrustProxyHeaders bool
 
+	// AuthRateLimit is how many requests one client address may make to
+	// /api/v1/auth/* per minute, and AuthRateLimitBurst how many of that
+	// allowance may arrive at once. Zero disables the limiter entirely.
+	//
+	// On by default, which is the point: the throttle that matters belongs in
+	// the reverse proxy, but the proxy is a deployment decision and this is
+	// not. A first run, a demonstration, a container somebody exposed to try
+	// it out — all of them reach the sign-in endpoint with nothing in front,
+	// and two of those endpoints cost a password hash whatever the answer.
+	AuthRateLimit      int
+	AuthRateLimitBurst int
+
 	// PublicURL is where people reach this deployment, used to build the
 	// links in password-recovery messages.
 	//
@@ -149,6 +161,16 @@ func Load() (*Config, error) {
 		InitialAdminPassword: os.Getenv("PORTICO_INITIAL_ADMIN_PASSWORD"),
 		TrustProxyHeaders:    os.Getenv("PORTICO_TRUST_PROXY_HEADERS") == "true",
 	}
+
+	rateLimit, err := envInt("PORTICO_AUTH_RATE_LIMIT", 60)
+	if err != nil {
+		return nil, err
+	}
+	rateLimitBurst, err := envInt("PORTICO_AUTH_RATE_LIMIT_BURST", 10)
+	if err != nil {
+		return nil, err
+	}
+	cfg.AuthRateLimit, cfg.AuthRateLimitBurst = rateLimit, rateLimitBurst
 
 	cfg.PublicURL = envString("PORTICO_PUBLIC_URL", "http://localhost:8410")
 

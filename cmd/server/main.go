@@ -113,6 +113,13 @@ Configuration is entirely environment variables:
                                    with: openssl rand -hex 32
   PORTICO_TRUST_PROXY_HEADERS      trust X-Forwarded-For (default false; only
                                    enable behind a proxy you control)
+  PORTICO_AUTH_RATE_LIMIT          sign-in requests allowed per minute per
+                                   client address (default 60; 0 turns it off).
+                                   A floor under /api/v1/auth/*, not a
+                                   replacement for a throttle in the proxy —
+                                   it is per address and per process
+  PORTICO_AUTH_RATE_LIMIT_BURST    how many of that minute's allowance may
+                                   arrive at once (default 10)
   PORTICO_PUBLIC_URL               where people reach this deployment. Used for
                                    password-recovery links and as the OpenID
                                    Connect issuer identifier

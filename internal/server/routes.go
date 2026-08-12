@@ -34,6 +34,11 @@ func (s *Server) routes() http.Handler {
 	// After Recover, so a panicked request is counted as the 500 it becomes
 	// rather than escaping the count entirely.
 	r.Use(s.metrics.Middleware)
+	// After the log and the counter, so a refusal is visible in both — a
+	// throttle nobody can see firing is one that gets blamed for outages it
+	// did not cause. Before routing, so a refused request never reaches the
+	// handler that would have hashed a password for it.
+	r.Use(httpx.RateLimitAuth(httpx.NewRateLimiter(s.cfg.AuthRateLimit, s.cfg.AuthRateLimitBurst)))
 
 	h := s.handler
 	mw := s.middleware

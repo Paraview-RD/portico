@@ -142,16 +142,17 @@ explanation somebody no longer needs.
 **Bilingual UI** — English and 简体中文, switchable at runtime.
 
 Deliberately **not** in this version: custom roles and permissions (there are
-two fixed roles), third-party and social login, MFA, and request rate
-limiting. The roadmap for those is in
+two fixed roles), third-party and social login, MFA, and any rate limiting
+beyond the sign-in endpoints. The roadmap for those is in
 [docs/requirements/v0.1-requirements.md](docs/requirements/v0.1-requirements.md).
 
-> **Before exposing this to a network:** Portico serves plain HTTP and does
-> not rate-limit requests, both deliberately. Accounts do lock after repeated
-> failed sign-ins, but that is a different control: it stops one account's
-> password being guessed and does nothing about the load a flood of attempts
-> puts on the server. It must run behind a reverse proxy that terminates TLS
-> and throttles `/api/v1/auth/*` — see
+> **Before exposing this to a network:** Portico serves plain HTTP,
+> deliberately. `/api/v1/auth/*` is throttled per client address, but that
+> is a floor rather than a defence — it counts per address and per process,
+> so it does nothing about an attacker with many of either. Accounts also
+> lock after repeated failed sign-ins, which is a third control again: it
+> stops one account's password being guessed. It must run behind a reverse
+> proxy that terminates TLS and throttles `/api/v1/auth/*` — see
 > [SECURITY.md](SECURITY.md) for why and
 > [docs/access-guide.md](docs/access-guide.md) for working nginx and Caddy
 > configurations.
