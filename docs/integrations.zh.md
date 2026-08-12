@@ -105,5 +105,7 @@ Amazon SES、Postmark、Resend，或者一个本地 Postfix。
 | `github.com/go-ldap/ldap/v3` | 与上面那个目录讲 LDAP。纯 Go，所以它对部署的代价是零：没有 OpenLDAP 客户端库要装，`scratch` 容器照样能用。 |
 | `github.com/xuri/excelize/v2` | 读写批量导入的工作簿，以及通讯录导出。 |
 | `github.com/golang-jwt/jwt/v5` | 签发与校验访问令牌。 |
+| `github.com/zitadel/oidc/v3` | OpenID Connect 的两半。给信任 Portico 的应用签发，也（通过它的 relying party 那一半）消费 Portico 所信任的外部提供方的令牌。**刻意用同一个库**：ID 令牌校验出错不是「答案不对」，是**认证被绕过**，而手写时漏掉的往往是最隐蔽的那几项——从不比对 `iss`，或者从令牌里读 `alg`。 |
+| `golang.org/x/oauth2` | 上面那个 relying party 底下的授权码交换。从 Portico 开始让人经由第三方提供方登录起，它由传递依赖变成了直接依赖。 |
 | `github.com/prometheus/client_golang` | 指标注册表与暴露处理器。不增加运行时依赖：`PORTICO_METRICS_ADDR` 未设时，它注册的采集器无人读取，也不打开任何监听。 |
 | `sqlc` | 开发期从 SQL 生成代码。贡献者只在改查询时才需要它；生成的代码已提交。 |
