@@ -109,7 +109,9 @@ describe("sending a snapshot", () => {
     list.mockResolvedValue([subscription]);
     renderWithLanguage(<WebhooksPage />, "zh-CN");
 
-    await userEvent.click(await screen.findByRole("button", { name: /发送快照/ }));
+    await userEvent.click(
+      await screen.findByRole("button", { name: /发送快照/ }),
+    );
 
     // Nothing has been queued yet. A button that fired on the first click
     // would send every account in the tenant to somebody's endpoint because
@@ -128,8 +130,12 @@ describe("sending a snapshot", () => {
     });
     renderWithLanguage(<WebhooksPage />, "zh-CN");
 
-    await userEvent.click(await screen.findByRole("button", { name: /发送快照/ }));
-    await userEvent.click(await screen.findByRole("button", { name: /确认|确定/ }));
+    await userEvent.click(
+      await screen.findByRole("button", { name: /发送快照/ }),
+    );
+    await userEvent.click(
+      await screen.findByRole("button", { name: /确认|确定/ }),
+    );
 
     expect(snapshot).toHaveBeenCalledWith("sub-1");
     expect(await screen.findByText(/已排队 2 次分页投递/)).toBeTruthy();

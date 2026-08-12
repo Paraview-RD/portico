@@ -113,8 +113,9 @@ export function WebhooksPage() {
   // delivery the product makes — every account, organization and group the
   // tenant has — and an operator who pressed it by accident should learn
   // that from a dialog rather than from their receiver falling over.
-  const [snapshotting, setSnapshotting] =
-    useState<WebhookSubscription | null>(null);
+  const [snapshotting, setSnapshotting] = useState<WebhookSubscription | null>(
+    null,
+  );
   const [snapshotResult, setSnapshotResult] = useState<WebhookSnapshot | null>(
     null,
   );
