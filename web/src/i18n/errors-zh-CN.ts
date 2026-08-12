@@ -197,6 +197,8 @@ export const errorsZhCN: Record<keyof typeof errorsEnUS, string> = {
   MALFORMED_BODY: "请求内容无法解析。",
   EMPTY_BODY: "请求没有内容。",
   BODY_TOO_LARGE: "请求体过大。",
+  UNSUPPORTED_MEDIA_TYPE: "该接口不接受这种格式的请求。",
+  TOO_MANY_ATTEMPTS: "该地址的尝试次数过多，请稍候再试。",
   INVALID_PATH_PARAMETER: "地址不合法。",
   ROUTE_NOT_FOUND: "接口不存在。",
   METHOD_NOT_ALLOWED: "该接口不支持此方法。",

@@ -113,6 +113,13 @@ Configuration is entirely environment variables:
                                    with: openssl rand -hex 32
   PORTICO_TRUST_PROXY_HEADERS      trust X-Forwarded-For (default false; only
                                    enable behind a proxy you control)
+  PORTICO_AUTH_RATE_LIMIT          sign-in requests allowed per minute per
+                                   client address (default 60; 0 turns it off).
+                                   A floor under the writes to /api/v1/auth/*,
+                                   not a replacement for a throttle in the
+                                   proxy — it is per address and per process
+  PORTICO_AUTH_RATE_LIMIT_BURST    how many of that minute's allowance may
+                                   arrive at once (default 30)
   PORTICO_PUBLIC_URL               where people reach this deployment. Used for
                                    password-recovery links and as the OpenID
                                    Connect issuer identifier
@@ -134,8 +141,9 @@ Configuration is entirely environment variables:
                                    at first sign-in
   PORTICO_LOG_LEVEL                debug | info | warn | error (default "info")
 
-Portico serves plain HTTP and does not rate-limit sign-in attempts. Run it
-behind a reverse proxy that terminates TLS and throttles /api/v1/auth/*.
+Portico serves plain HTTP, and the sign-in throttle above is a per-address
+floor rather than a defence. Run it behind a reverse proxy that terminates
+TLS and throttles /api/v1/auth/*.
 
 Documentation: https://github.com/Paraview-RD/portico
 `, server.Version, config.MinJWTSecretLength)

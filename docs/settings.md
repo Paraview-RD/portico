@@ -40,8 +40,10 @@ counted over a window. Zero switches it off.
 
 It is not rate limiting, and the two cover different attacks: lockout stops
 one account's password being guessed, and does nothing about the load of a
-large number of attempts. Keep the throttling in your reverse proxy — see
-[Getting in](access-guide.md).
+large number of attempts. There are two rate limits and neither is set here
+— the per-address floor on `/api/v1/auth/*`, configured with
+`PORTICO_AUTH_RATE_LIMIT` at startup, and the real one in your reverse
+proxy. See [Getting in](access-guide.md).
 
 The lock is checked *after* the password is compared, so a wrong guess never
 learns that an account is locked. It does not extend on further attempts,

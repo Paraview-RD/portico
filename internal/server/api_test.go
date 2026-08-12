@@ -60,6 +60,22 @@ func testConfig(t *testing.T) *config.Config {
 	cfg.InitialAdminPassword = adminPassword
 	cfg.PublicURL = "http://portico.test"
 	cfg.TrustProxyHeaders = false
+
+	// The sign-in throttle stays in the chain and never fires.
+	//
+	// httptest.NewRequest gives every request the same RemoteAddr, so the
+	// whole package shares one bucket per server, and several tests sign in
+	// far faster than a person would — the lockout tests exist to make failed
+	// attempts in a tight loop. At the shipped default they would be refused
+	// for their rate rather than for their password, and the failure would
+	// read as a regression in lockout.
+	//
+	// A limit rather than zero, deliberately: zero builds no limiter, and the
+	// middleware would then be absent from every test in this package. The
+	// tests that are about the throttle set their own low limit; these keep
+	// it present and out of the way.
+	cfg.AuthRateLimit = 100000
+	cfg.AuthRateLimitBurst = 100000
 	// No relay: the tests that want one substitute a recorder, and the ones
 	// that want none are asserting exactly this.
 	cfg.SMTP = notify.SMTPConfig{}
