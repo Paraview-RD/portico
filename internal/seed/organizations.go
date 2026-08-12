@@ -74,7 +74,10 @@ func (s *Seeder) applySettings(ctx context.Context, w *world) error {
 	strict.ShowGuides = true
 	strict.LockoutThreshold = 5
 	strict.LockoutDurationMinutes = 30
-	strict.PasswordMinLength = 10
+	// Length left at the engine's floor of eight, deliberately: the demo
+	// password is one memorable string for every account, and a tenant
+	// minimum above it would make this tenant the one nobody can sign in to.
+	// What makes this tenant strict is the four settings below plus lockout.
 	strict.PasswordRequireUppercase = true
 	strict.PasswordRequireLowercase = true
 	strict.PasswordRequireDigit = true
