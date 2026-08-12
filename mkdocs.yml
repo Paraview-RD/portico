@@ -55,6 +55,17 @@ theme:
   features:
     - navigation.sections
     - navigation.top
+    # Previous and next at the foot of every page, in the order nav below
+    # declares. Most of these pages are dead ends without it: outside the
+    # home page and the access guide, which link out seven times each, the
+    # rest carry one to three links between them, so a reader who finishes
+    # Federation has exactly one way onward that is not the sidebar.
+    #
+    # Taken from nav rather than written per page, which is the whole reason
+    # to prefer it over a hand-kept "see also" block — a second list of
+    # relationships is a second thing to forget, and this repository has
+    # already had nav_translations fall behind a rename once.
+    - navigation.footer
     - content.code.copy
     - search.suggest
   palette:

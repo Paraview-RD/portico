@@ -100,16 +100,62 @@ html {
   One column has to serve both, so this is a compromise rather than an
   optimum, and it was measured rather than guessed:
 
-    61rem → 550px → 34 CJK / 68 Latin   Chinese too tight
-    68rem → 662px → 41 CJK / 83 Latin   Latin too loose
-    65rem → 614px → 38 CJK / 77 Latin   both a little off, neither badly
+    550px → 34 CJK / 68 Latin   Chinese too tight
+    662px → 41 CJK / 83 Latin   Latin too loose
+    614px → 38 CJK / 77 Latin   both a little off, neither badly
 
-  Wider is not more generous: past about 75 Latin characters the eye starts
-  losing the return sweep, which is the failure the original 757px was
-  already edging into.
+  614px is therefore fixed, and the grid below is not the thing that sets
+  it. Wider prose is not more generous: past about 75 Latin characters the
+  eye starts losing the return sweep, which is the failure the original
+  757px was already edging into.
+
+  The grid is a separate question, and the answer to a separate complaint:
+  at 65rem the page occupied 45% of a 2304px display and read as a narrow
+  strip in a lot of empty room. It is 80rem now, and the sidebar rule below
+  is what keeps that from reaching the prose.
 */
 .md-grid {
-  max-width: 65rem;
+  max-width: 80rem;
+}
+
+/* The sidebars grow with the grid, which is the whole trick.
+ *
+ * Material fixes them at 12.1rem, so widening the grid alone hands every
+ * pixel of the increase to the prose — and the prose is the one thing here
+ * that was measured and should not move. The arithmetic is
+ * `content = grid − 2 × sidebar`, so each side absorbs half the growth and
+ * the column between them stays where it was:
+ *
+ *   65rem grid, 12.1rem sides → 614px of prose
+ *   80rem grid, 19.6rem sides → 614px of prose, in a page half again as wide
+ *
+ * 19.6 and not 19.5, which is where this first landed and which measured 618.
+ * Half of the 15rem the grid grew by is 7.5, and 12.1 + 7.5 is 19.6 — an
+ * arithmetic slip rather than a judgement, but the kind that only shows up
+ * against a browser, because 4px of prose is not visible and the comment
+ * above would have gone on claiming 614 either way.
+ *
+ * What the extra width buys is whitespace, and that is worth stating plainly
+ * because the first version of this comment claimed otherwise. It said the
+ * room went to the navigation, on the reasoning that 「每种协议下，撤销到底能
+ * 到达什么」 wraps in a narrow table of contents. It still wraps. Material
+ * pads `.md-sidebar__inner` by `100% - 11.5rem`, so the text column inside
+ * either sidebar is 184px whatever the sidebar around it is set to — the
+ * boxes grew and their contents did not. The rule stays because holding the
+ * prose at 614px is the whole job; it just does not do the second thing it
+ * was credited with.
+ *
+ * And 614px is 614px only where both sidebars are in the flow. Below
+ * Material's 76.25em the table of contents leaves, its width goes to the
+ * page, and the prose runs to 841px — 56 CJK characters, well past readable.
+ * That band is not new and not this rule's doing (it was 821px before, for
+ * the same reason: nothing caps `.md-content`), so it is left alone here
+ * rather than fixed halfway. Capping the content column is the fix, and it
+ * belongs in its own change where it can be measured across every width
+ * instead of the two this one was aimed at.
+ */
+.md-sidebar {
+  width: 19.6rem;
 }
 
 .md-typeset {
@@ -218,4 +264,31 @@ html {
 
 .md-search__input {
   font-size: 0.875rem;
+}
+
+/* The footer, which was Material's near-black under a blue header — two
+ * ends of the same page that looked like two different sites.
+ *
+ * Now the header's colour, so the page is bookended. That matters more with
+ * navigation.footer switched on: the previous/next links live in this bar,
+ * and a reader who has finished a page looks here for where to go. Something
+ * that reads as chrome gets skipped; something that reads as part of the
+ * product gets used.
+ *
+ * Material sets the footer's own text and link colours for a dark
+ * background, and #2563eb is dark enough that they carry over unchanged —
+ * checked rather than assumed, because a blue bar with links the browser
+ * decided to colour would be worse than the black one it replaces.
+ */
+.md-footer {
+  background-color: var(--md-primary-fg-color);
+}
+
+/* The strip under it — "Made with Material for MkDocs" — is a translucent
+ * black in the default theme, which over blue turns muddy. A darker shade of
+ * the same colour keeps the two-tone the design has while staying in one
+ * family, and gives the previous/next links above it an edge to sit against.
+ */
+.md-footer-meta {
+  background-color: var(--md-primary-fg-color--dark);
 }
