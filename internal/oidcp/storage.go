@@ -22,6 +22,7 @@ import (
 	"errors"
 	"fmt"
 	"slices"
+	"strings"
 	"time"
 
 	jose "github.com/go-jose/go-jose/v4"
@@ -214,15 +215,72 @@ func (s *Storage) CompleteAuthRequest(ctx context.Context, id, subject string) e
 // verifies offline, so there is no row anybody would ever read. What bounds
 // its usefulness after a permission is withdrawn is its lifetime, which is
 // why that lifetime is short.
-func (s *Storage) CreateAccessToken(ctx context.Context, _ op.TokenRequest) (string, time.Time, error) {
-	return uuid.NewString(),
+func (s *Storage) CreateAccessToken(ctx context.Context, request op.TokenRequest) (string, time.Time, error) {
+	return newAccessTokenID(clientOf(request)),
 		store.Now().Add(s.lifetimes(ctx).OIDCAccessTokenLifetime()), nil
+}
+
+// newAccessTokenID names the client the token was issued to, in the id.
+//
+// This exists for one reason: the userinfo endpoint has to know which client
+// is asking, and the interface it is called through does not say. Access
+// tokens are JWTs and nothing about them is stored, so there is no row to look
+// the client up in — the id is the only thing that reaches
+// SetUserinfoFromToken, so the answer has to travel in it.
+//
+// Nothing is disclosed by this. The token is a JWT that already carries the
+// client in `aud` and `client_id`, and only that client and the resource
+// servers it presents the token to ever see either.
+//
+// Nothing else consumes this id, which is what makes it available to use. It
+// is not a revocation key: access tokens are not stored and cannot be revoked,
+// and RevokeToken is passed the client separately. If either of those changes,
+// this is the code that has to change with it.
+//
+// The separator cannot appear in a client id — validateClientID allows only
+// letters, digits, and `. _ -` — so splitting on the first one is exact rather
+// than a guess.
+func newAccessTokenID(clientID string) string {
+	return clientID + accessTokenIDSeparator + uuid.NewString()
+}
+
+const accessTokenIDSeparator = "|"
+
+// clientOf reads the client id out of whichever request shape arrived.
+//
+// op.TokenRequest is the narrow interface and does not carry one, but every
+// concrete request that reaches these two methods does: an authorization
+// request, a refresh request, and a device authorization all declare
+// GetClientID. Asserting on the method rather than on the three types means a
+// fourth shape added by the library is handled the same way.
+//
+// An empty answer is safe rather than wrong: the token is then issued with an
+// id carrying no client, and the userinfo endpoint falls back to the
+// documented defaults for it.
+func clientOf(request op.TokenRequest) string {
+	if named, ok := request.(interface{ GetClientID() string }); ok {
+		return named.GetClientID()
+	}
+	return ""
+}
+
+// clientFromAccessTokenID reads the client back out, and returns empty for an
+// id that does not carry one.
+//
+// An id from before this existed has no separator, and an empty answer sends
+// the documented defaults — which is what such a token got when it was issued.
+func clientFromAccessTokenID(tokenID string) string {
+	clientID, _, found := strings.Cut(tokenID, accessTokenIDSeparator)
+	if !found {
+		return ""
+	}
+	return clientID
 }
 
 // CreateAccessAndRefreshTokens issues both, rotating the refresh token when
 // one was presented.
 func (s *Storage) CreateAccessAndRefreshTokens(ctx context.Context, request op.TokenRequest, currentRefreshToken string) (string, string, time.Time, error) {
-	accessTokenID := uuid.NewString()
+	accessTokenID := newAccessTokenID(clientOf(request))
 	// The same lifetime CreateAccessToken uses. Two call sites, one setting:
 	// these are the authorization-code path and the refresh path, and an
 	// access token whose validity depended on which of the two minted it
@@ -491,23 +549,23 @@ func (s *Storage) SetUserinfoFromRequest(ctx context.Context, userinfo *oidc.Use
 }
 
 // SetUserinfoFromToken fills claims for the userinfo endpoint.
-func (s *Storage) SetUserinfoFromToken(ctx context.Context, userinfo *oidc.UserInfo, _, subject, _ string) error {
+func (s *Storage) SetUserinfoFromToken(ctx context.Context, userinfo *oidc.UserInfo, tokenID, subject, _ string) error {
 	// The scopes are not available here, so everything the account has is
 	// returned. That is what userinfo is for, and the access token presented
 	// to reach it was issued for this subject.
 	//
-	// Neither is the client. An access token here is a bare identifier with
-	// no stored row behind it, so there is nothing to look a client id up
-	// from — and without one, no per-application rule can be applied. This
-	// endpoint therefore answers with the documented defaults whatever a
-	// client has configured, which is a real gap and not a rounding: an
-	// application told not to receive a phone number still receives one here.
-	// It is written down in docs/field-mappings.md and pinned by a test
-	// rather than left to be discovered. Closing it needs the client to
-	// become recoverable from the token; see the note on CreateAccessToken.
+	// The client is not a parameter here — the interface passes the request
+	// origin where the introspection one passes a client id — so it is read
+	// out of the token id, which CreateAccessToken puts it in for exactly
+	// this. A token issued before that carries none, and gets the defaults it
+	// was issued under.
+	out, err := s.outboundFor(ctx, clientFromAccessTokenID(tokenID))
+	if err != nil {
+		return err
+	}
 	return s.setUserinfo(ctx, userinfo, subject,
 		[]string{oidc.ScopeOpenID, oidc.ScopeProfile, oidc.ScopeEmail, oidc.ScopePhone},
-		service.Outbound{})
+		out)
 }
 
 // errInactiveToken reports a token whose subject may no longer use it.
@@ -520,7 +578,7 @@ func (s *Storage) SetUserinfoFromToken(ctx context.Context, userinfo *oidc.UserI
 var errInactiveToken = errors.New("oidcp: the token's subject is not active")
 
 // SetIntrospectionFromToken answers the introspection endpoint.
-func (s *Storage) SetIntrospectionFromToken(ctx context.Context, response *oidc.IntrospectionResponse, _, subject, _ string) error {
+func (s *Storage) SetIntrospectionFromToken(ctx context.Context, response *oidc.IntrospectionResponse, _, subject, clientID string) error {
 	account, err := s.scoped().GetUserByID(ctx, subject)
 	if err != nil {
 		return err
@@ -535,13 +593,18 @@ func (s *Storage) SetIntrospectionFromToken(ctx context.Context, response *oidc.
 	// IntrospectionResponse embeds the userinfo claim groups rather than a
 	// UserInfo, so it is filled through one and copied across.
 	var userinfo oidc.UserInfo
-	// Defaults, for the same reason userinfo uses them: introspection is
-	// answered for a resource server presenting somebody else's access
-	// token, so the client the token was issued to is not recoverable here
-	// either.
+	// The client is known here, unlike at the userinfo endpoint: the library
+	// passes it, because introspection authenticates the caller and the caller
+	// is the client the token was issued to. So a resource server introspecting
+	// sees the same names the relying party was given — which is the whole
+	// point of introspecting rather than decoding.
+	out, err := s.outboundFor(ctx, clientID)
+	if err != nil {
+		return err
+	}
 	err = s.setUserinfo(ctx, &userinfo, subject,
 		[]string{oidc.ScopeOpenID, oidc.ScopeProfile, oidc.ScopeEmail, oidc.ScopePhone},
-		service.Outbound{})
+		out)
 	if err != nil {
 		return err
 	}

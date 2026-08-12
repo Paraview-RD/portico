@@ -141,19 +141,25 @@ func TestAConfiguredClientReceivesTheNamesItWasGiven(t *testing.T) {
 			idToken["orgCode"])
 	}
 
-	// The gap, pinned. See #35 and docs/field-mappings.md: an access token is a
-	// bare identifier with nothing stored behind it, so this endpoint cannot
-	// tell which client is asking and answers with the defaults. That is
-	// wrong — a suppression is somebody's decision — and it is recorded here
-	// so that closing it fails this test rather than going unnoticed.
-	if _, present := userinfo["phone_number"]; !present {
-		t.Log("userinfo now honours suppression — the gap this test pins has been " +
-			"closed. Update docs/field-mappings.md (both languages) and turn " +
-			"this into an assertion that it stays closed.")
-		t.Fail()
+	// And the userinfo endpoint agrees, which it did not when this feature
+	// first shipped: the client is not a parameter there, so it is carried in
+	// the access token's id. A relying party that reads a claim from the ID
+	// token and the same claim from userinfo has to see one answer, and a
+	// suppression is somebody's decision that has to hold wherever the field
+	// could otherwise come out.
+	if userinfo["mail"] != "mapped@example.test" {
+		t.Errorf("userinfo returned mail=%#v, want the renamed claim to match the "+
+			"ID token", userinfo["mail"])
 	}
-	if _, renamed := userinfo["mail"]; renamed {
-		t.Log("userinfo now honours renames; same as above.")
-		t.Fail()
+	if _, still := userinfo["email"]; still {
+		t.Error("userinfo still sends the address as `email`, so the rename applies " +
+			"to the ID token and not to userinfo")
+	}
+	if _, still := userinfo["phone_number"]; still {
+		t.Error("userinfo still sends a suppressed field, so an application told not " +
+			"to receive it can get it by asking a different endpoint")
+	}
+	if userinfo["orgCode"] != "MAPPEDORG" {
+		t.Errorf("userinfo returned orgCode=%#v, want the added claim", userinfo["orgCode"])
 	}
 }

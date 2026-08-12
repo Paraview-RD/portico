@@ -44,12 +44,41 @@ func ValidatePassword(plaintext string) error {
 	return nil
 }
 
+// hashCost is bcrypt's work factor, and it is a variable for exactly one
+// reason: the test suite cannot afford the real one.
+//
+// bcrypt is deliberately slow, and the race detector makes it far slower still
+// — every memory access in its inner loop gets instrumented. internal/server
+// builds a full stack per test, 260 times, and each one hashes; at the real
+// cost that package took 22 minutes of a 25-minute per-package budget, and
+// almost all of it was here. See UseWeakHashingForTests.
+//
+// Unexported, so nothing outside this package can assign it. The only way in
+// is the function below, and a test asserts that no shipped code calls it.
+var hashCost = bcrypt.DefaultCost
+
+// UseWeakHashingForTests lowers the work factor to bcrypt's minimum.
+//
+// Named to be unshippable. A hash produced at this cost is not fit to store:
+// bcrypt's cost is exponential, so the minimum is roughly sixty-four times
+// cheaper to attack than the default, which is the entire point of the
+// default. TestNoShippedCodeWeakensHashing fails the build if this identifier
+// appears in a file that is not a test.
+//
+// It is not reversible on purpose. A test that lowered the cost and put it
+// back would leave whichever hashes it made in between at whichever cost
+// happened to be current, and a test asserting something about a stored hash
+// would then depend on ordering.
+func UseWeakHashingForTests() {
+	hashCost = bcrypt.MinCost
+}
+
 // HashPassword returns a bcrypt hash suitable for storage.
 func HashPassword(plaintext string) (string, error) {
 	if err := ValidatePassword(plaintext); err != nil {
 		return "", err
 	}
-	hash, err := bcrypt.GenerateFromPassword([]byte(plaintext), bcrypt.DefaultCost)
+	hash, err := bcrypt.GenerateFromPassword([]byte(plaintext), hashCost)
 	if err != nil {
 		return "", fmt.Errorf("hash password: %w", err)
 	}

@@ -228,6 +228,28 @@ Typical journey — connect an application:
 6. **Audit logs** → the registration is recorded with the redirect URIs or
    assertion consumer services it permits.
 
+Typical journey — the downstream system reads the wrong field name:
+
+1. **Applications** (or **Webhooks**) → find it → **Fields**.
+2. The whole catalogue is listed, grouped, with the stored key under each
+   label. The label is what you read; the key is what the API stores, and
+   whoever writes the receiving end needs that one.
+3. Leave a row alone and it behaves exactly as it always has. Type a name and
+   that fact goes out under that name instead. Tick **Do not send** to stop
+   sending it. Most of the catalogue is not sent at all by default — those
+   rows only go out if you name one.
+4. **Save** replaces the whole set. An empty set is not "send nothing": it is
+   the documented defaults, exactly.
+5. **Audit logs** → the change is recorded as the rules, not as anybody's
+   values.
+
+One thing to know before relying on it: a webhook delivery already queued
+keeps the body it was rendered with, so changing a mapping affects events from
+that point on rather than anything already waiting. For OpenID Connect the
+rules apply to the ID token, the access token, userinfo, and introspection
+alike — a suppression cannot be got around by asking a different endpoint. See
+[field-mappings.md](field-mappings.md).
+
 Disabling an application stops it immediately — it can no longer sign anyone
 in, and its credentials stop authenticating at the introspection and
 revocation endpoints too. Nothing is deleted, and there is no delete: the
@@ -545,3 +567,16 @@ That path suits a system that already has the user's Portico token. A
 system that needs to sign people in itself should use OpenID Connect
 instead — point its library at the issuer and register it with
 `portico client register`. See [federation.md](federation.md).
+
+### When the names do not line up
+
+A downstream system maps on the name it is given. If it reads `dept` and
+Portico sends `department`, the field arrives and is discarded — which looks
+from the other end like an account with nothing in it.
+
+Which name goes out is configured per recipient rather than fixed in code, and
+it covers all four: OIDC clients, SAML service providers, CAS services, and
+webhook subscriptions. **Applications** or **Webhooks** → **Fields**. The same
+screen is also how the twenty-five provisioned profile attributes get out at
+all — they are stored, they arrive over SCIM, and by default they reach no
+application. See [field-mappings.md](field-mappings.md).

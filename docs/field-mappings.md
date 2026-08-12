@@ -90,26 +90,22 @@ deliberate ones.
 
 **OpenID Connect** — the target is a claim name.
 
-!!! warning "Rules reach the ID token and the access token, not userinfo"
+Rules apply everywhere a claim can come out: the ID token, the access token,
+the userinfo endpoint, and introspection. A rename that held in one and not
+another would be a rename half the integration missed, and a suppression that
+held in one and not another would be a disclosure decision an application
+could get around by asking a different endpoint.
 
-    They are applied where the client is known, and it is known in two of the
-    four places: when a token is issued, and when the access token's claims
-    are assembled. It is **not** known at the userinfo endpoint or at
-    introspection — an access token here is a bare identifier with nothing
-    stored behind it, so there is no client to look rules up for.
+!!! note "What is never mappable"
 
-    Those two endpoints therefore answer with the documented defaults whatever
-    an application has configured. **A suppression is not applied there**: an
-    application told not to receive a phone number still receives one if it
-    calls userinfo. If you are suppressing a field for disclosure reasons,
-    treat that as an open hole rather than a detail — and note that the ID
-    token is what most integrations actually read.
-
-    `sub`, `email_verified` and `phone_number_verified` are never mappable.
-    The first is reserved on both sides — nothing can be renamed onto it and
+    `sub` is reserved on both sides — nothing can be renamed onto it and
     nothing can be renamed away from it — because an application's whole trust
-    model rests on it naming one person. The other two follow the claim they
-    describe: sent when it is sent under its own name, and not otherwise.
+    model rests on it naming one person consistently.
+
+    `email_verified` and `phone_number_verified` follow the claim they
+    describe: sent when it is sent under its own name, and not otherwise. They
+    are always false in this version, so offering them as mappable fields
+    would be offering a constant somebody would read as a fact.
 
 **SAML** — the target is the attribute `Name`, which is what a service
 provider actually maps on. `friendlyName` sits beside it and is advisory;
