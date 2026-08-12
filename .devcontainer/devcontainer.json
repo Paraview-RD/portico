@@ -1,0 +1,62 @@
+// Portico in a Codespace: the console, the manual, a directory to
+// synchronize from, an inbox to receive its mail, and a relying party to
+// sign in to — all of it running about two minutes after the button is
+// pressed.
+//
+// The toolchain versions are the ones CI uses. Go comes from go.mod there
+// via `go-version-file`, which a feature cannot read, so 1.26 is written
+// here and is the one thing in this file that has to be changed when go.mod
+// moves. Node and Python match .github/workflows/ci.yml.
+{
+  "name": "Portico",
+  "dockerComposeFile": "docker-compose.yml",
+  "service": "app",
+  "workspaceFolder": "/workspaces/${localWorkspaceFolderBasename}",
+
+  "features": {
+    "ghcr.io/devcontainers/features/go:1": { "version": "1.26" },
+    "ghcr.io/devcontainers/features/node:1": { "version": "22" },
+    "ghcr.io/devcontainers/features/python:1": { "version": "3.12" }
+  },
+
+  // 8410 is the product. The other two are the fixtures around it, and both
+  // are named service:port rather than by number: they listen in their own
+  // containers, so a bare number would forward a port on `app` that nothing
+  // is bound to.
+  "forwardPorts": [8410, "mailpit:8025"],
+
+  "portsAttributes": {
+    "8410": {
+      "label": "Portico",
+      // Opens once, when the server first answers. Not "openBrowser" on
+      // every attach, which would fight a reader who closed the tab.
+      "onAutoForward": "openBrowserOnce"
+    },
+    "mailpit:8025": {
+      "label": "Mailpit (the inbox Portico sends to)",
+      "onAutoForward": "silent"
+    },
+    "8413": {
+      "label": "Demo relying party (hack/walk-the-flow.sh)",
+      "onAutoForward": "silent"
+    }
+  },
+
+  // Split because they answer different questions. setup.sh builds and seeds,
+  // which needs to happen once; start.sh starts the server, which needs to
+  // happen again every time the machine is resumed — a Codespace that has
+  // been stopped overnight still has its database and its binary, and would
+  // otherwise come back with nothing listening on 8410.
+  "postCreateCommand": ".devcontainer/setup.sh",
+  "postStartCommand": ".devcontainer/start.sh",
+
+  "customizations": {
+    "vscode": {
+      "extensions": [
+        "golang.go",
+        "dbaeumer.vscode-eslint",
+        "esbenp.prettier-vscode"
+      ]
+    }
+  }
+}
