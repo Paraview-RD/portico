@@ -1,6 +1,7 @@
 package samlp
 
 import (
+	"context"
 	"crypto/rand"
 	"encoding/base64"
 	"encoding/xml"
@@ -12,6 +13,7 @@ import (
 	dsig "github.com/russellhaering/goxmldsig"
 
 	"github.com/Paraview-RD/portico/internal/model"
+	"github.com/Paraview-RD/portico/internal/service"
 	"github.com/Paraview-RD/portico/internal/store"
 )
 
@@ -129,7 +131,7 @@ func (p *Providers) serveCallback(w http.ResponseWriter, r *http.Request, idp *s
 	// when it is issued rather than when the request arrived.
 	req.Now = saml.TimeNow()
 
-	session, err := p.session(user, tenant)
+	session, err := p.session(r.Context(), user, tenant, row.SpEntityID)
 	if err != nil {
 		http.Error(w, "could not build the session", http.StatusInternalServerError)
 		return
@@ -172,8 +174,17 @@ func (p *Providers) serveCallback(w http.ResponseWriter, r *http.Request, idp *s
 }
 
 // session describes the person to the service provider.
-func (p *Providers) session(user model.User, tenant model.Tenant) (*saml.Session, error) {
+func (p *Providers) session(ctx context.Context, user model.User, tenant model.Tenant, spEntityID string) (*saml.Session, error) {
 	index, err := sessionIndex()
+	if err != nil {
+		return nil, err
+	}
+
+	out, err := p.outboundFor(ctx, tenant.ID, spEntityID)
+	if err != nil {
+		return nil, err
+	}
+	attrs, err := p.attributes(ctx, user, tenant, out)
 	if err != nil {
 		return nil, err
 	}
@@ -210,7 +221,7 @@ func (p *Providers) session(user model.User, tenant model.Tenant) (*saml.Session
 		// Portico's own attributes match the claims the OpenID Provider puts
 		// in a token, so a service provider integrated over one protocol
 		// sees the same facts over the other.
-		CustomAttributes: attributes(user, tenant),
+		CustomAttributes: attrs,
 	}, nil
 }
 
@@ -242,32 +253,75 @@ func newRequestID() string {
 // provider maps them by name, so inventing new names for `mail` or
 // `displayName` would mean every integration needing a custom mapping for
 // facts every directory already publishes.
-func attributes(user model.User, tenant model.Tenant) []saml.Attribute {
-	attrs := []saml.Attribute{
-		stringAttribute("urn:oid:0.9.2342.19200300.100.1.1", "uid", user.Username),
-		stringAttribute("urn:oid:2.16.840.1.113730.3.1.241", "displayName", user.DisplayName),
-		// cn carries the same value as displayName, which looks redundant
-		// and is kept on purpose: it was in every assertion 0.1 issued —
-		// crewjam derived it from the session — and it is the name a good
-		// many service providers map by default. Dropping it while removing
-		// the duplicates would have been a silent break for them.
-		stringAttribute("urn:oid:2.5.4.3", "cn", user.DisplayName),
-		stringAttribute("tenant_id", "tenantId", tenant.ID),
-		stringAttribute("tenant_code", "tenantCode", tenant.Code),
-		stringAttribute("role", "role", string(user.Role)),
+// outboundFor reads what one service provider is configured to receive.
+//
+// An error is returned rather than swallowed, for the reason the OpenID
+// Provider gives: a suppression is somebody's decision that this service
+// provider must not receive a field, and falling back to the defaults would
+// send it anyway.
+func (p *Providers) outboundFor(ctx context.Context, tenantID, spEntityID string) (service.Outbound, error) {
+	if p.mappings == nil || spEntityID == "" {
+		return service.Outbound{}, nil
 	}
-	if user.Email != "" {
-		attrs = append(attrs, stringAttribute("urn:oid:0.9.2342.19200300.100.1.3", "mail", user.Email))
+	sp, err := p.providers.Get(ctx, tenantID, spEntityID)
+	if err != nil {
+		return service.Outbound{}, err
 	}
-	if user.Phone != "" {
-		attrs = append(attrs, stringAttribute("urn:oid:2.5.4.20", "telephoneNumber", user.Phone))
+	return p.mappings.OutboundFor(ctx, tenantID, store.RecipientRef{SAMLSPID: sp.ID})
+}
+
+// attributes is the statement, in the order it has always been written.
+//
+// Order is preserved deliberately: an assertion is signed, and a service
+// provider that logs one for comparison should see the same document it saw
+// before anybody configured anything.
+func (p *Providers) attributes(ctx context.Context, user model.User, tenant model.Tenant, out service.Outbound) ([]saml.Attribute, error) {
+	values := []struct {
+		key   string
+		value string
+	}{
+		{"username", user.Username},
+		{"display_name", user.DisplayName},
+		{"tenant_id", tenant.ID},
+		{"tenant_code", tenant.Code},
+		{"role", string(user.Role)},
+		// The three that are only stated when there is something to state.
+		{"email", user.Email},
+		{"phone", user.Phone},
+		{"organization_id", user.OrganizationID},
+		{"organization_name", user.OrganizationName},
 	}
-	if user.OrganizationID != "" {
-		attrs = append(attrs,
-			stringAttribute("organization_id", "organizationId", user.OrganizationID),
-			stringAttribute("organization_name", "organizationName", user.OrganizationName))
+
+	attrs := make([]saml.Attribute, 0, len(values)+1)
+	for _, v := range values {
+		if v.value == "" && v.key != "username" && v.key != "display_name" &&
+			v.key != "tenant_id" && v.key != "tenant_code" && v.key != "role" {
+			continue
+		}
+		attr, send, aliased := service.AttributeFor(out, v.key)
+		if !send {
+			continue
+		}
+		attrs = append(attrs, stringAttribute(attr.Name, attr.FriendlyName, v.value))
+		if aliased {
+			// cn, beside displayName and carrying the same value. See
+			// service.SAMLCommonName for why it follows rather than leads.
+			attrs = append(attrs, stringAttribute(
+				service.SAMLCommonName.Name, service.SAMLCommonName.FriendlyName, v.value))
+		}
 	}
-	return attrs
+
+	if p.catalogue == nil {
+		return attrs, nil
+	}
+	added, err := p.catalogue.SAMLAdditions(ctx, tenant.ID, user, out)
+	if err != nil {
+		return nil, err
+	}
+	for _, a := range added {
+		attrs = append(attrs, stringAttribute(a.Attribute.Name, a.Attribute.FriendlyName, a.Value))
+	}
+	return attrs, nil
 }
 
 func stringAttribute(name, friendlyName, value string) saml.Attribute {

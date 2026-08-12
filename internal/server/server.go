@@ -140,7 +140,7 @@ func New(cfg *config.Config, opts ...Option) (*Server, error) {
 	serviceProviders := service.NewSAMLServiceProviderService(st, audit)
 	samlKeys := service.NewSAMLKeyService(st)
 	samlProviders := samlp.NewProviders(cfg.PublicURL,
-		st, tenants, users, serviceProviders, samlKeys, audit)
+		st, tenants, users, serviceProviders, samlKeys, fields, fieldMappings, audit)
 
 	casServices := service.NewCASService(st, users, audit)
 	casServer := casp.New(cfg.PublicURL, tenants, casServices, audit)
