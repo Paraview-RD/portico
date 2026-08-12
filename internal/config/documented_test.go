@@ -6,6 +6,7 @@ import (
 	"sort"
 	"testing"
 
+	"github.com/Paraview-RD/portico/internal/seed"
 	"github.com/Paraview-RD/portico/internal/service"
 )
 
@@ -187,5 +188,37 @@ func TestEveryDocumentedBootstrapPasswordIsTheOneTheServerUses(t *testing.T) {
 				"of this list rather than leaving a check that passes vacuously.",
 				path, service.DefaultInitialAdminPassword)
 		}
+	}
+}
+
+// The Codespace's welcome screen names the password its accounts actually
+// have.
+//
+// This is the check above applied to a sixth document, and it is separate
+// rather than folded in because it is about a different constant. The
+// bootstrap default and the seeded password are two constants that happen to
+// hold the same string; nothing ties them, and a check that asserted the
+// wrong one would pass by coincidence until the day somebody moved one of
+// them.
+//
+// The failure this prevents already happened. The Codespace was written
+// against a branch where the seeded password was something else, the seed
+// changed underneath it on main, and neither branch's tests noticed because
+// each was green on its own base. What shipped would have been a welcome
+// screen printing a password that opened three of the four accounts it
+// listed — and the fourth did not exist.
+func TestTheCodespaceWelcomeNamesTheSeededPassword(t *testing.T) {
+	const path = "../../.devcontainer/setup.sh"
+
+	content, err := os.ReadFile(path)
+	if err != nil {
+		t.Fatalf("read %s: %v", path, err)
+	}
+	if !contains(string(content), seed.DemoPassword) {
+		t.Errorf("%s does not name the seeded password %q.\n"+
+			"Either it drifted from seed.DemoPassword, or the welcome text "+
+			"stopped naming a password — in which case delete this check "+
+			"rather than leaving one that passes vacuously.",
+			path, seed.DemoPassword)
 	}
 }

@@ -46,9 +46,11 @@ cat <<'EOF'
       zhangwei   张伟    super administrator
       chenjing   陈静    super administrator
       liyan      李燕    ordinary user
-      admin              the bootstrap account
 
-      password:  Portico-2026-demo
+      password:  Portico@1
+
+  The same name exists in tenant "acme" with almost nothing carried across,
+  which is the shortest way to see what multi-tenant means here.
 
   Mail goes to Mailpit and stops there — open the forwarded port labelled
   "Mailpit" to read a password-reset link rather than waiting for one.

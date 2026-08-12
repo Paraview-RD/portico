@@ -47,12 +47,22 @@ services:
       # that nothing was leaked.
       PORTICO_ENCRYPTION_KEY: c0dec0dec0dec0dec0dec0dec0dec0dec0dec0dec0dec0dec0dec0dec0dec0de
 
-      # The bootstrap administrator, so that the account the server creates
-      # on first start has a password somebody can be told. Without this it
-      # generates one and prints it to stderr, which in a Codespace is a log
-      # nobody reads. Deliberately the same password the seeded accounts
-      # use — see internal/seed.DemoPassword.
-      PORTICO_INITIAL_ADMIN_PASSWORD: Portico-2026-demo
+      # No PORTICO_INITIAL_ADMIN_PASSWORD, and the absence is the point.
+      #
+      # This file used to set one, on the reasoning that the bootstrap
+      # administrator should have a password somebody can be told. There is no
+      # bootstrap administrator here. EnsureInitialAdmin creates one only when
+      # its tenant has no users at all, setup.sh seeds fifty-eight of them
+      # before the server is ever started, and so the branch never runs — no
+      # `admin` account is created and the variable decides nothing.
+      #
+      # Checked rather than reasoned about: seeded a database in this order,
+      # started the server with the variable set, and found no row named
+      # `admin` among the fifty-eight. It was dead configuration that read as
+      # live, which is worse than none — the welcome text below was announcing
+      # an account that did not exist, with a password that opened nothing.
+      #
+      # Everybody signs in with internal/seed.DemoPassword instead.
 
       # Mail goes to Mailpit and stops there. A demo environment that can
       # send real mail is a demo environment that can send mail to anybody.
