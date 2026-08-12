@@ -195,6 +195,49 @@ identifier.
   invalid/expired token); 403 means "we know who you are, and you're not
   allowed to do this."
 
+## Who a route admits
+
+`/api/v1` is three groups in `internal/server/routes.go`, and which one a
+route is in is decided by which pair of braces its line sits between:
+
+1. **Public** — no credential at all.
+2. **`RequireAuth`** — any signed-in account, including its own.
+3. **`RequireAuth` + `RequireAdmin`** — administrators.
+
+**The default is the third.** A new endpoint goes in the administrator group
+unless there is a reason it cannot, and the reason belongs in the allowlist
+described below rather than in a commit message.
+
+This is enforced, not merely conventional.
+`internal/server/route_guard_test.go` walks the router and calls every route
+twice — once with no credential, once as an ordinary account — and requires
+`401 MISSING_TOKEN` from the first and `403 ADMIN_REQUIRED` from the second.
+Registering an administrative endpoint outside the group it belongs to is an
+unauthenticated endpoint, and it reads in a diff exactly like a correct one:
+the same call, the same handler, a few lines further up. The test is what
+notices.
+
+Two allowlists in that file are the exceptions, each entry carrying its
+reason:
+
+- `publicAPIRoutes` — reachable with no credential. Every entry is public by
+  necessity: the caller cannot hold a token yet (sign-in, registration,
+  password recovery) or never will (liveness, readiness).
+- `selfServiceAPIRoutes` — reachable by any signed-in account. These are the
+  `/users/me` endpoints and the three protocol seams the sign-in screen
+  calls after authenticating.
+
+Adding an entry to either is a decision about the attack surface. The test
+also checks both directions — an entry naming a route that no longer exists
+fails, and so does a listed route that turns out to refuse the caller the
+list says it admits — so neither list can quietly stop describing the
+router.
+
+Endpoints outside `/api/v1` are not covered by these two guards and are
+deliberately outside the test's scope: SCIM authenticates with a
+provisioning credential of its own, the federation endpoints answer to their
+protocols, and the manual and the console are public on purpose.
+
 ## Error identifiers
 
 `code` values for errors are `SCREAMING_SNAKE_CASE`, human-readable
