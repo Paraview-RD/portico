@@ -82,7 +82,9 @@ one:
 PORTICO_JWT_SECRET=$(openssl rand -hex 32) ./portico
 ```
 
-It prints a generated administrator password on first start. The UI is on
+On first start it creates an `admin` account on the documented default
+password, `Portico@1`, and refuses to sign it in until you replace it — the
+sign-in screen asks for the replacement on the spot. The UI is on
 <http://localhost:8410>.
 
 ### Working on the frontend

@@ -59,8 +59,11 @@
 ```sh
 export PORTICO_DB_DSN=postgres://portico:secret@localhost:5443/portico?sslmode=disable
 
-portico tenant create --code acme --name "Acme Corp"   # 生成的管理员密码
-                                                       # 只打印一次
+portico tenant create --code acme --name "Acme Corp"   # 管理员用默认密码，
+                                                       # 不换掉就登不进去
+portico tenant create --code acme --name "Acme Corp" \
+  --admin-password "$(openssl rand -base64 18)"        # 或者自己指定一个，
+                                                       # 就不强制改密
 portico tenant list
 portico tenant disable --code acme                     # 拒绝登录，
 portico tenant enable  --code acme                     # 不删除任何东西

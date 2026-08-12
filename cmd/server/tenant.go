@@ -53,7 +53,8 @@ Usage:
 
 Every tenant gets its own administrator when it is created; there is no
 account that can administer more than one. When --admin-password is omitted
-a password is generated and printed once.
+the account takes the documented default password and cannot be signed into
+until that is replaced.
 
 Disabling a tenant refuses sign-in without deleting anything, and can be
 undone with enable.

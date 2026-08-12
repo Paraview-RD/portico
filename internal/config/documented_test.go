@@ -170,6 +170,7 @@ func TestEveryExampleDSNUsesTheSamePort(t *testing.T) {
 func TestEveryDocumentedBootstrapPasswordIsTheOneTheServerUses(t *testing.T) {
 	files := []string{
 		"../../.env.example",
+		"../../CONTRIBUTING.md",
 		"../../SECURITY.md",
 		"../../docs/access-guide.md",
 		"../../docs/access-guide.zh.md",

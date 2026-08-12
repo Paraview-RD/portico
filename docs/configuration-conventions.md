@@ -92,14 +92,26 @@ configured it wrongly and believes they are done.
 
 ## Secrets
 
-- **No secret ever has a default.** A default password is a published
-  password.
+- **No secret ever has a default**, with one exception that proves the rule
+  rather than softening it. A default password is a published password —
+  that sentence is exactly right, which is why the one default that exists,
+  `PORTICO_INITIAL_ADMIN_PASSWORD`, buys nothing without the thing that
+  makes it safe: **sign-in refuses the bootstrap account until that password
+  is replaced.** The default is not a secret and is not treated as one; it
+  is a way in that closes behind whoever uses it first. What it replaced —
+  a random password printed once to stderr — obeyed this rule and left
+  people locked out of their own deployments when the notice was lost, and
+  the bootstrap account has no address to recover through. See `SECURITY.md`
+  for the window this leaves open and how short it is meant to be.
+  Everything else here still has no default at all.
 - **No secret is committed.** `.env` is ignored; `.env.example` carries
   names and explanations, never values.
 - **No secret is logged, ever** — see
-  [logging-conventions.md](logging-conventions.md). This includes the
-  generated bootstrap password, which is written to stderr precisely so it
-  does not enter the log pipeline.
+  [logging-conventions.md](logging-conventions.md). The bootstrap password
+  is still written to stderr rather than through the structured logger, even
+  now that it is documented: the notice beside it says to sign in
+  immediately, and that belongs in the operator's terminal rather than in
+  whatever aggregator the log stream ends up in.
 - **No secret goes in a URL** — with one deliberate exception, called out
   here rather than left to be discovered. A password-reset link carries its
   token in the query string, because a link someone clicks in an email is
