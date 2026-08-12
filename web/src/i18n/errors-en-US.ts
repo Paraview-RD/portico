@@ -51,6 +51,15 @@ export const errorsEnUS = {
     "This account is still on its default password, which must be replaced before signing in.",
   PASSWORD_NOT_EXPIRED:
     "This password has not expired. Sign in and change it from your profile.",
+  // --- Webhook snapshots ---
+  SNAPSHOT_IN_PROGRESS:
+    "A snapshot for this subscription is still being delivered. Wait for it to finish, or disable the subscription to abandon it.",
+  SNAPSHOT_EMPTY_SCOPE:
+    "This subscription selects no events a snapshot can fill.",
+  SNAPSHOT_UNAVAILABLE: "This deployment cannot produce a snapshot.",
+  SUBSCRIPTION_DISABLED:
+    "This subscription is disabled. Enable it before asking for a snapshot.",
+
   PASSWORD_REUSED:
     "That password has been used recently. Choose one you have not used before.",
 

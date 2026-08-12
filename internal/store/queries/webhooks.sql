@@ -107,3 +107,16 @@ LIMIT $3;
 -- subscription grew this table for the life of the deployment.
 DELETE FROM webhook_deliveries
 WHERE tenant_id = $1 AND created_at < $2;
+
+-- name: CountPendingSnapshotDeliveries :one
+-- How much of a snapshot is still queued for one subscription.
+--
+-- The guard against two snapshots at once. Asking the queue rather than
+-- keeping a "running" flag is deliberate: a flag needs clearing, and a
+-- process that dies mid-snapshot would leave one set forever with nothing
+-- to notice. The queue empties on its own, whether the deliveries succeed
+-- or are given up on.
+SELECT count(*) FROM webhook_deliveries
+WHERE tenant_id = $1 AND subscription_id = $2
+  AND status = 'PENDING'
+  AND event_type LIKE 'sync.%';

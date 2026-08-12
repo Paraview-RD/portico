@@ -43,6 +43,10 @@ type WebhookService struct {
 	// delivered exactly as it always was. See WithFieldMappings.
 	catalogue *FieldCatalogue
 	mappings  *FieldMappingService
+
+	// snapshot may be nil, in which case StartSnapshot refuses rather than
+	// sending an empty snapshot. See WithSnapshotSource.
+	snapshot SnapshotSource
 }
 
 // WithVault attaches the key custom headers are sealed under. Separate from

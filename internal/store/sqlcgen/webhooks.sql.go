@@ -72,6 +72,32 @@ func (q *Queries) ClaimDueWebhookDeliveries(ctx context.Context, arg ClaimDueWeb
 	return items, nil
 }
 
+const countPendingSnapshotDeliveries = `-- name: CountPendingSnapshotDeliveries :one
+SELECT count(*) FROM webhook_deliveries
+WHERE tenant_id = $1 AND subscription_id = $2
+  AND status = 'PENDING'
+  AND event_type LIKE 'sync.%'
+`
+
+type CountPendingSnapshotDeliveriesParams struct {
+	TenantID       string
+	SubscriptionID string
+}
+
+// How much of a snapshot is still queued for one subscription.
+//
+// The guard against two snapshots at once. Asking the queue rather than
+// keeping a "running" flag is deliberate: a flag needs clearing, and a
+// process that dies mid-snapshot would leave one set forever with nothing
+// to notice. The queue empties on its own, whether the deliveries succeed
+// or are given up on.
+func (q *Queries) CountPendingSnapshotDeliveries(ctx context.Context, arg CountPendingSnapshotDeliveriesParams) (int64, error) {
+	row := q.db.QueryRowContext(ctx, countPendingSnapshotDeliveries, arg.TenantID, arg.SubscriptionID)
+	var count int64
+	err := row.Scan(&count)
+	return count, err
+}
+
 const createWebhookSubscription = `-- name: CreateWebhookSubscription :exec
 INSERT INTO webhook_subscriptions (
     id, tenant_id, name, url, secret, events, headers, status, created_at, updated_at

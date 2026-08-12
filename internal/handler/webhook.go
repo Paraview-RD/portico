@@ -101,6 +101,27 @@ func (h *Handler) setWebhookStatus(w http.ResponseWriter, r *http.Request, statu
 	httpx.OK(w, nil)
 }
 
+// SnapshotWebhook queues a full copy of what exists for one subscription.
+//
+// A POST rather than a PUT: asking twice is asking twice, and the guard
+// against a second run while the first is still in flight is in the service
+// rather than in the verb.
+//
+// It answers as soon as the pages are queued, not when they are delivered.
+// The alternative would hold an HTTP request open for as long as a receiver
+// takes to accept fifty thousand accounts, and the delivery screen already
+// answers "how far has it got".
+func (h *Handler) SnapshotWebhook(w http.ResponseWriter, r *http.Request) {
+	actor := auth.MustPrincipal(r.Context())
+
+	summary, err := h.webhooks.StartSnapshot(r.Context(), actor, chi.URLParam(r, "id"))
+	if err != nil {
+		httpx.Fail(w, r, err)
+		return
+	}
+	httpx.OK(w, summary)
+}
+
 // DeleteWebhook removes a subscription and its delivery history.
 func (h *Handler) DeleteWebhook(w http.ResponseWriter, r *http.Request) {
 	actor := auth.MustPrincipal(r.Context())
