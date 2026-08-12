@@ -192,15 +192,16 @@ func TestEveryDocumentedBootstrapPasswordIsTheOneTheServerUses(t *testing.T) {
 	}
 }
 
-// The Codespace's welcome screen names the password its accounts actually
-// have.
+// Everything that tells a reader how to sign in to the demo names the
+// password its accounts actually have.
 //
-// This is the check above applied to a sixth document, and it is separate
+// This is the check above applied to different documents, and it is separate
 // rather than folded in because it is about a different constant. The
 // bootstrap default and the seeded password are two constants that happen to
 // hold the same string; nothing ties them, and a check that asserted the
 // wrong one would pass by coincidence until the day somebody moved one of
-// them.
+// them. Two of the files below are in both lists for exactly that reason —
+// they name both passwords, and each check demands its own.
 //
 // The failure this prevents already happened. The Codespace was written
 // against a branch where the seeded password was something else, the seed
@@ -208,18 +209,30 @@ func TestEveryDocumentedBootstrapPasswordIsTheOneTheServerUses(t *testing.T) {
 // each was green on its own base. What shipped would have been a welcome
 // screen printing a password that opened three of the four accounts it
 // listed — and the fourth did not exist.
-func TestTheCodespaceWelcomeNamesTheSeededPassword(t *testing.T) {
-	const path = "../../.devcontainer/setup.sh"
-
-	content, err := os.ReadFile(path)
-	if err != nil {
-		t.Fatalf("read %s: %v", path, err)
+//
+// The welcome screen was the only place that said it then. It is now also
+// the first thing README offers and a section in both access guides, so the
+// same drift has three more places to hide.
+func TestEveryDemoSignInNamesTheSeededPassword(t *testing.T) {
+	files := []string{
+		"../../.devcontainer/setup.sh",
+		"../../README.md",
+		"../../docs/access-guide.md",
+		"../../docs/access-guide.zh.md",
 	}
-	if !contains(string(content), seed.DemoPassword) {
-		t.Errorf("%s does not name the seeded password %q.\n"+
-			"Either it drifted from seed.DemoPassword, or the welcome text "+
-			"stopped naming a password — in which case delete this check "+
-			"rather than leaving one that passes vacuously.",
-			path, seed.DemoPassword)
+
+	for _, path := range files {
+		content, err := os.ReadFile(path)
+		if err != nil {
+			t.Fatalf("read %s: %v", path, err)
+		}
+		if !contains(string(content), seed.DemoPassword) {
+			t.Errorf("%s does not name the seeded password %q.\n"+
+				"Either it drifted from seed.DemoPassword, or the document "+
+				"stopped telling anybody how to sign in to the demo — in which "+
+				"case take it out of this list rather than leaving a check that "+
+				"passes vacuously.",
+				path, seed.DemoPassword)
+		}
 	}
 }

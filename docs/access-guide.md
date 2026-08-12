@@ -104,6 +104,41 @@ the MVP.
 No credential values belong in this file, in the repository, or in a
 committed `.env`. `.env.example` lists the variable names only.
 
+## A demo, without a first run
+
+If the point is to look rather than to deploy,
+[open a Codespace](https://codespaces.new/Paraview-RD/portico). GitHub builds
+the console, the manual and the server, seeds a database, and opens the
+console. None of the section below applies: the database already holds
+accounts, so there is no bootstrap administrator and no password to change on
+the way in.
+
+| | |
+|---|---|
+| Sign in as | `zhangwei` or `chenjing` (super administrator), `liyan` (ordinary user) |
+| Password | `Portico@1`, shared by every seeded account |
+| Second tenant | `acme`, holding the same names with almost nothing carried across |
+| Mail | a Mailpit inbox on a second forwarded port; nothing leaves the machine |
+| Manual | `/docs`, built from the working copy rather than from a release |
+
+Two differences from a deployment, both of them GitHub's doing rather than
+Portico's:
+
+- **The address is private to whoever opened it.** Forwarded ports default to
+  private, so the `https://<name>-8410.app.github.dev` URL asks for that
+  person's GitHub session and nobody else's. There is no link to send around.
+  Somebody who wants to look opens their own from the same button, on their
+  own free quota. Making a port public is possible and is a different
+  decision — it puts an unauthenticated-by-default identity server on the
+  open internet, which is the thing
+  [SECURITY.md](https://github.com/Paraview-RD/portico/blob/main/SECURITY.md)
+  is about.
+- **TLS is the proxy's, not Portico's.** `PORTICO_PUBLIC_URL` is set to the
+  forwarded `https://` address, which is what OpenID Connect redirects and
+  SAML metadata are built from — so federation works, over a certificate
+  Portico never sees. On your own hardware that is the reverse proxy's job;
+  see [Before you expose this](#before-you-expose-this).
+
 ## First run
 
 1. Start the server. `./portico` needs `PORTICO_DB_DSN`; compose needs

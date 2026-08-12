@@ -1,0 +1,76 @@
+name: Pages
+
+# The manual, published at a public address so somebody can read what Portico
+# does before they install it. The copy inside the binary is the one an
+# operator should trust; this one exists for the decision that comes earlier.
+#
+# main only. A pull request that changes the docs is already built by CI's
+# `docs` job — both configs, so a break in mkdocs.pages.yml fails the pull
+# request rather than the deployment. What is left here is the publishing
+# itself, which has nothing to check that a pull request could have caught.
+on:
+  push:
+    branches: [main]
+  # For the first deployment, and for re-publishing after the Pages source is
+  # switched on in the repository settings — neither of which involves a
+  # commit, and both of which otherwise mean pushing an empty one.
+  workflow_dispatch:
+
+# The repository default is `contents: read`, which cannot deploy. These are
+# the two Pages needs and nothing else: `pages` to publish, `id-token` for
+# the OIDC token deploy-pages exchanges for permission to do it.
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
+# One deployment at a time, and a queued one is not cancelled. Cancelling is
+# the usual default and is wrong here: the run being cancelled is the one
+# publishing the newer commit, so cancelling it leaves the site on the older
+# one with a green tick next to it.
+concurrency:
+  group: pages
+  cancel-in-progress: false
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      # The same pinned set CI installs, for the reason given there: a theme
+      # that changes under the build turns somebody else's release into a
+      # failure here.
+      - run: pip install -r hack/docs-requirements.txt
+      # `enablement` creates the Pages site if it does not exist, using this
+      # workflow's own token, rather than failing on `Get Pages site failed`
+      # until somebody with admin opens Settings → Pages and picks a source.
+      # That is what the first deployment did. The site it creates is the one
+      # this file already describes — built by Actions, from this workflow —
+      # so the setting and the workflow cannot disagree about which is true.
+      #
+      # It does not bypass anything: if the organization forbids public Pages
+      # sites, the API refuses this exactly as it refuses the settings page,
+      # and the failure moves one step later with a clearer message.
+      - uses: actions/configure-pages@v5
+        with:
+          enablement: true
+      # Not hack/build-docs.sh — that one builds the embedded copy and puts
+      # back the .gitkeep that `go:embed` needs. This config writes somewhere
+      # else and nothing embeds it.
+      - run: mkdocs build -f mkdocs.pages.yml --strict
+      - uses: actions/upload-pages-artifact@v3
+        with:
+          path: site-public
+
+  deploy:
+    needs: build
+    runs-on: ubuntu-latest
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - id: deployment
+        uses: actions/deploy-pages@v4

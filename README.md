@@ -127,6 +127,37 @@ limiting. The roadmap for those is in
 > [docs/access-guide.md](docs/access-guide.md) for working nginx and Caddy
 > configurations.
 
+## Trying it without installing it
+
+[**Open a Codespace**](https://codespaces.new/Paraview-RD/portico) — GitHub
+builds the console, the manual and the server, seeds a database with people,
+organizations, applications and history, and opens the console in a browser
+tab. Nothing to install and nothing to configure.
+
+Sign in as `zhangwei` (super administrator) or `liyan` (ordinary user);
+every seeded account shares the password `Portico@1`. The same names exist
+in a second tenant, `acme`, with almost nothing carried across, which is the
+shortest way to see what multi-tenant means here. Mail goes to a Mailpit
+inbox on a second forwarded port rather than anywhere real, so a password
+reset link is something you read rather than wait for.
+
+Two things worth knowing before you click:
+
+- **It is yours, not a shared demo.** The Codespace runs in your own GitHub
+  account and its forwarded ports are private to you — there is no address
+  that can be sent to somebody else. Anyone who wants to look opens their
+  own from the same button, and it costs them their own free quota rather
+  than yours. A free personal account gets 120 core-hours and 15 GB-months
+  a month, paid plans more; a 2-core machine spends two of those core-hours
+  per hour it is awake.
+- **Stop it when you are done.** It suspends itself after 30 minutes idle,
+  but a forgotten one still holds storage. `gh codespace delete` or the list
+  at [github.com/codespaces](https://github.com/codespaces).
+
+To bill an organization instead of the people opening them, the organization
+owner enables Codespaces for the repository and sets spending on it; the
+button is then the same button and the meter points elsewhere.
+
 ## Running it
 
 ### Binary
@@ -296,6 +327,12 @@ processes rather than one.
 The middleware re-reads the account per request and rejects stale versions.
 That costs one indexed read and buys immediate revocation without a denylist
 to keep consistent.
+
+All of it is published as a manual at
+[paraview-rd.github.io/portico](https://paraview-rd.github.io/portico/) —
+the same pages rendered, searchable, and in both languages. A running
+Portico serves its own copy at `/docs`, built into that binary; when a
+version is in front of you, that is the copy that describes it.
 
 Conventions this project holds itself to — all in [docs/](docs/):
 [code](docs/code-conventions.md) ·
