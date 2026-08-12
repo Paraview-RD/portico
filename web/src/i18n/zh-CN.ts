@@ -690,7 +690,10 @@ export const zhCN: Record<keyof typeof enUS, string> = {
   // docs/field-mappings.md。
   "fieldMappings.title": "字段",
   "fieldMappings.intro":
-    "留空表示这个接收方按它一直以来的名称收到该字段。填一个名称就改用那个名称发送；勾选则不再发送。默认不发送的字段，只有你给了名称才会发出去。",
+    "留空表示这个接收方仍按它一直以来的名称收到该字段。目录里大部分字段默认不发送——那些只有你给了名称才会发出去。",
+  "fieldMappings.columnField": "字段",
+  "fieldMappings.columnTarget": "发送名称",
+  "fieldMappings.onlyConfigured": "只看已配置",
   "fieldMappings.defaultName": "默认名称",
   "fieldMappings.suppress": "不发送",
   "fieldMappings.retired": "已停用",

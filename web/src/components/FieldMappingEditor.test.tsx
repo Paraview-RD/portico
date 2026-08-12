@@ -103,8 +103,12 @@ it("sends a suppression as a flag and drops any name beside it", async () => {
   const rows = await screen.findAllByRole("textbox");
   await userEvent.type(rows[1], "mobile");
 
-  const boxes = screen.getAllByRole("checkbox");
-  await userEvent.click(boxes[1]);
+  // By accessible name rather than by index: the toolbar above the table has
+  // a checkbox of its own, and a positional lookup silently moved to it the
+  // moment that was added.
+  await userEvent.click(
+    screen.getByRole("checkbox", { name: "Do not send phone" }),
+  );
   await userEvent.click(screen.getByRole("button", { name: "Save" }));
 
   expect(replace).toHaveBeenCalledWith("webhook", "sub-1", [
@@ -143,4 +147,33 @@ it("does not send a row whose name was typed and then cleared", async () => {
   await userEvent.click(screen.getByRole("button", { name: "Save" }));
 
   expect(replace).toHaveBeenCalledWith("webhook", "sub-1", []);
+});
+
+// The filter narrows what is drawn and nothing else.
+//
+// It cannot currently do worse than that: the filter and the save loop share
+// one predicate, so "only the rows on screen" and "only the configured rows"
+// are the same set. That is worth knowing about this test rather than assuming
+// it guards a data loss — it does not, because the shared predicate already
+// makes that impossible. What it guards is the pairing: if either side grows
+// its own idea of what counts as configured, the counts below stop agreeing.
+it("filters the view without changing what a save sends", async () => {
+  listMappings.mockResolvedValue([
+    { sourceKey: "department", targetName: "dept" },
+  ]);
+  render();
+  await screen.findByDisplayValue("dept");
+
+  // Before: every field in the catalogue is drawn.
+  expect(screen.getAllByRole("textbox")).toHaveLength(catalogue.length);
+
+  await userEvent.click(
+    screen.getByRole("checkbox", { name: /Only what is configured/ }),
+  );
+  expect(screen.getAllByRole("textbox")).toHaveLength(1);
+
+  await userEvent.click(screen.getByRole("button", { name: "Save" }));
+  expect(replace).toHaveBeenCalledWith("webhook", "sub-1", [
+    { sourceKey: "department", targetName: "dept" },
+  ]);
 });
