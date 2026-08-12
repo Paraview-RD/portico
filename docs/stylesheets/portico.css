@@ -320,3 +320,46 @@ html {
   margin-top: 0.2rem;
   margin-bottom: 0.1rem;
 }
+
+/* The announcement bar, which until now nobody had ever seen on purpose.
+ *
+ * It exists for two notices — a page that fell back to English, and the
+ * published copy saying which branch it was built from — and both were
+ * inheriting Material's defaults, because a bar that appeared on no page in
+ * the embedded build gave nothing to look at. Publishing puts one of them on
+ * all 23 pages of the public site, so the defaults are now a decision.
+ *
+ * Three of them, measured rather than reasoned about:
+ *
+ *   background   rgba(0,0,0,.87) — the same near-black the footer used to
+ *                be, above a blue header instead of below one, and wrong
+ *                for the same reason. --dark, so the page is bookended in
+ *                one family and the top strip matches .md-footer-meta.
+ *
+ *   font-size    15px, which is the prose size. A standing caveat set as
+ *                large as the page it qualifies competes with it. 14px is
+ *                the navigation's size and one step down rather than two,
+ *                which is as quiet as this can get and still be read.
+ *
+ *   code         #f5f5f5 on #36464e — a *light* box on a *dark* bar, which
+ *                made `main` and `/docs` the highest-contrast thing on the
+ *                screen. They are the two words that matter here, but they
+ *                do not matter more than the header. A translucent white
+ *                raise keeps them marked without inverting them.
+ */
+.md-banner {
+  background-color: var(--md-primary-fg-color--dark);
+}
+
+/* On the inner element, not on the notice, so the untranslated sentence —
+   which is bare text with no wrapper — gets the same size. The notice is a
+   child of it and inherits. */
+.md-banner .md-typeset {
+  font-size: 0.875rem;
+  line-height: 1.5;
+}
+
+.portico-published-notice code {
+  background-color: rgba(255, 255, 255, 0.14);
+  color: inherit;
+}

@@ -297,6 +297,12 @@ The middleware re-reads the account per request and rejects stale versions.
 That costs one indexed read and buys immediate revocation without a denylist
 to keep consistent.
 
+All of it is published as a manual at
+[paraview-rd.github.io/portico](https://paraview-rd.github.io/portico/) —
+the same pages rendered, searchable, and in both languages. A running
+Portico serves its own copy at `/docs`, built into that binary; when a
+version is in front of you, that is the copy that describes it.
+
 Conventions this project holds itself to — all in [docs/](docs/):
 [code](docs/code-conventions.md) ·
 [config](docs/configuration-conventions.md) ·

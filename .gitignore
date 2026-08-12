@@ -77,3 +77,10 @@ internal/web/dist/*
 # Documentation built into the binary; see hack/build-docs.sh
 internal/docs/site/*
 !internal/docs/site/.gitkeep
+
+# The same manual built for GitHub Pages; see mkdocs.pages.yml. A second
+# output directory rather than a second build into the first, so publishing
+# and building the binary never clobber each other in one working copy. No
+# .gitkeep: nothing embeds it, so unlike the two above it does not need to
+# exist for a build to succeed.
+site-public/

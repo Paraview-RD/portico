@@ -218,7 +218,21 @@ INSERT INTO sessions (
 	now := w.opts.Now
 
 	for i, user := range t.users {
-		if user.Status == model.StatusDisabled || i%4 != 0 {
+		if user.Status == model.StatusDisabled {
+			continue
+		}
+		// Every fourth account, so the column reads as a distribution rather
+		// than as "everybody has two devices" — and every administrator,
+		// whatever position they occupy.
+		//
+		// The second half is not decoration. This used to be position alone,
+		// and position is decided by the order of a list people add names
+		// to: putting `admin` at the front of it moved zhangwei from index 0
+		// to index 1 and silently emptied the devices screen for the account
+		// the console's own tests open. A rule that says "administrators
+		// have devices" survives that; a rule that says "index 0 has
+		// devices" is a rule about a list, not about the product.
+		if i%4 != 0 && model.Role(user.Role) != model.RoleSuperAdmin {
 			continue
 		}
 		for k := 0; k < 2; k++ {
