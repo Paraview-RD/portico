@@ -82,21 +82,18 @@ curl -X PUT https://<host>/api/v1/applications/oauth-clients/wiki/field-mappings
 
 **OpenID Connect** —— 目标是 claim 名。
 
-!!! warning "规则作用于 ID token 与 access token，不作用于 userinfo"
+规则在「一个 claim 可能出来的每一个地方」都生效：ID token、access token、
+userinfo 端点、内省端点。改名只在其中一处生效，就是集成漏了一半；抑制只在其中
+一处生效，那这个披露决定换个端点问就绕过去了。
 
-    规则在「知道是哪个客户端」的地方生效，而四个位置里只有两个知道：签发令牌
-    时，以及组装 access token 的 claim 时。**userinfo 端点与内省端点不知道**
-    ——这里的 access token 是一个没有落库记录的裸标识符，无从查出客户端。
+!!! note "永远不可映射的几个"
 
-    所以这两个端点无论应用配了什么，都按文档中的默认值作答。**抑制在那里不生
-    效**：一个被配置为「不接收手机号」的应用，只要调 userinfo 仍然拿得到。如
-    果你的抑制是出于披露考虑，请把它当作一个尚未堵上的口子，而不是一个细节
-    ——另一方面，多数集成实际读的是 ID token。
+    `sub` 两头都封死——既不能被改名过去，也不能被改名走——因为应用的整个信任模
+    型都建立在「它始终指同一个人」之上。
 
-    `sub`、`email_verified`、`phone_number_verified` 永远不可映射。第一个两头
-    都封死——既不能被改名过去，也不能被改名走——因为应用的整个信任模型都建立在
-    「它始终指同一个人」之上。后两个跟随它们所描述的那个 claim：只有当那个
-    claim 以自己的名字发出时才发，否则不发。
+    `email_verified` 与 `phone_number_verified` 跟随它们所描述的那个 claim：
+    只有当那个 claim 以自己的名字发出时才发，否则不发。它们在本版本里恒为
+    false，把一个恒定值做成可映射字段，等于提供一个会被人当成事实的常量。
 
 **SAML** —— 目标是属性的 `Name`，这才是服务提供方实际据以映射的那个。
 `friendlyName` 在旁边，仅供参考；设置它不会改变 SP 的匹配行为。

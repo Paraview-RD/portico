@@ -243,12 +243,12 @@ Typical journey — the downstream system reads the wrong field name:
 5. **Audit logs** → the change is recorded as the rules, not as anybody's
    values.
 
-Two things to know before relying on it. A suppression **does not reach the
-OpenID Connect userinfo or introspection endpoints** — an application told not
-to receive a phone number still receives one if it calls userinfo, because an
-access token carries nothing that says which client is asking. And a webhook
-delivery already queued keeps the body it was rendered with. Both are covered
-in [field-mappings.md](field-mappings.md).
+One thing to know before relying on it: a webhook delivery already queued
+keeps the body it was rendered with, so changing a mapping affects events from
+that point on rather than anything already waiting. For OpenID Connect the
+rules apply to the ID token, the access token, userinfo, and introspection
+alike — a suppression cannot be got around by asking a different endpoint. See
+[field-mappings.md](field-mappings.md).
 
 Disabling an application stops it immediately — it can no longer sign anyone
 in, and its credentials stop authenticating at the introspection and
