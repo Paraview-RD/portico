@@ -1,6 +1,7 @@
 package server_test
 
 import (
+	"database/sql"
 	"net/http"
 	"testing"
 
@@ -106,9 +107,32 @@ func TestReplacingTheDefaultPasswordIsTheWayIn(t *testing.T) {
 // would break every unattended installation, which configures a password and
 // then signs in with it — and would be pointless besides, since the secret
 // they picked is not in any manual.
+//
+// Reading the column rather than only signing in. A sign-in that works is
+// what every other test in this package already proves; what is asserted
+// here is that the account was never flagged, which is the difference
+// between "the opt-out works" and "the opt-out happens to be unreachable
+// today".
 func TestAPasswordSomebodyChoseIsNotForcedOut(t *testing.T) {
-	api := newAPITest(t) // configures adminPassword
-	api.adminToken()     // fails the test if sign-in is refused
+	api := newAPITest(t) // configured with adminPassword
+	api.adminToken()     // fails here if sign-in is refused at all
+
+	db, err := sql.Open("pgx", api.dsn)
+	if err != nil {
+		t.Fatalf("open: %v", err)
+	}
+	defer func() { _ = db.Close() }()
+
+	var forced bool
+	if err := db.QueryRow(
+		`SELECT must_change_password FROM users WHERE username = $1`,
+		adminUsername).Scan(&forced); err != nil {
+		t.Fatalf("read must_change_password: %v", err)
+	}
+	if forced {
+		t.Error("an administrator bootstrapped with a chosen password was " +
+			"flagged to change it")
+	}
 }
 
 // Nobody else is caught by it. The column defaults to false, and no path
