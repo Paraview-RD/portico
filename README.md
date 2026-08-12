@@ -177,9 +177,10 @@ portico tenant list
 portico tenant disable --code acme     # refuses sign-in, deletes nothing
 ```
 
-Each gets its own administrator; the password is printed once unless you
-pass `--admin-password`. Its users sign in with the tenant code, typed into
-the **Tenant** field or carried by a link: `/login?tenant=acme`.
+Each gets its own administrator. Without `--admin-password` it takes the
+documented default and cannot sign in until that is replaced; pass one and
+it signs in normally. Its users sign in with the tenant code, typed into the
+**Tenant** field or carried by a link: `/login?tenant=acme`.
 
 ### Applications
 
