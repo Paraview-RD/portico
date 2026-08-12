@@ -139,7 +139,7 @@ with no UI (the server says so rather than serving a blank page).
 cd web && npm ci && npm run build && cd ..
 go build -o portico ./cmd/server
 
-PORTICO_DB_DSN=postgres://portico:portico@localhost:5432/portico?sslmode=disable \
+PORTICO_DB_DSN=postgres://portico:portico@localhost:5443/portico?sslmode=disable \
 PORTICO_JWT_SECRET=$(openssl rand -hex 32) ./portico
 ```
 
