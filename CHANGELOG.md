@@ -418,6 +418,27 @@ Working toward 0.2.0. See
 
 ### Changed
 
+- **The manual no longer grows with the monitor.** It was reported as type
+  that is too large, and the size was not one anybody chose: Material scales
+  the root with the viewport — 125%, then 137.5% past 100em, then 150% past
+  125em — so on a 2304px display every page arrived half again as large as
+  authored, prose at 19.2px and an h1 at 38.4px, beside a console still at
+  14px. It does not reproduce on a laptop, which is why it read as an
+  opinion rather than a rule. The root is the reader's own browser setting
+  now and everything below it is in rem or em, so somebody who has asked for
+  20px still gets 20px and no longer gets it multiplied by the width of
+  their screen.
+- Sizes land at 15px prose, a 14px sidebar and header, and headings at 600
+  weight in full contrast rather than Material's 300 at 54% opacity — which
+  beside full-contrast body text read as washed out exactly where a heading
+  should anchor the page. Not parity with the console's 14px: the console is
+  dense UI read in glances and this is prose read in lines. Half a step
+  apart, so that the two look like one product without the manual being set
+  at interface density.
+- The measure moved with the root, from 757px to 614px — 38 Chinese
+  characters or 77 Latin ones. One column has to serve a manual written in
+  both, so it is a compromise rather than an optimum: slightly tight for
+  Latin, slightly loose for Chinese, and measured rather than guessed.
 - **The settings page names which session it means.** "Session lifetime"
   governed Portico's own console and read as though it governed the tokens
   applications receive — a wording that was merely ambiguous until those became
@@ -530,6 +551,53 @@ Working toward 0.2.0. See
 
 ### Fixed
 
+- **The manual is inside the things that ship.** `internal/docs` exists so
+  that the pages an operator opens are necessarily the pages for the version
+  they are running, and it had never once shipped: nothing built it before
+  the release or the container image, and `internal/docs/site` carries a
+  `.gitkeep` so that `go:embed all:site` compiles without a manual present.
+  So every build succeeded, passed every gate, and answered `/docs` with
+  "The Portico manual was not included in this build".
+- The smoke test is the sharpest illustration. It has asserted since the day
+  the frontend was embedded that `<div id="root">` is really in the binary;
+  the same sentence about the manual was never written. It is now, along
+  with the build step, in the release hooks, the image, and the CI job whose
+  browser tests had until now been reading a binary with no manual in it.
+- **The manual's own scripts are allowed to run.** MkDocs Material puts three
+  inline scripts on every page, `script-src 'self'` blocked all three, and
+  one of them defines `__md_get` — so the bundle threw on load and `/docs`
+  shipped with a search box that searched nothing and a light/dark toggle
+  that did nothing. The page still rendered, which is why it went unnoticed:
+  a Content-Security-Policy is enforced by a browser and by nothing that
+  runs without one. `/docs` now has a policy of its own admitting the hashes
+  of exactly the scripts compiled into this binary, computed from the
+  embedded files rather than written down. The application's own policy is
+  unchanged.
+- **Chinese search in the manual works where it is built.** `jieba` is not a
+  dependency of `mkdocs-material` — its search plugin imports it inside a
+  `try` and sets it to `None` when that fails — so a build without it
+  succeeds silently and produces an index in which no Chinese text has word
+  boundaries. Searching 组织 then matched nothing, which is indistinguishable
+  from a search that works and finds nothing. It was installed on one
+  contributor's machine and nowhere else.
+- **The manual no longer reaches the internet to draw itself.** Material was
+  asking fonts.googleapis.com for Roboto and api.github.com for a star
+  count on every page load. A manual served from inside somebody's identity
+  server should ask a third party for nothing, and on a network with no
+  route out those calls hang rather than fail. Both are gone; the font stack
+  is named locally, which also gives the 简体中文 pages PingFang SC on
+  purpose rather than by luck, since Roboto carries no CJK glyphs.
+- **A Chinese page had an English `<title>`**, and the sidebar and the page
+  it opened disagreed by a word. Both were `nav_translations` falling behind
+  the pages it names.
+- **The profile screen's rows agree about the column.** Three cards in a left
+  column and one beside them read as two columns until the right one runs
+  out, and left the password form alone in a row 960px short of the rows
+  either side of it. Four cards in two rows of two now, placed in explicit
+  grid cells rather than chained by whether the cards happen to touch, so
+  the rows line up whatever a reader has in them. The account facts move
+  inside the details card above a divider — they were a card with no title,
+  which read as three values floating over the page.
 - **A synchronization no longer moves somebody an administrator moved.** A
   source may name an organization, and the accounts it creates are filed
   there — but it was reasserted on every run, so a move made in the console
@@ -666,6 +734,17 @@ Working toward 0.2.0. See
 
 ### Security
 
+- **The manual's policy is widened by hash, and only for the manual.** Making
+  Material's inline scripts run needed `script-src` relaxed, and the cheap
+  way to do that would have been `'unsafe-inline'`. `/docs` is same-origin
+  with a console holding a session token, so permitting arbitrary inline
+  script anywhere on this origin would have spent exactly the protection the
+  policy is there to buy. The scripts compiled into the binary are named by
+  their SHA-256 and nothing else is admitted; the application's own response
+  headers are unchanged. One function composes both policies, so the
+  manual's variant inherits every directive it has no reason to vary — the
+  failure mode being a second policy written out beside the first that then
+  misses whatever is added later.
 - **The webhook destination check now runs on the resolved address.** A
   destination is checked twice, and the second check — the one that exists to
   defeat DNS rebinding — was reading the host out of the URL, where it is
