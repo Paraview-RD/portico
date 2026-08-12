@@ -3,6 +3,7 @@ package service
 import (
 	"encoding/json"
 	"reflect"
+	"strings"
 	"testing"
 
 	"github.com/Paraview-RD/portico/internal/model"
@@ -262,6 +263,74 @@ func TestEveryProfileFieldHasADefaultLocation(t *testing.T) {
 			"Each would be treated as an addition, so renaming it would send the "+
 			"fact twice — once in profile and once at the top level.", missing)
 	}
+}
+
+// Every name the payloads actually carry is accounted for.
+//
+// This is the guard on the guard. `webhookTopLevelOwners` refuses a rename that
+// would land on a name the payload already uses — but it is built from the
+// location tables, so a name the payload carries and the tables have never
+// heard of is a name the refusal does not know to protect. Add a field to
+// `model.User` or `model.Organization` and, without this, a mapping could
+// quietly overwrite it.
+//
+// Each key is therefore either mappable, or listed below with the reason it is
+// not. The list is the point: "nobody maps it" has to be a decision somebody
+// wrote down, because the alternative is that it is an oversight nobody can
+// distinguish from one.
+func TestEveryPayloadNameIsEitherMappableOrKnowinglyNot(t *testing.T) {
+	notMappable := map[string]string{
+		// Facts about the row rather than about the person or the place.
+		"createdAt": "when the row appeared, which only this database knows",
+		"source":    "which system created the account, not an attribute of it",
+		// Containers and collections. A mapping target is one name holding one
+		// value, so an object or a list has nothing to be renamed to.
+		"profile":     "the container; its members are mapped individually",
+		"attachments": "a list of organizations, not a single fact",
+		// Lifecycle timestamps, which mean something only alongside status.
+		"closedAt":    "meaningful only with status, and status is mapped",
+		"lockedUntil": "the same",
+		// Organization facts nobody maps out.
+		"remark":    "free text for administrators, not an integration field",
+		"parentId":  "an internal id; organization_parent_code is the mappable form",
+		"sortOrder": "how the console orders the tree",
+		"managerId": "an internal id; organization_manager_name is the mappable form",
+		"userCount": "computed for the console, and stale the moment it is sent",
+	}
+
+	check := func(name string, payload any, table map[string]string) {
+		t.Helper()
+		raw, err := json.Marshal(payload)
+		if err != nil {
+			t.Fatalf("marshal %s: %v", name, err)
+		}
+		var body map[string]any
+		if err := json.Unmarshal(raw, &body); err != nil {
+			t.Fatalf("unmarshal %s: %v", name, err)
+		}
+
+		mapped := map[string]bool{}
+		for _, location := range table {
+			if !strings.Contains(location, ".") {
+				mapped[location] = true
+			}
+		}
+
+		for key := range body {
+			if mapped[key] || notMappable[key] != "" {
+				continue
+			}
+			t.Errorf("the %s payload carries %q, which is neither in its location "+
+				"table nor listed as knowingly unmappable. A rename could land on "+
+				"it and overwrite it, because the collision guard is built from "+
+				"that table.", name, key)
+		}
+	}
+
+	// Zero values: every field without omitempty, which is every field a
+	// subscriber can rely on being present.
+	check("user", model.User{}, webhookUserDefaults)
+	check("organization", model.Organization{}, webhookOrganizationDefaults)
 }
 
 // Two subscriptions to one event cannot see each other's renames.
