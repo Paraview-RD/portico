@@ -11,16 +11,22 @@ import (
 
 // DemoPassword is what every seeded account signs in with.
 //
-// One password for everybody, printed by cmd/seed, and chosen to satisfy the
-// strict policy the first tenant gets — ten characters, upper, lower, digit.
-// The alternative, a different password per account, would mean the seed
-// prints fifty-five of them and nobody uses any.
+// One password for everybody, printed by cmd/seed. The alternative, a
+// different password per account, would mean the seed prints fifty-five of
+// them and nobody uses any.
+//
+// Nine characters, upper, lower, digit and a symbol: it clears the engine's
+// own floor of eight, which is the only length either seeded tenant now
+// requires. It used to be ten because the first tenant asked for ten; that
+// requirement was lowered so this could be one memorable string, and the
+// other four strict settings — the character classes, three generations of
+// history, ninety-day expiry — are untouched.
 //
 // Accounts a directory owns get it too. In a real deployment those hold a
 // random password nothing can authenticate with, and this deliberately
 // differs: being able to sign in as a directory-sourced account is how you
 // look at what the portal shows one, which is the entire point of a seed.
-const DemoPassword = "Portico-2026-demo"
+const DemoPassword = "Portico@1"
 
 // MainAccountCount is how many accounts the first tenant gets.
 //
