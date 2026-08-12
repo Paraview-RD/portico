@@ -64,6 +64,19 @@ type CasTicket struct {
 	ExpiresAt  time.Time
 }
 
+// One outstanding sign-in through an external provider. Deleted when the callback is judged, whichever way it goes.
+type ExternalAuthRequest struct {
+	State        string
+	TenantID     string
+	ProviderID   string
+	Nonce        string
+	CodeVerifier string
+	// Set when a signed-in person is binding an identity to their own account, null for an ordinary sign-in. It is what stops one callback serving both.
+	UserID    *string
+	CreatedAt time.Time
+	ExpiresAt time.Time
+}
+
 type ExternalIdentity struct {
 	ID         string
 	TenantID   string

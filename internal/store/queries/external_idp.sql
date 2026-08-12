@@ -71,3 +71,28 @@ WHERE tenant_id = $1 AND user_id = $2 AND id = $3;
 -- name: CountExternalIdentitiesForProvider :one
 SELECT count(*) FROM external_identities
 WHERE tenant_id = $1 AND provider_id = $2;
+
+-- name: CreateExternalAuthRequest :exec
+INSERT INTO external_auth_requests (
+    state, tenant_id, provider_id, nonce, code_verifier, user_id,
+    created_at, expires_at
+) VALUES ($1, $2, $3, $4, $5, $6, $7, $8);
+
+-- name: TakeExternalAuthRequest :one
+-- Read and delete in one statement.
+--
+-- Single-use is the property, and doing it in two statements would leave a
+-- window where the same state answers twice — which is exactly what an
+-- attacker replaying a callback is trying to do. Expiry is part of the
+-- WHERE rather than a check afterwards, so a stale row cannot be consumed
+-- and then rejected.
+DELETE FROM external_auth_requests
+WHERE tenant_id = $1 AND state = $2 AND expires_at > $3
+RETURNING *;
+
+-- name: DeleteExpiredExternalAuthRequests :exec
+-- Per tenant and swept in a loop, like the password resets and the dead
+-- refresh-token chains. A single unscoped DELETE would be cheaper and would
+-- also be the one statement in this file that could reach another tenant's
+-- rows — and a sweep is exactly where nobody would notice.
+DELETE FROM external_auth_requests WHERE tenant_id = $1 AND expires_at < $2;
