@@ -113,11 +113,16 @@ html {
 }
 
 .md-typeset {
-  /* The reader's own base size — 16px unless they have said otherwise. One
-     step above the console's 14px, and deliberately: the console is dense
-     UI read in glances, this is prose read in lines, and prose set at
-     interface density reads worse rather than more consistent. */
-  font-size: 1rem;
+  /* 15px against the reader's 16px default — half a step above the
+     console's 14px rather than a full one.
+
+     It was 1rem, which is the textbook reading size and read as slightly
+     heavy here: this manual is mostly short paragraphs, tables and lists
+     rather than long continuous prose, and the chrome around it is
+     interface. The gap to a 13px sidebar was doing the reverse of what a
+     hierarchy should — it made the navigation look like a footnote to the
+     page instead of a peer of it. */
+  font-size: 0.9375rem;
   /* Looser than the console's 1.6, for the same reason: the longer the
      line, the more the eye needs help finding the next one. */
   line-height: 1.7;
@@ -164,9 +169,14 @@ html {
 
    The size goes on the table and not on the cells: em compounds, and a cell
    inside an already-reduced table lands two steps down instead of one. That
-   is what put these at 13.44px on the first attempt. */
+   is what put these at 13.44px on the first attempt.
+
+   The ratio moved with the body size rather than staying put. At 0.875em it
+   followed 15px prose down to 13.1px, which is where a comparison table
+   stops being the easiest thing on the page to scan and starts being the
+   hardest — the opposite of what this rule is for. */
 .md-typeset table:not([class]) {
-  font-size: 0.875em;
+  font-size: 0.9375em;
   line-height: 1.6;
 }
 
@@ -185,12 +195,27 @@ html {
   line-height: 1.6;
 }
 
-/* The navigation and table of contents are interface, not prose, and take
-   the console's size accordingly. */
+/* The navigation and table of contents are interface, not prose — but they
+   are the interface a reader steers by, and 13px against 15px of body text
+   read as a caption beside the thing it labels rather than as the way
+   through the manual. 14px is the console's own size and close enough to
+   the page that the two look like one document. */
 .md-nav {
-  font-size: 0.8125rem;
+  font-size: 0.875rem;
 }
 
 .md-nav__title {
   font-weight: 600;
+}
+
+/* The header, which is the one part of this that is pure chrome and was the
+   smallest thing on the screen — the product's own name set below the
+   sidebar it sits above. A masthead can afford to be the size of the prose
+   it introduces. */
+.md-header__title {
+  font-size: 1rem;
+}
+
+.md-search__input {
+  font-size: 0.875rem;
 }
