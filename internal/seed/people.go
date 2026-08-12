@@ -230,6 +230,25 @@ func (s *Seeder) seedUsers(ctx context.Context, w *world) error {
 const seedActorUsername = "zhangwei"
 
 func (s *Seeder) createPerson(ctx context.Context, t *seededTenant, actor auth.Principal, p person) (model.User, error) {
+	// An account that is already there is adopted rather than fought over.
+	//
+	// This is not defensive coding for an unlikely case: it is the supported
+	// one. The seed is allowed to run against a database that holds the
+	// bootstrap administrator — checkEmpty says so in as many words — and
+	// that account is named `admin`, which is now also the name of the first
+	// person in this list. Both are right, and creating the second would
+	// fail with USERNAME_TAKEN.
+	//
+	// The existing account is left exactly as it is: same password, same
+	// role, same everything. A development tool that silently reset the
+	// password of an account somebody was already using would be a worse
+	// thing than the collision it was avoiding — so `admin` opens with
+	// DemoPassword when the seed created it, and with whatever it already
+	// had when it did not.
+	if existing, err := s.store.ForTenant(t.tenant.ID).GetUserByUsername(ctx, p.username); err == nil {
+		return s.users.Get(ctx, t.tenant.ID, existing.ID)
+	}
+
 	in := service.CreateUserInput{
 		Username: p.username, DisplayName: p.displayName, Password: DemoPassword,
 		Role: p.role, Source: p.source,
