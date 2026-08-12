@@ -79,8 +79,28 @@ deliberate ones.
 
 ## What the name means, per recipient
 
-**OpenID Connect** — the target is a claim name, in the ID token and at the
-userinfo endpoint.
+**OpenID Connect** — the target is a claim name.
+
+!!! warning "Rules reach the ID token and the access token, not userinfo"
+
+    They are applied where the client is known, and it is known in two of the
+    four places: when a token is issued, and when the access token's claims
+    are assembled. It is **not** known at the userinfo endpoint or at
+    introspection — an access token here is a bare identifier with nothing
+    stored behind it, so there is no client to look rules up for.
+
+    Those two endpoints therefore answer with the documented defaults whatever
+    an application has configured. **A suppression is not applied there**: an
+    application told not to receive a phone number still receives one if it
+    calls userinfo. If you are suppressing a field for disclosure reasons,
+    treat that as an open hole rather than a detail — and note that the ID
+    token is what most integrations actually read.
+
+    `sub`, `email_verified` and `phone_number_verified` are never mappable.
+    The first is reserved on both sides — nothing can be renamed onto it and
+    nothing can be renamed away from it — because an application's whole trust
+    model rests on it naming one person. The other two follow the claim they
+    describe: sent when it is sent under its own name, and not otherwise.
 
 **SAML** — the target is the attribute `Name`, which is what a service
 provider actually maps on. `friendlyName` sits beside it and is advisory;
@@ -137,6 +157,7 @@ front of somebody who cannot.
 | `RESERVED_CLAIM_NAME` | The name is one OpenID Connect acts on: `sub`, `iss`, `aud`, `exp`, `nonce` and the rest. **OIDC applications only** — a SAML attribute called `sub` is unremarkable |
 | `DUPLICATE_MAPPING_SOURCE` | Two rules for one field. Which wins would be decided by whichever was read first |
 | `DUPLICATE_MAPPING_TARGET` | Two fields under one name. Only one would arrive, and not the one you picked |
+| `CLAIM_NAME_TAKEN` | An OIDC rename onto a claim this system already sends — `department` onto `tenant_id`. Not reserved by the specification, and just as occupied |
 | `PAYLOAD_NAME_TAKEN` | A webhook rename onto a name the event already uses for something else — `department` onto `id` |
 | `MAPPING_TARGET_REQUIRED` | Neither a name nor a suppression, so the rule says nothing |
 | `UNKNOWN_FIELD` | No such key in the catalogue. Usually a typo |

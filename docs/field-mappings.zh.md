@@ -73,7 +73,23 @@ curl -X PUT https://<host>/api/v1/applications/oauth-clients/wiki/field-mappings
 
 ## 各接收方的「名称」分别指什么
 
-**OpenID Connect** —— 目标是 claim 名，出现在 ID token 与 userinfo 端点。
+**OpenID Connect** —— 目标是 claim 名。
+
+!!! warning "规则作用于 ID token 与 access token，不作用于 userinfo"
+
+    规则在「知道是哪个客户端」的地方生效，而四个位置里只有两个知道：签发令牌
+    时，以及组装 access token 的 claim 时。**userinfo 端点与内省端点不知道**
+    ——这里的 access token 是一个没有落库记录的裸标识符，无从查出客户端。
+
+    所以这两个端点无论应用配了什么，都按文档中的默认值作答。**抑制在那里不生
+    效**：一个被配置为「不接收手机号」的应用，只要调 userinfo 仍然拿得到。如
+    果你的抑制是出于披露考虑，请把它当作一个尚未堵上的口子，而不是一个细节
+    ——另一方面，多数集成实际读的是 ID token。
+
+    `sub`、`email_verified`、`phone_number_verified` 永远不可映射。第一个两头
+    都封死——既不能被改名过去，也不能被改名走——因为应用的整个信任模型都建立在
+    「它始终指同一个人」之上。后两个跟随它们所描述的那个 claim：只有当那个
+    claim 以自己的名字发出时才发，否则不发。
 
 **SAML** —— 目标是属性的 `Name`，这才是服务提供方实际据以映射的那个。
 `friendlyName` 在旁边，仅供参考；设置它不会改变 SP 的匹配行为。
@@ -122,6 +138,7 @@ curl -X PUT https://<host>/api/v1/applications/oauth-clients/wiki/field-mappings
 | `RESERVED_CLAIM_NAME` | 该名称是 OpenID Connect 会据以行动的：`sub`、`iss`、`aud`、`exp`、`nonce` 等。**仅对 OIDC 应用生效**——SAML 里叫 `sub` 的属性很平常 |
 | `DUPLICATE_MAPPING_SOURCE` | 一个字段两条规则。谁生效取决于先读到哪条 |
 | `DUPLICATE_MAPPING_TARGET` | 两个字段用同一个名称。只有一个会到达，而且不是你选的那个 |
+| `CLAIM_NAME_TAKEN` | OIDC 改名落到了本系统自己已在发送的 claim 上——比如把 `department` 映射成 `tenant_id`。规范没保留它，但它一样是被占用的 |
 | `PAYLOAD_NAME_TAKEN` | webhook 改名落到了事件已用于别的字段的名称上——比如把 `department` 映射成 `id` |
 | `MAPPING_TARGET_REQUIRED` | 既没有名称也没有抑制标记，这条规则什么都没说 |
 | `UNKNOWN_FIELD` | 目录里没有这个键。通常是打错了 |

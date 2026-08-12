@@ -129,8 +129,13 @@ func New(cfg *config.Config, opts ...Option) (*Server, error) {
 
 	clients := service.NewOAuthClientService(st, audit)
 	keys := service.NewSigningKeyService(st)
+	// Built here rather than beside the other application services below,
+	// because the OpenID Provider needs them: what a client receives is
+	// decided while its token is being assembled.
+	fields := service.NewFieldCatalogue(st)
+	fieldMappings := service.NewFieldMappingService(st, audit, fields)
 	providers := oidcp.NewProviders(cfg.PublicURL, federationCryptoKey(cfg.JWTSecret),
-		st, tenants, users, clients, keys, settings, audit)
+		st, tenants, users, clients, keys, settings, fields, fieldMappings, audit)
 
 	serviceProviders := service.NewSAMLServiceProviderService(st, audit)
 	samlKeys := service.NewSAMLKeyService(st)
@@ -143,8 +148,6 @@ func New(cfg *config.Config, opts ...Option) (*Server, error) {
 	groups := service.NewGroupService(st, audit)
 	logos := service.NewApplicationLogoService(st)
 	attributes := service.NewUserAttributeService(st, audit)
-	fields := service.NewFieldCatalogue(st)
-	fieldMappings := service.NewFieldMappingService(st, audit, fields)
 	webhooks := service.NewWebhookService(st, audit).WithFieldMappings(fields, fieldMappings)
 	// Attached after construction: the webhook service is built from the same
 	// store and the account operations only need to know it exists.

@@ -49,6 +49,8 @@ type Providers struct {
 	clients   *service.OAuthClientService
 	keys      *service.SigningKeyService
 	settings  *service.SettingsService
+	catalogue *service.FieldCatalogue
+	mappings  *service.FieldMappingService
 	audit     *service.AuditService
 	// cryptoKey encrypts the codes the library hands to clients. It is
 	// derived from the deployment's signing secret so it survives restarts —
@@ -70,6 +72,8 @@ func NewProviders(
 	clients *service.OAuthClientService,
 	keys *service.SigningKeyService,
 	settings *service.SettingsService,
+	catalogue *service.FieldCatalogue,
+	mappings *service.FieldMappingService,
 	audit *service.AuditService,
 ) *Providers {
 	return &Providers{
@@ -81,6 +85,8 @@ func NewProviders(
 		clients:   clients,
 		keys:      keys,
 		settings:  settings,
+		catalogue: catalogue,
+		mappings:  mappings,
 		audit:     audit,
 		cache:     map[string]*op.Provider{},
 	}
@@ -145,6 +151,7 @@ func (p *Providers) For(ctx context.Context, mount string) (*op.Provider, error)
 // storage returns the adapter for a tenant at a mount.
 func (p *Providers) storage(tenant model.Tenant, mount string) *Storage {
 	return NewStorage(tenant, p.Issuer(mount), p.store, p.users, p.clients, p.keys, p.settings,
+		p.catalogue, p.mappings,
 		func(authRequestID string) string { return p.LoginURL(tenant.Code, authRequestID) })
 }
 
