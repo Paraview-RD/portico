@@ -5,6 +5,7 @@ import {
   groupsApi,
   organizationApi,
   userApi,
+  userAttributesApi,
 } from "../api/endpoints";
 import type {
   BulkResult,
@@ -13,6 +14,7 @@ import type {
   Role,
   Status,
   User,
+  UserAttributeDefinition,
   UserProfile,
 } from "../api/types";
 import {
@@ -32,6 +34,7 @@ import {
   Td,
   Th,
 } from "../components/ui";
+import { UserAttributeValues } from "../components/UserAttributeValues";
 import { useErrorMessage, useT } from "../i18n";
 import { ImportDialog } from "./ImportDialog";
 // Borrowed rather than reimplemented. Two functions turning a flat list into
@@ -717,6 +720,18 @@ function UserFormDialog({
   const [profile, setProfile] = useState<UserProfile>(emptyProfile);
   const [showProfile, setShowProfile] = useState(false);
 
+  // The tenant's own attributes, and this account's answers to them. Two
+  // requests rather than one field on the user, because the definitions
+  // belong to the tenant and the answers to the account — and a tenant that
+  // defined none should not make every account carry an empty map.
+  const [definitions, setDefinitions] = useState<
+    UserAttributeDefinition[] | null
+  >(null);
+  const [attributeValues, setAttributeValues] = useState<
+    Record<string, string>
+  >({});
+  const [showAttributes, setShowAttributes] = useState(false);
+
   const [error, setError] = useState("");
   const [submitting, setSubmitting] = useState(false);
   const [groups, setGroups] = useState<GroupRef[] | null>(null);
@@ -739,6 +754,57 @@ function UserFormDialog({
     // Collapsed by default. Most edits here are a display name or an
     // organization; twenty-four fields open every time would bury them.
     setShowProfile(false);
+    setShowAttributes(false);
+    setAttributeValues({});
+  }, [open, user]);
+
+  // The tenant's attributes and this account's answers.
+  //
+  // Both are fetched here rather than passed in, because the account list
+  // does not need them and fetching them there would mean one request per
+  // page view for a tenant that defined none.
+  useEffect(() => {
+    if (!open) {
+      setDefinitions(null);
+      return;
+    }
+    let current = true;
+
+    void (async () => {
+      try {
+        const [defined, recorded] = await Promise.all([
+          userAttributesApi.list(),
+          // Nothing to read for an account that does not exist yet.
+          user ? userApi.attributes(user.id) : Promise.resolve({}),
+        ]);
+        if (!current) return;
+        // Retired definitions are dropped: their answers stay recorded and
+        // still reach an application that maps them, but a form should not
+        // ask for something the tenant decided to stop collecting.
+        const active = defined.filter((definition) => !definition.disabled);
+        setDefinitions(active);
+        setAttributeValues(recorded);
+        // Open when something in it is required, and only then. `required`
+        // is enforced by this form and nowhere else — the server accepts a
+        // missing answer, because an attribute made required today cannot
+        // retroactively block every account that predates it. Collapsed, the
+        // controls are not in the document and the browser has nothing to
+        // refuse, so a required attribute behind a closed disclosure would
+        // be required in name only.
+        if (active.some((definition) => definition.required)) {
+          setShowAttributes(true);
+        }
+      } catch {
+        // Deliberately silent, for the same reason the group list is: this
+        // is beside the fields being edited, and a tenant attribute that
+        // failed to load must not stop somebody fixing a display name.
+        if (current) setDefinitions([]);
+      }
+    })();
+
+    return () => {
+      current = false;
+    };
   }, [open, user]);
 
   // Read-only, and fetched rather than carried on the user: membership is
@@ -792,6 +858,9 @@ function UserFormDialog({
         if (showProfile) {
           await userApi.setProfile(user.id, profile);
         }
+        if (showAttributes) {
+          await userApi.setAttributes(user.id, attributeValues);
+        }
       } else {
         const created = await userApi.create({
           username: form.username,
@@ -804,6 +873,9 @@ function UserFormDialog({
         });
         if (showProfile) {
           await userApi.setProfile(created.id, profile);
+        }
+        if (showAttributes) {
+          await userApi.setAttributes(created.id, attributeValues);
         }
       }
       onSaved();
@@ -975,6 +1047,47 @@ function UserFormDialog({
             </div>
           )}
         </div>
+
+        {/* This tenant's own attributes, in the same disclosure shape as the
+            profile above it — and absent entirely for a tenant that defined
+            none, rather than an empty box inviting a click that reveals
+            nothing. Unlike the profile, it opens by itself when something in
+            it is required; see the effect that loads it. */}
+        {definitions !== null && definitions.length > 0 && (
+          <div className="rounded-[var(--radius-sm)] border border-[var(--color-border)]">
+            <button
+              type="button"
+              aria-expanded={showAttributes}
+              onClick={() => setShowAttributes(!showAttributes)}
+              className="flex w-full items-center justify-between px-4 py-3 text-left"
+            >
+              <span className="font-[weight:var(--font-weight-medium)]">
+                {t("userValues.title")}
+              </span>
+              <span className="text-[var(--color-fg-muted)]">
+                {showAttributes ? "−" : "+"}
+              </span>
+            </button>
+
+            {showAttributes && (
+              <div className="flex flex-col gap-4 border-t border-[var(--color-border)] p-4">
+                <p className="text-[length:var(--font-size-sm)] text-[var(--color-fg-muted)]">
+                  {t("userValues.intro")}
+                </p>
+                <UserAttributeValues
+                  definitions={definitions}
+                  values={attributeValues}
+                  onChange={(key, value) =>
+                    setAttributeValues((current) => ({
+                      ...current,
+                      [key]: value,
+                    }))
+                  }
+                />
+              </div>
+            )}
+          </div>
+        )}
 
         {/* Not a Field: there is no control here and nothing to submit.
             Wrapping it in one would give it a label pointing at an input

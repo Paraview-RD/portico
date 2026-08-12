@@ -658,6 +658,44 @@ export interface CatalogueField {
 }
 
 /**
+ * One attribute a tenant defined for itself.
+ *
+ * The catalogue entry above is the read-only view of the same thing, joined
+ * with the built-ins. This is the editable half: what the definitions screen
+ * writes, and what a mapping names by `key`.
+ */
+export interface UserAttributeDefinition {
+  id: string;
+  tenantId: string;
+  key: string;
+  label: string;
+  description?: string;
+  kind: "TEXT" | "NUMBER" | "BOOLEAN" | "DATE" | "SELECT";
+  allowedValues?: string[];
+  required: boolean;
+  sortOrder: number;
+  /** Retired: no longer offered on a form, every recorded value kept. */
+  disabled?: boolean;
+}
+
+/**
+ * What the definitions form sends.
+ *
+ * `key` is read on creation and ignored afterwards, because a mapping stores
+ * it — renaming it would silently stop whichever rule names it, and the
+ * screen it was configured on would still look right.
+ */
+export interface UserAttributeInput {
+  key: string;
+  label: string;
+  description: string;
+  kind: UserAttributeDefinition["kind"];
+  allowedValues: string[];
+  required: boolean;
+  sortOrder: number;
+}
+
+/**
  * One rule: a fact Portico holds, and the name a recipient expects it under.
  *
  * `suppressed` is a flag rather than an empty `targetName` because "send

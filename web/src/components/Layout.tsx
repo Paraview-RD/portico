@@ -4,6 +4,7 @@ import type { ReactNode } from "react";
 import { BrandLockup } from "./brand";
 import {
   ApplicationsIcon,
+  AttributesIcon,
   AuditIcon,
   ChevronDownIcon,
   GlobeIcon,
@@ -141,6 +142,16 @@ const navGroups: NavGroup[] = [
         route: "/settings",
         labelKey: "nav.settings",
         icon: SettingsIcon,
+        adminOnly: true,
+      },
+      {
+        // Configuration rather than directory. What is defined here is which
+        // questions an account form asks — the answers belong to the people
+        // on the user screen, but the list of questions is a knob, and it is
+        // the one somebody reaches for after reading about field mappings.
+        route: "/user-attributes",
+        labelKey: "nav.userAttributes",
+        icon: AttributesIcon,
         adminOnly: true,
       },
     ],

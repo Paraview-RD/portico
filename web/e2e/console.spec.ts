@@ -28,6 +28,7 @@ const authenticatedScreens = [
   { path: "/webhooks", heading: /event subscriptions/i },
   { path: "/audit-logs", heading: "Audit logs" },
   { path: "/settings", heading: "Settings" },
+  { path: "/user-attributes", heading: "User attributes" },
   { path: "/profile", heading: /profile/i },
 ];
 
