@@ -1,9 +1,10 @@
 # Portico
 
-This is the documentation for the Portico you are running. It is built into
-the binary, so it describes this version rather than the latest one — if the
-screen in front of you and the page in front of you disagree, that is worth
-reporting.
+This is the Portico manual.
+
+Every Portico serves its own copy at `/docs`, built into the binary, so that
+copy describes the exact version running it. If the screen in front of you
+and the page in front of you disagree, that is worth reporting.
 
 ## Start here
 
