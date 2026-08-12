@@ -56,7 +56,7 @@
 更多租户从命令行开通，因为 **API 没有一个跨租户的角色可供授权**：
 
 ```sh
-export PORTICO_DB_DSN=postgres://portico:secret@localhost:5432/portico?sslmode=disable
+export PORTICO_DB_DSN=postgres://portico:secret@localhost:5443/portico?sslmode=disable
 
 portico tenant create --code acme --name "Acme Corp"   # 生成的管理员密码
                                                        # 只打印一次

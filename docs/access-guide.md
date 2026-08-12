@@ -66,7 +66,7 @@ More tenants are provisioned from the command line, because there is no
 cross-tenant role for the API to authorize:
 
 ```sh
-export PORTICO_DB_DSN=postgres://portico:secret@localhost:5432/portico?sslmode=disable
+export PORTICO_DB_DSN=postgres://portico:secret@localhost:5443/portico?sslmode=disable
 
 portico tenant create --code acme --name "Acme Corp"   # prints a generated
                                                        # admin password once

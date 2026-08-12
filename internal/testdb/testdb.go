@@ -37,7 +37,7 @@ var (
 // EnvDSN lets a developer point the tests at an already-running database
 // instead of starting a container, which is much faster in a tight loop:
 //
-//	PORTICO_TEST_DB_DSN=postgres://portico:portico@localhost:5432/postgres?sslmode=disable go test ./...
+//	PORTICO_TEST_DB_DSN=postgres://portico:portico@localhost:5443/postgres?sslmode=disable go test ./...
 const EnvDSN = "PORTICO_TEST_DB_DSN"
 
 // DSN returns a connection string for a fresh, empty database. Migrations
