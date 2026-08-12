@@ -16,7 +16,20 @@
   "features": {
     "ghcr.io/devcontainers/features/go:1": { "version": "1.26" },
     "ghcr.io/devcontainers/features/node:1": { "version": "22" },
-    "ghcr.io/devcontainers/features/python:1": { "version": "3.12" }
+    "ghcr.io/devcontainers/features/python:1": { "version": "3.12" },
+
+    // Without this, `gh codespace ssh`, `gh codespace logs` and
+    // `gh codespace cp` all fail — they share one channel, and the channel
+    // needs a server in the container to terminate at. A Codespace built
+    // from a plain image over docker-compose does not get one; the ones
+    // people are used to inherit it from a base devcontainer that includes
+    // it, which is why the omission does not announce itself.
+    //
+    // The browser editor works either way, so this reads as optional until
+    // the first time something goes wrong: with no shell and no way to read
+    // the creation log, a Codespace that fails to build is a black box. That
+    // is exactly where the first attempt at this environment ended.
+    "ghcr.io/devcontainers/features/sshd:1": {}
   },
 
   // 8410 is the product. The other two are the fixtures around it, and both
