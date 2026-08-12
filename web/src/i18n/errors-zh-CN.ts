@@ -33,6 +33,12 @@ export const errorsZhCN: Record<keyof typeof errorsEnUS, string> = {
   PASSWORD_EXPIRED: "该密码已过期，登录前必须先更换。",
   PASSWORD_CHANGE_REQUIRED: "该账号还在用默认密码，登录前必须先更换。",
   PASSWORD_NOT_EXPIRED: "该密码尚未过期。请登录后在个人中心修改。",
+  SNAPSHOT_IN_PROGRESS:
+    "这个订阅的快照还在投递中。等它结束，或者停用该订阅以放弃它。",
+  SNAPSHOT_EMPTY_SCOPE: "这个订阅没有选中任何快照能填充的事件。",
+  SNAPSHOT_UNAVAILABLE: "本部署无法生成快照。",
+  SUBSCRIPTION_DISABLED: "这个订阅已停用。要快照请先启用它。",
+
   PASSWORD_REUSED: "该密码最近使用过，请换一个没用过的。",
 
   // --- 密码找回 ---

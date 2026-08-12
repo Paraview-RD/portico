@@ -272,6 +272,7 @@ func (s *Server) routes() http.Handler {
 				r.Post("/{id}/rotate-secret", h.RotateWebhookSecret)
 				r.Post("/{id}/enable", h.EnableWebhook)
 				r.Post("/{id}/disable", h.DisableWebhook)
+				r.Post("/{id}/snapshot", h.SnapshotWebhook)
 				r.Delete("/{id}", h.DeleteWebhook)
 
 				// The same rules as an application's, over the event body

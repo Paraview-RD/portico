@@ -198,6 +198,64 @@ Subscribe to `*` for everything including types added in future versions, or
 name the ones your endpoint can handle. `GET /api/v1/webhooks/events` returns
 the current list.
 
+## Filling in what happened before you subscribed
+
+Events describe changes. A subscription created today has missed every
+change that came before it, and the delivery history cannot fill the gap:
+finished deliveries are removed after thirty days, and the ones that survive
+say what happened rather than what is.
+
+So a receiver building a mirror asks for a snapshot:
+
+```sh
+curl -X POST -H "Authorization: Bearer $TOKEN" \
+  https://portico.example.com/api/v1/webhooks/$ID/snapshot
+```
+
+What arrives is a run, through the same endpoint, the same signature, and
+the same field mappings as everything else:
+
+| Event | Body |
+|---|---|
+| `sync.started` | `syncId`, the `scope` that will follow, `pageSize`, `asOf` |
+| `sync.users` | `syncId`, `kind`, `page`, `total`, `items[]` |
+| `sync.organizations` | the same shape |
+| `sync.groups` | the same shape |
+| `sync.completed` | `syncId`, and `counts` per kind |
+
+The objects inside `items` are the objects the ordinary events carry, so a
+receiver parses one shape rather than two. Pages rather than one event per
+account, because the unit that matters is a batch you can write in one
+transaction: fifty thousand accounts is a hundred deliveries here and fifty
+thousand under any scheme that sends one each.
+
+**Which kinds arrive follows what the subscription selected.** One that asked
+only for group events is sent only groups.
+
+`sync.completed` is the signal that you now hold everything and may switch
+from building your mirror to trusting it. Compare its `counts` against your
+own rows: a mismatch means a page you answered 200 to never landed.
+
+> **This asks something of the receiver, and it is not optional.**
+>
+> A snapshot is not taken atomically. Pages are read one after another while
+> the tenant carries on changing, and live events keep arriving throughout —
+> so an account edited during the run may reach you as a page or as an event,
+> in either order.
+>
+> **Reconcile by `id`, and let the newer `occurredAt` win.** A receiver that
+> applies whatever arrives last will end up holding the older copy, and
+> nothing will tell it so.
+>
+> This is the same demand at-least-once delivery already makes. Retries mean
+> you can see any delivery twice; the envelope's `id` is what you deduplicate
+> on.
+
+One snapshot at a time per subscription: a second while the first is still
+queued answers `409 SNAPSHOT_IN_PROGRESS`. A disabled subscription is refused
+outright rather than having the largest delivery this product makes queued
+against the moment somebody re-enables it.
+
 ## Delivery, retries, and what "delivered" means
 
 Deliveries are queued when the event happens and sent by a worker every

@@ -50,7 +50,63 @@ const (
 	// the group; an event per member would turn a bulk replacement into a
 	// burst nobody asked for.
 	EventGroupMembersChanged = "group.members_changed"
+
+	// The events of a snapshot: what already existed when a subscription
+	// was created.
+	//
+	// Every other event here says what happened. These say what is, which
+	// is a different thing and is why they are not dressed up as
+	// `user.created` — a subscriber backfilled that way would have an
+	// account "created" today that has been on the payroll for six years,
+	// and the audit trail and the delivery history would both record it.
+	//
+	// They are paged rather than one event per account because the unit
+	// that matters to a receiver is a batch it can write in one
+	// transaction. Fifty thousand accounts is a hundred deliveries here and
+	// fifty thousand under any scheme that sends one each.
+	EventSyncStarted = "sync.started"
+	// A page. The kind is in the type rather than the body so that a
+	// subscriber can select `sync.users` alone, and so the mapping subject
+	// can be read from the type the way every other event's is.
+	EventSyncUsers         = "sync.users"
+	EventSyncOrganizations = "sync.organizations"
+	EventSyncGroups        = "sync.groups"
+	// EventSyncCompleted is the signal a receiver needs and no per-object
+	// scheme can give: that it now holds everything, and may switch from
+	// building its mirror to trusting it.
+	EventSyncCompleted = "sync.completed"
 )
+
+// SyncStarted opens a snapshot.
+type SyncStarted struct {
+	SyncID string `json:"syncId"`
+	// Scope is the kinds that will follow, decided by what the
+	// subscription selected: a subscriber that only asked for group events
+	// is not sent the account list.
+	Scope    []string  `json:"scope"`
+	PageSize int       `json:"pageSize"`
+	AsOf     time.Time `json:"asOf"`
+}
+
+// SyncPage is one batch of what exists.
+type SyncPage struct {
+	SyncID string `json:"syncId"`
+	Kind   string `json:"kind"`
+	// Page counts from one. Total is the number of pages of this kind, so a
+	// receiver can show progress and can tell a truncated run from a
+	// finished one without waiting for sync.completed.
+	Page  int   `json:"page"`
+	Total int   `json:"total"`
+	Items []any `json:"items"`
+}
+
+// SyncCompleted closes a snapshot.
+type SyncCompleted struct {
+	SyncID string `json:"syncId"`
+	// Counts is per kind, and is what a receiver compares against its own
+	// row count to discover it dropped a page it answered 200 to.
+	Counts map[string]int `json:"counts"`
+}
 
 // AllEvents is what a subscription gets when it asks for everything.
 var AllEvents = []string{

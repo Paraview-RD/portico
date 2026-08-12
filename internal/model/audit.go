@@ -188,6 +188,9 @@ const (
 	ActionWebhookEnable  = "WEBHOOK_ENABLE"
 	ActionWebhookDisable = "WEBHOOK_DISABLE"
 	ActionWebhookDelete  = "WEBHOOK_DELETE"
+	// A snapshot hands a receiver every account the tenant has, in one
+	// action, which puts it on the same footing as an export.
+	ActionWebhookSnapshot = "WEBHOOK_SNAPSHOT"
 	// Recorded because it is a credential changing hands. The secret itself
 	// is never in the entry — the detail is when the old one stops working,
 	// which is the fact somebody needs when a receiver starts rejecting

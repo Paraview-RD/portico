@@ -3415,6 +3415,80 @@ paths:
         "404":
           $ref: "#/components/responses/NotFound"
 
+  /api/v1/webhooks/{id}/snapshot:
+    post:
+      tags: [Webhooks]
+      operationId: snapshotWebhook
+      summary: Send a subscription everything that already exists.
+      description: |
+        Events describe changes, so a subscription created today has missed
+        everything that happened before it — and the delivery history cannot
+        fill the gap, because finished deliveries are removed after thirty
+        days and the ones that survive say what happened rather than what is.
+
+        This queues a snapshot to that one subscription: a `sync.started`, a
+        run of paged `sync.users`, `sync.organizations` and `sync.groups`
+        events, then a `sync.completed`. The pages carry the same objects the
+        ordinary events carry, through the same field mappings, so a receiver
+        parses one shape.
+
+        Which kinds are sent follows what the subscription selected: one that
+        asked only for group events is sent only groups.
+
+        It answers as soon as the pages are queued, not when they arrive.
+        Delivery progress is on `GET /api/v1/webhooks/{id}/deliveries`.
+
+        **A receiver must reconcile by id and prefer the newer
+        `occurredAt`.** The snapshot is not taken atomically — an account
+        changed while it runs may arrive as a page or as a live event, in
+        either order — and the retry machinery is at-least-once besides.
+      parameters:
+        - $ref: "#/components/parameters/ID"
+      responses:
+        "200":
+          description: |
+            Queued. The body reports the run's id, the kinds in scope, how
+            many objects of each, and how many page deliveries were queued.
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: "#/components/schemas/Envelope"
+                  - type: object
+                    properties:
+                      data:
+                        type: object
+                        properties:
+                          syncId: { type: string, format: uuid }
+                          scope:
+                            type: array
+                            items: { type: string, enum: [user, organization, group] }
+                          counts:
+                            type: object
+                            additionalProperties: { type: integer }
+                          pages: { type: integer }
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "409":
+          description: |
+            `SNAPSHOT_IN_PROGRESS` — one is still being delivered. Two runs
+            interleaved would deliver two sets of pages a receiver cannot
+            tell apart, and the second `sync.completed` would claim
+            completeness while the first run's pages were still in flight.
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Envelope" }
+        "422":
+          description: |
+            `SUBSCRIPTION_DISABLED` when the subscription is paused, or
+            `SNAPSHOT_EMPTY_SCOPE` when it selects no events a snapshot can
+            fill.
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Envelope" }
+
 components:
   securitySchemes:
     bearerAuth:

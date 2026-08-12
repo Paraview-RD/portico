@@ -172,6 +172,10 @@ func New(cfg *config.Config, opts ...Option) (*Server, error) {
 	// than at construction because the vault is built above, after the
 	// service that needs it.
 	webhooks.WithVault(vault)
+	// What a snapshot reads. Attached here rather than at construction
+	// because the account, organization and group services are built above
+	// it — the same arrangement as the vault and the field mappings.
+	webhooks.WithSnapshotSource(service.NewSnapshotSource(users, orgs, groups))
 	directories := service.NewDirectoryService(st, users, audit, webhooks, vault)
 	scimHandler := scim.NewHandler(users, groups, scimCredentials, cfg.PublicURL)
 

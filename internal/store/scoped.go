@@ -930,6 +930,13 @@ func (s *Scoped) EnqueueWebhookDelivery(ctx context.Context, arg sqlcgen.Enqueue
 	return s.q.EnqueueWebhookDelivery(ctx, arg)
 }
 
+// CountPendingSnapshotDeliveries reports how much of a snapshot is still
+// queued for one subscription.
+func (s *Scoped) CountPendingSnapshotDeliveries(ctx context.Context, subscriptionID string) (int64, error) {
+	return s.q.CountPendingSnapshotDeliveries(ctx, sqlcgen.CountPendingSnapshotDeliveriesParams{
+		TenantID: s.tenantID, SubscriptionID: subscriptionID})
+}
+
 // ClaimDueWebhookDeliveries takes up to limit deliveries that are due.
 // Must run inside a transaction: the claim is the row lock.
 func (s *Scoped) ClaimDueWebhookDeliveries(ctx context.Context, q *sqlcgen.Queries, now time.Time, limit int32) ([]sqlcgen.WebhookDelivery, error) {
