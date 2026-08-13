@@ -28,6 +28,7 @@ internal/
                    connect to
   service/         business rules
   oidcp/           the OpenID Provider adapter
+  oidcrp/          the relying party: spending another provider's tokens
   samlp/           the SAML identity provider adapter
   casp/            the CAS protocol
   scim/            the SCIM 2.0 endpoints a directory provisions through
@@ -78,6 +79,8 @@ handler ──→ service ──→ store
 model, httpx, config: no project dependencies at all
 store: only its own subpackages (sqlcgen) and migrations
 oidcp, samlp, casp: service, store, auth, model — never the web stack
+oidcrp: webhook (for the destination rules), and nothing of Portico's own —
+  it is a client of somebody else's server
 ```
 
 The rules that matter:

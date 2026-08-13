@@ -178,13 +178,17 @@ func New(cfg *config.Config, opts ...Option) (*Server, error) {
 	webhooks.WithSnapshotSource(service.NewSnapshotSource(users, orgs, groups))
 	directories := service.NewDirectoryService(st, users, audit, webhooks, vault)
 	scimHandler := scim.NewHandler(users, groups, scimCredentials, cfg.PublicURL)
+	// Portico as the relying party: the providers a tenant sends people to.
+	// Built here rather than beside the other services because it needs the
+	// vault, which is built above.
+	externalIDP := service.NewExternalIDPService(st, users, audit, vault, cfg.PublicURL)
 
 	s := &Server{
 		cfg:   cfg,
 		store: st,
 		handler: handler.New(users, orgs, audit, settings, tenants, recovery, verification, sessions,
 			clients, serviceProviders, samlKeys, casServices, scimCredentials,
-			directories, webhooks, groups, logos, attributes, fields, fieldMappings,
+			directories, webhooks, externalIDP, groups, logos, attributes, fields, fieldMappings,
 			providers, samlProviders, casServer),
 		middleware:    auth.NewMiddleware(tokens, users, sessions),
 		metrics:       registry,
