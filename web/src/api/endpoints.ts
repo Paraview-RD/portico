@@ -2,6 +2,8 @@
 
 import { download, request, upload } from "./client";
 import type {
+  AdministeredOrganization,
+  AdminScope,
   AuditLog,
   Authorization,
   CASService,
@@ -15,6 +17,7 @@ import type {
   LogKind,
   OAuthClient,
   Organization,
+  OrganizationAdministrator,
   PageResult,
   PortalApplication,
   RecoveryChannel,
@@ -410,6 +413,36 @@ export const organizationApi = {
       method: "PUT",
       body: { managerId },
     }),
+
+  /**
+   * Who is recorded as administering an organization.
+   *
+   * These grant nothing today — see the API description. They exist so that
+   * delegated administration, when it arrives, reads a chart somebody has
+   * already entered rather than an empty table.
+   */
+  administrators: (id: string) =>
+    request<OrganizationAdministrator[]>(
+      `/organizations/${segment(id)}/administrators`,
+    ),
+
+  assignAdministrator: (id: string, userId: string, scope: AdminScope) =>
+    request<null>(`/organizations/${segment(id)}/administrators`, {
+      method: "POST",
+      body: { userId, scope },
+    }),
+
+  revokeAdministrator: (id: string, userId: string) =>
+    request<null>(
+      `/organizations/${segment(id)}/administrators/${segment(userId)}`,
+      { method: "DELETE" },
+    ),
+
+  /** What an account is recorded as administering. */
+  administeredBy: (userId: string) =>
+    request<AdministeredOrganization[]>(
+      `/users/${segment(userId)}/administered-organizations`,
+    ),
 
   /** Records that somebody is involved with an organization they do not
    * primarily belong to. Does not move their primary membership. */
