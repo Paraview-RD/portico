@@ -62,7 +62,7 @@ func (s *WebhookService) DispatchDue(ctx context.Context, tenantID string, clien
 		// Opened per delivery rather than cached: the key can be taken out
 		// of the environment between passes, and a cache would go on sending
 		// a credential this process could no longer be trusted to hold.
-		headers, err := s.openHeaders(subscription.Headers)
+		headers, err := s.openHeaders(subscription.TenantID, subscription.Headers)
 		if err != nil {
 			// Not sent without them. A receiver behind a gateway would answer
 			// 401, which is recorded as the receiver refusing — so the

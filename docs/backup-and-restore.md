@@ -62,6 +62,15 @@ AES-256-GCM under `PORTICO_ENCRYPTION_KEY`, which lives in the environment
 rather than the database, so a dump on its own does not yield it. That is the
 one place where the split above buys something.
 
+Each such value is also sealed against what it is and whose it is, so a
+ciphertext lifted out of one row and dropped into another — a webhook's
+headers into a directory's bind password, one tenant's credential into
+another tenant's row — no longer decrypts. **Restoring a dump into a
+different tenant therefore does not carry these credentials with it**: the
+rows restore, the sealed values stop opening, and they have to be entered
+again. Values written before this existed keep opening, and are sealed
+against their row the next time they are saved.
+
 Encrypt dumps at rest, restrict who can read them, and treat a leaked backup
 as a key compromise rather than a data breach — the response is different
 and larger.

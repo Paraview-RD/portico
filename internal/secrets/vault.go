@@ -33,7 +33,59 @@ import (
 	"encoding/base64"
 	"errors"
 	"fmt"
+	"strings"
 )
+
+// boundPrefix marks a value sealed with a binding. It is one character and a
+// dot rather than a version number, because what a reader needs to know from
+// a database column is "this one is bound", not which revision of the code
+// wrote it.
+const boundPrefix = "b."
+
+// Binding says what a sealed value is for and whose it is.
+//
+// AES-GCM authenticates additional data without encrypting it: the same
+// bytes must be supplied to open what they sealed. Passing the purpose and
+// the tenant means a ciphertext lifted out of one column and dropped into
+// another — a webhook's headers into a directory's bind password, one
+// tenant's credential into another tenant's row — no longer decrypts.
+//
+// Whoever does that already has write access to the database, so this is not
+// the difference between safe and compromised. It is the difference between
+// a credential that can be moved around silently and one that cannot, and it
+// costs a struct.
+//
+// The purpose strings are written out at their call sites rather than
+// derived from a table name, because a table that gets renamed must not
+// quietly stop opening its own rows.
+type Binding struct {
+	// Purpose is what the value is, e.g. "directory-bind-password".
+	Purpose string
+	// TenantID is whose it is. Empty is allowed for a value that genuinely
+	// belongs to no tenant; there are none today.
+	TenantID string
+}
+
+// Purposes in use. Constants so a typo is a build failure rather than a
+// credential that opens nowhere.
+const (
+	PurposeDirectoryBindPassword = "directory-bind-password"
+	PurposeWebhookHeaders        = "webhook-headers"
+	// gosec reads the word rather than the value: this is the label a client
+	// secret is sealed under, and it is written into the authenticated data
+	// of every such ciphertext. Changing it would stop those values opening,
+	// which is a stronger reason to leave it alone than the warning is to
+	// change it.
+	//nolint:gosec // G101: a purpose label, not a credential.
+	PurposeExternalIDPSecret = "external-idp-client-secret"
+)
+
+// bytes is the additional data itself. NUL-separated so that a purpose and a
+// tenant cannot be rearranged into each other — "ab" + "c" and "a" + "bc"
+// would otherwise be the same binding.
+func (b Binding) bytes() []byte {
+	return []byte("portico/secrets\x00" + b.Purpose + "\x00" + b.TenantID)
+}
 
 // KeyLength is the key size this package requires: AES-256.
 //
@@ -94,7 +146,7 @@ func (v *Vault) Configured() bool { return v != nil && v.aead != nil }
 // password" is a real configuration — an anonymous bind — and it should read
 // as absent in the database rather than as an encrypted empty string that
 // nobody can tell apart from a real one without the key.
-func (v *Vault) Seal(plaintext string) (string, error) {
+func (v *Vault) Seal(binding Binding, plaintext string) (string, error) {
 	if !v.Configured() {
 		return "", ErrNotConfigured
 	}
@@ -107,17 +159,33 @@ func (v *Vault) Seal(plaintext string) (string, error) {
 		return "", fmt.Errorf("read nonce: %w", err)
 	}
 
-	sealed := v.aead.Seal(nonce, nonce, []byte(plaintext), nil)
-	return base64.StdEncoding.EncodeToString(sealed), nil
+	sealed := v.aead.Seal(nonce, nonce, []byte(plaintext), binding.bytes())
+	return boundPrefix + base64.StdEncoding.EncodeToString(sealed), nil
 }
 
-// Open decrypts what Seal produced.
-func (v *Vault) Open(ciphertext string) (string, error) {
+// Open decrypts what Seal produced, and refuses a value sealed for something
+// else.
+//
+// A value written before bindings existed carries no prefix and is opened
+// without one. That is the honest position rather than a comfortable one:
+// those values keep exactly the property they had, and gain the binding the
+// next time they are saved. The alternative was to refuse them, which would
+// have meant every existing directory and every webhook subscription
+// silently losing its credential on upgrade — a certain harm against a
+// hypothetical one.
+func (v *Vault) Open(binding Binding, ciphertext string) (string, error) {
 	if ciphertext == "" {
 		return "", nil
 	}
 	if !v.Configured() {
 		return "", ErrNotConfigured
+	}
+
+	additional := binding.bytes()
+	if rest, bound := strings.CutPrefix(ciphertext, boundPrefix); bound {
+		ciphertext = rest
+	} else {
+		additional = nil
 	}
 
 	raw, err := base64.StdEncoding.DecodeString(ciphertext)
@@ -129,7 +197,7 @@ func (v *Vault) Open(ciphertext string) (string, error) {
 	}
 
 	nonce, body := raw[:v.aead.NonceSize()], raw[v.aead.NonceSize():]
-	plaintext, err := v.aead.Open(nil, nonce, body, nil)
+	plaintext, err := v.aead.Open(nil, nonce, body, additional)
 	if err != nil {
 		return "", ErrCorrupt
 	}
