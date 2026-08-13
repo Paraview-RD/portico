@@ -142,8 +142,10 @@ explanation somebody no longer needs.
 **Bilingual UI** — English and 简体中文, switchable at runtime.
 
 Deliberately **not** in this version: custom roles and permissions (there are
-two fixed roles), third-party and social login, MFA, and any rate limiting
-beyond the sign-in endpoints. The roadmap for those is in
+two fixed roles), MFA, and any rate limiting beyond the sign-in endpoints.
+An organization can *record* who would administer it, and at what scope, for
+the delegated administration on the roadmap — those records grant nothing
+today and a test holds them to it. The roadmap is in
 [docs/requirements/v0.1-requirements.md](docs/requirements/v0.1-requirements.md).
 
 > **Before exposing this to a network:** Portico serves plain HTTP,
