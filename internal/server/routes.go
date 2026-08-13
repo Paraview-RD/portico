@@ -56,6 +56,14 @@ func (s *Server) routes() http.Handler {
 		// Password recovery (§3.5). All three are public by necessity: the
 		// caller is someone who cannot sign in. None reveals whether an
 		// account exists.
+		// Signing in through somebody else's provider. Public for the same
+		// reason recovery is: the caller cannot sign in yet.
+		r.Get("/auth/external/providers", h.ExternalSignInOptions)
+		r.Post("/auth/external/start", h.StartExternalSignIn)
+		// Where a provider sends the browser back. It carries nothing this
+		// server issued but the state, and the state is what judges it.
+		r.Get("/auth/external/callback", h.CompleteExternalSignIn)
+
 		r.Get("/auth/recovery-channels", h.RecoveryChannels)
 		r.Post("/auth/password-recovery", h.RequestPasswordRecovery)
 		r.Post("/auth/password-recovery/confirm", h.ConfirmPasswordRecovery)
@@ -84,6 +92,12 @@ func (s *Server) routes() http.Handler {
 			r.Get("/users/me/groups", h.ListOwnGroups)
 			r.Get("/users/me/sessions", h.ListOwnSessions)
 			r.Delete("/users/me/sessions/{sessionID}", h.RevokeOwnSession)
+			// Linking an external identity to one's own account. The account
+			// comes from the session; a caller-supplied one here would be the
+			// whole vulnerability the journey is arranged to avoid.
+			r.Get("/users/me/external-identities", h.ListMyExternalIdentities)
+			r.Post("/users/me/external-identities/{id}/start", h.StartExternalBinding)
+			r.Delete("/users/me/external-identities/{id}", h.UnlinkMyExternalIdentity)
 
 			// The seam between Portico's own sign-in and the OpenID
 			// Provider: the sign-in screen calls this once somebody has
@@ -269,6 +283,15 @@ func (s *Server) routes() http.Handler {
 			// this is only the administrative side of it.
 			// Outbound subscriptions, and the delivery history that answers
 			// "we are not receiving anything" without asking the receiver.
+			r.Route("/external-identity-providers", func(r chi.Router) {
+				r.Get("/", h.ListExternalIDPs)
+				r.Post("/", h.CreateExternalIDP)
+				r.Put("/{id}", h.UpdateExternalIDP)
+				r.Post("/{id}/enable", h.EnableExternalIDP)
+				r.Post("/{id}/disable", h.DisableExternalIDP)
+				r.Delete("/{id}", h.DeleteExternalIDP)
+			})
+
 			r.Route("/webhooks", func(r chi.Router) {
 				r.Get("/", h.ListWebhooks)
 				r.Post("/", h.CreateWebhook)

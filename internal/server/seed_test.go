@@ -265,10 +265,14 @@ func countRows(t *testing.T, data json.RawMessage) int {
 // constant the console reads rather than data, and a list that belongs to
 // whoever is asking.
 var notSeeded = map[string]string{
-	"/api/v1/health":   "liveness, not a list",
-	"/api/v1/ready":    "readiness, not a list",
-	"/api/v1/settings": "one settings object per tenant, and both tenants have one",
-	"/api/v1/users/me": "the caller, not a list",
+	"/api/v1/health":                       "liveness, not a list",
+	"/api/v1/ready":                        "readiness, not a list",
+	"/api/v1/settings":                     "one settings object per tenant, and both tenants have one",
+	"/api/v1/users/me":                     "the caller, not a list",
+	"/api/v1/auth/external/providers":      "empty unless a tenant configured an external provider, and the seed configures none — it would need a real issuer this server could reach",
+	"/api/v1/auth/external/callback":       "not a list; a browser returning from somewhere else",
+	"/api/v1/external-identity-providers":  "the same, from the administrator's side",
+	"/api/v1/users/me/external-identities": "what the caller has linked, and nothing is linked without a provider",
 
 	"/api/v1/auth/permission-check":              "a yes-or-no answer about the caller",
 	"/api/v1/auth/recovery-channels":             "what this deployment can send, from configuration",
