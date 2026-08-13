@@ -148,7 +148,7 @@ func (s *DirectoryService) Register(ctx context.Context, actor auth.Principal, i
 
 	sealed := ""
 	if normalized.BindPassword != nil && *normalized.BindPassword != "" {
-		sealed, err = s.seal(*normalized.BindPassword)
+		sealed, err = s.seal(tenantID, *normalized.BindPassword)
 		if err != nil {
 			return model.LDAPSource{}, err
 		}
@@ -253,7 +253,7 @@ func (s *DirectoryService) Update(ctx context.Context, actor auth.Principal, id 
 	if normalized.BindPassword != nil {
 		sealed := ""
 		if *normalized.BindPassword != "" {
-			sealed, err = s.seal(*normalized.BindPassword)
+			sealed, err = s.seal(tenantID, *normalized.BindPassword)
 			if err != nil {
 				return model.LDAPSource{}, err
 			}
@@ -396,8 +396,15 @@ func (s *DirectoryService) decorate(ctx context.Context, tenantID string, row sq
 	return source, nil
 }
 
-func (s *DirectoryService) seal(plaintext string) (string, error) {
-	sealed, err := s.vault.Seal(plaintext)
+// bindPasswordBinding ties a stored bind password to the tenant it belongs
+// to and to being a bind password, so a ciphertext moved into another row or
+// another tenant no longer opens.
+func bindPasswordBinding(tenantID string) secrets.Binding {
+	return secrets.Binding{Purpose: secrets.PurposeDirectoryBindPassword, TenantID: tenantID}
+}
+
+func (s *DirectoryService) seal(tenantID, plaintext string) (string, error) {
+	sealed, err := s.vault.Seal(bindPasswordBinding(tenantID), plaintext)
 	if errors.Is(err, secrets.ErrNotConfigured) {
 		return "", ErrNoEncryptionKey
 	}
@@ -797,7 +804,7 @@ func (s *DirectoryService) runSync(ctx context.Context, tenantID, sourceID strin
 		return counts, fmt.Errorf("read directory: %w", err)
 	}
 
-	bindPassword, err := s.vault.Open(row.BindPassword)
+	bindPassword, err := s.vault.Open(bindPasswordBinding(tenantID), row.BindPassword)
 	if err != nil {
 		return counts, fmt.Errorf("read bind password: %w", err)
 	}
