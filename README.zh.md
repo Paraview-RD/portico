@@ -15,6 +15,24 @@ Go 二进制，Web 界面编译在内，后端是 PostgreSQL。
 > `.env.example`）目前只有英文版。手册的章节两种语言都有，本页链接直接指向中文
 > 那一份。
 
+## 先跑起来
+
+PostgreSQL 和服务一起拉起来，不用装别的：
+
+```bash
+export POSTGRES_PASSWORD=$(openssl rand -hex 16)
+export PORTICO_JWT_SECRET=$(openssl rand -hex 32)
+docker compose -f deploy/docker-compose.yml up -d
+```
+
+然后打开 <http://localhost:8410>，用 `admin` / `Portico@1` 登录 —— 那是文档写
+明的默认口令，**第一次登录会被拒绝，要求先改掉它**。手册就在同一个二进制的
+`/docs` 下，所以它描述的是你刚启动的这个版本，而不是最新的那个。
+
+[运行](#运行) 一节里有从源码构建的方式、每个环境变量是干什么的，以及一份备份必
+须包含什么。下面全部是「它做什么、以及为什么这么做」；要查具体用法看手册 ——
+[就在本仓库里](docs/)，也在你启动的任何一个实例的 `/docs` 下。
+
 ## 它做什么
 
 **标准单点登录** —— OAuth 2.1、OpenID Connect 1.0、SAML 2.0 和 CAS，已有的业

@@ -13,6 +13,26 @@ web UI compiled in, backed by PostgreSQL.
 > deliberately absent from both. There are no published binaries yet; build
 > from source with either recipe under [Running it](#running-it).
 
+## Try it
+
+PostgreSQL and the server, with nothing else to install:
+
+```bash
+export POSTGRES_PASSWORD=$(openssl rand -hex 16)
+export PORTICO_JWT_SECRET=$(openssl rand -hex 32)
+docker compose -f deploy/docker-compose.yml up -d
+```
+
+Then <http://localhost:8410>, and sign in as `admin` with `Portico@1` — the
+documented default, which the first sign-in refuses until you replace it. The
+manual is at `/docs` inside the same binary, so it describes the version you
+just started rather than the newest one.
+
+[Running it](#running-it) has the from-source recipe, what each variable
+does, and what a backup has to include. Everything below is what the thing
+does and why it does it that way; the manual — [in this repository](docs/),
+and at `/docs` in anything you start — is the reference.
+
 ## What it does
 
 **Standard single sign-on** — OAuth 2.1, OpenID Connect 1.0, SAML 2.0, and
