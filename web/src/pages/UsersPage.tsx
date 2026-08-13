@@ -534,7 +534,9 @@ export function UsersPage() {
                     <Td>
                       <div className="flex flex-wrap items-center gap-1">
                         <Badge
-                          tone={user.status === "ACTIVE" ? "success" : "danger"}
+                          tone={
+                            user.status === "ACTIVE" ? "success" : "neutral"
+                          }
                         >
                           {t(`status.${user.status}`)}
                         </Badge>

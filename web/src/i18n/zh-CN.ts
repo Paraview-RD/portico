@@ -479,15 +479,27 @@ export const zhCN: Record<keyof typeof enUS, string> = {
   "webhooks.headerName": "名称",
   "webhooks.headerValue": "值",
   "webhooks.headerAdd": "添加请求头",
-  "webhooks.snapshot": "发送快照",
+  // 叫「全量同步」而不是「快照」。运维语境里的 snapshot 是"某一刻的存档"（卷、
+  // 数据库），而这件事什么都不存：它把当前状态分页推给一个接收方。事件名一直
+  // 叫 sync.*，也就是说协议本来用的就是对的词，跑偏的只有按钮。
+  //
+  // 接口路径仍是 /snapshot、事件名仍是 sync.*：两者都是已发布的契约，为了让
+  // 名字整齐而改掉它们，等于用破坏每一个集成来换一次改名。
+  "webhooks.snapshot": "全量同步",
   "webhooks.snapshotTitle": "把已经存在的数据全部发过去",
   "webhooks.snapshotConfirm":
-    "为「{0}」排出一份包含全部账号、组织与用户组的副本？**这是 Portico 最大的一次投递。** 接收方会先收到 sync.started，然后是分页，最后是 sync.completed。",
-  "webhooks.snapshotQueued": "快照已排队",
+    "为「{0}」排出一份包含全部账号、组织与用户组的副本？",
+  "webhooks.snapshotWhat":
+    "发的是「现在有什么」，每页 500 条，不含历史。本侧不存任何东西，也不改任何东西。",
+  "webhooks.snapshotSequence":
+    "接收方会依次收到 sync.started、sync.users / sync.organizations / sync.groups 的分页、sync.completed——走的是和其它事件同一个地址、同一套签名与字段映射。",
+  "webhooks.snapshotCost":
+    "每一页在「投递记录」里对应一条记录，完成的记录 30 天后自动清理。",
+  "webhooks.snapshotQueued": "全量同步已排队",
   "webhooks.snapshotSummary":
     "已排队 {0} 次分页投递，覆盖：{1}。到「投递记录」里看进度——这里不轮询。",
   "webhooks.snapshotReconcile":
-    "快照不是原子的。同步期间被改过的账号，可能以某一页的形态到、也可能以实时事件的形态到，顺序不定——接收方必须按 id 对账，并让 occurredAt 更新的那个胜出。",
+    "全量同步不是原子的。同步期间被改过的账号，可能以某一页的形态到、也可能以实时事件的形态到，顺序不定——接收方必须按 id 对账，并让 occurredAt 更新的那个胜出。",
   "webhooks.rotate": "轮换密钥",
   "webhooks.rotateTitle": "轮换签名密钥",
   // 说在按钮之前，不是之后。宽限期内每次投递带两个签名，而把整个头当一个
@@ -521,6 +533,13 @@ export const zhCN: Record<keyof typeof enUS, string> = {
   "webhooks.event.group.created": "用户组创建",
   "webhooks.event.group.updated": "用户组信息变更",
   "webhooks.event.group.deleted": "用户组删除",
+  // 全量同步会发的五个。它们从来不在这张表里，于是「排查失败时打开的那个界面」
+  // 恰恰对数量最多的那批投递说的是标识符。
+  "webhooks.event.sync.started": "全量同步开始",
+  "webhooks.event.sync.users": "全量同步——账号",
+  "webhooks.event.sync.organizations": "全量同步——组织",
+  "webhooks.event.sync.groups": "全量同步——用户组",
+  "webhooks.event.sync.completed": "全量同步完成",
   "webhooks.event.group.members_changed": "用户组成员变更",
   "webhooks.allEvents": "全部事件",
   "webhooks.allEventsHint": "全部，包括今后版本新增的事件类型",
@@ -533,6 +552,8 @@ export const zhCN: Record<keyof typeof enUS, string> = {
   "webhooks.colEvent": "事件",
   "webhooks.colDeliveryStatus": "结果",
   "webhooks.colAttempts": "尝试次数",
+  "webhooks.colQueuedAt": "排队时间",
+  "webhooks.deliveredAt": "{0} 送达",
   "webhooks.colResponse": "响应",
   "webhooks.status.PENDING": "待投递",
   "webhooks.status.DELIVERED": "已投递",

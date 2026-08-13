@@ -526,6 +526,18 @@ export function WebhooksPage() {
         open={snapshotting !== null}
         title={t("webhooks.snapshotTitle")}
         message={t("webhooks.snapshotConfirm", snapshotting?.name ?? "")}
+        // What it will do, and what it asks of the receiver — before the
+        // button rather than after it. The reconciling requirement used to
+        // appear on the screen that reports success, which is one screen too
+        // late: it is a thing the receiver has to already be able to do.
+        details={
+          <ul className="flex flex-col gap-2 text-[length:var(--font-size-sm)] text-[var(--color-fg-muted)]">
+            <li>{t("webhooks.snapshotWhat")}</li>
+            <li>{t("webhooks.snapshotSequence")}</li>
+            <li>{t("webhooks.snapshotReconcile")}</li>
+            <li>{t("webhooks.snapshotCost")}</li>
+          </ul>
+        }
         onCancel={() => setSnapshotting(null)}
         onConfirm={() => void snapshot()}
       />
@@ -589,6 +601,10 @@ export function WebhooksPage() {
         open={inspecting !== null}
         title={t("webhooks.deliveriesFor", inspecting?.name ?? "")}
         onClose={() => setInspecting(null)}
+        // Wide: this is a table of five columns, one of which is a URL and
+        // another an error from somebody else's server. At the default
+        // width the error wrapped to four lines and the event name to two.
+        size="xl"
         footer={
           <Button onClick={() => setInspecting(null)}>
             {t("common.close")}
@@ -598,6 +614,7 @@ export function WebhooksPage() {
         <Table>
           <thead>
             <tr>
+              <Th>{t("webhooks.colQueuedAt")}</Th>
               <Th>{t("webhooks.colEvent")}</Th>
               <Th>{t("webhooks.colDeliveryStatus")}</Th>
               <Th>{t("webhooks.colAttempts")}</Th>
@@ -605,11 +622,36 @@ export function WebhooksPage() {
             </tr>
           </thead>
           <tbody>
-            {deliveries.length === 0 && <EmptyRow colSpan={4} />}
+            {deliveries.length === 0 && <EmptyRow colSpan={5} />}
             {deliveries.map((delivery) => (
               <tr key={delivery.id}>
                 <Td>
-                  <code className="text-[length:var(--font-size-sm)]">
+                  <div className="whitespace-nowrap">
+                    {new Date(delivery.createdAt).toLocaleString()}
+                  </div>
+                  {/* When it actually landed, and only when that is a
+                      different fact from when it was queued: a delivery
+                      that succeeded first time says nothing new here, and
+                      one that succeeded on the fifth attempt an hour later
+                      says quite a lot. */}
+                  {delivery.deliveredAt && (
+                    <div className="whitespace-nowrap text-[length:var(--font-size-sm)] text-[var(--color-fg-muted)]">
+                      {t(
+                        "webhooks.deliveredAt",
+                        new Date(delivery.deliveredAt).toLocaleString(),
+                      )}
+                    </div>
+                  )}
+                </Td>
+                <Td>
+                  {/* The name the subscription form and the list use. It was
+                      the raw type here, which meant the one screen where
+                      somebody is chasing a failure was the one screen that
+                      spoke in identifiers. */}
+                  <div>
+                    {labelFor(t, "webhooks.event.", delivery.eventType)}
+                  </div>
+                  <code className="text-[length:var(--font-size-sm)] text-[var(--color-fg-muted)]">
                     {delivery.eventType}
                   </code>
                 </Td>
@@ -620,9 +662,21 @@ export function WebhooksPage() {
                 </Td>
                 <Td>{delivery.attempts}</Td>
                 <Td>
-                  {/* The last error rather than the last status when there
-                      is one: "connection refused" says more than a blank. */}
-                  {delivery.lastStatus ?? delivery.lastError ?? ""}
+                  {/* The status code is the answer when there is one. The
+                      transport error is what there is instead when the
+                      request never reached a server, and it is somebody
+                      else's sentence — clamped to two lines here rather
+                      than allowed to set the height of the row. */}
+                  {delivery.lastStatus !== null ? (
+                    <span>{delivery.lastStatus}</span>
+                  ) : (
+                    <span
+                      className="line-clamp-2 text-[length:var(--font-size-sm)] text-[var(--color-fg-muted)]"
+                      title={delivery.lastError}
+                    >
+                      {delivery.lastError}
+                    </span>
+                  )}
                 </Td>
               </tr>
             ))}
