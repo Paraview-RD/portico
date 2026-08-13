@@ -12,6 +12,35 @@ import (
 	"github.com/lib/pq"
 )
 
+const assignOrganizationAdministrator = `-- name: AssignOrganizationAdministrator :exec
+INSERT INTO organization_administrators (
+    tenant_id, organization_id, user_id, scope, granted_by, granted_at
+) VALUES ($1, $2, $3, $4, $5, $6)
+`
+
+type AssignOrganizationAdministratorParams struct {
+	TenantID       string
+	OrganizationID string
+	UserID         string
+	Scope          string
+	GrantedBy      string
+	GrantedAt      time.Time
+}
+
+// Records who would administer an organization once delegated
+// administration exists. It grants nothing today; see the migration.
+func (q *Queries) AssignOrganizationAdministrator(ctx context.Context, arg AssignOrganizationAdministratorParams) error {
+	_, err := q.db.ExecContext(ctx, assignOrganizationAdministrator,
+		arg.TenantID,
+		arg.OrganizationID,
+		arg.UserID,
+		arg.Scope,
+		arg.GrantedBy,
+		arg.GrantedAt,
+	)
+	return err
+}
+
 const attachUserToOrganization = `-- name: AttachUserToOrganization :exec
 INSERT INTO user_organization_attachments (tenant_id, user_id, organization_id, created_at)
 VALUES ($1, $2, $3, $4)
@@ -85,6 +114,31 @@ type DetachUserFromOrganizationParams struct {
 func (q *Queries) DetachUserFromOrganization(ctx context.Context, arg DetachUserFromOrganizationParams) error {
 	_, err := q.db.ExecContext(ctx, detachUserFromOrganization, arg.TenantID, arg.UserID, arg.OrganizationID)
 	return err
+}
+
+const getOrganizationAdministrator = `-- name: GetOrganizationAdministrator :one
+SELECT tenant_id, organization_id, user_id, scope, granted_by, granted_at FROM organization_administrators
+WHERE tenant_id = $1 AND organization_id = $2 AND user_id = $3
+`
+
+type GetOrganizationAdministratorParams struct {
+	TenantID       string
+	OrganizationID string
+	UserID         string
+}
+
+func (q *Queries) GetOrganizationAdministrator(ctx context.Context, arg GetOrganizationAdministratorParams) (OrganizationAdministrator, error) {
+	row := q.db.QueryRowContext(ctx, getOrganizationAdministrator, arg.TenantID, arg.OrganizationID, arg.UserID)
+	var i OrganizationAdministrator
+	err := row.Scan(
+		&i.TenantID,
+		&i.OrganizationID,
+		&i.UserID,
+		&i.Scope,
+		&i.GrantedBy,
+		&i.GrantedAt,
+	)
+	return i, err
 }
 
 const getOrganizationByCode = `-- name: GetOrganizationByCode :one
@@ -170,6 +224,105 @@ func (q *Queries) ListActiveOrganizations(ctx context.Context, tenantID string) 
 			&i.CreatedAt,
 			&i.UpdatedAt,
 			&i.ManagerID,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Close(); err != nil {
+		return nil, err
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
+const listOrganizationAdministrators = `-- name: ListOrganizationAdministrators :many
+SELECT u.id, u.tenant_id, u.username, u.display_name, u.password_hash, u.phone, u.email, u.role, u.status, u.organization_id, u.token_version, u.source, u.external_id, u.failed_login_attempts, u.last_failed_login_at, u.locked_until, u.password_changed_at, u.created_at, u.updated_at, u.ldap_source_id, u.closed_at, u.verified_at, u.name_formatted, u.family_name, u.given_name, u.middle_name, u.honorific_prefix, u.honorific_suffix, u.nick_name, u.profile_url, u.photo_url, u.title, u.user_type, u.preferred_language, u.locale, u.timezone, u.address_formatted, u.street_address, u.locality, u.region, u.postal_code, u.country, u.employee_number, u.cost_center, u.department, u.manager_id, u.must_change_password, a.scope, a.granted_by, a.granted_at
+FROM organization_administrators a
+JOIN users u ON u.tenant_id = a.tenant_id AND u.id = a.user_id
+WHERE a.tenant_id = $1 AND a.organization_id = $2
+ORDER BY u.display_name
+`
+
+type ListOrganizationAdministratorsParams struct {
+	TenantID       string
+	OrganizationID string
+}
+
+type ListOrganizationAdministratorsRow struct {
+	User      User
+	Scope     string
+	GrantedBy string
+	GrantedAt time.Time
+}
+
+// The account with the assignment, so a caller can show a name and whether
+// the person is still usable. Disabled accounts are listed rather than
+// filtered: an assignment that disappeared when somebody was suspended would
+// come back on its own when they were reinstated, and nobody would have
+// decided either.
+func (q *Queries) ListOrganizationAdministrators(ctx context.Context, arg ListOrganizationAdministratorsParams) ([]ListOrganizationAdministratorsRow, error) {
+	rows, err := q.db.QueryContext(ctx, listOrganizationAdministrators, arg.TenantID, arg.OrganizationID)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	items := []ListOrganizationAdministratorsRow{}
+	for rows.Next() {
+		var i ListOrganizationAdministratorsRow
+		if err := rows.Scan(
+			&i.User.ID,
+			&i.User.TenantID,
+			&i.User.Username,
+			&i.User.DisplayName,
+			&i.User.PasswordHash,
+			&i.User.Phone,
+			&i.User.Email,
+			&i.User.Role,
+			&i.User.Status,
+			&i.User.OrganizationID,
+			&i.User.TokenVersion,
+			&i.User.Source,
+			&i.User.ExternalID,
+			&i.User.FailedLoginAttempts,
+			&i.User.LastFailedLoginAt,
+			&i.User.LockedUntil,
+			&i.User.PasswordChangedAt,
+			&i.User.CreatedAt,
+			&i.User.UpdatedAt,
+			&i.User.LdapSourceID,
+			&i.User.ClosedAt,
+			&i.User.VerifiedAt,
+			&i.User.NameFormatted,
+			&i.User.FamilyName,
+			&i.User.GivenName,
+			&i.User.MiddleName,
+			&i.User.HonorificPrefix,
+			&i.User.HonorificSuffix,
+			&i.User.NickName,
+			&i.User.ProfileUrl,
+			&i.User.PhotoUrl,
+			&i.User.Title,
+			&i.User.UserType,
+			&i.User.PreferredLanguage,
+			&i.User.Locale,
+			&i.User.Timezone,
+			&i.User.AddressFormatted,
+			&i.User.StreetAddress,
+			&i.User.Locality,
+			&i.User.Region,
+			&i.User.PostalCode,
+			&i.User.Country,
+			&i.User.EmployeeNumber,
+			&i.User.CostCenter,
+			&i.User.Department,
+			&i.User.ManagerID,
+			&i.User.MustChangePassword,
+			&i.Scope,
+			&i.GrantedBy,
+			&i.GrantedAt,
 		); err != nil {
 			return nil, err
 		}
@@ -307,6 +460,64 @@ func (q *Queries) ListOrganizations(ctx context.Context, tenantID string) ([]Org
 	return items, nil
 }
 
+const listOrganizationsAdministeredBy = `-- name: ListOrganizationsAdministeredBy :many
+SELECT o.id, o.tenant_id, o.name, o.code, o.remark, o.parent_id, o.status, o.sort_order, o.created_at, o.updated_at, o.manager_id, a.scope, a.granted_at
+FROM organization_administrators a
+JOIN organizations o ON o.tenant_id = a.tenant_id AND o.id = a.organization_id
+WHERE a.tenant_id = $1 AND a.user_id = $2
+ORDER BY o.sort_order, o.created_at
+`
+
+type ListOrganizationsAdministeredByParams struct {
+	TenantID string
+	UserID   string
+}
+
+type ListOrganizationsAdministeredByRow struct {
+	Organization Organization
+	Scope        string
+	GrantedAt    time.Time
+}
+
+// The query delegated administration will make on every request. Nothing
+// consumes it for a decision yet; the console shows it on an account.
+func (q *Queries) ListOrganizationsAdministeredBy(ctx context.Context, arg ListOrganizationsAdministeredByParams) ([]ListOrganizationsAdministeredByRow, error) {
+	rows, err := q.db.QueryContext(ctx, listOrganizationsAdministeredBy, arg.TenantID, arg.UserID)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	items := []ListOrganizationsAdministeredByRow{}
+	for rows.Next() {
+		var i ListOrganizationsAdministeredByRow
+		if err := rows.Scan(
+			&i.Organization.ID,
+			&i.Organization.TenantID,
+			&i.Organization.Name,
+			&i.Organization.Code,
+			&i.Organization.Remark,
+			&i.Organization.ParentID,
+			&i.Organization.Status,
+			&i.Organization.SortOrder,
+			&i.Organization.CreatedAt,
+			&i.Organization.UpdatedAt,
+			&i.Organization.ManagerID,
+			&i.Scope,
+			&i.GrantedAt,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Close(); err != nil {
+		return nil, err
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
 const listOrganizationsByIDs = `-- name: ListOrganizationsByIDs :many
 SELECT id, tenant_id, name, code, remark, parent_id, status, sort_order, created_at, updated_at, manager_id FROM organizations WHERE tenant_id = $1 AND id = ANY($2::text[])
 `
@@ -397,6 +608,22 @@ func (q *Queries) ListUserOrganizationAttachments(ctx context.Context, arg ListU
 		return nil, err
 	}
 	return items, nil
+}
+
+const revokeOrganizationAdministrator = `-- name: RevokeOrganizationAdministrator :exec
+DELETE FROM organization_administrators
+WHERE tenant_id = $1 AND organization_id = $2 AND user_id = $3
+`
+
+type RevokeOrganizationAdministratorParams struct {
+	TenantID       string
+	OrganizationID string
+	UserID         string
+}
+
+func (q *Queries) RevokeOrganizationAdministrator(ctx context.Context, arg RevokeOrganizationAdministratorParams) error {
+	_, err := q.db.ExecContext(ctx, revokeOrganizationAdministrator, arg.TenantID, arg.OrganizationID, arg.UserID)
+	return err
 }
 
 const setOrganizationManager = `-- name: SetOrganizationManager :exec

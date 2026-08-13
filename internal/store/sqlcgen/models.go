@@ -275,6 +275,17 @@ type Organization struct {
 	ManagerID *string
 }
 
+// Who would administer an organization once delegated administration exists. Grants nothing today: no authorization decision reads it, and a test enforces that. The scope and granted_by columns are recorded now because neither can be reconstructed later.
+type OrganizationAdministrator struct {
+	TenantID       string
+	OrganizationID string
+	UserID         string
+	// SELF is this organization only; SUBTREE is it and every descendant. Required, because a row that does not say which was meant cannot be interpreted when the feature that reads it arrives.
+	Scope     string
+	GrantedBy string
+	GrantedAt time.Time
+}
+
 type PasswordHistory struct {
 	ID           string
 	TenantID     string
