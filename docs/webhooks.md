@@ -198,6 +198,37 @@ Subscribe to `*` for everything including types added in future versions, or
 name the ones your endpoint can handle. `GET /api/v1/webhooks/events` returns
 the current list.
 
+## Reading the delivery log
+
+`GET /api/v1/webhooks/{id}/deliveries` answers one page, newest first, and
+the console shows the same thing.
+
+**Paged by cursor, not by offset.** Pass the previous page's `nextCursor`;
+omit it for the first page. The table is written to while it is read — every
+event, every retry — so an offset walked backwards through it returns some
+rows twice and skips others, with nothing to tell the reader. There is
+deliberately no total for the same reason: it would be stale before it
+arrived.
+
+**Filtered to events by default.** `filter=live` hides the pages a full sync
+produces, `sync` shows only those, `all` shows both. A full sync of a large
+tenant queues a hundred deliveries in a few seconds, which is not many rows
+but is enough to push every ordinary event off the first page of what
+somebody is reading.
+
+`GET /api/v1/webhooks/{id}/deliveries/{deliveryID}` adds the bodies: the
+request exactly as sent — the same bytes the signature was computed over, so
+a receiver debugging a signature mismatch has something to compare against —
+and the beginning of what the receiver answered, capped at 2 KiB when it was
+stored. A 400 is usually a sentence saying which field was not liked, and
+that sentence used to live only in the receiver's logs.
+
+> **Request headers are not stored, and are not in that response.** A
+> subscription's custom headers are credentials, sealed with
+> `PORTICO_ENCRYPTION_KEY` precisely so that a database dump does not yield
+> them. Copying them into a delivery row to make a debugging screen more
+> complete would undo that for every delivery ever made.
+
 ## Filling in what happened before you subscribed
 
 Events describe changes. A subscription created today has missed every

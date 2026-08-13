@@ -306,9 +306,11 @@ func (s *Server) routes() http.Handler {
 				r.Post("/", h.CreateWebhook)
 				r.Get("/events", h.WebhookEvents)
 				r.Get("/{id}/deliveries", h.ListWebhookDeliveries)
+				r.Get("/{id}/deliveries/{deliveryID}", h.GetWebhookDelivery)
 				r.Post("/{id}/rotate-secret", h.RotateWebhookSecret)
 				r.Post("/{id}/enable", h.EnableWebhook)
 				r.Post("/{id}/disable", h.DisableWebhook)
+				r.Get("/{id}/snapshot", h.PreviewWebhookSnapshot)
 				r.Post("/{id}/snapshot", h.SnapshotWebhook)
 				r.Delete("/{id}", h.DeleteWebhook)
 

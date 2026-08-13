@@ -218,6 +218,10 @@ export const errorsZhCN: Record<keyof typeof errorsEnUS, string> = {
   MALFORMED_BODY: "请求内容无法解析。",
   EMPTY_BODY: "请求没有内容。",
   BODY_TOO_LARGE: "请求体过大。",
+  WEBHOOK_DELIVERY_NOT_FOUND:
+    "找不到这条投递记录。完成的记录 30 天后会被清理。",
+  INVALID_CURSOR: "这个翻页标记已经失效，请回到第一页。",
+  INVALID_DELIVERY_FILTER: "这不是该列表支持的筛选方式。",
   UNSUPPORTED_MEDIA_TYPE: "该接口不接受这种格式的请求。",
   TOO_MANY_ATTEMPTS: "该地址的尝试次数过多，请稍候再试。",
   INVALID_PATH_PARAMETER: "地址不合法。",

@@ -264,6 +264,11 @@ export const errorsEnUS = {
   MALFORMED_BODY: "The request could not be read.",
   EMPTY_BODY: "The request had no content.",
   BODY_TOO_LARGE: "That request is too large.",
+  WEBHOOK_DELIVERY_NOT_FOUND:
+    "No such delivery. Finished deliveries are removed after 30 days.",
+  INVALID_CURSOR:
+    "That page marker is no longer valid. Go back to the first page.",
+  INVALID_DELIVERY_FILTER: "That is not a filter this list offers.",
   UNSUPPORTED_MEDIA_TYPE:
     "The request was sent in a format this endpoint does not read.",
   TOO_MANY_ATTEMPTS:

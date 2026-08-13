@@ -274,6 +274,8 @@ var notSeeded = map[string]string{
 	"/api/v1/external-identity-providers":  "the same, from the administrator's side",
 	"/api/v1/users/me/external-identities": "what the caller has linked, and nothing is linked without a provider",
 
+	"/api/v1/webhooks/{id}/snapshot": "what a full sync would send, counted on demand — an answer about the tenant rather than a list, and it is right for a seeded tenant without the seed doing anything",
+
 	"/api/v1/auth/permission-check":              "a yes-or-no answer about the caller",
 	"/api/v1/auth/recovery-channels":             "what this deployment can send, from configuration",
 	"/api/v1/auth/registration-status":           "whether registration is open, from settings",

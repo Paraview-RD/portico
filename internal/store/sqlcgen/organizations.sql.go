@@ -64,6 +64,17 @@ func (q *Queries) AttachUserToOrganization(ctx context.Context, arg AttachUserTo
 	return err
 }
 
+const countOrganizations = `-- name: CountOrganizations :one
+SELECT COUNT(*) FROM organizations WHERE tenant_id = $1
+`
+
+func (q *Queries) CountOrganizations(ctx context.Context, tenantID string) (int64, error) {
+	row := q.db.QueryRowContext(ctx, countOrganizations, tenantID)
+	var count int64
+	err := row.Scan(&count)
+	return count, err
+}
+
 const createOrganization = `-- name: CreateOrganization :exec
 INSERT INTO organizations (
     id, tenant_id, name, code, remark, parent_id, status, sort_order,

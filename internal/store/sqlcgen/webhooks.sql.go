@@ -12,7 +12,7 @@ import (
 )
 
 const claimDueWebhookDeliveries = `-- name: ClaimDueWebhookDeliveries :many
-SELECT id, tenant_id, subscription_id, event_type, payload, status, attempts, last_error, last_status, next_attempt_at, created_at, delivered_at FROM webhook_deliveries
+SELECT id, tenant_id, subscription_id, event_type, payload, status, attempts, last_error, last_status, next_attempt_at, created_at, delivered_at, last_response FROM webhook_deliveries
 WHERE tenant_id = $1
   AND status = 'PENDING'
   AND next_attempt_at <= $2
@@ -58,6 +58,7 @@ func (q *Queries) ClaimDueWebhookDeliveries(ctx context.Context, arg ClaimDueWeb
 			&i.NextAttemptAt,
 			&i.CreatedAt,
 			&i.DeliveredAt,
+			&i.LastResponse,
 		); err != nil {
 			return nil, err
 		}
@@ -198,6 +199,41 @@ func (q *Queries) EnqueueWebhookDelivery(ctx context.Context, arg EnqueueWebhook
 	return err
 }
 
+const getWebhookDelivery = `-- name: GetWebhookDelivery :one
+SELECT id, tenant_id, subscription_id, event_type, payload, status, attempts, last_error, last_status, next_attempt_at, created_at, delivered_at, last_response FROM webhook_deliveries
+WHERE tenant_id = $1 AND subscription_id = $2 AND id = $3
+`
+
+type GetWebhookDeliveryParams struct {
+	TenantID       string
+	SubscriptionID string
+	ID             string
+}
+
+// One delivery with everything it holds, including the bodies. Fetched only
+// when somebody opens it: a sync page's payload is five hundred objects, and
+// putting that in a list would make the list unusable to save a click.
+func (q *Queries) GetWebhookDelivery(ctx context.Context, arg GetWebhookDeliveryParams) (WebhookDelivery, error) {
+	row := q.db.QueryRowContext(ctx, getWebhookDelivery, arg.TenantID, arg.SubscriptionID, arg.ID)
+	var i WebhookDelivery
+	err := row.Scan(
+		&i.ID,
+		&i.TenantID,
+		&i.SubscriptionID,
+		&i.EventType,
+		&i.Payload,
+		&i.Status,
+		&i.Attempts,
+		&i.LastError,
+		&i.LastStatus,
+		&i.NextAttemptAt,
+		&i.CreatedAt,
+		&i.DeliveredAt,
+		&i.LastResponse,
+	)
+	return i, err
+}
+
 const getWebhookSubscription = `-- name: GetWebhookSubscription :one
 SELECT id, tenant_id, name, url, secret, events, status, created_at, updated_at, previous_secret, previous_secret_expires_at, headers FROM webhook_subscriptions
 WHERE tenant_id = $1 AND id = $2
@@ -270,20 +306,56 @@ func (q *Queries) ListActiveWebhookSubscriptions(ctx context.Context, tenantID s
 }
 
 const listWebhookDeliveries = `-- name: ListWebhookDeliveries :many
-SELECT id, tenant_id, subscription_id, event_type, payload, status, attempts, last_error, last_status, next_attempt_at, created_at, delivered_at FROM webhook_deliveries
+SELECT id, tenant_id, subscription_id, event_type, payload, status, attempts, last_error, last_status, next_attempt_at, created_at, delivered_at, last_response FROM webhook_deliveries
 WHERE tenant_id = $1 AND subscription_id = $2
-ORDER BY created_at DESC
-LIMIT $3
+  AND (created_at, id) < ($3::timestamptz, $4::text)
+  AND (
+    $5::text = 'all'
+    OR ($5::text = 'sync' AND event_type LIKE 'sync.%')
+    OR ($5::text = 'live' AND event_type NOT LIKE 'sync.%')
+  )
+ORDER BY created_at DESC, id DESC
+LIMIT $6
 `
 
 type ListWebhookDeliveriesParams struct {
-	TenantID       string
-	SubscriptionID string
-	Limit          int32
+	TenantID        string
+	SubscriptionID  string
+	CursorCreatedAt time.Time
+	CursorID        string
+	SyncFilter      string
+	PageSize        int32
 }
 
+// One page, newest first, optionally starting after a row the caller
+// already has.
+//
+// A cursor rather than an offset. This table is written to continuously —
+// every event, every retry — so an offset walked backwards through it
+// returns rows twice and skips others as it goes, and the reader has no way
+// to tell. (created_at, id) is the same order the index is in, and id
+// breaks the tie between two deliveries queued in the same instant.
+//
+// @cursor_created_at and @cursor_id are the last row of the previous page.
+// The first page passes store.AfterEverything, a timestamp no row can hold,
+// so the same comparison serves both cases: every real created_at is below
+// it, and a tuple comparison decided by its first element never reaches the
+// id.
+//
+// @sync_filter: 'all' is everything, 'live' hides the sync.* pages a full
+// sync produces, 'sync' shows only those. A full sync of a large tenant is
+// a hundred deliveries in a few seconds, which is not many rows but is
+// enough to push every ordinary event off the first page of what somebody
+// is reading.
 func (q *Queries) ListWebhookDeliveries(ctx context.Context, arg ListWebhookDeliveriesParams) ([]WebhookDelivery, error) {
-	rows, err := q.db.QueryContext(ctx, listWebhookDeliveries, arg.TenantID, arg.SubscriptionID, arg.Limit)
+	rows, err := q.db.QueryContext(ctx, listWebhookDeliveries,
+		arg.TenantID,
+		arg.SubscriptionID,
+		arg.CursorCreatedAt,
+		arg.CursorID,
+		arg.SyncFilter,
+		arg.PageSize,
+	)
 	if err != nil {
 		return nil, err
 	}
@@ -304,6 +376,7 @@ func (q *Queries) ListWebhookDeliveries(ctx context.Context, arg ListWebhookDeli
 			&i.NextAttemptAt,
 			&i.CreatedAt,
 			&i.DeliveredAt,
+			&i.LastResponse,
 		); err != nil {
 			return nil, err
 		}
@@ -366,14 +439,16 @@ SET status = $1,
     attempts = attempts + 1,
     last_status = $2,
     last_error = $3,
-    next_attempt_at = $4
-WHERE tenant_id = $5 AND id = $6
+    last_response = $4,
+    next_attempt_at = $5
+WHERE tenant_id = $6 AND id = $7
 `
 
 type MarkWebhookAttemptFailedParams struct {
 	Status        string
 	LastStatus    sql.NullInt32
 	LastError     string
+	LastResponse  string
 	NextAttemptAt *time.Time
 	TenantID      string
 	ID            string
@@ -386,6 +461,7 @@ func (q *Queries) MarkWebhookAttemptFailed(ctx context.Context, arg MarkWebhookA
 		arg.Status,
 		arg.LastStatus,
 		arg.LastError,
+		arg.LastResponse,
 		arg.NextAttemptAt,
 		arg.TenantID,
 		arg.ID,
@@ -399,21 +475,24 @@ SET status = 'DELIVERED',
     attempts = attempts + 1,
     last_status = $1,
     last_error = '',
+    last_response = $2,
     next_attempt_at = NULL,
-    delivered_at = $2
-WHERE tenant_id = $3 AND id = $4
+    delivered_at = $3
+WHERE tenant_id = $4 AND id = $5
 `
 
 type MarkWebhookDeliveredParams struct {
-	LastStatus  sql.NullInt32
-	DeliveredAt *time.Time
-	TenantID    string
-	ID          string
+	LastStatus   sql.NullInt32
+	LastResponse string
+	DeliveredAt  *time.Time
+	TenantID     string
+	ID           string
 }
 
 func (q *Queries) MarkWebhookDelivered(ctx context.Context, arg MarkWebhookDeliveredParams) error {
 	_, err := q.db.ExecContext(ctx, markWebhookDelivered,
 		arg.LastStatus,
+		arg.LastResponse,
 		arg.DeliveredAt,
 		arg.TenantID,
 		arg.ID,
