@@ -105,13 +105,16 @@ func TestAnEventIsQueuedForASubscriberThatSelectedIt(t *testing.T) {
 
 	deliveries := api.do(http.MethodGet,
 		"/api/v1/webhooks/"+created.ID+"/deliveries", admin, nil)
-	var queued []struct {
-		EventType string `json:"eventType"`
-		Status    string `json:"status"`
+	var page struct {
+		Items []struct {
+			EventType string `json:"eventType"`
+			Status    string `json:"status"`
+		} `json:"items"`
 	}
-	if err := json.Unmarshal(deliveries.Data, &queued); err != nil {
+	if err := json.Unmarshal(deliveries.Data, &page); err != nil {
 		t.Fatalf("decode deliveries: %v", err)
 	}
+	queued := page.Items
 
 	if len(queued) == 0 {
 		t.Fatal("creating a user queued nothing for a subscription to user.created")
@@ -143,10 +146,13 @@ func TestASubscriberOnlyGetsWhatItSelected(t *testing.T) {
 
 	deliveries := api.do(http.MethodGet,
 		"/api/v1/webhooks/"+created.ID+"/deliveries", admin, nil)
-	var queued []json.RawMessage
-	if err := json.Unmarshal(deliveries.Data, &queued); err != nil {
+	var page struct {
+		Items []json.RawMessage `json:"items"`
+	}
+	if err := json.Unmarshal(deliveries.Data, &page); err != nil {
 		t.Fatalf("decode deliveries: %v", err)
 	}
+	queued := page.Items
 	if len(queued) != 0 {
 		t.Errorf("a subscription to %s received %d user events",
 			webhook.EventOrgCreated, len(queued))
@@ -173,10 +179,13 @@ func TestAPausedSubscriptionIsNotQueuedFor(t *testing.T) {
 
 	deliveries := api.do(http.MethodGet,
 		"/api/v1/webhooks/"+created.ID+"/deliveries", admin, nil)
-	var queued []json.RawMessage
-	if err := json.Unmarshal(deliveries.Data, &queued); err != nil {
+	var page struct {
+		Items []json.RawMessage `json:"items"`
+	}
+	if err := json.Unmarshal(deliveries.Data, &page); err != nil {
 		t.Fatalf("decode: %v", err)
 	}
+	queued := page.Items
 	// Pausing means stop sending, not hold everything and deliver it in a
 	// burst when somebody resumes.
 	if len(queued) != 0 {

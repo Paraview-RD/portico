@@ -99,3 +99,6 @@ FROM organization_administrators a
 JOIN organizations o ON o.tenant_id = a.tenant_id AND o.id = a.organization_id
 WHERE a.tenant_id = $1 AND a.user_id = $2
 ORDER BY o.sort_order, o.created_at;
+
+-- name: CountOrganizations :one
+SELECT COUNT(*) FROM organizations WHERE tenant_id = $1;

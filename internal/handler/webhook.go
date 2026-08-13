@@ -101,6 +101,20 @@ func (h *Handler) setWebhookStatus(w http.ResponseWriter, r *http.Request, statu
 	httpx.OK(w, nil)
 }
 
+// PreviewWebhookSnapshot answers what a full sync would send, without
+// sending it, so the console can put the size in front of the operator
+// before the question rather than after the answer.
+func (h *Handler) PreviewWebhookSnapshot(w http.ResponseWriter, r *http.Request) {
+	actor := auth.MustPrincipal(r.Context())
+
+	summary, err := h.webhooks.SnapshotPreview(r.Context(), actor.TenantID, chi.URLParam(r, "id"))
+	if err != nil {
+		httpx.Fail(w, r, err)
+		return
+	}
+	httpx.OK(w, summary)
+}
+
 // SnapshotWebhook queues a full copy of what exists for one subscription.
 //
 // A POST rather than a PUT: asking twice is asking twice, and the guard
@@ -152,11 +166,40 @@ func (h *Handler) ListWebhookDeliveries(w http.ResponseWriter, r *http.Request) 
 		}
 	}
 
-	deliveries, err := h.webhooks.Deliveries(
-		r.Context(), actor.TenantID, chi.URLParam(r, "id"), limit)
+	// Live by default: a full sync of a large tenant is a hundred pages
+	// queued in a few seconds, and a reader who opened this screen to find
+	// out why one account did not arrive should not have to page past them.
+	filter := service.DeliveryFilterLive
+	if raw := r.URL.Query().Get("filter"); raw != "" {
+		if !service.ValidDeliveryFilter(raw) {
+			httpx.Fail(w, r, httpx.BadRequest("INVALID_DELIVERY_FILTER",
+				"Deliveries can be filtered to all, live, or sync."))
+			return
+		}
+		filter = raw
+	}
+
+	page, err := h.webhooks.Deliveries(r.Context(), actor.TenantID,
+		chi.URLParam(r, "id"), r.URL.Query().Get("cursor"), filter, limit)
 	if err != nil {
 		httpx.Fail(w, r, err)
 		return
 	}
-	httpx.OK(w, deliveries)
+	httpx.OK(w, page)
+}
+
+// GetWebhookDelivery returns one delivery with the request and response
+// bodies, which the list leaves out — a full sync page's payload is five
+// hundred objects, and putting that in a list would make the list unusable
+// to save a click.
+func (h *Handler) GetWebhookDelivery(w http.ResponseWriter, r *http.Request) {
+	actor := auth.MustPrincipal(r.Context())
+
+	delivery, err := h.webhooks.Delivery(r.Context(), actor.TenantID,
+		chi.URLParam(r, "id"), chi.URLParam(r, "deliveryID"))
+	if err != nil {
+		httpx.Fail(w, r, err)
+		return
+	}
+	httpx.OK(w, delivery)
 }

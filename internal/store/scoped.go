@@ -832,6 +832,11 @@ func (s *Scoped) ListGroupsWithMemberCounts(ctx context.Context) ([]sqlcgen.List
 	return s.q.ListGroupsWithMemberCounts(ctx, s.tenantID)
 }
 
+// CountOrganizations counts this tenant's organizations.
+func (s *Scoped) CountOrganizations(ctx context.Context) (int64, error) {
+	return s.q.CountOrganizations(ctx, s.tenantID)
+}
+
 // CountGroups returns how many the tenant has.
 func (s *Scoped) CountGroups(ctx context.Context) (int64, error) {
 	return s.q.CountGroups(ctx, s.tenantID)
@@ -1067,10 +1072,25 @@ func (s *Scoped) MarkWebhookAttemptFailed(ctx context.Context, arg sqlcgen.MarkW
 	return s.q.MarkWebhookAttemptFailed(ctx, arg)
 }
 
-// ListWebhookDeliveries returns a subscription's recent attempts.
-func (s *Scoped) ListWebhookDeliveries(ctx context.Context, subscriptionID string, limit int32) ([]sqlcgen.WebhookDelivery, error) {
+// ListWebhookDeliveries returns one page of a subscription's attempts,
+// newest first, starting after the cursor.
+func (s *Scoped) ListWebhookDeliveries(ctx context.Context, subscriptionID string,
+	cursorCreatedAt time.Time, cursorID, syncFilter string, pageSize int32,
+) ([]sqlcgen.WebhookDelivery, error) {
 	return s.q.ListWebhookDeliveries(ctx, sqlcgen.ListWebhookDeliveriesParams{
-		TenantID: s.tenantID, SubscriptionID: subscriptionID, Limit: limit,
+		TenantID:        s.tenantID,
+		SubscriptionID:  subscriptionID,
+		CursorCreatedAt: cursorCreatedAt,
+		CursorID:        cursorID,
+		SyncFilter:      syncFilter,
+		PageSize:        pageSize,
+	})
+}
+
+// GetWebhookDelivery returns one delivery, bodies included.
+func (s *Scoped) GetWebhookDelivery(ctx context.Context, subscriptionID, deliveryID string) (sqlcgen.WebhookDelivery, error) {
+	return s.q.GetWebhookDelivery(ctx, sqlcgen.GetWebhookDeliveryParams{
+		TenantID: s.tenantID, SubscriptionID: subscriptionID, ID: deliveryID,
 	})
 }
 

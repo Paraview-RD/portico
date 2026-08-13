@@ -12,6 +12,34 @@ Working toward 0.2.0. See
 
 ### Added
 
+- **The delivery log can be read.** It pages by cursor rather than showing
+  the newest fifty and stopping, defaults to hiding the pages a full sync
+  produces (a hundred of them arrive in seconds and would otherwise be all
+  anybody can see), shows when each delivery was queued and when it landed,
+  and names the event the way every other screen does rather than as
+  `user.created`.
+- **Each delivery can be opened**: the request body exactly as sent — the
+  bytes the signature covered, which is what a receiver debugging a
+  signature mismatch needs — and the beginning of what the receiver
+  answered, kept to 2 KiB. A 400 is usually a sentence saying which field
+  was wrong, and that sentence used to live only in the receiver's logs.
+  Request headers are **not** stored and not shown: a subscription's custom
+  headers are credentials, and a debugging screen is not a reason to copy
+  them into every delivery row.
+- The full-sync confirmation now says how much it would send **before** the
+  button, counted on demand through `GET /api/v1/webhooks/{id}/snapshot`.
+  "Queue a copy of everything?" is a different decision at fifty accounts
+  and at fifty thousand.
+
+### Changed
+
+- `GET /api/v1/webhooks/{id}/deliveries` **answers an object rather than an
+  array**: `{ items, nextCursor }`. A client reading `data[0]` has to change.
+  This is a break, and it is here rather than in a later version because the
+  array had no room for a cursor and offsets are wrong for a table that is
+  written to while it is read — an offset walked backwards returns some rows
+  twice and skips others, with nothing to tell the reader.
+
 - **Organizations can record who would administer them**, each with a scope:
   that organization, or that organization and everything under it.
   **Nothing is granted by it.** No authorization decision reads those

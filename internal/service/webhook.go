@@ -369,24 +369,151 @@ type Delivery struct {
 	DeliveredAt *time.Time `json:"deliveredAt"`
 }
 
-// Deliveries returns a subscription's recent attempts, newest first.
-func (s *WebhookService) Deliveries(ctx context.Context, tenantID, subscriptionID string, limit int32) ([]Delivery, error) {
-	rows, err := s.store.ForTenant(tenantID).ListWebhookDeliveries(ctx, subscriptionID, limit)
+// DeliveryPage is one page of a subscription's attempts, with the cursor
+// that fetches the next.
+//
+// NextCursor is empty when this is the last page. A count is deliberately
+// absent: the table is written to while somebody reads it, so a total would
+// be out of date before it arrived, and paging by cursor does not need one.
+type DeliveryPage struct {
+	Items      []Delivery `json:"items"`
+	NextCursor string     `json:"nextCursor"`
+}
+
+// Delivery filters. Live hides the pages a full sync produces, which is the
+// default because those are the deliveries there are most of and the ones
+// least often being looked for: a hundred sync.users pages arriving in a few
+// seconds push every ordinary event off the page somebody is reading.
+const (
+	DeliveryFilterAll  = "all"
+	DeliveryFilterLive = "live"
+	DeliveryFilterSync = "sync"
+)
+
+// ValidDeliveryFilter reports whether f is one this version serves.
+func ValidDeliveryFilter(f string) bool {
+	return f == DeliveryFilterAll || f == DeliveryFilterLive || f == DeliveryFilterSync
+}
+
+// Deliveries returns one page of a subscription's attempts, newest first.
+//
+// cursor is the NextCursor of the previous page, or "" for the first.
+func (s *WebhookService) Deliveries(
+	ctx context.Context, tenantID, subscriptionID, cursor, filter string, pageSize int32,
+) (DeliveryPage, error) {
+	createdAt, id, err := decodeDeliveryCursor(cursor)
 	if err != nil {
-		return nil, fmt.Errorf("list deliveries: %w", err)
+		return DeliveryPage{}, err
 	}
 
-	out := make([]Delivery, 0, len(rows))
+	// One more than asked for, so "is there another page" is answered by the
+	// same query rather than by a second one that could disagree with it.
+	rows, err := s.store.ForTenant(tenantID).
+		ListWebhookDeliveries(ctx, subscriptionID, createdAt, id, filter, pageSize+1)
+	if err != nil {
+		return DeliveryPage{}, fmt.Errorf("list deliveries: %w", err)
+	}
+
+	page := DeliveryPage{Items: make([]Delivery, 0, len(rows))}
+	// len is compared as int, not narrowed: pageSize is bounded by the
+	// handler and widening is always safe, while the other direction is what
+	// the linter is right to object to.
+	if len(rows) > int(pageSize) {
+		rows = rows[:pageSize]
+		last := rows[len(rows)-1]
+		page.NextCursor = encodeDeliveryCursor(last.CreatedAt, last.ID)
+	}
+
 	for _, row := range rows {
-		out = append(out, Delivery{
+		page.Items = append(page.Items, Delivery{
 			ID: row.ID, EventType: row.EventType, Status: row.Status,
 			Attempts: row.Attempts, LastStatus: nullableInt32(row.LastStatus),
 			LastError: row.LastError, CreatedAt: row.CreatedAt,
 			DeliveredAt: row.DeliveredAt,
 		})
 	}
-	return out, nil
+	return page, nil
 }
+
+// DeliveryDetail is one delivery with the bodies, which the list omits.
+type DeliveryDetail struct {
+	Delivery
+	// Payload is the request body exactly as it was sent — the same bytes
+	// the signature was computed over, so a receiver comparing signatures
+	// has something to compare against.
+	Payload string `json:"payload"`
+	// Response is the beginning of what the receiver answered on the most
+	// recent attempt, capped when it was stored.
+	Response string `json:"response"`
+	// ResponseCap says where that cap is, so a screen can say "truncated"
+	// rather than leaving somebody to wonder whether the receiver stopped
+	// mid-sentence.
+	ResponseCap int `json:"responseCap"`
+}
+
+// Delivery returns one attempt in full.
+//
+// Request headers are deliberately not included, here or in the row: a
+// subscription's custom headers are credentials, sealed precisely so a
+// database dump does not yield them, and a debugging screen is not a reason
+// to copy them into one.
+func (s *WebhookService) Delivery(ctx context.Context, tenantID, subscriptionID, deliveryID string) (DeliveryDetail, error) {
+	row, err := s.store.ForTenant(tenantID).GetWebhookDelivery(ctx, subscriptionID, deliveryID)
+	if err != nil {
+		if store.IsNoRows(err) {
+			return DeliveryDetail{}, ErrWebhookDeliveryNotFound
+		}
+		return DeliveryDetail{}, fmt.Errorf("get delivery: %w", err)
+	}
+
+	return DeliveryDetail{
+		Delivery: Delivery{
+			ID: row.ID, EventType: row.EventType, Status: row.Status,
+			Attempts: row.Attempts, LastStatus: nullableInt32(row.LastStatus),
+			LastError: row.LastError, CreatedAt: row.CreatedAt,
+			DeliveredAt: row.DeliveredAt,
+		},
+		Payload:     row.Payload,
+		Response:    row.LastResponse,
+		ResponseCap: webhook.ResponseKeep,
+	}, nil
+}
+
+// ErrWebhookDeliveryNotFound is a delivery id that is not this
+// subscription's, or is past its retention.
+var ErrWebhookDeliveryNotFound = httpx.NotFound("WEBHOOK_DELIVERY_NOT_FOUND",
+	"No such delivery. Finished deliveries are removed after 30 days.")
+
+// The cursor is the ordering key, base64 of "<RFC3339Nano>|<id>". Opaque to
+// the caller on purpose: it is this query's ordering, and a client that
+// parsed it would be depending on that ordering never changing.
+func encodeDeliveryCursor(createdAt time.Time, id string) string {
+	return base64.RawURLEncoding.EncodeToString(
+		[]byte(createdAt.Format(time.RFC3339Nano) + "|" + id))
+}
+
+func decodeDeliveryCursor(cursor string) (time.Time, string, error) {
+	if cursor == "" {
+		return store.AfterEverything, "", nil
+	}
+	raw, err := base64.RawURLEncoding.DecodeString(cursor)
+	if err != nil {
+		return time.Time{}, "", ErrInvalidDeliveryCursor
+	}
+	at, id, ok := strings.Cut(string(raw), "|")
+	if !ok {
+		return time.Time{}, "", ErrInvalidDeliveryCursor
+	}
+	createdAt, err := time.Parse(time.RFC3339Nano, at)
+	if err != nil {
+		return time.Time{}, "", ErrInvalidDeliveryCursor
+	}
+	return createdAt, id, nil
+}
+
+// ErrInvalidDeliveryCursor is a cursor this server did not issue.
+var ErrInvalidDeliveryCursor = httpx.BadRequest("INVALID_CURSOR",
+	"That page marker is not one this server issued. Start from the first page.")
 
 // Publish queues an event for every subscription that selected it.
 //

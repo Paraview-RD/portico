@@ -38,7 +38,9 @@ import type {
   Status,
   User,
   UserSession,
-  WebhookDelivery,
+  WebhookDeliveryDetail,
+  WebhookDeliveryPage,
+  DeliveryFilter,
   WebhookSnapshot,
   WebhookSubscription,
   CatalogueField,
@@ -816,8 +818,30 @@ export const webhooksApi = {
       body: input,
     }),
 
-  deliveries: (id: string) =>
-    request<WebhookDelivery[]>(`/webhooks/${segment(id)}/deliveries`),
+  /**
+   * One page of attempts, newest first.
+   *
+   * `filter` defaults to `live` on the server, which hides the pages a full
+   * sync produces: a hundred of them arrive in a few seconds and would
+   * otherwise be the whole of what somebody opening this screen can see.
+   */
+  deliveries: (
+    id: string,
+    params: { cursor?: string; filter?: DeliveryFilter; limit?: number } = {},
+  ) =>
+    request<WebhookDeliveryPage>(
+      `/webhooks/${segment(id)}/deliveries${query(params)}`,
+    ),
+
+  /** One delivery with the request and response bodies, fetched on demand. */
+  delivery: (id: string, deliveryID: string) =>
+    request<WebhookDeliveryDetail>(
+      `/webhooks/${segment(id)}/deliveries/${segment(deliveryID)}`,
+    ),
+
+  /** What a full sync would send, without sending it. */
+  snapshotPreview: (id: string) =>
+    request<WebhookSnapshot>(`/webhooks/${segment(id)}/snapshot`),
 
   /**
    * Issues a new signing key, returned once. The subscription keeps its id,

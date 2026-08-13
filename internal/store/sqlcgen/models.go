@@ -511,6 +511,8 @@ type WebhookDelivery struct {
 	NextAttemptAt  *time.Time
 	CreatedAt      time.Time
 	DeliveredAt    *time.Time
+	// The beginning of what the receiver answered on the most recent attempt, capped at 2 KiB when written. Never contains request headers: a subscription's custom headers are credentials and are not copied here.
+	LastResponse string
 }
 
 type WebhookSubscription struct {

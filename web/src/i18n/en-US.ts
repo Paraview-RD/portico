@@ -528,6 +528,25 @@ export const enUS = {
   "webhooks.snapshotCost":
     "One delivery per page shows up under Deliveries, and finished ones are cleared after 30 days.",
   "webhooks.snapshotQueued": "Full sync queued",
+  "webhooks.snapshotSize": "It would send {0} — {1} page deliveries in all.",
+  "webhooks.snapshotCount": "{0} {1}",
+  "webhooks.kind.user": "accounts",
+  "webhooks.kind.organization": "organizations",
+  "webhooks.kind.group": "groups",
+  "webhooks.deliveryFilter": "Show",
+  "webhooks.filter.live": "Events",
+  "webhooks.filter.sync": "Full sync pages",
+  "webhooks.filter.all": "Everything",
+  "webhooks.loadMore": "Load more",
+  "webhooks.colDetail": "Detail",
+  "webhooks.detailOpen": "Open",
+  "webhooks.detailClose": "Close",
+  "webhooks.detailRequest": "Request body — the bytes the signature covered",
+  "webhooks.detailResponse": "What the receiver answered",
+  "webhooks.detailResponseEmpty": "The receiver answered with no body.",
+  "webhooks.detailTruncated": "Kept to the first {0} bytes.",
+  "webhooks.detailNoHeaders":
+    "Request headers are not stored. A subscription's custom headers are credentials, and a debugging screen is not a reason to copy them into every delivery row.",
   "webhooks.snapshotSummary":
     "{0} page deliveries queued, covering: {1}. Watch them under Deliveries — nothing here polls.",
   "webhooks.snapshotReconcile":

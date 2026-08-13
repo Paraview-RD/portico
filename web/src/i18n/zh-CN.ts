@@ -496,6 +496,25 @@ export const zhCN: Record<keyof typeof enUS, string> = {
   "webhooks.snapshotCost":
     "每一页在「投递记录」里对应一条记录，完成的记录 30 天后自动清理。",
   "webhooks.snapshotQueued": "全量同步已排队",
+  "webhooks.snapshotSize": "本次会发送 {0}，共 {1} 次分页投递。",
+  "webhooks.snapshotCount": "{1} {0} 条",
+  "webhooks.kind.user": "账号",
+  "webhooks.kind.organization": "组织",
+  "webhooks.kind.group": "用户组",
+  "webhooks.deliveryFilter": "显示",
+  "webhooks.filter.live": "业务事件",
+  "webhooks.filter.sync": "全量同步分页",
+  "webhooks.filter.all": "全部",
+  "webhooks.loadMore": "加载更多",
+  "webhooks.colDetail": "详情",
+  "webhooks.detailOpen": "展开",
+  "webhooks.detailClose": "收起",
+  "webhooks.detailRequest": "请求报文——签名覆盖的正是这段字节",
+  "webhooks.detailResponse": "接收方的响应",
+  "webhooks.detailResponseEmpty": "接收方没有返回响应体。",
+  "webhooks.detailTruncated": "只保留了前 {0} 字节。",
+  "webhooks.detailNoHeaders":
+    "请求头不会被存储。订阅的自定义请求头是凭据，而「方便排查」不足以成为把它们抄进每一条投递记录的理由。",
   "webhooks.snapshotSummary":
     "已排队 {0} 次分页投递，覆盖：{1}。到「投递记录」里看进度——这里不轮询。",
   "webhooks.snapshotReconcile":

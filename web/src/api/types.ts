@@ -629,6 +629,26 @@ export interface WebhookSnapshot {
   pages: number;
 }
 
+/** Which deliveries a page asks for. See the endpoint for why live is the default. */
+export type DeliveryFilter = "all" | "live" | "sync";
+
+/** One page of deliveries. `nextCursor` is empty on the last page, and there
+ * is deliberately no total: the table is written to while it is read. */
+export interface WebhookDeliveryPage {
+  items: WebhookDelivery[];
+  nextCursor: string;
+}
+
+/** One delivery with the bodies the list leaves out. */
+export interface WebhookDeliveryDetail extends WebhookDelivery {
+  /** The request body exactly as sent — the bytes the signature covered. */
+  payload: string;
+  /** The beginning of what the receiver answered on the most recent attempt. */
+  response: string;
+  /** Where the stored answer was cut, so a screen can say so. */
+  responseCap: number;
+}
+
 /** One attempt to deliver one event. */
 export interface WebhookDelivery {
   id: string;
