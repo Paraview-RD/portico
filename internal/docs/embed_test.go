@@ -82,8 +82,15 @@ func TestTheChineseManualIsServedUnderItsOwnPrefix(t *testing.T) {
 	if rec.Code != http.StatusOK {
 		t.Fatalf("status = %d, want 200", rec.Code)
 	}
-	if !strings.Contains(rec.Body.String(), "这是你正在运行") {
-		t.Error("the Chinese home page is not the Chinese one")
+	// The lang attribute, which the build sets from the Chinese config, and
+	// not a sentence off the page. This used to look for a phrase from
+	// index.zh.md, and the phrase was reworded — so the test failed for
+	// somebody rewriting a paragraph, and said "the Chinese home page is not
+	// the Chinese one" about a page that was. What it means to assert is
+	// that this prefix serves the Chinese build rather than the English one,
+	// and that only stops being true if the build stops doing it.
+	if !strings.Contains(rec.Body.String(), `<html lang="zh"`) {
+		t.Error("/docs/zh/ is not the Chinese build; it has no <html lang=\"zh\">")
 	}
 }
 
