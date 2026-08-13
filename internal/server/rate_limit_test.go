@@ -17,7 +17,17 @@ import (
 
 func TestSignInRefusesAFloodFromOneAddress(t *testing.T) {
 	cfg := testConfig(t)
-	cfg.AuthRateLimit = 60
+	// One a minute, so nothing refills while this runs.
+	//
+	// 60 was the first version and it was a race against the bucket: at one
+	// token a second, four requests that take longer than a second between
+	// them see the fourth allowed, correctly. That passed on its own branch
+	// and failed on main under the race detector, where every bcrypt is slow
+	// and the package it shares is slower — the exact shape of test that is
+	// green until it is somebody else's problem. What is being asserted here
+	// is that the burst is finite, not how fast it refills; internal/httpx
+	// asserts the refill against a clock it controls.
+	cfg.AuthRateLimit = 1
 	cfg.AuthRateLimitBurst = 3
 	api := newAPITestWithConfig(t, cfg)
 
@@ -52,7 +62,9 @@ func TestSignInRefusesAFloodFromOneAddress(t *testing.T) {
 // under exactly the load the throttle exists for.
 func TestHealthChecksAreNeverThrottled(t *testing.T) {
 	cfg := testConfig(t)
-	cfg.AuthRateLimit = 60
+	// One a minute again, for the reason above: the refusal this test needs
+	// must not expire while the test is running.
+	cfg.AuthRateLimit = 1
 	cfg.AuthRateLimitBurst = 1
 	api := newAPITestWithConfig(t, cfg)
 
