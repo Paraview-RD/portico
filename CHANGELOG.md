@@ -633,6 +633,17 @@ Working toward 0.2.0. See
 
 ### Fixed
 
+- **Five tests that had been announcing themselves as passing by never
+  running.** `internal/docs` skips itself when the manual has not been built,
+  and the job that runs the Go suite never built it — so `/docs` was covered
+  in name only, and one of the five had been failing on main for days,
+  visible to nobody but a developer who had run `hack/dev.sh` locally. It
+  asserted on a sentence from the Chinese home page that had since been
+  reworded, and reported "the Chinese home page is not the Chinese one" about
+  a page that was. It now looks at the `lang` attribute the build sets, which
+  stops being right only if the Chinese build stops being the Chinese build.
+  CI builds the manual before the suite that reads it.
+
 - **The manual is inside the things that ship.** `internal/docs` exists so
   that the pages an operator opens are necessarily the pages for the version
   they are running, and it had never once shipped: nothing built it before

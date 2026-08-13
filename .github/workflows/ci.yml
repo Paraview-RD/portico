@@ -58,6 +58,28 @@ jobs:
 
       - run: go vet ./...
 
+      # The manual, built before the tests that read it.
+      #
+      # internal/docs serves the site out of the binary, and its tests skip
+      # themselves when it has not been built — which in this job was always.
+      # So five tests announced themselves as passing by never running, and
+      # one of them had been failing on main for days: it asserted on a
+      # sentence somebody had since reworded, and only a developer who had
+      # run hack/dev.sh ever saw it. A test that cannot fail in CI is not a
+      # test CI has, and the skip made that indistinguishable from a green.
+      #
+      # Here rather than in the docs job, which builds the same site: this is
+      # where Go tests that read the documentation live, and there are
+      # several. Splitting these four out would leave `go test ./...` here
+      # still skipping them, and the next one somebody adds would go quiet
+      # the same way. Half a minute on a job that already runs a
+      # twenty-five-minute race build.
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - run: pip install -r hack/docs-requirements.txt
+      - run: ./hack/build-docs.sh
+
       # The suite runs twice over, in two places, and the difference is the
       # race detector.
       #
