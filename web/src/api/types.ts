@@ -61,6 +61,35 @@ export interface User {
 }
 
 /** An organization named without carrying the whole of it. */
+/**
+ * Somebody recorded as administering an organization.
+ *
+ * It grants them nothing in this version: no authorization decision reads
+ * it. The records are collected now because delegated administration is
+ * planned, and a chart entered by people over months cannot be reconstructed
+ * on the day the feature ships.
+ */
+export interface OrganizationAdministrator {
+  userId: string;
+  username: string;
+  displayName: string;
+  /** The account's status, so a disabled one can be shown as such. */
+  status: Status;
+  /** SELF is this organization; SUBTREE is it and every descendant. */
+  scope: AdminScope;
+  grantedBy: string;
+  grantedByName: string;
+  grantedAt: string;
+}
+
+/** The other direction: what an account is recorded as administering. */
+export interface AdministeredOrganization extends OrganizationRef {
+  scope: AdminScope;
+  grantedAt: string;
+}
+
+export type AdminScope = "SELF" | "SUBTREE";
+
 export interface OrganizationRef {
   id: string;
   name: string;

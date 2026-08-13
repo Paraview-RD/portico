@@ -319,6 +319,8 @@ func TestEverySeededCollectionIsAccountedFor(t *testing.T) {
 		"/api/v1/applications/saml-service-providers/{id}/field-mappings",
 		"/api/v1/applications/cas-services/{id}/field-mappings",
 		"/api/v1/webhooks/{id}/field-mappings",
+		"/api/v1/organizations/{id}/administrators",
+		"/api/v1/users/{id}/administered-organizations",
 	} {
 		covered[c] = true
 	}

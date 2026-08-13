@@ -34,3 +34,49 @@ type Organization struct {
 	// accounts a disable would affect.
 	UserCount int64 `json:"userCount"`
 }
+
+// Administrator scopes. SELF is one organization; SUBTREE is it and every
+// descendant.
+//
+// Two values and no more. A third dimension — may manage people but not the
+// structure — would be a permission model designed one column at a time,
+// which is what the planned feature is for.
+const (
+	OrgScopeSelf    = "SELF"
+	OrgScopeSubtree = "SUBTREE"
+)
+
+// ValidOrgScope reports whether s is a scope this version records.
+func ValidOrgScope(s string) bool {
+	return s == OrgScopeSelf || s == OrgScopeSubtree
+}
+
+// OrganizationAdministrator is somebody recorded as administering an
+// organization, for a feature that does not exist yet.
+//
+// It grants nothing. No authorization decision reads it, and a test in
+// internal/server requires that to stay true — see migration 00020 for why
+// the rows are collected before anything can act on them.
+type OrganizationAdministrator struct {
+	UserID      string `json:"userId"`
+	Username    string `json:"username"`
+	DisplayName string `json:"displayName"`
+	// Status is the account's, so a screen can show that somebody named here
+	// is currently disabled rather than quietly listing them as usable.
+	Status Status `json:"status"`
+	// Scope is SELF or SUBTREE.
+	Scope string `json:"scope"`
+	// GrantedBy is the account that made the assignment, and GrantedByName
+	// is resolved for display.
+	GrantedBy     string    `json:"grantedBy"`
+	GrantedByName string    `json:"grantedByName"`
+	GrantedAt     time.Time `json:"grantedAt"`
+}
+
+// AdministeredOrganization is the other direction: an organization somebody
+// is recorded as administering. Same nothing-is-granted caveat.
+type AdministeredOrganization struct {
+	OrganizationRef
+	Scope     string    `json:"scope"`
+	GrantedAt time.Time `json:"grantedAt"`
+}

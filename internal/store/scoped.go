@@ -1271,6 +1271,48 @@ func (s *Scoped) ListUserOrganizationAttachments(ctx context.Context, userID str
 	})
 }
 
+// AssignOrganizationAdministrator records who would administer an
+// organization once delegated administration exists. It grants nothing
+// today; see migration 00020.
+func (s *Scoped) AssignOrganizationAdministrator(ctx context.Context, organizationID, userID, scope, grantedBy string, now time.Time) error {
+	return s.q.AssignOrganizationAdministrator(ctx, sqlcgen.AssignOrganizationAdministratorParams{
+		TenantID:       s.tenantID,
+		OrganizationID: organizationID,
+		UserID:         userID,
+		Scope:          scope,
+		GrantedBy:      grantedBy,
+		GrantedAt:      now,
+	})
+}
+
+// RevokeOrganizationAdministrator removes an assignment.
+func (s *Scoped) RevokeOrganizationAdministrator(ctx context.Context, organizationID, userID string) error {
+	return s.q.RevokeOrganizationAdministrator(ctx, sqlcgen.RevokeOrganizationAdministratorParams{
+		TenantID: s.tenantID, OrganizationID: organizationID, UserID: userID,
+	})
+}
+
+// GetOrganizationAdministrator returns one assignment.
+func (s *Scoped) GetOrganizationAdministrator(ctx context.Context, organizationID, userID string) (sqlcgen.OrganizationAdministrator, error) {
+	return s.q.GetOrganizationAdministrator(ctx, sqlcgen.GetOrganizationAdministratorParams{
+		TenantID: s.tenantID, OrganizationID: organizationID, UserID: userID,
+	})
+}
+
+// ListOrganizationAdministrators returns the assignments on an organization.
+func (s *Scoped) ListOrganizationAdministrators(ctx context.Context, organizationID string) ([]sqlcgen.ListOrganizationAdministratorsRow, error) {
+	return s.q.ListOrganizationAdministrators(ctx, sqlcgen.ListOrganizationAdministratorsParams{
+		TenantID: s.tenantID, OrganizationID: organizationID,
+	})
+}
+
+// ListOrganizationsAdministeredBy returns the assignments a person holds.
+func (s *Scoped) ListOrganizationsAdministeredBy(ctx context.Context, userID string) ([]sqlcgen.ListOrganizationsAdministeredByRow, error) {
+	return s.q.ListOrganizationsAdministeredBy(ctx, sqlcgen.ListOrganizationsAdministeredByParams{
+		TenantID: s.tenantID, UserID: userID,
+	})
+}
+
 // ListOrganizationAttachedUsers returns the people attached to one.
 func (s *Scoped) ListOrganizationAttachedUsers(ctx context.Context, organizationID string) ([]sqlcgen.User, error) {
 	return s.q.ListOrganizationAttachedUsers(ctx, sqlcgen.ListOrganizationAttachedUsersParams{

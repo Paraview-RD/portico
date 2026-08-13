@@ -63,3 +63,39 @@ JOIN user_organization_attachments a
   ON a.tenant_id = u.tenant_id AND a.user_id = u.id
 WHERE a.tenant_id = $1 AND a.organization_id = $2
 ORDER BY u.display_name;
+
+-- name: AssignOrganizationAdministrator :exec
+-- Records who would administer an organization once delegated
+-- administration exists. It grants nothing today; see the migration.
+INSERT INTO organization_administrators (
+    tenant_id, organization_id, user_id, scope, granted_by, granted_at
+) VALUES ($1, $2, $3, $4, $5, $6);
+
+-- name: RevokeOrganizationAdministrator :exec
+DELETE FROM organization_administrators
+WHERE tenant_id = $1 AND organization_id = $2 AND user_id = $3;
+
+-- name: GetOrganizationAdministrator :one
+SELECT * FROM organization_administrators
+WHERE tenant_id = $1 AND organization_id = $2 AND user_id = $3;
+
+-- name: ListOrganizationAdministrators :many
+-- The account with the assignment, so a caller can show a name and whether
+-- the person is still usable. Disabled accounts are listed rather than
+-- filtered: an assignment that disappeared when somebody was suspended would
+-- come back on its own when they were reinstated, and nobody would have
+-- decided either.
+SELECT sqlc.embed(u), a.scope, a.granted_by, a.granted_at
+FROM organization_administrators a
+JOIN users u ON u.tenant_id = a.tenant_id AND u.id = a.user_id
+WHERE a.tenant_id = $1 AND a.organization_id = $2
+ORDER BY u.display_name;
+
+-- name: ListOrganizationsAdministeredBy :many
+-- The query delegated administration will make on every request. Nothing
+-- consumes it for a decision yet; the console shows it on an account.
+SELECT sqlc.embed(o), a.scope, a.granted_at
+FROM organization_administrators a
+JOIN organizations o ON o.tenant_id = a.tenant_id AND o.id = a.organization_id
+WHERE a.tenant_id = $1 AND a.user_id = $2
+ORDER BY o.sort_order, o.created_at;

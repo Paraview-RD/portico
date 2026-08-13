@@ -26,6 +26,8 @@ export const enUS = {
 
   "common.copy": "Copy",
   "common.copied": "Copied",
+  "common.remove": "Remove",
+  "common.search": "Search",
 
   "status.ACTIVE": "Active",
   "status.DISABLED": "Disabled",
@@ -227,6 +229,29 @@ export const enUS = {
   "organizations.parentHelp":
     "Leave as none for a top-level organization. An organization cannot be moved inside its own branch.",
   "organizations.noParent": "None (top level)",
+  "users.attachedOrganizations": "Also involved with",
+  "users.noAttachments": "No other organizations.",
+  "users.chooseOrganization": "Choose an organization",
+  "users.attach": "Attach",
+  "users.administersOrganizations": "Recorded as administering",
+  "users.administersGrantsNothing":
+    "Recorded for a feature that has not shipped; it grants no access today.",
+
+  "organizations.administratorsAction": "Administrators",
+  "organizations.administrators": "Administrators of {0}",
+  "organizations.administratorsGrantNothing":
+    "Recorded for a feature that has not shipped. Naming somebody here gives them no access at all today — it describes who would administer this organization once delegated administration exists, so that the chart is already in place when it does.",
+  "organizations.noAdministrators": "Nobody is recorded here yet.",
+  "organizations.addAdministrator": "Record an administrator",
+  "organizations.searchAccount": "Search by name or username",
+  "organizations.recordAdministrator": "Record {0}",
+  "organizations.grantedBy": "recorded by {0}",
+  "organizations.scopeLabel": "How far it reaches",
+  "organizations.scopeChoose": "Choose one",
+  "organizations.scopeHelp":
+    "This cannot be added later: a record that does not say which was meant is one nobody can interpret when the feature that reads it arrives.",
+  "organizations.scope.SELF": "This organization only",
+  "organizations.scope.SUBTREE": "This organization and everything under it",
   "organizations.sortOrder": "Sort order",
   "organizations.confirmDisable":
     "Disable {0}? Existing members stay, but no new members can be assigned.",

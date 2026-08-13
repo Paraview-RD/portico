@@ -1406,6 +1406,39 @@ paths:
         "404":
           $ref: "#/components/responses/NotFound"
 
+  /api/v1/users/{id}/administered-organizations:
+    get:
+      tags: [Users]
+      operationId: listAdministeredOrganizations
+      summary: The organizations an account is recorded as administering.
+      description: |
+        **These records grant nothing** in this version — see
+        `listOrganizationAdministrators` for why they are collected before
+        anything can act on them.
+
+        This is the direction delegated administration will read on every
+        request, which is why it is indexed and exposed now rather than
+        derived by a caller from the other list.
+      parameters:
+        - $ref: "#/components/parameters/ID"
+      responses:
+        "200":
+          description: What they are recorded as administering.
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: "#/components/schemas/Envelope"
+                  - type: object
+                    properties:
+                      data:
+                        type: array
+                        items: { $ref: "#/components/schemas/AdministeredOrganization" }
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+
   /api/v1/users/{id}/groups:
     get:
       tags: [Users]
@@ -2717,6 +2750,122 @@ paths:
           content:
             application/json:
               schema: { $ref: "#/components/schemas/Envelope" }
+
+  /api/v1/organizations/{id}/administrators:
+    get:
+      tags: [Organizations]
+      operationId: listOrganizationAdministrators
+      summary: Who is recorded as administering this organization.
+      description: |
+        **These records grant nothing.** No authorization decision in this
+        version reads them, and a test requires that to stay true.
+
+        They exist because delegated administration is planned, and an
+        organization chart is entered by people over months: a feature that
+        arrives to an empty table makes every deployment re-enter what it
+        already knows. Collecting the facts early is cheap; reconstructing
+        them afterwards is not possible.
+
+        Assignments on accounts that have since been disabled are listed
+        rather than filtered, with the account's status, so a screen can say
+        that somebody named here cannot currently sign in.
+      parameters:
+        - $ref: "#/components/parameters/ID"
+      responses:
+        "200":
+          description: The assignments on this organization.
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: "#/components/schemas/Envelope"
+                  - type: object
+                    properties:
+                      data:
+                        type: array
+                        items: { $ref: "#/components/schemas/OrganizationAdministrator" }
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+    post:
+      tags: [Organizations]
+      operationId: assignOrganizationAdministrator
+      summary: Record somebody as an administrator of this organization.
+      description: |
+        **It grants the person named nothing at all.** See the note on the
+        GET above for why the record exists before anything can act on it.
+
+        `scope` is required and has no default. `SELF` is this organization;
+        `SUBTREE` is it and every descendant. The distinction cannot be added
+        afterwards — a row that did not say which was meant is one nobody can
+        interpret when the feature that reads it arrives — so the person
+        assigning has to state it.
+
+        Changing a scope is a removal followed by an addition, so that both
+        appear in the audit trail as the decisions they are. A second
+        assignment of the same account is refused.
+      parameters:
+        - $ref: "#/components/parameters/ID"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [userId, scope]
+              properties:
+                userId: { type: string }
+                scope:
+                  type: string
+                  enum: [SELF, SUBTREE]
+      responses:
+        "200":
+          description: Recorded.
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Envelope" }
+        "400":
+          description: The scope was missing or was not one of the two values.
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Envelope" }
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "409":
+          description: |
+            That account is already recorded here. Remove the assignment and
+            make it again to change its scope.
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Envelope" }
+
+  /api/v1/organizations/{id}/administrators/{userID}:
+    delete:
+      tags: [Organizations]
+      operationId: revokeOrganizationAdministrator
+      summary: Remove such a record.
+      description: |
+        Idempotent: removing one that is not there succeeds, because a caller
+        reconciling a list should not have to know what is already gone.
+      parameters:
+        - $ref: "#/components/parameters/ID"
+        - name: userID
+          in: path
+          required: true
+          schema: { type: string }
+      responses:
+        "200":
+          description: Removed.
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Envelope" }
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
 
   /api/v1/organizations/{id}/attachments:
     post:
@@ -4991,6 +5140,38 @@ components:
             data:
               type: array
               items: { $ref: "#/components/schemas/GroupMember" }
+
+    OrganizationAdministrator:
+      type: object
+      description: |
+        Somebody recorded as administering an organization, for a feature
+        that does not exist yet. It grants them nothing today.
+      properties:
+        userId: { type: string }
+        username: { type: string }
+        displayName: { type: string }
+        status:
+          $ref: "#/components/schemas/Status"
+          description: The account's, so a screen can show that somebody named here is disabled.
+        scope:
+          type: string
+          enum: [SELF, SUBTREE]
+          description: SELF is this organization; SUBTREE is it and every descendant.
+        grantedBy: { type: string, description: The account that made the assignment. }
+        grantedByName: { type: string }
+        grantedAt: { type: string, format: date-time }
+
+    AdministeredOrganization:
+      type: object
+      description: An organization somebody is recorded as administering. Grants nothing today.
+      properties:
+        id: { type: string }
+        name: { type: string }
+        code: { type: string }
+        scope:
+          type: string
+          enum: [SELF, SUBTREE]
+        grantedAt: { type: string, format: date-time }
 
     GroupRefListEnvelope:
       allOf:

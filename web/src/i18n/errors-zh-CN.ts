@@ -96,6 +96,9 @@ export const errorsZhCN: Record<keyof typeof errorsEnUS, string> = {
   ORGANIZATION_MANAGER_NOT_FOUND: "找不到要设为负责人的账号。",
   ALREADY_PRIMARY_ORGANIZATION:
     "该账号本来就归属这个组织。附加挂靠是给它不归属的那些用的。",
+  ALREADY_ORGANIZATION_ADMIN:
+    "该账号已被记为这个组织的管理员。要改范围，请先移除再重新添加。",
+  INVALID_ADMIN_SCOPE: "请选择生效范围：仅本组织，或本组织及其下级。",
   ORGANIZATION_CYCLE: "这会把组织移动到它自己或其下级之内。",
   ORGANIZATION_TOO_DEEP: "组织层级嵌套过深。",
   NAME_REQUIRED: "请填写名称。",

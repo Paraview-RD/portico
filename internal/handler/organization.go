@@ -195,3 +195,72 @@ func (h *Handler) DetachUserFromOrganization(w http.ResponseWriter, r *http.Requ
 	}
 	httpx.OK(w, nil)
 }
+
+type organizationAdministratorRequest struct {
+	UserID string `json:"userId"`
+	Scope  string `json:"scope"`
+}
+
+// ListOrganizationAdministrators returns who is recorded as administering
+// an organization.
+func (h *Handler) ListOrganizationAdministrators(w http.ResponseWriter, r *http.Request) {
+	principal := auth.MustPrincipal(r.Context())
+
+	admins, err := h.orgs.Administrators(r.Context(), principal.TenantID, chi.URLParam(r, "id"))
+	if err != nil {
+		httpx.Fail(w, r, err)
+		return
+	}
+	httpx.OK(w, admins)
+}
+
+// AssignOrganizationAdministrator records somebody as an administrator of an
+// organization.
+//
+// **It grants nothing.** Nothing in this version consults the record, and a
+// test requires that to stay true. It exists because delegated
+// administration is planned, and the chart it will read has to be entered by
+// people before then — see migration 00020.
+func (h *Handler) AssignOrganizationAdministrator(w http.ResponseWriter, r *http.Request) {
+	principal := auth.MustPrincipal(r.Context())
+
+	var req organizationAdministratorRequest
+	if err := httpx.DecodeJSON(w, r, &req); err != nil {
+		httpx.Fail(w, r, err)
+		return
+	}
+
+	err := h.orgs.AssignAdministrator(r.Context(), principal,
+		chi.URLParam(r, "id"), req.UserID, req.Scope)
+	if err != nil {
+		httpx.Fail(w, r, err)
+		return
+	}
+	httpx.OK(w, nil)
+}
+
+// RevokeOrganizationAdministrator removes such a record.
+func (h *Handler) RevokeOrganizationAdministrator(w http.ResponseWriter, r *http.Request) {
+	principal := auth.MustPrincipal(r.Context())
+
+	err := h.orgs.RevokeAdministrator(r.Context(), principal,
+		chi.URLParam(r, "id"), chi.URLParam(r, "userID"))
+	if err != nil {
+		httpx.Fail(w, r, err)
+		return
+	}
+	httpx.OK(w, nil)
+}
+
+// ListAdministeredOrganizations returns what an account is recorded as
+// administering. Same caveat: it grants nothing today.
+func (h *Handler) ListAdministeredOrganizations(w http.ResponseWriter, r *http.Request) {
+	principal := auth.MustPrincipal(r.Context())
+
+	orgs, err := h.orgs.AdministeredOrganizations(r.Context(), principal.TenantID, chi.URLParam(r, "id"))
+	if err != nil {
+		httpx.Fail(w, r, err)
+		return
+	}
+	httpx.OK(w, orgs)
+}

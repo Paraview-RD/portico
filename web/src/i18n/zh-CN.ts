@@ -27,6 +27,8 @@ export const zhCN: Record<keyof typeof enUS, string> = {
 
   "common.copy": "复制",
   "common.copied": "已复制",
+  "common.remove": "移除",
+  "common.search": "搜索",
 
   "status.ACTIVE": "正常",
   "status.DISABLED": "已停用",
@@ -206,6 +208,29 @@ export const zhCN: Record<keyof typeof enUS, string> = {
   "organizations.parentHelp":
     "选「无」即为顶级组织。组织不能移动到自己所在的分支之下。",
   "organizations.noParent": "无（顶级）",
+  "users.attachedOrganizations": "同时参与的组织",
+  "users.noAttachments": "没有其它组织。",
+  "users.chooseOrganization": "选择一个组织",
+  "users.attach": "添加",
+  "users.administersOrganizations": "被登记为管理",
+  "users.administersGrantsNothing":
+    "为尚未上线的功能预先登记，今天不授予任何权限。",
+
+  "organizations.administratorsAction": "管理员",
+  "organizations.administrators": "{0} 的管理员",
+  "organizations.administratorsGrantNothing":
+    "这是为尚未上线的功能预先登记的。今天在这里记下某个人，不会给他任何权限——它描述的是「分级授权上线之后，谁来管理这个组织」，好让功能到来时组织图已经在了。",
+  "organizations.noAdministrators": "这里还没有登记任何人。",
+  "organizations.addAdministrator": "登记一位管理员",
+  "organizations.searchAccount": "按姓名或用户名搜索",
+  "organizations.recordAdministrator": "登记 {0}",
+  "organizations.grantedBy": "由 {0} 登记",
+  "organizations.scopeLabel": "生效范围",
+  "organizations.scopeChoose": "请选择",
+  "organizations.scopeHelp":
+    "这一项事后补不回来：没写清楚当初指的是哪一种的记录，等到读取它的功能上线时就没人能解释了。",
+  "organizations.scope.SELF": "仅本组织",
+  "organizations.scope.SUBTREE": "本组织及其下级",
   "organizations.sortOrder": "排序",
   "organizations.confirmDisable":
     "确定停用 {0}？已有成员保留，但不能再分配新成员。",
