@@ -5,6 +5,7 @@ package auth
 
 import (
 	"fmt"
+	"sync"
 	"unicode/utf8"
 
 	"golang.org/x/crypto/bcrypt"
@@ -92,14 +93,36 @@ func CheckPassword(hash, plaintext string) bool {
 	return bcrypt.CompareHashAndPassword([]byte(hash), []byte(plaintext)) == nil
 }
 
-// dummyHash is a valid bcrypt hash of a value nobody knows. Comparing
-// against it costs the same as a real check.
-var dummyHash = []byte("$2a$10$N9qo8uLOickgx2ZMRZoMyeIjZAgcfl7p92ldGxad68LJZdL17lhWy")
+// dummyHash is a valid bcrypt hash of a value nobody knows, at whatever cost
+// this build hashes real passwords with.
+//
+// It used to be a literal — a cost-10 hash written into the source — which
+// was correct only because bcrypt.DefaultCost is also 10. Nothing tied them.
+// Raising hashCost, which is the one change anybody would ever make here,
+// would have left the comparison below cheaper than a real one by a factor
+// of two per step, and the timing difference this function exists to remove
+// would have come back silently: an unknown username answering measurably
+// faster than a known one is how a login page becomes a list of accounts.
+//
+// Computed once, on first use rather than at init, because
+// UseWeakHashingForTests lowers the cost after the package is loaded — a
+// value fixed at init would be a real-cost hash in a test suite whose real
+// hashes are cheap, which is the same mismatch in the other direction.
+var dummyHash = sync.OnceValue(func() []byte {
+	hash, err := bcrypt.GenerateFromPassword([]byte("a value nobody knows"), hashCost)
+	if err != nil {
+		// bcrypt fails only on a cost outside its own bounds, which is a
+		// programming error rather than a runtime condition. Continuing with
+		// no hash would mean the burn silently stops burning.
+		panic("auth: cannot build the comparison hash: " + err.Error())
+	}
+	return hash
+})
 
 // BurnPasswordComparison performs a throwaway bcrypt comparison. Login calls
 // this when no such account exists so that a request for an unknown username
 // takes as long as one for a known username, which stops the response time
 // from revealing which accounts are real.
 func BurnPasswordComparison() {
-	_ = bcrypt.CompareHashAndPassword(dummyHash, []byte("password"))
+	_ = bcrypt.CompareHashAndPassword(dummyHash(), []byte("password"))
 }

@@ -103,3 +103,28 @@ func TestAHashIsWrittenAtTheRealCostUnlessAskedOtherwise(t *testing.T) {
 			cost, bcrypt.DefaultCost)
 	}
 }
+
+// The comparison burned for an unknown username must cost what a real one
+// costs.
+//
+// BurnPasswordComparison exists so that a sign-in for an account that does
+// not exist takes as long as one for an account that does — otherwise the
+// response time answers a question the response body carefully does not.
+// What it compares against used to be a hash written into the source at
+// cost 10, which agreed with bcrypt.DefaultCost by coincidence and by
+// nothing else.
+//
+// bcrypt's cost is exponential, so the two drifting apart by one step makes
+// the unknown-username path twice as fast, and by three steps eight times.
+// Nothing would have failed. The whole property is a timing one, and the
+// only place it shows up is in measurements nobody takes.
+func TestTheBurnedComparisonCostsWhatARealOneCosts(t *testing.T) {
+	if got, want := auth.BurnComparisonCost(), auth.CurrentHashCost(); got != want {
+		t.Errorf("BurnPasswordComparison compares against a cost-%d hash while "+
+			"passwords are stored at cost %d.\n"+
+			"A sign-in for an unknown username is therefore %dx faster than one "+
+			"for a known username, which is the timing difference that function "+
+			"exists to remove.",
+			got, want, 1<<max(0, want-got))
+	}
+}
