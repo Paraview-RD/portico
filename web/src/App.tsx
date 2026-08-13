@@ -1,13 +1,18 @@
-import { useEffect, useMemo } from "react";
+import { useEffect, useMemo, useState } from "react";
 
 import { Layout } from "./components/Layout";
 import { useT } from "./i18n";
 import { ApplicationsPage } from "./pages/ApplicationsPage";
 import { AuditLogsPage } from "./pages/AuditLogsPage";
 import { AuthorizePage, pendingAuthorization } from "./pages/AuthorizePage";
+import {
+  ExternalCallbackPage,
+  externalCallback,
+} from "./pages/ExternalCallbackPage";
 import { ForgotPasswordPage } from "./pages/ForgotPasswordPage";
 import { LoginPage } from "./pages/LoginPage";
 import { GroupsPage } from "./pages/GroupsPage";
+import { IdentityProvidersPage } from "./pages/IdentityProvidersPage";
 import { OrganizationsPage } from "./pages/OrganizationsPage";
 import { PortalPage } from "./pages/PortalPage";
 import { ProfilePage } from "./pages/ProfilePage";
@@ -45,6 +50,18 @@ export function App() {
     [],
   );
 
+  // A browser coming back from somebody else's provider. Read once, from the
+  // address it landed on, for the same reason as the two above: this is a
+  // path the router does not know, carrying values that are spent the first
+  // time they are read.
+  //
+  // State rather than a memo, because unlike those two it ends: the screen
+  // clears it once the exchange is over, and what was a landing becomes an
+  // ordinary console the router owns again.
+  const [returning, setReturning] = useState(() =>
+    externalCallback(window.location.pathname, window.location.search),
+  );
+
   useEffect(() => {
     if (casLogout && user) void signOut();
   }, [casLogout, user, signOut]);
@@ -62,6 +79,10 @@ export function App() {
     // Nor while signing out on a CAS client's behalf, which would otherwise
     // bounce them into the console for the moment before it completes.
     if (casLogout) return;
+    // Nor mid-exchange. Sending a signed-out visitor to /login here would
+    // unmount the screen holding the only copy of a single-use code, and the
+    // sign-in that was seconds from working would be one nobody can retry.
+    if (returning) return;
 
     const publicRoutes = [
       "/login",
@@ -88,10 +109,23 @@ export function App() {
       // and a copied link all disagree with what the person is looking at.
       navigate("/");
     }
-  }, [user, loading, route, navigate, pending, casLogout]);
+  }, [user, loading, route, navigate, pending, casLogout, returning]);
 
   if (pending) {
     return <AuthorizePage request={pending} />;
+  }
+
+  // Before the loading check as well as before routing: the exchange does not
+  // need to know who is signed in — it spends a state the server is holding
+  // — and waiting on the session would leave a spinner where the one screen
+  // that can complete the sign-in should be.
+  if (returning) {
+    return (
+      <ExternalCallbackPage
+        callback={returning}
+        onDone={() => setReturning(null)}
+      />
+    );
   }
 
   if (loading) {
@@ -154,6 +188,8 @@ function AuthenticatedRoute({
       return <ProvisioningPage />;
     case "/webhooks":
       return <WebhooksPage />;
+    case "/identity-providers":
+      return <IdentityProvidersPage />;
     case "/audit-logs":
       return <AuditLogsPage />;
     case "/settings":

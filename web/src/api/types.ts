@@ -725,3 +725,87 @@ export interface FieldMapping {
 
 /** Which kind of recipient a mapping belongs to. */
 export type RecipientKind = "oauth" | "saml" | "cas" | "webhook";
+
+/**
+ * An OpenID Provider somebody else runs, trusted to say who a person is.
+ *
+ * The other direction from everything else here: Portico is the relying
+ * party, spending assertions rather than issuing them.
+ *
+ * No client secret, by construction. What is stored is sealed and only ever
+ * unsealed on the way to the provider; a field here would carry every
+ * tenant's secret to a browser on every list. `hasSecret` is what the edit
+ * form needs instead — enough to say that leaving the field blank keeps the
+ * stored one, and nothing more.
+ */
+export interface ExternalIdentityProvider {
+  id: string;
+  name: string;
+  /** What the sign-in button says, when it should not say `name`. */
+  buttonLabel: string;
+  issuer: string;
+  clientId: string;
+  scopes: string;
+  /**
+   * Whether this provider's `email_verified` may link a first-time arrival
+   * to an existing account by address. Off unless somebody turned it on:
+   * it delegates account security to whoever runs that provider.
+   */
+  trustVerifiedEmail: boolean;
+  status: "ACTIVE" | "DISABLED";
+  hasSecret: boolean;
+  /**
+   * What has to be registered at the other end. Returned by the server
+   * rather than composed here, because it is the value somebody copies and
+   * the provider matches it character for character.
+   */
+  redirectUri: string;
+}
+
+/** What an administrator supplies. */
+export interface ExternalIdentityProviderInput {
+  name: string;
+  buttonLabel: string;
+  issuer: string;
+  clientId: string;
+  /** Blank on an edit keeps the stored one; blank on a create means none. */
+  clientSecret: string;
+  scopes: string;
+  trustVerifiedEmail: boolean;
+}
+
+/**
+ * One button on the sign-in screen.
+ *
+ * Everything else about a provider is configuration, and this is answered
+ * before anybody has proved anything.
+ */
+export interface ExternalSignInOption {
+  id: string;
+  label: string;
+}
+
+/** One binding, as its owner sees it. */
+export interface ExternalIdentity {
+  id: string;
+  providerId: string;
+  providerName: string;
+  subject: string;
+  email: string;
+  createdAt: string;
+  lastUsedAt: string | null;
+}
+
+/**
+ * What a completed callback produced: a session, or a binding.
+ *
+ * Exactly one, and the envelope carries no discriminator — a binding does
+ * not issue a session, because the person already had one. Tell them apart
+ * by whether a token is present rather than by guessing from context: the
+ * same callback address serves both journeys.
+ */
+export type ExternalSignInResult = Session | ExternalIdentity;
+
+export function isSession(result: ExternalSignInResult): result is Session {
+  return "token" in result;
+}

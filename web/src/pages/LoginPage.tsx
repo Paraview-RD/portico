@@ -2,6 +2,7 @@ import { useEffect, useState } from "react";
 
 import { ApiError, tenantStore } from "../api/client";
 import { authApi } from "../api/endpoints";
+import type { ExternalSignInOption } from "../api/types";
 import { AuthLink, AuthShell } from "../components/AuthShell";
 import { Alert, Button, Field, Input } from "../components/ui";
 import { useErrorMessage, useT } from "../i18n";
@@ -69,6 +70,13 @@ export function LoginPage() {
   const [replaceReason, setReplaceReason] = useState<
     "" | "EXPIRED" | "DEFAULT"
   >("");
+  // The providers this tenant will let somebody sign in through. Empty for
+  // almost every deployment, and empty is a screen with no extra section
+  // rather than an empty one.
+  const [externalOptions, setExternalOptions] = useState<
+    ExternalSignInOption[]
+  >([]);
+  const [leaving, setLeaving] = useState("");
   const mustReplacePassword = replaceReason !== "";
   const [newPassword, setNewPassword] = useState("");
   const [systemName, setSystemName] = useState("Portico");
@@ -96,8 +104,34 @@ export function LoginPage() {
         setSystemName("Portico");
       });
 
+    // Which buttons this tenant offers, asked in the same breath and for the
+    // same reason: they belong to the tenant, so a person who types a
+    // different code must not be shown the previous one's providers.
+    authApi
+      .externalOptions()
+      .then(setExternalOptions)
+      .catch(() => setExternalOptions([]));
+
     return () => controller.abort();
   }, [lookedUpTenant]);
+
+  // Leaves for a provider. The address is fetched rather than linked to,
+  // because it carries a state and a nonce this server has just written
+  // down — a static link would be one somebody could bookmark and replay.
+  async function signInThrough(provider: string) {
+    setError("");
+    setLeaving(provider);
+    try {
+      const { authorizationUrl } = await authApi.startExternalSignIn(
+        provider,
+        tenant.trim(),
+      );
+      window.location.assign(authorizationUrl);
+    } catch (err) {
+      setLeaving("");
+      setError(describeError(err));
+    }
+  }
 
   async function handleSubmit(event: React.FormEvent) {
     event.preventDefault();
@@ -296,6 +330,38 @@ export function LoginPage() {
           </AuthLink>
         </div>
       </form>
+
+      {/* Providers, under the password form rather than above it.
+          A password is what almost everybody here uses, and a screen that
+          leads with three buttons makes the ordinary case look like the
+          alternative.
+
+          Hidden while an application is waiting on this sign-in. That
+          journey ends on a callback address of its own, which would replace
+          the one carrying the request — the application would wait forever,
+          and nothing on the way would say why. A password sign-in completes
+          it without leaving the page, so the screen offers only that. */}
+      {externalOptions.length > 0 && !completingAuthorization && (
+        <div className="mt-5 border-t border-[var(--color-border)] pt-4">
+          <p className="mb-3 text-center text-[length:var(--font-size-sm)] text-[var(--color-fg-muted)]">
+            {t("external.or")}
+          </p>
+          <div className="flex flex-col gap-2">
+            {externalOptions.map((option) => (
+              <Button
+                key={option.id}
+                variant="secondary"
+                disabled={leaving !== ""}
+                onClick={() => void signInThrough(option.id)}
+              >
+                {leaving === option.id
+                  ? t("external.leaving")
+                  : t("external.signInWith", option.label)}
+              </Button>
+            ))}
+          </div>
+        </div>
+      )}
 
       {registrationOpen && (
         <p className="mt-5 border-t border-[var(--color-border)] pt-4 text-center text-[length:var(--font-size-sm)] text-[var(--color-fg-muted)]">

@@ -217,12 +217,22 @@ would be lying to a relying party that might act on it.
 Everything above is Portico as the issuer. This is the other direction: an
 OpenID Provider somebody else runs, trusted to say who a person is.
 
-Configure one under **Settings → External identity providers**. You supply
-the issuer, a client id and secret registered at that provider, and the
-redirect URI the screen shows you — copy it exactly, since the provider
-matches it character for character. The issuer is contacted when you save,
-so a configuration that cannot be discovered is refused at the form rather
-than at somebody's sign-in three days later.
+Configure one under **Identity providers**, beside applications and webhooks
+— the same menu, because all four are a connection to another system, and
+this is the one where the connection runs inward. You supply the issuer, a
+client id and secret registered at that provider, and the redirect URI the
+screen shows you — copy it exactly, since the provider matches it character
+for character. The issuer is contacted when you save, so a configuration
+that cannot be discovered is refused at the form rather than at somebody's
+sign-in three days later.
+
+The redirect URI is a console address — `/external/callback`, or
+`/t/<code>/external/callback` for a tenant other than the default — and not
+the API endpoint that completes the sign-in. Coming back from a provider is
+a top-level navigation, so whatever answers it is what a person is looking
+at; the endpoint answers JSON. The console takes the landing, reads the
+`state` and `code` out of its own address, and spends them on that endpoint
+itself, which also keeps the issued session out of a URL.
 
 **It must be a public HTTPS address.** The same rules a webhook destination
 follows, and for the same reason: a tenant administrator types it and this

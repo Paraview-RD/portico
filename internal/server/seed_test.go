@@ -270,7 +270,7 @@ var notSeeded = map[string]string{
 	"/api/v1/settings":                     "one settings object per tenant, and both tenants have one",
 	"/api/v1/users/me":                     "the caller, not a list",
 	"/api/v1/auth/external/providers":      "empty unless a tenant configured an external provider, and the seed configures none — it would need a real issuer this server could reach",
-	"/api/v1/auth/external/callback":       "not a list; a browser returning from somewhere else",
+	"/api/v1/auth/external/callback":       "not a list; it spends a state a browser brought back from somewhere else",
 	"/api/v1/external-identity-providers":  "the same, from the administrator's side",
 	"/api/v1/users/me/external-identities": "what the caller has linked, and nothing is linked without a provider",
 

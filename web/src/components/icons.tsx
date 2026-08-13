@@ -118,6 +118,23 @@ export function WebhooksIcon(props: IconProps) {
   );
 }
 
+/**
+ * Identity providers: a person arriving from outside, vouched for.
+ *
+ * The arrow points inward, which is the whole distinction from the
+ * applications icon — there Portico answers, here it asks.
+ */
+export function IdentityProvidersIcon(props: IconProps) {
+  return (
+    <Svg {...props}>
+      <circle cx="17" cy="8" r="3" />
+      <path d="M22 20a5 5 0 0 0-10 0" />
+      <path d="M9 12H2" />
+      <path d="m5 8-3 4 3 4" />
+    </Svg>
+  );
+}
+
 export function AuditIcon(props: IconProps) {
   return (
     <Svg {...props}>

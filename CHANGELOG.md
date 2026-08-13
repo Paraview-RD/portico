@@ -12,6 +12,31 @@ Working toward 0.2.0. See
 
 ### Added
 
+- **People can sign in through somebody else's OpenID Provider.** Google,
+  Entra, an internal Keycloak — anything with a discovery document. Register
+  one under **Identity providers** and a button appears on the sign-in
+  screen; `openid-configuration` is fetched while you save, so a
+  configuration nobody can discover fails at the form rather than at
+  somebody's sign-in three days later.
+- The redirect URI is shown rather than described, because the provider
+  matches it character for character. It is a console address —
+  `/external/callback`, or `/t/<code>/external/callback` — and not the API
+  endpoint that completes the sign-in: coming back is a top-level
+  navigation, and that endpoint answers JSON. The console takes the landing
+  and spends the `state` and `code` itself, which also keeps the issued
+  session out of a URL that browser history would keep.
+- **It never creates accounts.** A first-time arrival is refused and told to
+  sign in with a password and link the provider from **My profile**, which
+  now carries the links an account holds and a button to add one.
+  Self-service registration and its address confirmation are the two
+  switches that decide who may have an account here, and a provider button
+  that quietly made accounts would go around both.
+- Identity is the pair `(issuer, subject)`, not the subject alone — `sub` is
+  unique within one issuer and nowhere else. An address is consulted only
+  where an administrator has turned on **trust verified addresses** for that
+  provider, which is off by default and marked on the list, because turning
+  it on means whoever runs that provider decides who gets into an account
+  here.
 - **A new subscription can be sent everything that already exists.** Events
   describe changes, so one created today had missed every change before it —
   and the delivery history could not fill the gap, because finished
