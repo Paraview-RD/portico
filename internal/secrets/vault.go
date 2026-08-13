@@ -71,7 +71,13 @@ type Binding struct {
 const (
 	PurposeDirectoryBindPassword = "directory-bind-password"
 	PurposeWebhookHeaders        = "webhook-headers"
-	PurposeExternalIDPSecret     = "external-idp-client-secret"
+	// gosec reads the word rather than the value: this is the label a client
+	// secret is sealed under, and it is written into the authenticated data
+	// of every such ciphertext. Changing it would stop those values opening,
+	// which is a stronger reason to leave it alone than the warning is to
+	// change it.
+	//nolint:gosec // G101: a purpose label, not a credential.
+	PurposeExternalIDPSecret = "external-idp-client-secret"
 )
 
 // bytes is the additional data itself. NUL-separated so that a purpose and a
