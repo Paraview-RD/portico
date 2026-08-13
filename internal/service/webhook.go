@@ -64,7 +64,14 @@ func (s *WebhookService) WithVault(v *secrets.Vault) *WebhookService {
 // digest against — so the choice is sealed or plaintext, and plaintext
 // bearer tokens in a table somebody dumps for support is worse than not
 // offering the feature at all.
-func (s *WebhookService) sealHeaders(headers map[string]string) (string, error) {
+// headerBinding ties sealed headers to the tenant they belong to and to
+// being webhook headers, so a ciphertext moved into another row or another
+// tenant no longer opens.
+func headerBinding(tenantID string) secrets.Binding {
+	return secrets.Binding{Purpose: secrets.PurposeWebhookHeaders, TenantID: tenantID}
+}
+
+func (s *WebhookService) sealHeaders(tenantID string, headers map[string]string) (string, error) {
 	if len(headers) == 0 {
 		return "", nil
 	}
@@ -77,7 +84,7 @@ func (s *WebhookService) sealHeaders(headers map[string]string) (string, error) 
 		return "", err
 	}
 
-	sealed, err := s.vault.Seal(encoded)
+	sealed, err := s.vault.Seal(headerBinding(tenantID), encoded)
 	if errors.Is(err, secrets.ErrNotConfigured) {
 		return "", ErrNoEncryptionKey
 	}
@@ -88,11 +95,11 @@ func (s *WebhookService) sealHeaders(headers map[string]string) (string, error) 
 }
 
 // openHeaders is the reverse, at delivery time.
-func (s *WebhookService) openHeaders(sealed string) (map[string]string, error) {
+func (s *WebhookService) openHeaders(tenantID, sealed string) (map[string]string, error) {
 	if sealed == "" {
 		return nil, nil
 	}
-	encoded, err := s.vault.Open(sealed)
+	encoded, err := s.vault.Open(headerBinding(tenantID), sealed)
 	if err != nil {
 		return nil, fmt.Errorf("open webhook headers: %w", err)
 	}
@@ -227,7 +234,7 @@ func (s *WebhookService) Create(ctx context.Context, actor auth.Principal, in Su
 		return CreatedSubscription{}, err
 	}
 
-	sealedHeaders, err := s.sealHeaders(in.Headers)
+	sealedHeaders, err := s.sealHeaders(actor.TenantID, in.Headers)
 	if err != nil {
 		return CreatedSubscription{}, err
 	}
@@ -295,7 +302,7 @@ func (s *WebhookService) List(ctx context.Context, tenantID string) ([]Subscript
 		// subscription was created with headers, and a screen that will not
 		// load is a worse way to learn that than a row whose headers are not
 		// described — the delivery failing is what says it properly.
-		if headers, err := s.openHeaders(row.Headers); err == nil {
+		if headers, err := s.openHeaders(row.TenantID, row.Headers); err == nil {
 			sub.HeaderNames = webhook.HeaderNames(headers)
 		}
 		out = append(out, sub)
