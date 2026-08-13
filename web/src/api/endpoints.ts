@@ -103,10 +103,15 @@ export const authApi = {
    * Single-use on the server: the row is deleted by the statement that
    * reads it, so calling this twice with the same state fails the second
    * time. Callers must make sure there is no second time.
+   *
+   * The tenant is passed rather than taken from storage. It comes from the
+   * address the provider redirected to, and an exchange that fails — which
+   * is what a reload or a stale link produces — must not have repointed the
+   * browser's remembered tenant on its way through.
    */
-  completeExternalSignIn: (state: string, code: string) =>
+  completeExternalSignIn: (state: string, code: string, tenant: string) =>
     request<ExternalSignInResult>(
-      `/auth/external/callback${query({ state, code })}`,
+      `/auth/external/callback${query({ state, code, tenant })}`,
       { anonymous: true },
     ),
 

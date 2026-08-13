@@ -1,6 +1,5 @@
 import { useEffect, useState } from "react";
 
-import { tenantStore } from "../api/client";
 import { authApi } from "../api/endpoints";
 import { isSession } from "../api/types";
 import { AuthShell } from "../components/AuthShell";
@@ -108,15 +107,18 @@ export function ExternalCallbackPage({
     if (spent.has(callback.state)) return;
     spent.add(callback.state);
 
-    // The tenant comes from the path, which is why it is in the path. A
+    // The tenant comes from the path, which is why it is in the path: a
     // browser that has been to another site and back brings no header and no
-    // cookie of ours, and reading it from storage instead would make the
-    // last tenant somebody typed decide which tenant they just signed in to.
-    tenantStore.set(callback.tenant);
-
+    // cookie of ours, and taking it from storage instead would let the last
+    // tenant somebody typed decide which tenant they just signed in to.
+    //
+    // Passed to the call rather than written to storage first. This exchange
+    // fails routinely — a reload, a link opened twice — and a landing that
+    // failed must not leave the browser pointed at a tenant nobody signed in
+    // to. Storage is written on the way out, by the session that succeeded.
     let abandoned = false;
     authApi
-      .completeExternalSignIn(callback.state, callback.code)
+      .completeExternalSignIn(callback.state, callback.code, callback.tenant)
       .then(async (result) => {
         if (abandoned) return;
 

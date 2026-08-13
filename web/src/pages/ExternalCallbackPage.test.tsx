@@ -25,8 +25,8 @@ const navigate = vi.fn();
 
 vi.mock("../api/endpoints", () => ({
   authApi: {
-    completeExternalSignIn: (state: string, code: string) =>
-      completeExternalSignIn(state, code),
+    completeExternalSignIn: (state: string, code: string, tenant: string) =>
+      completeExternalSignIn(state, code, tenant),
   },
 }));
 
@@ -38,9 +38,8 @@ vi.mock("../router", () => ({
   useRouter: () => ({ navigate, route: "/" }),
 }));
 
-const { ExternalCallbackPage, externalCallback } = await import(
-  "./ExternalCallbackPage"
-);
+const { ExternalCallbackPage, externalCallback } =
+  await import("./ExternalCallbackPage");
 
 beforeEach(() => {
   vi.clearAllMocks();
@@ -127,6 +126,9 @@ describe("spending the state", () => {
       expect(adoptIssuedSession).toHaveBeenCalledWith("issued-token", "acme"),
     );
     expect(navigate).toHaveBeenCalledWith("/");
+    // The tenant travels with the call rather than through storage, so a
+    // landing that fails leaves the browser pointed where it already was.
+    expect(completeExternalSignIn).toHaveBeenCalledWith("s1", "c", "acme");
   });
 
   it("sends a completed binding to the profile, not to a sentence", async () => {
