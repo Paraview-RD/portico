@@ -87,6 +87,41 @@ Portico serves plain HTTP and does not terminate TLS. Bearer tokens,
 passwords, and password-reset forms all cross that connection. Terminate TLS
 at the reverse proxy; never expose Portico directly.
 
+### The console keeps its token in localStorage
+
+The session token the browser holds is in `localStorage`, not in a cookie.
+It follows that **any script that runs on Portico's origin can read it and
+send it anywhere**, and that a stolen token is usable until it expires or
+the session is ended — a cross-site scripting flaw here is a session theft
+rather than a defacement.
+
+This is a decision rather than an oversight, and the alternative is not
+obviously better: a cookie that JavaScript cannot read has to be `HttpOnly`,
+which means the browser attaches it to requests the application did not
+make, which means cross-site request forgery becomes the thing to defend
+against instead. That is a real defence, not a free one — a token in a
+header is never sent by a form on somebody else's site, and CSRF does not
+exist for this API today.
+
+What the choice rests on is that the origin is small and entirely ours:
+
+- The console is served from the same origin as the API, with no CDN, no
+  third-party script, and no user-supplied HTML rendered anywhere in it.
+- `Content-Security-Policy` is `script-src 'self'` with no `unsafe-inline`
+  and no `unsafe-eval`, so an injected `<script>` or an inline handler does
+  not execute. `object-src 'none'`, `base-uri 'self'`, `form-action 'self'`,
+  `frame-ancestors 'none'`.
+- Uploaded images are sniffed and re-typed rather than trusted, and SVG is
+  refused outright — precisely because it is a document that can carry
+  script and would be served from this origin.
+
+If your deployment adds anything to that origin — an analytics tag, a
+support widget, a customised console — you have taken on this trade-off
+without the conditions it was made under. A stolen token is bounded by the
+lifetime in **Settings**, and ending a session (or disabling the account)
+revokes it immediately; both are worth knowing before you shorten or
+lengthen that lifetime.
+
 ### Other deliberate exclusions
 
 - **No MFA**, no CAPTCHA, and no login risk analysis. Account lockout does
