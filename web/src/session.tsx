@@ -66,6 +66,17 @@ interface SessionValue {
     currentPassword: string,
     newPassword: string,
   ) => Promise<void>;
+  /**
+   * Takes up a session the server has already issued.
+   *
+   * For the journeys where no password was typed here: an external provider
+   * vouched for somebody and the server issued a token on the strength of
+   * it. Everything after that point — storing the token, remembering the
+   * tenant, adopting the account's language — is the same as a password
+   * sign-in's, and that is the reason this exists rather than each caller
+   * doing three of the four.
+   */
+  adoptIssuedSession: (token: string, tenant: string) => Promise<void>;
   signOut: () => Promise<void>;
   /** Ends the session locally, for flows the server already invalidated. */
   endSession: () => void;
@@ -214,6 +225,7 @@ export function SessionProvider({ children }: { children: ReactNode }) {
       expired,
       signIn,
       signInWithReplacedPassword,
+      adoptIssuedSession: adoptSession,
       signOut,
       endSession,
       refresh,
@@ -225,6 +237,7 @@ export function SessionProvider({ children }: { children: ReactNode }) {
       expired,
       signIn,
       signInWithReplacedPassword,
+      adoptSession,
       signOut,
       endSession,
       refresh,

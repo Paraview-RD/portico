@@ -70,11 +70,17 @@ func (h *Handler) ExternalSignInOptions(w http.ResponseWriter, r *http.Request) 
 	httpx.OK(w, options)
 }
 
-// CompleteExternalSignIn is where the provider sends somebody back.
+// CompleteExternalSignIn spends what a browser came back holding.
 //
-// Public, because the caller is a browser returning from somewhere else and
-// holding nothing this server issued except the state. Everything that
-// judges it was decided before it left; see service.CompleteExternalSignIn.
+// The provider does not redirect here. It redirects to the console, which
+// reads the `state` and `code` out of the address it landed on and calls
+// this — so the caller is a fetch, and answering JSON is right. What it is
+// spending, though, came from somewhere else entirely, and the caller holds
+// nothing this server issued except that state. Everything that judges it
+// was decided before the browser left; see service.CompleteExternalSignIn.
+//
+// Public for the same reason the sign-in endpoint is: whoever is calling
+// cannot sign in yet, which is what they are here to fix.
 func (h *Handler) CompleteExternalSignIn(w http.ResponseWriter, r *http.Request) {
 	tenant, err := h.resolvePublicTenant(r, "")
 	if err != nil {

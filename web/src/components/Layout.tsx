@@ -10,6 +10,7 @@ import {
   GlobeIcon,
   GroupsIcon,
   HomeIcon,
+  IdentityProvidersIcon,
   OrganizationsIcon,
   ProfileIcon,
   ProvisioningIcon,
@@ -93,11 +94,12 @@ const navGroups: NavGroup[] = [
     ],
   },
   {
-    // Everything that connects another system to this one, in the three
+    // Everything that connects another system to this one, in the four
     // directions it can happen: applications ask Portico who somebody is, a
-    // directory pushes accounts in, and webhooks push events out. All three
-    // were reachable before — two of them buried as sections of the settings
-    // page, which is where a capability goes to be undiscovered.
+    // directory pushes accounts in, webhooks push events out, and an
+    // identity provider is asked who somebody is. Three of them were
+    // reachable before — two buried as sections of the settings page, which
+    // is where a capability goes to be undiscovered.
     labelKey: "nav.group.integration",
     items: [
       {
@@ -116,6 +118,12 @@ const navGroups: NavGroup[] = [
         route: "/webhooks",
         labelKey: "nav.webhooks",
         icon: WebhooksIcon,
+        adminOnly: true,
+      },
+      {
+        route: "/identity-providers",
+        labelKey: "nav.identityProviders",
+        icon: IdentityProvidersIcon,
         adminOnly: true,
       },
     ],

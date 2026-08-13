@@ -62,7 +62,7 @@ var publicAPIRoutes = map[string]string{
 
 	"GET /api/v1/auth/external/providers": "the sign-in screen draws the buttons before anybody has signed in; it says only what a button says",
 	"POST /api/v1/auth/external/start":    "begins a sign-in, so its caller has none",
-	"GET /api/v1/auth/external/callback":  "a browser returning from another provider, holding nothing this server issued but the state — which is what judges it",
+	"GET /api/v1/auth/external/callback":  "spends what a browser brought back from another provider, holding nothing this server issued but the state — which is what judges it",
 
 	"GET /api/v1/auth/recovery-channels":          "the caller has forgotten their password",
 	"POST /api/v1/auth/password-recovery":         "the same",

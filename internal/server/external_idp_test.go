@@ -3,7 +3,11 @@ package server_test
 import (
 	"encoding/json"
 	"net/http"
+	"net/http/httptest"
+	"strings"
 	"testing"
+
+	"github.com/Paraview-RD/portico/internal/service"
 )
 
 // Signing in through somebody else's provider.
@@ -83,6 +87,42 @@ func TestStartingWithAnUnknownProviderIsRefused(t *testing.T) {
 	if res.Status != http.StatusNotFound || res.Code != "EXTERNAL_IDP_NOT_FOUND" {
 		t.Fatalf("start with an unknown provider = %d %s, want 404 EXTERNAL_IDP_NOT_FOUND",
 			res.Status, res.Code)
+	}
+}
+
+// The address handed to a provider must land on something a person can
+// look at.
+//
+// It is a redirect target, which means a top-level navigation: whatever
+// answers it is what somebody sees after coming back from Google. The API
+// endpoint that completes the sign-in answers JSON, so the address is a
+// console route instead, and the console spends the state and code from
+// there. Point it back at /api/ and every sign-in ends on a page of JSON —
+// working, and unusable.
+//
+// This asserts on the router rather than on a built front end, so it holds
+// whether or not `web/dist` exists: a request the API router claims answers
+// ROUTE_NOT_FOUND in the envelope, and one it lets through does not.
+func TestTheAddressGivenToAProviderIsNotAnAPIEndpoint(t *testing.T) {
+	api := newAPITest(t)
+
+	if strings.HasPrefix(service.ExternalCallbackPath, "/api/") {
+		t.Fatalf("the redirect path is %q, which the API router owns; a browser "+
+			"following it would be shown the JSON envelope",
+			service.ExternalCallbackPath)
+	}
+
+	for _, path := range []string{
+		service.ExternalCallbackPath,
+		"/t/acme" + service.ExternalCallbackPath,
+	} {
+		rec := httptest.NewRecorder()
+		api.srv.Handler().ServeHTTP(rec, httptest.NewRequest(http.MethodGet, path, nil))
+
+		if strings.Contains(rec.Body.String(), "ROUTE_NOT_FOUND") {
+			t.Errorf("GET %s is answered by the API router; the console never "+
+				"gets the callback and the sign-in ends on an error page", path)
+		}
 	}
 }
 

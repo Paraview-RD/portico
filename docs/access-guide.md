@@ -440,6 +440,41 @@ without making a listing a way to read every credential the tenant holds.
 Headers that would change what the delivery *is* — the signature headers,
 `Content-Type`, `Host` — are refused at registration.
 
+**Identity providers** is the fourth direction, and the only one that runs
+inward: somebody else's OpenID Provider, trusted to say who a person is.
+
+Typical journey — let people sign in with an account they already have:
+
+1. **Identity providers** → **Add a provider**. The issuer must be a public
+   HTTPS address, on the same terms and for the same reason as a webhook
+   destination. It is contacted while you save, so a configuration that
+   cannot be discovered fails here rather than at somebody's sign-in.
+2. **Copy the redirect URI the screen shows** into the registration at the
+   other end. It is shown rather than described because the provider matches
+   it character for character, and a rule you compose yourself is a rule you
+   can compose wrong.
+3. A button appears on the sign-in screen. **It creates no accounts.** The
+   first person to click it is refused and told to sign in with a password
+   and link it from their profile — which is where anybody who wants that
+   button to work goes once.
+4. **Disable** takes the button off the sign-in screen and leaves every link
+   in place; **delete** removes the provider and every link to it, so
+   anybody who signs in only through it needs another way in first.
+
+**Trusting a provider's addresses is the one setting here that can hand an
+account to a stranger,** and it is off until somebody turns it on. With it
+on, an `email_verified` address from that provider is enough to link a
+first-time arrival to the account that address already belongs to here —
+which means whoever runs that provider decides who gets in. Turn it on for a
+directory your organization runs; leave it off for anything where a stranger
+can register an address.
+
+**Signing out of Portico does not sign anybody out of the provider.** The
+next click on that button signs them straight back in, because the other
+system still holds its own session. That is not a gap here — it is what
+federation in this direction means, and [federation.md](federation.md) says
+so beside the other two revocation cases.
+
 ### User (`USER`)
 
 Signing in lands on **Home**: the applications registered in their tenant
@@ -447,6 +482,14 @@ that have a launch address, their account at a glance, their last few
 sign-ins, and a warning if their password is about to expire or they have no
 address to recover it to. From there, **My profile** — details, password,
 and the devices signed in as them, any of which they can end.
+
+Where the tenant has an identity provider configured, **My profile** also
+carries **Other ways to sign in**: the providers linked to their account, and
+a button to link another. This is not a convenience — linking is the only
+route an external identity has to an account unless an administrator has
+chosen to trust that provider's addresses, so it is where somebody refused at
+a provider button is sent, and the refusal names it. Where nothing is
+configured the section is not there at all.
 
 **Details** is the descriptive half of an account — name parts, job title,
 department, locale, address, the fields a directory would hold — and people

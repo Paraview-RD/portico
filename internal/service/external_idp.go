@@ -100,13 +100,36 @@ type ExternalIDPInput struct {
 // Per tenant, because the client registration is per tenant: two tenants
 // signing in through the same issuer are two different applications to it,
 // with their own client ids and their own registered addresses.
+//
+// A console address rather than the API endpoint that does the work. What
+// arrives here is a top-level navigation — the browser leaves for the
+// provider and comes back by following a redirect, so whatever answers has
+// to be something a person can look at. The API endpoint answers JSON, and
+// JSON is what a person would have been shown. So the console takes the
+// landing, reads the `state` and `code` out of its own address, and spends
+// them on the API call itself; the session that comes back is stored the
+// same way a password sign-in's is, rather than travelling in a URL that
+// browser history and every proxy in between would keep.
+//
+// The tenant is in the path for the same reason it is in the sign-in
+// screen's: the page has to know which tenant it is completing for, and it
+// arrives without a header, without a cookie, and without anything else this
+// deployment gave it.
 func (s *ExternalIDPService) RedirectURI(tenantCode string) string {
 	base := strings.TrimRight(s.publicURL, "/")
 	if tenantCode == "" || tenantCode == model.DefaultTenantCode {
-		return base + "/api/v1/auth/external/callback"
+		return base + ExternalCallbackPath
 	}
-	return base + "/t/" + tenantCode + "/api/v1/auth/external/callback"
+	return base + "/t/" + tenantCode + ExternalCallbackPath
 }
+
+// ExternalCallbackPath is the console route that completes a sign-in.
+//
+// Named here rather than written twice, because it is the one string in this
+// feature that two systems have to agree on character for character: the
+// console serves it, and somebody registers it at a provider that will
+// refuse anything else.
+const ExternalCallbackPath = "/external/callback"
 
 // List returns every provider configured for a tenant.
 func (s *ExternalIDPService) List(ctx context.Context, tenantID, tenantCode string) ([]ExternalIDP, error) {

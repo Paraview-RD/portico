@@ -53,6 +53,9 @@ export const enUS = {
   // name the protocol, and the person looking for it knows one of the two.
   "nav.provisioning": "Directory integration",
   "nav.webhooks": "Webhooks",
+  // The other direction from Applications: those ask Portico who somebody
+  // is, and these are asked.
+  "nav.identityProviders": "Identity providers",
   "nav.settings": "Settings",
   "nav.profile": "My profile",
   "nav.signOut": "Sign out",
@@ -873,6 +876,70 @@ export const enUS = {
   "userValues.selectNone": "Not set",
   "userValues.booleanTrue": "Yes",
   "userValues.booleanFalse": "No",
+
+  // Signing in through somebody else's provider: the sign-in screen's
+  // buttons, and the screen a browser lands on coming back.
+  "external.or": "or",
+  "external.signInWith": "Sign in with {0}",
+  "external.leaving": "Taking you there…",
+  "external.title": "Signing you in",
+  "external.subtitle": "Finishing what the other provider started",
+  "external.working": "One moment.",
+  "external.providerRefused": "The identity provider refused the sign-in: {0}",
+  // What a half-finished address looks like from here. Usually somebody
+  // pressing reload on a page whose sign-in already completed.
+  "external.incomplete":
+    "This address is missing what a sign-in needs. Start again from the sign-in screen.",
+
+  "identityProviders.title": "Identity providers",
+  "identityProviders.subtitle":
+    "The OpenID Providers this tenant will let people sign in through",
+  "identityProviders.guideTitle": "What this does, and what it does not",
+  "identityProviders.guideBody":
+    "Register a provider here and a button for it appears on the sign-in screen. It never creates accounts: somebody signing in through a provider for the first time is refused and told to sign in with a password and link it from their profile. That keeps who may have an account a decision this deployment makes.",
+  "identityProviders.new": "Add a provider",
+  "identityProviders.edit": "Edit provider",
+  "identityProviders.checking": "Contacting the provider…",
+  "identityProviders.colName": "Name",
+  "identityProviders.colIssuer": "Issuer",
+  "identityProviders.colTrustEmail": "Addresses",
+  "identityProviders.colStatus": "Status",
+  "identityProviders.trusted": "Trusted",
+  "identityProviders.notTrusted": "Not trusted",
+  "identityProviders.redirectUri": "Redirect URI to register there",
+  "identityProviders.name": "Name",
+  "identityProviders.buttonLabel": "Button label",
+  "identityProviders.buttonLabelHint":
+    "What the sign-in screen's button says. Blank uses the name above.",
+  "identityProviders.issuer": "Issuer",
+  "identityProviders.issuerHint":
+    "A public HTTPS address. It is contacted when you save, so a configuration that cannot be discovered is refused here rather than at somebody's sign-in.",
+  "identityProviders.clientId": "Client ID",
+  "identityProviders.clientSecret": "Client secret",
+  "identityProviders.secretHint":
+    "Sealed with PORTICO_ENCRYPTION_KEY. Leave blank for a public client.",
+  "identityProviders.secretKept":
+    "One is stored. Leave blank to keep it, or type a new one to replace it.",
+  "identityProviders.secretNone":
+    "None stored. Leave blank to keep it that way.",
+  "identityProviders.scopes": "Scopes",
+  "identityProviders.scopesHint":
+    "Space separated. `openid` is always sent, whatever is here.",
+  "identityProviders.trustVerifiedEmail":
+    "Let a verified address link a first sign-in to an existing account",
+  "identityProviders.trustVerifiedEmailHint":
+    "Off unless you know this provider verifies addresses. With it on, anybody who can register an address there can reach the account that address belongs to here.",
+  "identityProviders.delete": "Remove provider",
+  "identityProviders.deleteConfirm":
+    "Removing {0} also removes every account's link to it. Anybody who signs in only through it will need another way in.",
+
+  "profile.linkedTitle": "Other ways to sign in",
+  "profile.linkedHelp":
+    "Providers linked to this account. Linking one means you can sign in through it as well as with your password.",
+  "profile.link": "Link {0}",
+  "profile.unlink": "Unlink",
+  "profile.unlinkConfirm":
+    "Unlinking {0} means you can no longer sign in through it. Your password still works.",
 } as const;
 
 export type TranslationKey = keyof typeof enUS;

@@ -41,6 +41,11 @@ import type {
   CatalogueField,
   FieldMapping,
   RecipientKind,
+  ExternalIdentity,
+  ExternalIdentityProvider,
+  ExternalIdentityProviderInput,
+  ExternalSignInOption,
+  ExternalSignInResult,
 } from "./types";
 
 /** Builds a query string, omitting empty values. */
@@ -67,6 +72,48 @@ export const authApi = {
       body: { tenant, identifier, password },
       anonymous: true,
     }),
+
+  /**
+   * The buttons a tenant's sign-in screen offers.
+   *
+   * Asked unconditionally and answered with an empty list where nothing is
+   * configured, so the screen has one code path rather than two.
+   */
+  externalOptions: () =>
+    request<ExternalSignInOption[]>("/auth/external/providers", {
+      anonymous: true,
+    }),
+
+  /**
+   * Begins a sign-in through somebody else's provider.
+   *
+   * Answers with an address rather than a redirect: the caller is a fetch,
+   * and a 302 here would be followed inside it while the page stayed put.
+   */
+  startExternalSignIn: (provider: string, tenant: string) =>
+    request<{ authorizationUrl: string }>("/auth/external/start", {
+      method: "POST",
+      body: { provider, tenant },
+      anonymous: true,
+    }),
+
+  /**
+   * Spends the `state` and `code` a browser came back holding.
+   *
+   * Single-use on the server: the row is deleted by the statement that
+   * reads it, so calling this twice with the same state fails the second
+   * time. Callers must make sure there is no second time.
+   *
+   * The tenant is passed rather than taken from storage. It comes from the
+   * address the provider redirected to, and an exchange that fails — which
+   * is what a reload or a stale link produces — must not have repointed the
+   * browser's remembered tenant on its way through.
+   */
+  completeExternalSignIn: (state: string, code: string, tenant: string) =>
+    request<ExternalSignInResult>(
+      `/auth/external/callback${query({ state, code, tenant })}`,
+      { anonymous: true },
+    ),
 
   /** Ends this session. Other devices stay signed in. */
   logout: () => request<null>("/auth/logout", { method: "POST" }),
@@ -769,6 +816,80 @@ export const webhooksApi = {
 
   remove: (id: string) =>
     request<void>(`/webhooks/${segment(id)}`, { method: "DELETE" }),
+};
+
+/**
+ * The OpenID Providers this deployment sends people to.
+ *
+ * Administrative: who may vouch for accounts here is a tenant
+ * administrator's decision, not an account holder's.
+ */
+export const externalIdpApi = {
+  list: () =>
+    request<ExternalIdentityProvider[]>("/external-identity-providers"),
+
+  /**
+   * Registers one. The issuer is contacted before the row is written, so a
+   * configuration that cannot be discovered is refused at the form rather
+   * than at somebody's sign-in three days later — which is why this can be
+   * slow and can fail with EXTERNAL_IDP_UNREACHABLE.
+   */
+  create: (input: ExternalIdentityProviderInput) =>
+    request<ExternalIdentityProvider>("/external-identity-providers", {
+      method: "POST",
+      body: input,
+    }),
+
+  /** A blank `clientSecret` keeps the stored one. */
+  update: (id: string, input: ExternalIdentityProviderInput) =>
+    request<ExternalIdentityProvider>(
+      `/external-identity-providers/${segment(id)}`,
+      { method: "PUT", body: input },
+    ),
+
+  enable: (id: string) =>
+    request<void>(`/external-identity-providers/${segment(id)}/enable`, {
+      method: "POST",
+    }),
+
+  /** Takes the button off the sign-in screen, leaving every binding. */
+  disable: (id: string) =>
+    request<void>(`/external-identity-providers/${segment(id)}/disable`, {
+      method: "POST",
+    }),
+
+  /** Removes the provider and every binding that named it. */
+  remove: (id: string) =>
+    request<void>(`/external-identity-providers/${segment(id)}`, {
+      method: "DELETE",
+    }),
+};
+
+/**
+ * The caller's own external identities.
+ *
+ * Separate from the administrative API above because the account is taken
+ * from the session rather than from the request. A caller-supplied account
+ * here would be the whole vulnerability this journey is arranged to avoid.
+ */
+export const myExternalIdentitiesApi = {
+  list: () => request<ExternalIdentity[]>("/users/me/external-identities"),
+
+  /**
+   * Begins linking a provider to the caller's own account. Same round trip
+   * as a sign-in and the same callback address; what makes it a binding is
+   * remembered server-side when it departs.
+   */
+  startBinding: (providerId: string) =>
+    request<{ authorizationUrl: string }>(
+      `/users/me/external-identities/${segment(providerId)}/start`,
+      { method: "POST" },
+    ),
+
+  unlink: (id: string) =>
+    request<void>(`/users/me/external-identities/${segment(id)}`, {
+      method: "DELETE",
+    }),
 };
 
 /**

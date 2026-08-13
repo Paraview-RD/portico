@@ -1,12 +1,17 @@
 import { useCallback, useEffect, useState } from "react";
 
-import { authApi, userApi } from "../api/endpoints";
-import type { UserSession } from "../api/types";
+import { authApi, myExternalIdentitiesApi, userApi } from "../api/endpoints";
+import type {
+  ExternalIdentity,
+  ExternalSignInOption,
+  UserSession,
+} from "../api/types";
 import {
   Alert,
   Badge,
   Button,
   Card,
+  ConfirmDialog,
   Field,
   Input,
   PageHeader,
@@ -82,6 +87,15 @@ export function ProfilePage() {
             width: an address, a user agent string, a timestamp, and a button
             on one row. At 30rem it wrapped to four lines per session. */}
         <SessionsCard />
+
+        {/* Full width, and a row of its own.
+            It renders nothing at all where no provider is configured, which
+            is almost every deployment — so this is a row that usually does
+            not exist rather than a fifth card leaving one of the four
+            stranded alone on a half-width row. */}
+        <div className="lg:col-span-2">
+          <LinkedIdentitiesCard />
+        </div>
 
         <Card title={t("profile.changePassword")}>
           {changed ? (
@@ -468,6 +482,153 @@ function CloseAccountCard() {
           {t("profile.closeAccount")}
         </Button>
       )}
+    </Card>
+  );
+}
+
+/**
+ * The other ways this account can sign in.
+ *
+ * Linking is the only route an external identity has to an account, unless
+ * an administrator has decided to trust a provider's addresses — so this
+ * card is not a convenience. It is what a person is told to come here and do
+ * after a first external sign-in is refused, and the sentence that refuses
+ * them names this screen.
+ *
+ * The round trip is the same one a sign-in makes, and ends on the same
+ * callback address. What makes it a binding rather than a sign-in is
+ * remembered server-side when the request departs, so nothing here has to
+ * carry it — and nothing coming back could forge it.
+ */
+function LinkedIdentitiesCard() {
+  const t = useT();
+  const describeError = useErrorMessage();
+
+  const [identities, setIdentities] = useState<ExternalIdentity[] | null>(null);
+  const [options, setOptions] = useState<ExternalSignInOption[]>([]);
+  const [error, setError] = useState("");
+  const [busy, setBusy] = useState("");
+  const [unlinking, setUnlinking] = useState<ExternalIdentity | null>(null);
+
+  const load = useCallback(async () => {
+    try {
+      setIdentities(await myExternalIdentitiesApi.list());
+    } catch (err) {
+      setError(describeError(err));
+    }
+  }, [describeError]);
+
+  useEffect(() => {
+    void load();
+    // The buttons this tenant offers. The same public list the sign-in
+    // screen draws from, because it is the same question: which providers
+    // would work if you clicked one.
+    authApi
+      .externalOptions()
+      .then(setOptions)
+      .catch(() => setOptions([]));
+  }, [load]);
+
+  async function link(providerId: string) {
+    setError("");
+    setBusy(providerId);
+    try {
+      const { authorizationUrl } =
+        await myExternalIdentitiesApi.startBinding(providerId);
+      window.location.assign(authorizationUrl);
+    } catch (err) {
+      setBusy("");
+      setError(describeError(err));
+    }
+  }
+
+  async function unlink() {
+    if (!unlinking) return;
+    setError("");
+    try {
+      await myExternalIdentitiesApi.unlink(unlinking.id);
+      setUnlinking(null);
+      await load();
+    } catch (err) {
+      setError(describeError(err));
+    }
+  }
+
+  // Nothing configured, and nothing linked: a deployment where this concept
+  // does not exist should not be told about it.
+  if (
+    options.length === 0 &&
+    (identities === null || identities.length === 0)
+  ) {
+    return null;
+  }
+
+  return (
+    <Card title={t("profile.linkedTitle")}>
+      <p className="mb-4 text-[length:var(--font-size-sm)] text-[var(--color-fg-muted)]">
+        {t("profile.linkedHelp")}
+      </p>
+
+      {error && (
+        <div className="mb-4">
+          <Alert tone="danger">{error}</Alert>
+        </div>
+      )}
+
+      {identities !== null && identities.length > 0 && (
+        <ul className="mb-4 flex flex-col gap-2">
+          {identities.map((identity) => (
+            <li
+              key={identity.id}
+              className="flex flex-wrap items-center justify-between gap-2 rounded-[var(--radius-md)] border border-[var(--color-border)] px-3 py-2"
+            >
+              <span className="min-w-0">
+                <span className="font-[weight:var(--font-weight-medium)]">
+                  {identity.providerName}
+                </span>{" "}
+                <span className="text-[var(--color-fg-muted)]">
+                  {/* The address the provider gave at binding time, which is
+                      what makes one of these recognisable. It is not what
+                      finds the account — the subject is — so it is shown as
+                      a label and never as an identifier. */}
+                  {identity.email || identity.subject}
+                </span>
+              </span>
+              <Button
+                size="sm"
+                variant="secondary"
+                onClick={() => setUnlinking(identity)}
+              >
+                {t("profile.unlink")}
+              </Button>
+            </li>
+          ))}
+        </ul>
+      )}
+
+      {options.length > 0 && (
+        <div className="flex flex-wrap gap-2">
+          {options.map((option) => (
+            <Button
+              key={option.id}
+              variant="secondary"
+              disabled={busy !== ""}
+              onClick={() => void link(option.id)}
+            >
+              {t("profile.link", option.label)}
+            </Button>
+          ))}
+        </div>
+      )}
+
+      <ConfirmDialog
+        open={unlinking !== null}
+        title={t("profile.unlink")}
+        message={t("profile.unlinkConfirm", unlinking?.providerName ?? "")}
+        destructive
+        onConfirm={() => void unlink()}
+        onCancel={() => setUnlinking(null)}
+      />
     </Card>
   );
 }

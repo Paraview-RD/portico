@@ -29,6 +29,7 @@ export type Route =
   | "/applications"
   | "/provisioning"
   | "/webhooks"
+  | "/identity-providers"
   | "/audit-logs"
   | "/settings"
   | "/user-attributes"
@@ -47,6 +48,7 @@ const routes: Route[] = [
   "/applications",
   "/provisioning",
   "/webhooks",
+  "/identity-providers",
   "/audit-logs",
   "/settings",
   "/user-attributes",

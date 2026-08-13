@@ -46,6 +46,9 @@ export const zhCN: Record<keyof typeof enUS, string> = {
   // 名字，读者要多想一步才能确认是同一件事。
   "nav.provisioning": "目录对接",
   "nav.webhooks": "事件订阅",
+  // 与「应用管理」方向相反：那边是别人来问 Portico 某人是谁，这边是 Portico
+  // 去问别人。
+  "nav.identityProviders": "身份提供方",
   "nav.settings": "系统设置",
   "nav.profile": "个人中心",
   "nav.signOut": "退出登录",
@@ -810,4 +813,63 @@ export const zhCN: Record<keyof typeof enUS, string> = {
   "userValues.selectNone": "未填写",
   "userValues.booleanTrue": "是",
   "userValues.booleanFalse": "否",
+
+  // 通过别人的身份提供方登录：登录页上的按钮，以及浏览器回来时落到的那个页面。
+  "external.or": "或者",
+  "external.signInWith": "使用 {0} 登录",
+  "external.leaving": "正在跳转…",
+  "external.title": "正在登录",
+  "external.subtitle": "接着对方那边已经开始的登录往下走",
+  "external.working": "请稍候。",
+  "external.providerRefused": "身份提供方拒绝了这次登录：{0}",
+  // 地址不完整时的说法。多半是有人在已经登录成功的页面上按了刷新。
+  "external.incomplete": "这个地址缺少登录所需的信息。请回到登录页重新开始。",
+
+  "identityProviders.title": "身份提供方",
+  "identityProviders.subtitle": "本租户允许用户通过哪些 OpenID Provider 登录",
+  "identityProviders.guideTitle": "它做什么，不做什么",
+  "identityProviders.guideBody":
+    "在这里登记一个提供方，登录页上就会出现对应的按钮。它不会创建账号：第一次通过某个提供方登录的人会被拒绝，并被告知先用密码登录、再到个人中心里关联。谁可以拥有账号，这个决定仍然留在本部署这边。",
+  "identityProviders.new": "添加提供方",
+  "identityProviders.edit": "编辑提供方",
+  "identityProviders.checking": "正在连接提供方…",
+  "identityProviders.colName": "名称",
+  "identityProviders.colIssuer": "Issuer",
+  "identityProviders.colTrustEmail": "邮箱地址",
+  "identityProviders.colStatus": "状态",
+  "identityProviders.trusted": "信任",
+  "identityProviders.notTrusted": "不信任",
+  "identityProviders.redirectUri": "需要在对方那边登记的回调地址",
+  "identityProviders.name": "名称",
+  "identityProviders.buttonLabel": "按钮文字",
+  "identityProviders.buttonLabelHint":
+    "登录页按钮上显示的文字。留空则用上面的名称。",
+  "identityProviders.issuer": "Issuer",
+  "identityProviders.issuerHint":
+    "必须是公网可达的 HTTPS 地址。保存时会去连一次，所以发现不了的配置在这里就被拒绝，而不是等到有人登录时才出问题。",
+  "identityProviders.clientId": "Client ID",
+  "identityProviders.clientSecret": "Client Secret",
+  "identityProviders.secretHint":
+    "用 PORTICO_ENCRYPTION_KEY 加密保存。公开客户端可以留空。",
+  "identityProviders.secretKept":
+    "已经存了一个。留空表示保持不变，填新的表示替换。",
+  "identityProviders.secretNone": "当前没有存。留空表示保持没有。",
+  "identityProviders.scopes": "Scopes",
+  "identityProviders.scopesHint":
+    "空格分隔。无论这里写什么，`openid` 都会带上。",
+  "identityProviders.trustVerifiedEmail":
+    "允许已验证的邮箱地址把首次登录关联到已有账号",
+  "identityProviders.trustVerifiedEmailHint":
+    "除非你确认这个提供方真的验证邮箱，否则不要打开。打开之后，任何能在对方那边注册某个地址的人，都能进到这边属于该地址的账号。",
+  "identityProviders.delete": "删除提供方",
+  "identityProviders.deleteConfirm":
+    "删除「{0}」会同时删掉所有账号与它的关联。只用它登录的人将需要另一种登录方式。",
+
+  "profile.linkedTitle": "其他登录方式",
+  "profile.linkedHelp":
+    "已经关联到本账号的提供方。关联之后，除了密码之外也可以通过它登录。",
+  "profile.link": "关联 {0}",
+  "profile.unlink": "解除关联",
+  "profile.unlinkConfirm":
+    "解除与「{0}」的关联后就不能再通过它登录了。密码不受影响。",
 };
