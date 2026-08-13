@@ -319,7 +319,11 @@ export function Badge({
   return (
     <span
       className={cx(
-        "inline-flex items-center rounded-full border px-2 py-0.5",
+        // whitespace-nowrap because a badge is a label, not a paragraph.
+        // Without it a two-character status in a narrow column wrapped to
+        // two lines, and a pill with two lines in it renders as a circle —
+        // which is what it looked like on the subscriptions table.
+        "inline-flex items-center whitespace-nowrap rounded-full border px-2 py-0.5",
         "text-[length:var(--font-size-xs)] font-[weight:var(--font-weight-medium)]",
         badgeTones[tone],
       )}
@@ -337,7 +341,26 @@ interface ModalProps {
   onClose: () => void;
   children: ReactNode;
   footer?: ReactNode;
+  /**
+   * How wide the dialog may grow. `md` is the default and is what every
+   * dialog was before this existed — one width for a two-field form and for
+   * a table of delivery attempts, which the table lost.
+   *
+   * Not a free-form class: four sizes so the console keeps a rhythm, and so
+   * that widening one dialog is a choice between named options rather than
+   * a number somebody picks.
+   */
+  size?: ModalSize;
 }
+
+type ModalSize = "sm" | "md" | "lg" | "xl";
+
+const modalWidths: Record<ModalSize, string> = {
+  sm: "max-w-md",
+  md: "max-w-lg",
+  lg: "max-w-3xl",
+  xl: "max-w-5xl",
+};
 
 /**
  * A modal dialog whose chrome stays put.
@@ -357,7 +380,14 @@ interface ModalProps {
  * The close button belongs to that pinned header for the same reason. A way
  * out that is only reachable before anyone has scrolled is not a way out.
  */
-export function Modal({ open, title, onClose, children, footer }: ModalProps) {
+export function Modal({
+  open,
+  title,
+  onClose,
+  children,
+  footer,
+  size = "md",
+}: ModalProps) {
   const t = useT();
 
   // Escape closes the dialog, which users expect and which also gives
@@ -384,7 +414,8 @@ export function Modal({ open, title, onClose, children, footer }: ModalProps) {
         aria-modal="true"
         aria-label={title}
         className={cx(
-          "flex w-full max-w-lg flex-col rounded-[var(--radius-lg)]",
+          "flex w-full flex-col rounded-[var(--radius-lg)]",
+          modalWidths[size],
           "bg-[var(--color-bg)] shadow-[var(--shadow-md)] max-h-[90vh]",
         )}
         onClick={(event) => event.stopPropagation()}
@@ -424,6 +455,7 @@ export function ConfirmDialog({
   open,
   title,
   message,
+  details,
   destructive,
   onConfirm,
   onCancel,
@@ -431,6 +463,18 @@ export function ConfirmDialog({
   open: boolean;
   title: string;
   message: string;
+  /**
+   * Whatever the reader needs before deciding, beyond the question itself.
+   *
+   * A node rather than more text, because the alternative that was reached
+   * for first was markdown in the message — and one translated string
+   * arrived with `**` around a sentence that then rendered as asterisks,
+   * because this dialog puts the message in a `<p>` and always has. The
+   * choice is to render markup or to take structure as structure; taking it
+   * as structure means no string can carry styling into a screen that does
+   * not parse it.
+   */
+  details?: ReactNode;
   destructive?: boolean;
   onConfirm: () => void;
   onCancel: () => void;
@@ -456,6 +500,7 @@ export function ConfirmDialog({
       }
     >
       <p className="text-[var(--color-fg)]">{message}</p>
+      {details && <div className="mt-3">{details}</div>}
     </Modal>
   );
 }

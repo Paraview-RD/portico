@@ -595,7 +595,7 @@ export function ApplicationsPage() {
 function StatusBadge({ status }: { status: "ACTIVE" | "DISABLED" }) {
   const t = useT();
   return (
-    <Badge tone={status === "ACTIVE" ? "success" : "danger"}>
+    <Badge tone={status === "ACTIVE" ? "success" : "neutral"}>
       {t(`status.${status}`)}
     </Badge>
   );

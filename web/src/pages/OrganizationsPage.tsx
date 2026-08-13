@@ -166,7 +166,7 @@ export function OrganizationsPage() {
                 <Td>{org.userCount}</Td>
                 <Td>{org.remark || "—"}</Td>
                 <Td>
-                  <Badge tone={org.status === "ACTIVE" ? "success" : "danger"}>
+                  <Badge tone={org.status === "ACTIVE" ? "success" : "neutral"}>
                     {t(`status.${org.status}`)}
                   </Badge>
                 </Td>

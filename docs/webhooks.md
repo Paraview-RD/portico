@@ -205,12 +205,20 @@ change that came before it, and the delivery history cannot fill the gap:
 finished deliveries are removed after thirty days, and the ones that survive
 say what happened rather than what is.
 
-So a receiver building a mirror asks for a snapshot:
+So a receiver building a mirror asks for a **full sync**:
 
 ```sh
 curl -X POST -H "Authorization: Bearer $TOKEN" \
   https://portico.example.com/api/v1/webhooks/$ID/snapshot
 ```
+
+The endpoint is called `snapshot` and the console calls the button **Full
+sync**. The console is the one that changed: "snapshot" elsewhere in
+operations means a stored copy of a moment, and nothing is stored here — the
+current state is sent, in pages, to one receiver. The events have always
+been `sync.*`. The path keeps its name because it is published contract, and
+renaming it to match a label would break every integration for the sake of
+tidiness.
 
 What arrives is a run, through the same endpoint, the same signature, and
 the same field mappings as everything else:
@@ -238,7 +246,7 @@ own rows: a mismatch means a page you answered 200 to never landed.
 
 > **This asks something of the receiver, and it is not optional.**
 >
-> A snapshot is not taken atomically. Pages are read one after another while
+> A full sync is not taken atomically. Pages are read one after another while
 > the tenant carries on changing, and live events keep arriving throughout —
 > so an account edited during the run may reach you as a page or as an event,
 > in either order.
@@ -251,7 +259,7 @@ own rows: a mismatch means a page you answered 200 to never landed.
 > you can see any delivery twice; the envelope's `id` is what you deduplicate
 > on.
 
-One snapshot at a time per subscription: a second while the first is still
+One full sync at a time per subscription: a second while the first is still
 queued answers `409 SNAPSHOT_IN_PROGRESS`. A disabled subscription is refused
 outright rather than having the largest delivery this product makes queued
 against the moment somebody re-enables it.
