@@ -139,7 +139,7 @@ func (s *ExternalIDPService) Create(ctx context.Context, actor auth.Principal, t
 
 	sealed := ""
 	if in.ClientSecret != "" {
-		if sealed, err = s.seal(in.ClientSecret); err != nil {
+		if sealed, err = s.seal(actor.TenantID, in.ClientSecret); err != nil {
 			return ExternalIDP{}, err
 		}
 	}
@@ -197,7 +197,7 @@ func (s *ExternalIDPService) Update(ctx context.Context, actor auth.Principal, t
 
 	sealed := ""
 	if in.ClientSecret != "" {
-		if sealed, err = s.seal(in.ClientSecret); err != nil {
+		if sealed, err = s.seal(actor.TenantID, in.ClientSecret); err != nil {
 			return ExternalIDP{}, err
 		}
 	}
@@ -304,8 +304,15 @@ func (s *ExternalIDPService) verifyReachable(ctx context.Context, in ExternalIDP
 	return nil
 }
 
-func (s *ExternalIDPService) seal(plaintext string) (string, error) {
-	sealed, err := s.vault.Seal(plaintext)
+// clientSecretBinding ties a stored client secret to the tenant it belongs
+// to and to being a client secret, so a ciphertext moved into another row or
+// another tenant no longer opens.
+func clientSecretBinding(tenantID string) secrets.Binding {
+	return secrets.Binding{Purpose: secrets.PurposeExternalIDPSecret, TenantID: tenantID}
+}
+
+func (s *ExternalIDPService) seal(tenantID, plaintext string) (string, error) {
+	sealed, err := s.vault.Seal(clientSecretBinding(tenantID), plaintext)
 	if errors.Is(err, secrets.ErrNotConfigured) {
 		return "", ErrNoEncryptionKey
 	}

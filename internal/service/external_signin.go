@@ -333,7 +333,7 @@ func (s *ExternalIDPService) load(ctx context.Context, tenantID, id string) (sql
 func (s *ExternalIDPService) party(ctx context.Context, provider sqlcgen.ExternalIdentityProvider, tenantCode string) (*oidcrp.Party, error) {
 	secret := ""
 	if provider.ClientSecret != "" {
-		opened, err := s.vault.Open(provider.ClientSecret)
+		opened, err := s.vault.Open(clientSecretBinding(provider.TenantID), provider.ClientSecret)
 		if err != nil {
 			// A configured provider whose secret cannot be opened is a
 			// deployment that changed or lost PORTICO_ENCRYPTION_KEY. Said

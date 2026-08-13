@@ -71,6 +71,7 @@ type Binding struct {
 const (
 	PurposeDirectoryBindPassword = "directory-bind-password"
 	PurposeWebhookHeaders        = "webhook-headers"
+	PurposeExternalIDPSecret     = "external-idp-client-secret"
 )
 
 // bytes is the additional data itself. NUL-separated so that a purpose and a
