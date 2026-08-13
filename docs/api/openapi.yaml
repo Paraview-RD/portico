@@ -3606,6 +3606,16 @@ paths:
           in: query
           schema: { type: string }
           description: Sent instead of `code` when the provider refused.
+        - name: tenant
+          in: query
+          schema: { type: string }
+          description: |
+            Which tenant this sign-in belongs to. The console reads it from
+            the address the provider redirected to — `/t/<code>/external/
+            callback` — and passes it here, because a browser returning from
+            another site carries nothing else that says. Absent means the
+            default tenant. `X-Portico-Tenant` is honoured too and means the
+            same thing.
       responses:
         "200":
           description: A session, or the identity that was just linked.

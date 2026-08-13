@@ -67,6 +67,20 @@ describe("reading the callback out of the address", () => {
     expect(externalCallback("/t/acme/users", "")).toBeNull();
   });
 
+  it("survives an address nobody could have meant", () => {
+    // This runs while App is rendering, before any error boundary exists,
+    // so anything thrown here is a white screen for the whole console
+    // rather than a screen that says something went wrong. Every other
+    // unknown path falls back to the default route; a typed percent sign
+    // must not be the one that does not.
+    expect(externalCallback("/t/%ZZ/external/callback", "")).toEqual({
+      tenant: "%ZZ",
+      state: "",
+      code: "",
+      error: "",
+    });
+  });
+
   it("carries a provider's refusal, which arrives instead of a code", () => {
     const callback = externalCallback(
       "/external/callback",

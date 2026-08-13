@@ -54,7 +54,16 @@ export function externalCallback(
   if (pathname !== CALLBACK_PATH) {
     const prefixed = new RegExp(`^/t/([^/]+)${CALLBACK_PATH}$`).exec(pathname);
     if (!prefixed) return null;
-    tenant = decodeURIComponent(prefixed[1]);
+    // Left as it stands where it will not decode. This runs while the app is
+    // still deciding what to render, ahead of anything that could catch a
+    // throw, so a typed percent sign would be a blank console rather than an
+    // unknown tenant — and an unknown tenant is a sentence the server is
+    // already able to say.
+    try {
+      tenant = decodeURIComponent(prefixed[1]);
+    } catch {
+      tenant = prefixed[1];
+    }
   }
 
   const params = new URLSearchParams(search);
