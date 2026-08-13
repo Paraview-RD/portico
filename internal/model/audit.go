@@ -149,6 +149,20 @@ const (
 	ActionLDAPSourceDisable = "LDAP_SOURCE_DISABLE"
 	ActionLDAPSync          = "LDAP_SYNC"
 
+	// Signing in through somebody else's provider. Configuring one decides
+	// who may become an account holder here, which puts it on the same
+	// footing as registering an application rather than as a setting.
+	ActionExternalIDPCreate  = "EXTERNAL_IDP_CREATE"
+	ActionExternalIDPUpdate  = "EXTERNAL_IDP_UPDATE"
+	ActionExternalIDPEnable  = "EXTERNAL_IDP_ENABLE"
+	ActionExternalIDPDisable = "EXTERNAL_IDP_DISABLE"
+	ActionExternalIDPDelete  = "EXTERNAL_IDP_DELETE"
+	// Binding and unbinding are the account holder's own actions, and are
+	// recorded against them: an identity nobody can explain the arrival of
+	// is the one worth being able to look up.
+	ActionExternalIdentityBind   = "EXTERNAL_IDENTITY_BIND"
+	ActionExternalIdentityUnbind = "EXTERNAL_IDENTITY_UNBIND"
+
 	ActionCASServiceCreate  = "CAS_SERVICE_CREATE"
 	ActionCASServiceUpdate  = "CAS_SERVICE_UPDATE"
 	ActionCASServiceEnable  = "CAS_SERVICE_ENABLE"

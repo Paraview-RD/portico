@@ -935,6 +935,111 @@ func (s *Scoped) EnqueueWebhookDelivery(ctx context.Context, arg sqlcgen.Enqueue
 	return s.q.EnqueueWebhookDelivery(ctx, arg)
 }
 
+// --- External identity providers ---------------------------------------
+//
+// Portico as the relying party: providers it sends people to, the identities
+// that came back, and the sign-ins still out at somebody else's login page.
+
+// ListExternalIdentityProviders returns every provider a tenant configured.
+func (s *Scoped) ListExternalIdentityProviders(ctx context.Context) ([]sqlcgen.ExternalIdentityProvider, error) {
+	return s.q.ListExternalIdentityProviders(ctx, s.tenantID)
+}
+
+// ListActiveExternalIdentityProviders returns the ones the sign-in screen offers.
+func (s *Scoped) ListActiveExternalIdentityProviders(ctx context.Context) ([]sqlcgen.ExternalIdentityProvider, error) {
+	return s.q.ListActiveExternalIdentityProviders(ctx, s.tenantID)
+}
+
+// GetExternalIdentityProvider returns one by id.
+func (s *Scoped) GetExternalIdentityProvider(ctx context.Context, id string) (sqlcgen.ExternalIdentityProvider, error) {
+	return s.q.GetExternalIdentityProvider(ctx,
+		sqlcgen.GetExternalIdentityProviderParams{TenantID: s.tenantID, ID: id})
+}
+
+// CreateExternalIdentityProvider adds one.
+func (s *Scoped) CreateExternalIdentityProvider(ctx context.Context, arg sqlcgen.CreateExternalIdentityProviderParams) error {
+	arg.TenantID = s.tenantID
+	return s.q.CreateExternalIdentityProvider(ctx, arg)
+}
+
+// UpdateExternalIdentityProvider edits one. An empty secret leaves the
+// stored one alone; see the query.
+func (s *Scoped) UpdateExternalIdentityProvider(ctx context.Context, arg sqlcgen.UpdateExternalIdentityProviderParams) error {
+	arg.TenantID = s.tenantID
+	return s.q.UpdateExternalIdentityProvider(ctx, arg)
+}
+
+// SetExternalIdentityProviderStatus enables or disables one.
+func (s *Scoped) SetExternalIdentityProviderStatus(ctx context.Context, id, status string, now time.Time) error {
+	return s.q.SetExternalIdentityProviderStatus(ctx,
+		sqlcgen.SetExternalIdentityProviderStatusParams{
+			TenantID: s.tenantID, ID: id, Status: status, UpdatedAt: now})
+}
+
+// DeleteExternalIdentityProvider removes one, and its bindings by cascade.
+func (s *Scoped) DeleteExternalIdentityProvider(ctx context.Context, id string) error {
+	return s.q.DeleteExternalIdentityProvider(ctx,
+		sqlcgen.DeleteExternalIdentityProviderParams{TenantID: s.tenantID, ID: id})
+}
+
+// GetExternalIdentity finds who a provider's subject belongs to.
+func (s *Scoped) GetExternalIdentity(ctx context.Context, providerID, subject string) (sqlcgen.ExternalIdentity, error) {
+	return s.q.GetExternalIdentity(ctx, sqlcgen.GetExternalIdentityParams{
+		TenantID: s.tenantID, ProviderID: providerID, Subject: subject})
+}
+
+// ListExternalIdentitiesForUser returns what one account has bound.
+func (s *Scoped) ListExternalIdentitiesForUser(ctx context.Context, userID string) ([]sqlcgen.ExternalIdentity, error) {
+	return s.q.ListExternalIdentitiesForUser(ctx,
+		sqlcgen.ListExternalIdentitiesForUserParams{TenantID: s.tenantID, UserID: userID})
+}
+
+// CreateExternalIdentity binds one.
+func (s *Scoped) CreateExternalIdentity(ctx context.Context, arg sqlcgen.CreateExternalIdentityParams) error {
+	arg.TenantID = s.tenantID
+	return s.q.CreateExternalIdentity(ctx, arg)
+}
+
+// TouchExternalIdentity records that it was just used to sign in.
+func (s *Scoped) TouchExternalIdentity(ctx context.Context, providerID, subject string, now time.Time) error {
+	return s.q.TouchExternalIdentity(ctx, sqlcgen.TouchExternalIdentityParams{
+		TenantID: s.tenantID, ProviderID: providerID, Subject: subject, LastUsedAt: &now})
+}
+
+// DeleteExternalIdentity unbinds one from an account.
+func (s *Scoped) DeleteExternalIdentity(ctx context.Context, userID, id string) error {
+	return s.q.DeleteExternalIdentity(ctx, sqlcgen.DeleteExternalIdentityParams{
+		TenantID: s.tenantID, UserID: userID, ID: id})
+}
+
+// CountExternalIdentitiesForProvider is what a delete confirmation needs to
+// say: removing a provider unbinds everybody who signed in through it.
+func (s *Scoped) CountExternalIdentitiesForProvider(ctx context.Context, providerID string) (int64, error) {
+	return s.q.CountExternalIdentitiesForProvider(ctx,
+		sqlcgen.CountExternalIdentitiesForProviderParams{TenantID: s.tenantID, ProviderID: providerID})
+}
+
+// CreateExternalAuthRequest records a sign-in that is about to leave.
+func (s *Scoped) CreateExternalAuthRequest(ctx context.Context, arg sqlcgen.CreateExternalAuthRequestParams) error {
+	arg.TenantID = s.tenantID
+	return s.q.CreateExternalAuthRequest(ctx, arg)
+}
+
+// DeleteExpiredExternalAuthRequests clears sign-ins nobody came back from.
+func (s *Scoped) DeleteExpiredExternalAuthRequests(ctx context.Context, before time.Time) error {
+	return s.q.DeleteExpiredExternalAuthRequests(ctx,
+		sqlcgen.DeleteExpiredExternalAuthRequestsParams{TenantID: s.tenantID, ExpiresAt: before})
+}
+
+// TakeExternalAuthRequest consumes one, or reports that there was none.
+//
+// Single-use, and scoped to this tenant: the callback address carries the
+// tenant, so a state issued for one cannot be redeemed at another's.
+func (s *Scoped) TakeExternalAuthRequest(ctx context.Context, state string, now time.Time) (sqlcgen.ExternalAuthRequest, error) {
+	return s.q.TakeExternalAuthRequest(ctx, sqlcgen.TakeExternalAuthRequestParams{
+		TenantID: s.tenantID, State: state, ExpiresAt: now})
+}
+
 // CountPendingSnapshotDeliveries reports how much of a snapshot is still
 // queued for one subscription.
 func (s *Scoped) CountPendingSnapshotDeliveries(ctx context.Context, subscriptionID string) (int64, error) {

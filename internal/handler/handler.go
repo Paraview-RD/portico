@@ -40,7 +40,8 @@ type Handler struct {
 	// this reaches out and reads.
 	directories *service.DirectoryService
 	// Outbound event subscriptions.
-	webhooks *service.WebhookService
+	webhooks    *service.WebhookService
+	externalIDP *service.ExternalIDPService
 	// Groups: sets of people, as distinct from the organization chart.
 	groups *service.GroupService
 	// Uploaded pictures for application tiles.
@@ -79,6 +80,7 @@ func New(
 	scimCredentials *service.SCIMCredentialService,
 	directories *service.DirectoryService,
 	webhooks *service.WebhookService,
+	externalIDP *service.ExternalIDPService,
 	groups *service.GroupService,
 	logos *service.ApplicationLogoService,
 	attributes *service.UserAttributeService,
@@ -96,7 +98,7 @@ func New(
 		clients:      clients, serviceProviders: serviceProviders,
 		samlKeys: samlKeys, casServices: casServices,
 		scimCredentials: scimCredentials, directories: directories,
-		webhooks: webhooks, groups: groups, logos: logos,
+		webhooks: webhooks, externalIDP: externalIDP, groups: groups, logos: logos,
 		attributes: attributes, fields: fields, fieldMappings: fieldMappings,
 		oidc: oidc, saml: samlProviders, cas: casServer,
 	}

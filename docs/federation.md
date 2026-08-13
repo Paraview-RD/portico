@@ -212,6 +212,72 @@ half the integrations cannot see.
 never asks anybody to prove an address, and a provider that claimed otherwise
 would be lying to a relying party that might act on it.
 
+## Signing in through somebody else's provider
+
+Everything above is Portico as the issuer. This is the other direction: an
+OpenID Provider somebody else runs, trusted to say who a person is.
+
+Configure one under **Settings → External identity providers**. You supply
+the issuer, a client id and secret registered at that provider, and the
+redirect URI the screen shows you — copy it exactly, since the provider
+matches it character for character. The issuer is contacted when you save,
+so a configuration that cannot be discovered is refused at the form rather
+than at somebody's sign-in three days later.
+
+**It must be a public HTTPS address.** The same rules a webhook destination
+follows, and for the same reason: a tenant administrator types it and this
+server fetches it.
+
+### An external identity does not create an account
+
+A first-time arrival whose identity is not linked to anything here is
+refused, and told to sign in with a password and link it from their profile.
+This version never creates an account from an external sign-in — self-service
+registration and its optional address confirmation are the two switches that
+decide who may get an account, and a provider button that quietly made
+accounts would go around both.
+
+So the sequence for a person is: sign in as they already do, link the
+provider from **My profile**, and from then on the button works.
+
+### The one switch that can hand an account to a stranger
+
+**Trust this provider's verified email** lets a first-time arrival be matched
+to an existing account by address, instead of being refused. It is off, and
+it should stay off unless you run the provider or know how it verifies.
+
+An identity provider that does not verify addresses lets anybody register
+`ceo@your-company.example` and arrive here holding a token that says so. If
+an address alone reaches an existing account, that *is* the account.
+
+With it on, the address is consulted exactly once: the identity is linked on
+the way through, and from the next sign-in the account is reached by the
+provider's subject. An address that later changes at the provider — or is
+reassigned to somebody else — cannot repoint an existing link.
+
+### What is checked on the way back
+
+The `state` is consumed by the same statement that reads it, so a replayed
+callback finds nothing. The `nonce` in the ID token is compared against the
+one stored when the sign-in left. The signature, `iss`, `aud` and expiry are
+checked against the provider's published keys. Every way of failing to name a
+live request is one error, because a caller able to tell them apart could
+learn which states existed.
+
+Whether the journey is a sign-in or a link is decided when it starts and
+remembered server-side — never read from what comes back. A callback that
+could say which it was would be one a crafted link could lie in.
+
+### Removing a provider
+
+**Disable** takes the button off the sign-in screen and leaves every link in
+place; it is the control for an outage. **Delete** unlinks everybody who
+arrived through it, and the audit entry records how many.
+
+Nobody is locked out either way: every account here still has a password, so
+a link is a convenience rather than the only way in.
+
+
 ## Revocation, honestly
 
 Three things end a session: signing out, changing a password, and an
@@ -286,6 +352,7 @@ until they have all expired, and is then deleted.
 | OIDC access tokens | Cannot be withdrawn; expiry (15 minutes by default, at most an hour) or introspect |
 | SAML | Nothing to revoke — no server-side session exists, because there is no single logout. A service provider's own session outlives this entirely and ends on its own terms. |
 | CAS | Nothing to revoke — a ticket lives a minute and is single use, and there is no ticket-granting ticket. A service's own session, like SAML's, is its own affair. |
+| An external identity provider | **Nothing to revoke, and nothing reaches them.** Signing out of Portico does not sign anybody out of Google or Entra; the next click on that button signs them straight back in, because the provider still holds its own session. That is not a gap here — it is what federation means in this direction, and it is the same fact as the two rows above, seen from the other side. |
 
 The last two rows are worth reading twice before deploying. Ending a session
 in Portico does not end the session an application created after it accepted

@@ -233,6 +233,92 @@ func (s *UserService) Login(ctx context.Context, tenant model.Tenant, identifier
 	return Session{Token: token, ExpiresAt: expiresAt, User: user}, nil
 }
 
+// IssueSessionForExternalIdentity signs somebody in on another provider's
+// word, once that word has been checked.
+//
+// Everything a password sign-in checks *after* the password is checked here
+// too, because none of it is about the password: a disabled account is
+// disabled whoever vouched for it, an account its owner closed is asking to
+// come back rather than to be let in, and a locked one is locked.
+//
+// Two things a password sign-in does are deliberately absent. Expiry and the
+// forced change of a default password are conditions on a credential that is
+// not being used — an account signing in through Google is not presenting
+// the password, and refusing it would be asking somebody to fix something
+// they are not holding. Neither is reachable by accident: binding an
+// identity requires an ordinary sign-in first, so an account that cannot
+// pass the password gate cannot arrive here to skip it.
+//
+// The lockout counter is not touched either, in either direction. It counts
+// password guesses, and a successful external sign-in is not evidence that
+// whoever was guessing has stopped.
+func (s *UserService) IssueSessionForExternalIdentity(ctx context.Context, tenant model.Tenant, userID, ip, userAgent string) (session Session, err error) {
+	defer func() { s.metrics.RecordSignIn(signInOutcome(err)) }()
+
+	q := s.store.ForTenant(tenant.ID)
+
+	row, err := q.GetUserByID(ctx, userID)
+	if err != nil {
+		if store.IsNoRows(err) {
+			return Session{}, ErrInvalidCredentials
+		}
+		return Session{}, fmt.Errorf("look up user: %w", err)
+	}
+
+	if row.LockedUntil != nil && row.LockedUntil.After(store.Now()) {
+		s.logLoginFailure(ctx, tenant.ID, row.ID, row.Username, ip, "account locked")
+		return Session{}, ErrAccountLocked
+	}
+	if model.Status(row.Status) != model.StatusActive {
+		if row.ClosedAt != nil {
+			s.logLoginFailure(ctx, tenant.ID, row.ID, row.Username, ip, "account closed by its owner")
+			return Session{}, ErrAccountClosed
+		}
+		s.logLoginFailure(ctx, tenant.ID, row.ID, row.Username, ip, "account disabled")
+		return Session{}, ErrAccountDisabled
+	}
+
+	user, err := s.Get(ctx, tenant.ID, row.ID)
+	if err != nil {
+		return Session{}, err
+	}
+
+	settings, err := s.settings.Get(ctx, tenant.ID)
+	if err != nil {
+		return Session{}, err
+	}
+
+	sessionID := uuid.NewString()
+	now := store.Now()
+	ttl := settings.TokenTTL()
+
+	if err := q.CreateSession(ctx, sqlcgen.CreateSessionParams{
+		ID: sessionID, UserID: user.ID, Ip: ip, UserAgent: userAgent,
+		CreatedAt: now, ExpiresAt: now.Add(ttl),
+	}); err != nil {
+		return Session{}, fmt.Errorf("create session: %w", err)
+	}
+
+	token, expiresAt, err := s.tokens.Issue(user, tenant.Code, sessionID, row.TokenVersion, ttl)
+	if err != nil {
+		return Session{}, err
+	}
+	s.metrics.RecordTokenIssued(metrics.TokenSession)
+
+	// Recorded as a sign-in like any other. Which provider vouched belongs
+	// in the entry: "signed in" without it would make an external sign-in
+	// indistinguishable from a password one in the trail, and they are not
+	// the same event to somebody investigating.
+	s.audit.Log(ctx, tenant.ID, AuditEntry{
+		Kind: model.LogLogin, Action: model.ActionLoginSuccess,
+		Result:  model.LogSuccess,
+		ActorID: user.ID, ActorName: user.Username,
+		IP: ip, Detail: "external identity provider",
+	})
+
+	return Session{Token: token, ExpiresAt: expiresAt, User: user}, nil
+}
+
 // ChangeExpiredPassword is the way back in for somebody whose password has
 // aged out — or who is still on the default one a release bootstraps with,
 // which sign-in refuses on the same terms.

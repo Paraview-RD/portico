@@ -39,6 +39,24 @@ export const errorsZhCN: Record<keyof typeof errorsEnUS, string> = {
   SNAPSHOT_UNAVAILABLE: "本部署无法生成快照。",
   SUBSCRIPTION_DISABLED: "这个订阅已停用。要快照请先启用它。",
 
+  EXTERNAL_IDP_NOT_FOUND: "没有这个身份提供方。",
+  EXTERNAL_IDP_DISABLED: "这个身份提供方已关闭。",
+  EXTERNAL_IDP_ISSUER_TAKEN: "本租户已经有一个使用该 issuer 的提供方了。",
+  EXTERNAL_IDP_ISSUER_REQUIRED: "需要填写 issuer 地址。",
+  EXTERNAL_IDP_CLIENT_ID_REQUIRED: "需要填写 client id。",
+  EXTERNAL_IDP_UNREACHABLE:
+    "这个 issuer 读不出 OpenID Provider 配置。请检查地址，以及本服务器能否访问到它。",
+  EXTERNAL_IDP_SECRET_UNREADABLE:
+    "这个提供方的 client secret 解不开：它是用另一个加密密钥封装的，请重新填写。",
+  EXTERNAL_STATE_UNKNOWN:
+    "这次登录对不上本服务器发起过的任何一次。请重新开始。",
+  EXTERNAL_EXCHANGE_FAILED: "身份提供方的应答无法被接受。",
+  EXTERNAL_PROVIDER_REFUSED: "身份提供方拒绝了这次登录。",
+  EXTERNAL_IDENTITY_UNKNOWN:
+    "这个账号还没有在这里关联过。请先用密码登录，然后在个人中心里关联。",
+  EXTERNAL_IDENTITY_TAKEN: "这个身份已经关联到某个账号了。",
+  EXTERNAL_IDENTITY_NOT_FOUND: "没有这条关联记录。",
+
   PASSWORD_REUSED: "该密码最近使用过，请换一个没用过的。",
 
   // --- 密码找回 ---

@@ -3489,6 +3489,358 @@ paths:
             application/json:
               schema: { $ref: "#/components/schemas/Envelope" }
 
+  /api/v1/auth/external/providers:
+    get:
+      tags: [Authentication]
+      operationId: externalSignInOptions
+      summary: The external providers a tenant offers.
+      description: |
+        What the sign-in screen draws buttons for. Public, and it says only
+        what a button says — the issuer, the client id and whether a verified
+        address is trusted are configuration, and this answers before anybody
+        has proved anything.
+      security: []
+      parameters:
+        - name: tenant
+          in: query
+          schema: { type: string }
+          description: Tenant code. Omit for the default tenant.
+      responses:
+        "200":
+          description: The providers, possibly none.
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: "#/components/schemas/Envelope"
+                  - type: object
+                    properties:
+                      data:
+                        type: array
+                        items:
+                          type: object
+                          properties:
+                            id: { type: string }
+                            label: { type: string }
+        "403":
+          $ref: "#/components/responses/TenantDisabled"
+        "404":
+          $ref: "#/components/responses/TenantNotFound"
+
+  /api/v1/auth/external/start:
+    post:
+      tags: [Authentication]
+      operationId: startExternalSignIn
+      summary: Begin signing in through an external provider.
+      description: |
+        Returns the address to send the browser to rather than redirecting:
+        the caller is the sign-in screen holding a fetch response, and a 302
+        would be followed inside that fetch while the page stayed where it
+        was.
+
+        A `state`, a `nonce` and a PKCE verifier are generated and recorded
+        here. The callback is judged against that record and nothing else.
+      security: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [provider]
+              properties:
+                provider: { type: string, description: An id from `/auth/external/providers`. }
+                tenant: { type: string }
+      responses:
+        "200":
+          description: Where to send the browser.
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: "#/components/schemas/Envelope"
+                  - type: object
+                    properties:
+                      data:
+                        type: object
+                        properties:
+                          authorizationUrl: { type: string, format: uri }
+        "403":
+          $ref: "#/components/responses/TenantDisabled"
+        "404":
+          $ref: "#/components/responses/TenantNotFound"
+        "422":
+          description: |
+            `EXTERNAL_IDP_DISABLED`, or `EXTERNAL_IDP_UNREACHABLE` when the
+            provider's configuration cannot be read.
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Envelope" }
+
+  /api/v1/auth/external/callback:
+    get:
+      tags: [Authentication]
+      operationId: completeExternalSignIn
+      summary: Where a provider sends the browser back.
+      description: |
+        Judged entirely against the record made when the sign-in left. The
+        `state` is consumed by the same statement that reads it, so a
+        replayed callback finds nothing, and every way of failing to name a
+        live request is one error — a caller able to tell them apart could
+        learn which states existed.
+
+        Answers a session when this was a sign-in, and the new link when it
+        was a signed-in person binding an identity to their own account.
+        Which of the two it is was decided when the journey started and is
+        never read from what comes back.
+      security: []
+      parameters:
+        - name: state
+          in: query
+          required: true
+          schema: { type: string }
+        - name: code
+          in: query
+          schema: { type: string }
+        - name: error
+          in: query
+          schema: { type: string }
+          description: Sent instead of `code` when the provider refused.
+      responses:
+        "200":
+          description: A session, or the identity that was just linked.
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Envelope" }
+        "401":
+          description: |
+            `EXTERNAL_EXCHANGE_FAILED`, `EXTERNAL_PROVIDER_REFUSED`, or
+            `EXTERNAL_IDENTITY_UNKNOWN` when nothing links this person to an
+            account here.
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Envelope" }
+        "403":
+          $ref: "#/components/responses/TenantDisabled"
+        "404":
+          $ref: "#/components/responses/TenantNotFound"
+        "409":
+          description: "`EXTERNAL_IDENTITY_TAKEN` — already linked elsewhere."
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Envelope" }
+        "422":
+          description: "`EXTERNAL_STATE_UNKNOWN`."
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Envelope" }
+
+  /api/v1/users/me/external-identities:
+    get:
+      tags: [Users]
+      operationId: listMyExternalIdentities
+      summary: The external identities linked to your account.
+      responses:
+        "200":
+          description: The links.
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Envelope" }
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+
+  /api/v1/users/me/external-identities/{id}/start:
+    post:
+      tags: [Users]
+      operationId: startExternalBinding
+      summary: Begin linking a provider to your own account.
+      description: |
+        The `id` is the provider's. The account is taken from the session and
+        never from the request: a caller-supplied account here would be the
+        whole vulnerability this journey is arranged around, since the
+        callback would then bind whatever it was told to.
+      parameters:
+        - $ref: "#/components/parameters/ID"
+      responses:
+        "200":
+          description: Where to send the browser.
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Envelope" }
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "404":
+          $ref: "#/components/responses/NotFound"
+
+  /api/v1/users/me/external-identities/{id}:
+    delete:
+      tags: [Users]
+      operationId: unlinkMyExternalIdentity
+      summary: Remove one of your own links.
+      description: |
+        Every account here still has a password, so this removes a
+        convenience rather than the only way in.
+      parameters:
+        - $ref: "#/components/parameters/ID"
+      responses:
+        "200":
+          description: Removed.
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Envelope" }
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+
+  /api/v1/external-identity-providers:
+    get:
+      tags: [Settings]
+      operationId: listExternalIdentityProviders
+      summary: The providers this tenant has configured.
+      description: |
+        No client secret is returned, by construction rather than by
+        omission: the type has no such field. `hasSecret` says whether one is
+        stored, which is what an edit form needs in order to explain that
+        leaving the field blank keeps it.
+      responses:
+        "200":
+          description: The providers.
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Envelope" }
+        "403":
+          $ref: "#/components/responses/Forbidden"
+    post:
+      tags: [Settings]
+      operationId: createExternalIdentityProvider
+      summary: Register a provider.
+      description: |
+        The issuer is contacted before the row is written. A configuration
+        that cannot be discovered is one every sign-in through it would fail
+        on, and the person who can fix it is the one filling in this form.
+
+        The issuer must be a public HTTPS address, checked against the same
+        rules a webhook destination follows — a tenant administrator types it
+        and this server fetches it.
+
+        `trustVerifiedEmail` decides whether a first-time arrival may be
+        matched to an existing account by a verified address. **It is off by
+        default and it delegates account security to whoever runs that
+        provider**: one that does not verify addresses lets anybody register
+        somebody else's and arrive holding a token that says so.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/ExternalIdentityProviderRequest" }
+      responses:
+        "200":
+          description: Registered.
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Envelope" }
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "409":
+          description: "`EXTERNAL_IDP_ISSUER_TAKEN`."
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Envelope" }
+        "422":
+          description: |
+            `EXTERNAL_IDP_UNREACHABLE`, or `NO_ENCRYPTION_KEY` when a client
+            secret was given and the deployment has no
+            `PORTICO_ENCRYPTION_KEY` — it is refused rather than stored in
+            the clear.
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Envelope" }
+
+  /api/v1/external-identity-providers/{id}:
+    put:
+      tags: [Settings]
+      operationId: updateExternalIdentityProvider
+      summary: Edit a provider.
+      description: |
+        A blank `clientSecret` keeps the stored one. The console never
+        receives it, so a blank field is what an administrator always sees.
+      parameters:
+        - $ref: "#/components/parameters/ID"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/ExternalIdentityProviderRequest" }
+      responses:
+        "200":
+          description: Saved.
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Envelope" }
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+    delete:
+      tags: [Settings]
+      operationId: deleteExternalIdentityProvider
+      summary: Remove a provider, and every link that named it.
+      description: |
+        Deleting unlinks everybody who signed in through it. The audit entry
+        records how many, because an account whose only convenience was that
+        button has just lost it. To stop offering a provider without
+        unlinking anybody, disable it instead.
+      parameters:
+        - $ref: "#/components/parameters/ID"
+      responses:
+        "200":
+          description: Removed.
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Envelope" }
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+
+  /api/v1/external-identity-providers/{id}/enable:
+    post:
+      tags: [Settings]
+      operationId: enableExternalIdentityProvider
+      summary: Put the button back on the sign-in screen.
+      parameters:
+        - $ref: "#/components/parameters/ID"
+      responses:
+        "200":
+          description: Enabled.
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Envelope" }
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+
+  /api/v1/external-identity-providers/{id}/disable:
+    post:
+      tags: [Settings]
+      operationId: disableExternalIdentityProvider
+      summary: Take the button off, leaving every link in place.
+      description: |
+        The control for a provider having an outage. Switching it back on
+        does not ask anybody to link again.
+      parameters:
+        - $ref: "#/components/parameters/ID"
+      responses:
+        "200":
+          description: Disabled.
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Envelope" }
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+
 components:
   securitySchemes:
     bearerAuth:
@@ -3620,6 +3972,23 @@ components:
           schema: { $ref: "#/components/schemas/Envelope" }
 
   schemas:
+    ExternalIdentityProviderRequest:
+      type: object
+      required: [name, issuer, clientId]
+      properties:
+        name: { type: string, description: What an operator recognises it by. }
+        buttonLabel: { type: string, description: What the sign-in button says. Defaults to the name. }
+        issuer: { type: string, format: uri, description: Exactly as it appears in an id_token's `iss`. }
+        clientId: { type: string }
+        clientSecret:
+          type: string
+          format: password
+          description: Blank on an edit keeps the stored one. Sealed with `PORTICO_ENCRYPTION_KEY`; never returned.
+        scopes: { type: string, description: "Space separated. `openid` is added whatever is sent." }
+        trustVerifiedEmail:
+          type: boolean
+          default: false
+          description: Whether a verified address from this provider may match a first-time arrival to an existing account.
     Envelope:
       type: object
       required: [code, message, data]

@@ -129,5 +129,7 @@ deployment.
 | `github.com/go-ldap/ldap/v3` | Speaks LDAP to the directory above. Pure Go, so it costs the deployment nothing: no OpenLDAP client library to install and the `scratch` container still works. |
 | `github.com/xuri/excelize/v2` | Reads and writes the bulk-import workbooks, and the directory export. |
 | `github.com/golang-jwt/jwt/v5` | Signs and verifies access tokens. |
+| `github.com/zitadel/oidc/v3` | Both halves of OpenID Connect. It issues for the applications that trust Portico, and — through its relying-party half — spends the tokens of an external provider Portico trusts. Deliberately the same library for both: a mistake in ID token validation is an authentication bypass rather than a wrong answer, and the checks that get missed by hand are the subtle ones, an `iss` never compared or an `alg` taken from the token. |
+| `golang.org/x/oauth2` | The authorization-code exchange under the relying party above. Direct rather than transitive since Portico began signing people in through somebody else's provider. |
 | `github.com/prometheus/client_golang` | The metrics registry and exposition handler. Adds no runtime dependency: with `PORTICO_METRICS_ADDR` unset it registers collectors nothing reads and opens no listener. |
 | `sqlc` | Development-time code generation from SQL. Contributors only need it when changing a query; the generated code is committed. |

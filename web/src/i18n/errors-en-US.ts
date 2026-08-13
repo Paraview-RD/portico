@@ -60,6 +60,27 @@ export const errorsEnUS = {
   SUBSCRIPTION_DISABLED:
     "This subscription is disabled. Enable it before asking for a snapshot.",
 
+  // --- Signing in through another provider ---
+  EXTERNAL_IDP_NOT_FOUND: "No such identity provider.",
+  EXTERNAL_IDP_DISABLED: "That identity provider is switched off.",
+  EXTERNAL_IDP_ISSUER_TAKEN:
+    "This tenant already has a provider for that issuer.",
+  EXTERNAL_IDP_ISSUER_REQUIRED: "An issuer URL is required.",
+  EXTERNAL_IDP_CLIENT_ID_REQUIRED: "A client id is required.",
+  EXTERNAL_IDP_UNREACHABLE:
+    "That issuer could not be read as an OpenID Provider. Check the URL, and that this server can reach it.",
+  EXTERNAL_IDP_SECRET_UNREADABLE:
+    "This provider's client secret cannot be read. It was sealed with a different encryption key; re-enter it.",
+  EXTERNAL_STATE_UNKNOWN:
+    "That sign-in could not be matched to one this server started. Begin again.",
+  EXTERNAL_EXCHANGE_FAILED:
+    "The identity provider's answer could not be accepted.",
+  EXTERNAL_PROVIDER_REFUSED: "The identity provider refused the sign-in.",
+  EXTERNAL_IDENTITY_UNKNOWN:
+    "That account is not linked here. Sign in with your password first, then link it from your profile.",
+  EXTERNAL_IDENTITY_TAKEN: "That identity is already linked to an account.",
+  EXTERNAL_IDENTITY_NOT_FOUND: "No such linked identity.",
+
   PASSWORD_REUSED:
     "That password has been used recently. Choose one you have not used before.",
 
