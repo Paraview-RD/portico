@@ -48,7 +48,8 @@ export const errorsZhCN: Record<keyof typeof errorsEnUS, string> = {
     "这个 issuer 读不出 OpenID Provider 配置。请检查地址，以及本服务器能否访问到它。",
   EXTERNAL_IDP_SECRET_UNREADABLE:
     "这个提供方的 client secret 解不开：它是用另一个加密密钥封装的，请重新填写。",
-  EXTERNAL_STATE_UNKNOWN: "这次登录对不上本服务器发起过的任何一次。请重新开始。",
+  EXTERNAL_STATE_UNKNOWN:
+    "这次登录对不上本服务器发起过的任何一次。请重新开始。",
   EXTERNAL_EXCHANGE_FAILED: "身份提供方的应答无法被接受。",
   EXTERNAL_PROVIDER_REFUSED: "身份提供方拒绝了这次登录。",
   EXTERNAL_IDENTITY_UNKNOWN:
