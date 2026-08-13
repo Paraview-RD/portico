@@ -12,6 +12,26 @@ Working toward 0.2.0. See
 
 ### Added
 
+- **Organizations can record who would administer them**, each with a scope:
+  that organization, or that organization and everything under it.
+  **Nothing is granted by it.** No authorization decision reads those
+  records, and a test assigns an ordinary account at the widest scope and
+  requires every administrative action to be refused exactly as before.
+- They exist because delegated administration is on the roadmap and a chart
+  is entered by people over months: a feature that arrives to an empty table
+  makes every deployment begin by re-entering what it already knows. The
+  scope and who recorded it are asked for at assignment time because neither
+  can be reconstructed afterwards — a record that did not say whether it
+  meant one organization or a whole branch is uninterpretable later, and
+  provenance for what becomes a privilege grant can only be written as it
+  happens.
+- Two scopes and no third dimension. "May manage people but not the
+  structure" would be a permission model designed one column at a time,
+  which is the thing the roadmap item is for.
+- **The organizations somebody is involved with beside their own are now
+  editable in the console.** They have had an API since 0.2 began and no
+  screen at all, which in practice meant they did not exist.
+
 - **People can sign in through somebody else's OpenID Provider.** Google,
   Entra, an internal Keycloak — anything with a discovery document. Register
   one under **Identity providers** and a button appears on the sign-in
