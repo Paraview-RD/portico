@@ -32,8 +32,13 @@ import (
 //  3. Failure is reported with HTTP 200 and an `errcode` in the body. A
 //     client that checks the status code concludes every failure succeeded.
 const (
-	weChatIssuer     = "https://open.weixin.qq.com"
-	weChatAuthURL    = "https://open.weixin.qq.com/connect/qrconnect"
+	weChatIssuer  = "https://open.weixin.qq.com"
+	weChatAuthURL = "https://open.weixin.qq.com/connect/qrconnect"
+	// gosec reads the word rather than the value. This is the address the
+	// authorization code is spent at, published by WeChat; there is no
+	// credential in it, and renaming it would be renaming somebody else's
+	// endpoint.
+	//nolint:gosec // G101: an endpoint, not a credential.
 	weChatTokenURL   = "https://api.weixin.qq.com/sns/oauth2/access_token"
 	weChatUserURL    = "https://api.weixin.qq.com/sns/userinfo"
 	weChatLoginScope = "snsapi_login"

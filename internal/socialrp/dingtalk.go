@@ -20,8 +20,10 @@ import (
 // `scope=openid` in the authorization request is DingTalk's spelling, not a
 // promise of OIDC. Nothing signed comes back.
 const (
-	dingTalkIssuer   = "https://login.dingtalk.com"
-	dingTalkAuthURL  = "https://login.dingtalk.com/oauth2/auth"
+	dingTalkIssuer  = "https://login.dingtalk.com"
+	dingTalkAuthURL = "https://login.dingtalk.com/oauth2/auth"
+	// Same as WeChat's: the word, not the value. See wechat.go.
+	//nolint:gosec // G101: an endpoint, not a credential.
 	dingTalkTokenURL = "https://api.dingtalk.com/v1.0/oauth2/userAccessToken"
 	dingTalkUserURL  = "https://api.dingtalk.com/v1.0/contact/users/me"
 	dingTalkScope    = "openid"
