@@ -1,0 +1,145 @@
+# Portico on Kubernetes — a starting point, not a chart.
+#
+# The parts that are easy to get wrong are already right here: which probe
+# points at which endpoint, a grace period longer than the shutdown it has to
+# cover, and the secrets that must not be generated per pod. Everything else
+# is deliberately plain.
+#
+# Schema-checked and never applied: this project has no cluster to apply it
+# to. Read it before you use it, and see docs/deployment.md for what each
+# choice is about.
+#
+#   kubectl create namespace portico
+#   kubectl -n portico apply -f deploy/k8s/
+#
+# It assumes a PostgreSQL you already run. There is none here on purpose —
+# a database in a manifest beside the application is how somebody ends up
+# with their identity platform's data in an ephemeral pod.
+---
+apiVersion: v1
+kind: Secret
+metadata:
+  name: portico
+type: Opaque
+stringData:
+  # None of these may be left to a default, and none may differ between pods.
+  #
+  # PORTICO_JWT_SECRET generated per pod would mean a token minted by one is
+  # rejected by the others, which looks like random sign-outs rather than
+  # like a configuration mistake. Generate once:
+  #
+  #   openssl rand -hex 32
+  #
+  # PORTICO_ENCRYPTION_KEY opens directory bind passwords, webhook headers
+  # and external client secrets. Lose it and those rows survive as
+  # ciphertext nothing can read. It is not in the database, so it is not in
+  # a pg_dump either — see docs/backup-and-restore.md.
+  PORTICO_DB_DSN: postgres://portico:CHANGE-ME@postgres:5432/portico?sslmode=require
+  PORTICO_JWT_SECRET: CHANGE-ME-openssl-rand-hex-32
+  PORTICO_ENCRYPTION_KEY: CHANGE-ME-openssl-rand-hex-32
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: portico
+spec:
+  selector:
+    app: portico
+  ports:
+    - name: http
+      port: 80
+      targetPort: http
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: portico
+spec:
+  # One, until you have read the "Running more than one instance" section of
+  # docs/deployment.md. Two things there decide whether a number above one is
+  # right for you: the sign-in rate limiter counts per process, and every pod
+  # applies migrations at startup — the losers of that race exit and are
+  # restarted, which is noisy rather than harmful, but it is noise somebody
+  # should expect rather than discover.
+  replicas: 1
+  selector:
+    matchLabels:
+      app: portico
+  template:
+    metadata:
+      labels:
+        app: portico
+    spec:
+      # Longer than the 15 seconds Portico gives in-flight requests to
+      # finish. Shorter, and Kubernetes SIGKILLs a process that was going to
+      # exit cleanly.
+      terminationGracePeriodSeconds: 30
+      securityContext:
+        runAsNonRoot: true
+        runAsUser: 65534
+        runAsGroup: 65534
+        seccompProfile:
+          type: RuntimeDefault
+      containers:
+        - name: portico
+          # Pin a released tag. :latest makes a restart a deploy, and a
+          # restart that migrates the database is a deploy nobody decided to
+          # make.
+          image: ghcr.io/paraview-rd/portico:v0.1.0
+          ports:
+            - name: http
+              containerPort: 8410
+          envFrom:
+            - secretRef:
+                name: portico
+          env:
+            # The address people actually use. OpenID Connect discovery
+            # advertises it, SAML metadata carries it, and an external
+            # provider's redirect URI is built from it — all of which have to
+            # match another system's registration character for character.
+            - name: PORTICO_PUBLIC_URL
+              value: https://portico.example.com
+          # Liveness on /health, readiness on /ready, and not the other way
+          # round.
+          #
+          # /health takes no dependencies: a database outage is not fixed by
+          # restarting every pod, and a liveness probe that checked the
+          # database would turn one failing dependency into a fleet-wide
+          # restart loop at the moment it is least able to cope. /ready does
+          # check it, because during that outage the right answer to "send
+          # traffic here" is no.
+          livenessProbe:
+            httpGet:
+              path: /api/v1/health
+              port: http
+            periodSeconds: 15
+            timeoutSeconds: 5
+            failureThreshold: 3
+          readinessProbe:
+            httpGet:
+              path: /api/v1/ready
+              port: http
+            periodSeconds: 10
+            timeoutSeconds: 5
+            failureThreshold: 3
+          # Migrations run at startup, so first boot against an empty
+          # database is the slowest one this pod will ever have. A startup
+          # probe buys that time without loosening the liveness probe
+          # afterwards.
+          startupProbe:
+            httpGet:
+              path: /api/v1/health
+              port: http
+            periodSeconds: 5
+            failureThreshold: 24
+          resources:
+            requests:
+              cpu: 500m
+              memory: 256Mi
+            limits:
+              memory: 512Mi
+          securityContext:
+            allowPrivilegeEscalation: false
+            readOnlyRootFilesystem: true
+            capabilities:
+              drop: [ALL]

@@ -128,6 +128,7 @@ plugins:
             Webhooks: 事件订阅
             Integrations: 外部依赖
             Settings and audit: 系统设置与审计
+            Running in production: 在生产环境里跑
             Backup and restore: 备份与恢复
 
 extra:
@@ -150,6 +151,7 @@ nav:
   - Field mappings: field-mappings.md
   - Integrations: integrations.md
   - Settings and audit: settings.md
+  - Running in production: deployment.md
   - Backup and restore: backup-and-restore.md
 
 # Dead links fail the build under --strict, which is the point of building

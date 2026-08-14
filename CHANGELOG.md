@@ -12,6 +12,32 @@ Working toward 0.2.0. See
 
 ### Added
 
+- **A page on running this in production**, in English and 简体中文, and
+  Kubernetes manifests under `deploy/k8s/` to go with it. The manual had
+  thirty pages about what Portico does and none about operating it: which
+  probe points at which endpoint, what an upgrade does, and whether you may
+  run two of these at once.
+- **The answer to that last one is written down now, and it is not one
+  word.** Webhook delivery and directory synchronization claim work with
+  `FOR UPDATE SKIP LOCKED` and were built for several instances. Sessions
+  are JWTs, so there is nothing to replicate — provided every instance has
+  the same `PORTICO_JWT_SECRET`, which unset is generated per process. **The
+  sign-in rate limiter counts per process**, so three replicas hold three
+  allowances; that is what the limiter is for, and the real limit belongs at
+  the reverse proxy, which is the position `docs/access-guide.md` already
+  took and which `internal/httpx/ratelimit.go` now says out loud.
+- **Migrations run at every startup with no lock**, so instances starting
+  together race. Established by running it rather than by reading the
+  library: one wins and serves, the losers exit non-zero with a migration
+  error and are restarted into a database that is by then migrated. Nothing
+  is half-applied — every migration here is transactional and none carries
+  `NO TRANSACTION`. The page says how to avoid the noise if you would rather
+  not have it.
+- Also the arithmetic nobody hits until it is load: each instance opens at
+  most **25** connections, and PostgreSQL ships with `max_connections = 100`.
+- The manifests are **schema-checked with `kubeconform -strict` and have
+  never been applied to a cluster**, which is said in the file and on the
+  page rather than left for somebody to discover.
 - **The delivery log can be read.** It pages by cursor rather than showing
   the newest fifty and stopping, defaults to hiding the pages a full sync
   produces (a hundred of them arrive in seconds and would otherwise be all
