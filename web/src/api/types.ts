@@ -787,9 +787,21 @@ export type RecipientKind = "oauth" | "saml" | "cas" | "webhook";
  * form needs instead — enough to say that leaving the field blank keeps the
  * stored one, and nothing more.
  */
+/**
+ * Which protocol a provider speaks, and therefore which fields mean
+ * anything for it.
+ *
+ * OIDC is anything with a discovery document. The other two have none, so
+ * their endpoints are constants in the server and an issuer is not something
+ * anybody types.
+ */
+export type ExternalIdentityProviderKind = "OIDC" | "WECHAT" | "DINGTALK";
+
 export interface ExternalIdentityProvider {
   id: string;
   name: string;
+  /** Fixed at creation. An edit cannot change it. */
+  kind: ExternalIdentityProviderKind;
   /** What the sign-in button says, when it should not say `name`. */
   buttonLabel: string;
   issuer: string;
@@ -815,6 +827,7 @@ export interface ExternalIdentityProvider {
 export interface ExternalIdentityProviderInput {
   name: string;
   buttonLabel: string;
+  kind: ExternalIdentityProviderKind;
   issuer: string;
   clientId: string;
   /** Blank on an edit keeps the stored one; blank on a create means none. */

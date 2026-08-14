@@ -647,6 +647,8 @@ func TestOrganizationLifecycle(t *testing.T) {
 		}
 	})
 
+	var memberID string
+
 	t.Run("user can be assigned", func(t *testing.T) {
 		res := api.do(http.MethodPost, "/api/v1/users", token, map[string]string{
 			"username": "member", "displayName": "Member",
@@ -656,10 +658,12 @@ func TestOrganizationLifecycle(t *testing.T) {
 			t.Fatalf("create user in organization failed: %d %s", res.Status, res.Code)
 		}
 		var user struct {
+			ID               string `json:"id"`
 			OrganizationID   string `json:"organizationId"`
 			OrganizationName string `json:"organizationName"`
 		}
 		res.into(t, &user)
+		memberID = user.ID
 
 		if user.OrganizationID != org.ID {
 			t.Errorf("organizationId = %q, want %q", user.OrganizationID, org.ID)
@@ -679,6 +683,54 @@ func TestOrganizationLifecycle(t *testing.T) {
 		res = api.do(http.MethodPost, "/api/v1/users", token, map[string]string{
 			"username": "latecomer", "displayName": "Latecomer",
 			"password": "password-12345", "organizationId": org.ID,
+		})
+		if res.Status != http.StatusUnprocessableEntity {
+			t.Errorf("status = %d, want 422", res.Status)
+		}
+		if res.Code != "ORGANIZATION_DISABLED" {
+			t.Errorf("code = %q, want ORGANIZATION_DISABLED", res.Code)
+		}
+	})
+
+	// §3.4.1: "禁用组织后，该组织下所有用户正常保留，仅禁止新用户绑定该组织" —
+	// disabling an organization leaves its existing members alone; only a new
+	// binding is refused. Saving an unrelated field on somebody already filed
+	// under the now-disabled organization resubmits that same, unchanged
+	// organizationId, and must not be read as a new binding to it.
+	t.Run("an existing member's profile stays editable once their organization is disabled", func(t *testing.T) {
+		res := api.do(http.MethodPut, "/api/v1/users/"+memberID, token, map[string]string{
+			"displayName": "Member, Renamed", "role": "USER", "organizationId": org.ID,
+		})
+		if res.Status != http.StatusOK {
+			t.Fatalf("update an existing member of a disabled organization: %d %s %s",
+				res.Status, res.Code, res.Message)
+		}
+		var user struct {
+			DisplayName    string `json:"displayName"`
+			OrganizationID string `json:"organizationId"`
+		}
+		res.into(t, &user)
+		if user.DisplayName != "Member, Renamed" {
+			t.Errorf("displayName = %q, want %q", user.DisplayName, "Member, Renamed")
+		}
+		if user.OrganizationID != org.ID {
+			t.Errorf("organizationId = %q, want %q (unchanged)", user.OrganizationID, org.ID)
+		}
+	})
+
+	// The other half of the same rule: leaving an existing binding alone is
+	// not the same as moving somebody into a disabled organization, which is
+	// exactly the new binding §3.4.1 refuses. Holds this down so a future
+	// loosening of the check above cannot quietly cover this case too.
+	t.Run("moving an existing member into a disabled organization is still refused", func(t *testing.T) {
+		other := api.createOrg(token, "Sales", "SALES", "")
+		disableRes := api.do(http.MethodPost, "/api/v1/organizations/"+other+"/disable", token, nil)
+		if disableRes.Status != http.StatusOK {
+			t.Fatalf("disable failed: %d %s", disableRes.Status, disableRes.Code)
+		}
+
+		res := api.do(http.MethodPut, "/api/v1/users/"+memberID, token, map[string]string{
+			"displayName": "Member, Renamed", "role": "USER", "organizationId": other,
 		})
 		if res.Status != http.StatusUnprocessableEntity {
 			t.Errorf("status = %d, want 422", res.Status)

@@ -15,9 +15,9 @@ SELECT * FROM external_identity_providers WHERE tenant_id = $1 AND id = $2;
 
 -- name: CreateExternalIdentityProvider :exec
 INSERT INTO external_identity_providers (
-    id, tenant_id, name, button_label, issuer, client_id, client_secret,
+    id, tenant_id, name, button_label, kind, issuer, client_id, client_secret,
     scopes, trust_verified_email, status, created_at, updated_at
-) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, 'ACTIVE', $10, $10);
+) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, 'ACTIVE', $11, $11);
 
 -- name: UpdateExternalIdentityProvider :exec
 -- The secret is replaced only when a new one was given: an edit that left

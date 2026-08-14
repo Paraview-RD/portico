@@ -12,6 +12,32 @@ Working toward 0.2.0. See
 
 ### Added
 
+- **A page on running this in production**, in English and 简体中文, and
+  Kubernetes manifests under `deploy/k8s/` to go with it. The manual had
+  thirty pages about what Portico does and none about operating it: which
+  probe points at which endpoint, what an upgrade does, and whether you may
+  run two of these at once.
+- **The answer to that last one is written down now, and it is not one
+  word.** Webhook delivery and directory synchronization claim work with
+  `FOR UPDATE SKIP LOCKED` and were built for several instances. Sessions
+  are JWTs, so there is nothing to replicate — provided every instance has
+  the same `PORTICO_JWT_SECRET`, which unset is generated per process. **The
+  sign-in rate limiter counts per process**, so three replicas hold three
+  allowances; that is what the limiter is for, and the real limit belongs at
+  the reverse proxy, which is the position `docs/access-guide.md` already
+  took and which `internal/httpx/ratelimit.go` now says out loud.
+- **Migrations run at every startup with no lock**, so instances starting
+  together race. Established by running it rather than by reading the
+  library: one wins and serves, the losers exit non-zero with a migration
+  error and are restarted into a database that is by then migrated. Nothing
+  is half-applied — every migration here is transactional and none carries
+  `NO TRANSACTION`. The page says how to avoid the noise if you would rather
+  not have it.
+- Also the arithmetic nobody hits until it is load: each instance opens at
+  most **25** connections, and PostgreSQL ships with `max_connections = 100`.
+- The manifests are **schema-checked with `kubeconform -strict` and have
+  never been applied to a cluster**, which is said in the file and on the
+  page rather than left for somebody to discover.
 - **The browser suite checks accessibility**, with axe, against the same
   binary it already drives — the screens people meet, failing on serious and
   critical findings. It found two on its first run: the role and status
@@ -886,6 +912,15 @@ Working toward 0.2.0. See
   says whether it resolves a tenant, and the document has to agree. It found
   the same nine, which is the first independent confirmation that the hand
   list was right.
+- **Editing an account no longer fails just because their organization was
+  disabled after the fact.** `PUT /api/v1/users/{id}` re-validated the
+  organization on every save, including the one the account already held —
+  so §3.4.1 ("disabling an organization does not touch the people already
+  in it") held for new accounts and broke for existing ones the moment
+  somebody disabled the organization they were in: from then on, saving so
+  much as a display name failed with `ORGANIZATION_DISABLED`. Resubmitting
+  the same, unchanged organization is no longer treated as a new binding;
+  moving somebody into a *different* disabled organization still is.
 
 ### Security
 

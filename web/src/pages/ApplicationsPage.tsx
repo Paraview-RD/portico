@@ -30,20 +30,23 @@ import {
   Badge,
   Button,
   Card,
+  Code,
   ConfirmDialog,
   CopyField,
+  DocsLink,
   EmptyRow,
   Field,
   GuidePanel,
   Input,
+  LoadingRow,
   Modal,
   PageHeader,
   Select,
+  StatusBadge,
   Table,
   Td,
   Textarea,
   Th,
-  DocsLink,
 } from "../components/ui";
 import { FieldMappingEditor } from "../components/FieldMappingEditor";
 import { useErrorMessage, useT } from "../i18n";
@@ -237,9 +240,7 @@ export function ApplicationsPage() {
             </thead>
             <tbody>
               {loading ? (
-                <tr>
-                  <Td className="py-10 text-center">{t("common.loading")}</Td>
-                </tr>
+                <LoadingRow colSpan={6} />
               ) : clients.length === 0 ? (
                 <EmptyRow colSpan={6} />
               ) : (
@@ -256,9 +257,7 @@ export function ApplicationsPage() {
                       </span>
                     </Td>
                     <Td>
-                      <code className="text-[length:var(--font-size-sm)] text-[var(--color-fg-muted)]">
-                        {client.clientId}
-                      </code>
+                      <Code>{client.clientId}</Code>
                     </Td>
                     <Td>
                       <Badge tone={client.confidential ? "neutral" : "warning"}>
@@ -274,7 +273,7 @@ export function ApplicationsPage() {
                       <StatusBadge status={client.status} />
                     </Td>
                     <Td>
-                      <div className="flex gap-1">
+                      <div className="flex gap-2">
                         <Button
                           size="sm"
                           variant="ghost"
@@ -358,9 +357,7 @@ export function ApplicationsPage() {
             </thead>
             <tbody>
               {loading ? (
-                <tr>
-                  <Td className="py-10 text-center">{t("common.loading")}</Td>
-                </tr>
+                <LoadingRow colSpan={5} />
               ) : providers.length === 0 ? (
                 <EmptyRow colSpan={5} />
               ) : (
@@ -377,9 +374,7 @@ export function ApplicationsPage() {
                       </span>
                     </Td>
                     <Td>
-                      <code className="text-[length:var(--font-size-sm)] text-[var(--color-fg-muted)]">
-                        {provider.entityId}
-                      </code>
+                      <Code>{provider.entityId}</Code>
                     </Td>
                     <Td>
                       <UriList values={provider.acsUrls} />
@@ -388,7 +383,7 @@ export function ApplicationsPage() {
                       <StatusBadge status={provider.status} />
                     </Td>
                     <Td>
-                      <div className="flex gap-1">
+                      <div className="flex gap-2">
                         <Button
                           size="sm"
                           variant="ghost"
@@ -448,9 +443,7 @@ export function ApplicationsPage() {
             </thead>
             <tbody>
               {loading ? (
-                <tr>
-                  <Td className="py-10 text-center">{t("common.loading")}</Td>
-                </tr>
+                <LoadingRow colSpan={4} />
               ) : casServices.length === 0 ? (
                 <EmptyRow colSpan={4} />
               ) : (
@@ -463,15 +456,13 @@ export function ApplicationsPage() {
                       </span>
                     </Td>
                     <Td>
-                      <code className="text-[length:var(--font-size-sm)] text-[var(--color-fg-muted)]">
-                        {svc.urlPrefix}
-                      </code>
+                      <Code>{svc.urlPrefix}</Code>
                     </Td>
                     <Td>
                       <StatusBadge status={svc.status} />
                     </Td>
                     <Td>
-                      <div className="flex gap-1">
+                      <div className="flex gap-2">
                         <Button
                           size="sm"
                           variant="ghost"
@@ -592,15 +583,6 @@ export function ApplicationsPage() {
   );
 }
 
-function StatusBadge({ status }: { status: "ACTIVE" | "DISABLED" }) {
-  const t = useT();
-  return (
-    <Badge tone={status === "ACTIVE" ? "success" : "neutral"}>
-      {t(`status.${status}`)}
-    </Badge>
-  );
-}
-
 function StatusButton({
   active,
   onToggle,
@@ -629,12 +611,9 @@ function UriList({ values }: { values: string[] }) {
   return (
     <div className="flex flex-col gap-0.5">
       {values.map((value) => (
-        <code
-          key={value}
-          className="text-[length:var(--font-size-xs)] break-all text-[var(--color-fg-muted)]"
-        >
+        <Code size="xs" key={value}>
           {value}
-        </code>
+        </Code>
       ))}
     </div>
   );

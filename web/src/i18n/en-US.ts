@@ -151,6 +151,9 @@ export const enUS = {
   "users.filterOrganization": "Organization",
   "users.filterOrganizationHint": "Includes everything below",
   "users.filterNoOrganization": "Not in one",
+  "users.guideTitle": "What an account here decides",
+  "users.guideBody":
+    "This is where a person exists at all: the account they sign in with, and the two facts every application is told about them.\nDescribing and permitting are separate::Editing somebody's details is not editing their access. Role is its own field and its own audit entry, so maintaining a phone number cannot become a promotion.\nDisabled, never deleted::A closed account keeps its history and can be reinstated. Nothing here removes a person from the audit trail.\nOwned elsewhere, sometimes::An account a directory pushed is marked as theirs, and an edit here is overwritten on the next synchronization.",
   "users.create": "New user",
   "users.profileSection": "Further details",
   "users.profileHint":
@@ -461,7 +464,6 @@ export const enUS = {
   "settings.lockoutDurationHelp":
     "Also the window failures are counted over. Further attempts while locked do not extend it.",
 
-  "common.done": "Done",
   "common.delete": "Delete",
 
   "groups.title": "Groups",
@@ -545,8 +547,6 @@ export const enUS = {
   "webhooks.detailResponse": "What the receiver answered",
   "webhooks.detailResponseEmpty": "The receiver answered with no body.",
   "webhooks.detailTruncated": "Kept to the first {0} bytes.",
-  "webhooks.detailNoHeaders":
-    "Request headers are not stored. A subscription's custom headers are credentials, and a debugging screen is not a reason to copy them into every delivery row.",
   "webhooks.snapshotSummary":
     "{0} page deliveries queued, covering: {1}. Watch them under Deliveries — nothing here polls.",
   "webhooks.snapshotReconcile":
@@ -973,6 +973,18 @@ export const enUS = {
   "identityProviders.trusted": "Trusted",
   "identityProviders.notTrusted": "Not trusted",
   "identityProviders.redirectUri": "Redirect URI to register there",
+  "identityProviders.kind": "Kind",
+  "identityProviders.kindHint":
+    "Fixed once created. Changing it later would leave every linked account pointing at a protocol that did not issue it, so replacing a provider means removing it and adding another.",
+  "identityProviders.kind.OIDC": "OpenID Connect",
+  "identityProviders.kind.WECHAT": "WeChat (Open Platform, QR sign-in)",
+  "identityProviders.kind.DINGTALK": "DingTalk",
+  "identityProviders.clientId.OIDC": "Client ID",
+  "identityProviders.clientId.WECHAT": "AppID",
+  "identityProviders.clientId.DINGTALK": "Client ID (AppKey)",
+  "identityProviders.clientSecret.OIDC": "Client secret",
+  "identityProviders.clientSecret.WECHAT": "AppSecret",
+  "identityProviders.clientSecret.DINGTALK": "Client secret (AppSecret)",
   "identityProviders.name": "Name",
   "identityProviders.buttonLabel": "Button label",
   "identityProviders.buttonLabelHint":

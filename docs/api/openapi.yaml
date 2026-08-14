@@ -4268,11 +4268,36 @@ components:
   schemas:
     ExternalIdentityProviderRequest:
       type: object
-      required: [name, issuer, clientId]
+      required: [name, clientId]
       properties:
         name: { type: string, description: What an operator recognises it by. }
         buttonLabel: { type: string, description: What the sign-in button says. Defaults to the name. }
-        issuer: { type: string, format: uri, description: Exactly as it appears in an id_token's `iss`. }
+        kind:
+          type: string
+          enum: [OIDC, WECHAT, DINGTALK]
+          default: OIDC
+          description: |
+            Which protocol this provider speaks. `OIDC` is anything with a
+            discovery document and is the default, so a caller written before
+            the other two existed still means what it meant.
+
+            `WECHAT` and `DINGTALK` have no discovery document, so their
+            endpoints are constants in this server rather than configuration.
+            For those two, `issuer` and `scopes` are ignored — the issuer is
+            fixed per kind because it is the namespace every stored subject
+            lives in, and letting it be typed would let two tenants disagree
+            about what WeChat is. WeChat additionally returns no address at
+            all, so `trustVerifiedEmail` is forced off for it.
+
+            **Not editable.** An edit takes the stored kind whatever is sent:
+            changing it would leave every identity already bound pointing at a
+            protocol that did not issue it.
+        issuer:
+          type: string
+          format: uri
+          description: |
+            Exactly as it appears in an id_token's `iss`. Required for `OIDC`
+            and ignored for the other two.
         clientId: { type: string }
         clientSecret:
           type: string

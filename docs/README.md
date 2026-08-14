@@ -2,6 +2,10 @@
 
 ## Using and operating Portico
 
+- **[capabilities.md](capabilities.md)** — what Portico does, on one page:
+  which protocols, which ways in, where accounts come from, and — the part
+  worth reading twice — what it deliberately does not do. Start here if you
+  are deciding whether this fits.
 - **[access-guide.md](access-guide.md)** — entry points, where credentials
   come from, what each role can do, and how to put Portico behind a reverse
   proxy. Start here to deploy it.
@@ -20,6 +24,19 @@
 - **[webhooks.md](webhooks.md)** — being told when something changes here:
   the signature scheme, which destinations are refused and why, and what
   "delivered" does and does not mean.
+- **[organizations.md](organizations.md)** — organizations and groups side by
+  side: one says where somebody sits and the other which sets they belong to,
+  they have incompatible shapes, and neither grants anything. Read it to
+  decide which of the two a given fact belongs in.
+- **[field-mappings.md](field-mappings.md)** — renaming, suppressing and
+  adding the attributes a recipient receives, for all four kinds of recipient
+  at once.
+- **[settings.md](settings.md)** — the per-tenant settings and the audit
+  trail: what each one changes, and which of them affect people who are
+  already signed in.
+- **[deployment.md](deployment.md)** — running it in production: which probe
+  points at which endpoint, whether you may run more than one instance, what
+  an upgrade does, and the Kubernetes manifests in `deploy/k8s/`.
 - **[integrations.md](integrations.md)** — external services Portico depends
   on at runtime (there are none, deliberately) and what that implies.
 - **[api/openapi.yaml](api/openapi.yaml)** — the management and self-service
@@ -49,6 +66,9 @@ actually does, so a reviewer can check a change against them:
   placeholders, and what does and does not get translated.
 - **[design-principles.md](design-principles.md)** — design tokens, colour
   roles, and the rules the frontend styles itself by.
+- **[dev-stack.md](dev-stack.md)** — the containers a development machine
+  runs beside Portico — a directory to synchronize from, a mail relay to
+  send to — and how to point a local instance at them.
 
 ## Background
 

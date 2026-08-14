@@ -166,6 +166,12 @@ builds the console, the manual and the server, seeds a database with people,
 organizations, applications and history, and opens the console in a browser
 tab. Nothing to install and nothing to configure.
 
+First creation typically takes 10–20 minutes: GitHub installs the
+container's Go, Node and Python toolchains, and only then does the build
+described above run — compiling the console, the manual and the server, and
+seeding the database. The tab this opens can sit empty for most of that
+time, which is normal and not the process having stalled.
+
 Sign in as `admin` (super administrator) or `liyan` (ordinary user); every
 seeded account shares the password `Portico@1`. `zhangwei` is a second
 administrator, and the one most of the seeded history is attributed to, so
@@ -336,6 +342,7 @@ internal/
   casp/            the CAS protocol, implemented directly
   oidcp/           adapts Portico to the OpenID Provider interface
   oidcrp/          the other direction: signing in through somebody else's
+  socialrp/        the two that have no discovery document, one file each
   samlp/           adapts Portico to the SAML identity provider role
   scim/            the SCIM 2.0 endpoints a directory provisions through
   directory/       the other direction: reading accounts out of LDAP

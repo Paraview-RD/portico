@@ -6,6 +6,7 @@ import {
   Alert,
   Button,
   Card,
+  DocsLink,
   Field,
   GuidePanel,
   Input,
@@ -75,6 +76,7 @@ export function SettingsPage() {
       <PageHeader
         title={t("settings.title")}
         subtitle={t("settings.subtitle")}
+        actions={<DocsLink page="settings/" />}
       />
 
       {/* Laid out in the same grid as the cards below, spanning both columns.

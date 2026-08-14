@@ -1,7 +1,8 @@
 // Portico in a Codespace: the console, the manual, a directory to
 // synchronize from, an inbox to receive its mail, and a relying party to
-// sign in to — all of it running about two minutes after the button is
-// pressed.
+// sign in to — all of it running 10-20 minutes after the button is
+// pressed. Measured, not guessed: most of that is GitHub installing the
+// four toolchain features below before setup.sh below even starts.
 //
 // The toolchain versions are the ones CI uses. Go comes from go.mod there
 // via `go-version-file`, which a feature cannot read, so 1.26 is written

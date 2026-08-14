@@ -72,6 +72,24 @@ type bucket struct {
 // limit to zero gets — the same shape secrets.Vault uses for "not
 // configured", so an unset limiter is a value rather than a branch at every
 // call site.
+//
+// # Per process, and that is the whole design
+//
+// The buckets are a map in this process's memory. Three instances behind a
+// load balancer therefore hold three separate allowances, and the effective
+// limit is three times what the setting says.
+//
+// This is not an oversight to be fixed with Redis. Portico serves plain
+// HTTP and leaves rate limiting to the reverse proxy — the position
+// docs/access-guide.md takes, under "Before you expose this" — and what
+// this provides is the floor underneath it: enough that a single instance
+// is not defenceless, and never the answer to credential stuffing, which
+// arrives spread across addresses and would walk past a per-address limit
+// however it were counted. The real limit belongs where requests are
+// already counted in one place.
+//
+// docs/deployment.md says the same thing to whoever is deciding how many
+// replicas to run, which is the moment it matters.
 type RateLimiter struct {
 	// perSecond is the sustained rate; burst is how much of it may arrive at
 	// once, and therefore also the ceiling on the bucket.
