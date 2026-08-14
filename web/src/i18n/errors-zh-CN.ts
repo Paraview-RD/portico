@@ -43,6 +43,7 @@ export const errorsZhCN: Record<keyof typeof errorsEnUS, string> = {
   EXTERNAL_IDP_DISABLED: "这个身份提供方已关闭。",
   EXTERNAL_IDP_ISSUER_TAKEN: "本租户已经有一个使用该 issuer 的提供方了。",
   EXTERNAL_IDP_ISSUER_REQUIRED: "需要填写 issuer 地址。",
+  EXTERNAL_IDP_KIND_UNKNOWN: "这一版还不支持这种身份提供方。",
   EXTERNAL_IDP_CLIENT_ID_REQUIRED: "需要填写 client id。",
   EXTERNAL_IDP_UNREACHABLE:
     "这个 issuer 读不出 OpenID Provider 配置。请检查地址，以及本服务器能否访问到它。",
@@ -96,6 +97,9 @@ export const errorsZhCN: Record<keyof typeof errorsEnUS, string> = {
   ORGANIZATION_MANAGER_NOT_FOUND: "找不到要设为负责人的账号。",
   ALREADY_PRIMARY_ORGANIZATION:
     "该账号本来就归属这个组织。附加挂靠是给它不归属的那些用的。",
+  ALREADY_ORGANIZATION_ADMIN:
+    "该账号已被记为这个组织的管理员。要改范围，请先移除再重新添加。",
+  INVALID_ADMIN_SCOPE: "请选择生效范围：仅本组织，或本组织及其下级。",
   ORGANIZATION_CYCLE: "这会把组织移动到它自己或其下级之内。",
   ORGANIZATION_TOO_DEEP: "组织层级嵌套过深。",
   NAME_REQUIRED: "请填写名称。",
@@ -215,6 +219,10 @@ export const errorsZhCN: Record<keyof typeof errorsEnUS, string> = {
   MALFORMED_BODY: "请求内容无法解析。",
   EMPTY_BODY: "请求没有内容。",
   BODY_TOO_LARGE: "请求体过大。",
+  WEBHOOK_DELIVERY_NOT_FOUND:
+    "找不到这条投递记录。完成的记录 30 天后会被清理。",
+  INVALID_CURSOR: "这个翻页标记已经失效，请回到第一页。",
+  INVALID_DELIVERY_FILTER: "这不是该列表支持的筛选方式。",
   UNSUPPORTED_MEDIA_TYPE: "该接口不接受这种格式的请求。",
   TOO_MANY_ATTEMPTS: "该地址的尝试次数过多，请稍候再试。",
   INVALID_PATH_PARAMETER: "地址不合法。",

@@ -602,3 +602,155 @@ func (s *OrganizationService) Attachments(ctx context.Context, tenantID, userID 
 	}
 	return refs, nil
 }
+
+// ErrOrganizationAdminScope is an assignment that did not say how far it
+// reaches.
+var ErrOrganizationAdminScope = httpx.BadRequest("INVALID_ADMIN_SCOPE",
+	"An administrator's scope must be SELF (this organization) or SUBTREE (it and everything under it).")
+
+// ErrAlreadyOrganizationAdmin is a second assignment of the same person to
+// the same organization.
+var ErrAlreadyOrganizationAdmin = httpx.Conflict("ALREADY_ORGANIZATION_ADMIN",
+	"That account is already recorded as an administrator of this organization. Remove it first to change its scope.")
+
+// AssignAdministrator records that somebody would administer an
+// organization.
+//
+// It grants nothing, and the rest of this system does not consult it. The
+// rows exist because delegated administration is planned and an
+// organization chart is entered by people over months: a feature that
+// arrives to an empty table makes every customer re-enter what they already
+// said. See migration 00020.
+//
+// Changing a scope is a remove and an add rather than an update, so that
+// both appear in the audit trail as the decisions they are. An assignment
+// that could be edited in place would leave "who widened this, and when"
+// unanswerable.
+func (s *OrganizationService) AssignAdministrator(ctx context.Context, actor auth.Principal, organizationID, userID, scope string) error {
+	if !model.ValidOrgScope(scope) {
+		return ErrOrganizationAdminScope
+	}
+
+	q := s.store.ForTenant(actor.TenantID)
+
+	org, err := q.GetOrganizationByID(ctx, organizationID)
+	if err != nil {
+		if store.IsNoRows(err) {
+			return ErrOrganizationNotFound
+		}
+		return fmt.Errorf("get organization: %w", err)
+	}
+	user, err := q.GetUserByID(ctx, userID)
+	if err != nil {
+		if store.IsNoRows(err) {
+			return ErrUserNotFound
+		}
+		return fmt.Errorf("get user: %w", err)
+	}
+
+	if _, err := q.GetOrganizationAdministrator(ctx, organizationID, userID); err == nil {
+		return ErrAlreadyOrganizationAdmin
+	} else if !store.IsNoRows(err) {
+		return fmt.Errorf("get organization administrator: %w", err)
+	}
+
+	if err := q.AssignOrganizationAdministrator(ctx,
+		organizationID, userID, scope, actor.UserID, store.Now()); err != nil {
+		return fmt.Errorf("assign organization administrator: %w", err)
+	}
+
+	s.audit.Log(ctx, actor.TenantID, AuditEntry{
+		Kind: model.LogOrganization, Action: model.ActionOrgAdminAssign,
+		ActorID: actor.UserID, ActorName: actor.Username,
+		TargetType: "ORGANIZATION", TargetID: organizationID, TargetName: org.Name,
+		Detail: user.Username + ", scope " + scope,
+	})
+	return nil
+}
+
+// RevokeAdministrator removes an assignment. Idempotent, on the same terms
+// as detaching: a caller reconciling a list should not have to know what is
+// already gone.
+func (s *OrganizationService) RevokeAdministrator(ctx context.Context, actor auth.Principal, organizationID, userID string) error {
+	q := s.store.ForTenant(actor.TenantID)
+
+	org, err := q.GetOrganizationByID(ctx, organizationID)
+	if err != nil {
+		if store.IsNoRows(err) {
+			return ErrOrganizationNotFound
+		}
+		return fmt.Errorf("get organization: %w", err)
+	}
+
+	if err := q.RevokeOrganizationAdministrator(ctx, organizationID, userID); err != nil {
+		return fmt.Errorf("revoke organization administrator: %w", err)
+	}
+
+	s.audit.Log(ctx, actor.TenantID, AuditEntry{
+		Kind: model.LogOrganization, Action: model.ActionOrgAdminRevoke,
+		ActorID: actor.UserID, ActorName: actor.Username,
+		TargetType: "ORGANIZATION", TargetID: organizationID, TargetName: org.Name,
+		Detail: "removed an administrator",
+	})
+	return nil
+}
+
+// Administrators returns who is recorded as administering an organization.
+func (s *OrganizationService) Administrators(ctx context.Context, tenantID, organizationID string) ([]model.OrganizationAdministrator, error) {
+	q := s.store.ForTenant(tenantID)
+
+	if _, err := q.GetOrganizationByID(ctx, organizationID); err != nil {
+		if store.IsNoRows(err) {
+			return nil, ErrOrganizationNotFound
+		}
+		return nil, fmt.Errorf("get organization: %w", err)
+	}
+
+	rows, err := q.ListOrganizationAdministrators(ctx, organizationID)
+	if err != nil {
+		return nil, fmt.Errorf("list organization administrators: %w", err)
+	}
+
+	out := make([]model.OrganizationAdministrator, 0, len(rows))
+	for _, row := range rows {
+		admin := model.OrganizationAdministrator{
+			UserID:      row.User.ID,
+			Username:    row.User.Username,
+			DisplayName: row.User.DisplayName,
+			Status:      model.Status(row.User.Status),
+			Scope:       row.Scope,
+			GrantedBy:   row.GrantedBy,
+			GrantedAt:   row.GrantedAt,
+		}
+		// Best effort: an assignment made by an account that has since been
+		// removed still names an id, and a blank display name is a better
+		// answer than refusing the whole list.
+		if granter, err := q.GetUserByID(ctx, row.GrantedBy); err == nil {
+			admin.GrantedByName = granter.DisplayName
+		}
+		out = append(out, admin)
+	}
+	return out, nil
+}
+
+// AdministeredOrganizations returns what somebody is recorded as
+// administering. This is the query delegated administration will make on
+// every request; today it draws a list on a screen.
+func (s *OrganizationService) AdministeredOrganizations(ctx context.Context, tenantID, userID string) ([]model.AdministeredOrganization, error) {
+	rows, err := s.store.ForTenant(tenantID).ListOrganizationsAdministeredBy(ctx, userID)
+	if err != nil {
+		return nil, fmt.Errorf("list administered organizations: %w", err)
+	}
+
+	out := make([]model.AdministeredOrganization, 0, len(rows))
+	for _, row := range rows {
+		out = append(out, model.AdministeredOrganization{
+			OrganizationRef: model.OrganizationRef{
+				ID: row.Organization.ID, Name: row.Organization.Name, Code: row.Organization.Code,
+			},
+			Scope:     row.Scope,
+			GrantedAt: row.GrantedAt,
+		})
+	}
+	return out, nil
+}

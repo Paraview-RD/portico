@@ -198,6 +198,37 @@ Subscribe to `*` for everything including types added in future versions, or
 name the ones your endpoint can handle. `GET /api/v1/webhooks/events` returns
 the current list.
 
+## Reading the delivery log
+
+`GET /api/v1/webhooks/{id}/deliveries` answers one page, newest first, and
+the console shows the same thing.
+
+**Paged by cursor, not by offset.** Pass the previous page's `nextCursor`;
+omit it for the first page. The table is written to while it is read — every
+event, every retry — so an offset walked backwards through it returns some
+rows twice and skips others, with nothing to tell the reader. There is
+deliberately no total for the same reason: it would be stale before it
+arrived.
+
+**Filtered to events by default.** `filter=live` hides the pages a full sync
+produces, `sync` shows only those, `all` shows both. A full sync of a large
+tenant queues a hundred deliveries in a few seconds, which is not many rows
+but is enough to push every ordinary event off the first page of what
+somebody is reading.
+
+`GET /api/v1/webhooks/{id}/deliveries/{deliveryID}` adds the bodies: the
+request exactly as sent — the same bytes the signature was computed over, so
+a receiver debugging a signature mismatch has something to compare against —
+and the beginning of what the receiver answered, capped at 2 KiB when it was
+stored. A 400 is usually a sentence saying which field was not liked, and
+that sentence used to live only in the receiver's logs.
+
+> **Request headers are not stored, and are not in that response.** A
+> subscription's custom headers are credentials, sealed with
+> `PORTICO_ENCRYPTION_KEY` precisely so that a database dump does not yield
+> them. Copying them into a delivery row to make a debugging screen more
+> complete would undo that for every delivery ever made.
+
 ## Filling in what happened before you subscribed
 
 Events describe changes. A subscription created today has missed every
@@ -205,12 +236,20 @@ change that came before it, and the delivery history cannot fill the gap:
 finished deliveries are removed after thirty days, and the ones that survive
 say what happened rather than what is.
 
-So a receiver building a mirror asks for a snapshot:
+So a receiver building a mirror asks for a **full sync**:
 
 ```sh
 curl -X POST -H "Authorization: Bearer $TOKEN" \
   https://portico.example.com/api/v1/webhooks/$ID/snapshot
 ```
+
+The endpoint is called `snapshot` and the console calls the button **Full
+sync**. The console is the one that changed: "snapshot" elsewhere in
+operations means a stored copy of a moment, and nothing is stored here — the
+current state is sent, in pages, to one receiver. The events have always
+been `sync.*`. The path keeps its name because it is published contract, and
+renaming it to match a label would break every integration for the sake of
+tidiness.
 
 What arrives is a run, through the same endpoint, the same signature, and
 the same field mappings as everything else:
@@ -238,7 +277,7 @@ own rows: a mismatch means a page you answered 200 to never landed.
 
 > **This asks something of the receiver, and it is not optional.**
 >
-> A snapshot is not taken atomically. Pages are read one after another while
+> A full sync is not taken atomically. Pages are read one after another while
 > the tenant carries on changing, and live events keep arriving throughout —
 > so an account edited during the run may reach you as a page or as an event,
 > in either order.
@@ -251,7 +290,7 @@ own rows: a mismatch means a page you answered 200 to never landed.
 > you can see any delivery twice; the envelope's `id` is what you deduplicate
 > on.
 
-One snapshot at a time per subscription: a second while the first is still
+One full sync at a time per subscription: a second while the first is still
 queued answers `409 SNAPSHOT_IN_PROGRESS`. A disabled subscription is refused
 outright rather than having the largest delivery this product makes queued
 against the moment somebody re-enables it.

@@ -77,15 +77,20 @@ func snapshotPayloads(t *testing.T, api *apiTest, eventType string) []string {
 func snapshotDeliveries(t *testing.T, api *apiTest, admin, id string) []queuedDelivery {
 	t.Helper()
 
-	resp := api.do(http.MethodGet, "/api/v1/webhooks/"+id+"/deliveries?limit=500", admin, nil)
+	// filter=all: the default hides the sync pages, which are the whole
+	// subject of this file.
+	resp := api.do(http.MethodGet,
+		"/api/v1/webhooks/"+id+"/deliveries?limit=200&filter=all", admin, nil)
 	if resp.Status != http.StatusOK {
 		t.Fatalf("deliveries: %d %s", resp.Status, resp.Code)
 	}
-	var queued []queuedDelivery
-	if err := json.Unmarshal(resp.Data, &queued); err != nil {
+	var page struct {
+		Items []queuedDelivery `json:"items"`
+	}
+	if err := json.Unmarshal(resp.Data, &page); err != nil {
 		t.Fatalf("decode deliveries: %v", err)
 	}
-	return queued
+	return page.Items
 }
 
 func TestASnapshotOpensAndClosesAroundItsPages(t *testing.T) {

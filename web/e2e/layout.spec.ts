@@ -162,6 +162,13 @@ test("every row of content spans the same column", async ({ page, signIn }) => {
       // input is 288px wide.
       const surfaces = [
         ...document.querySelectorAll<HTMLElement>("main section"),
+        // A sidebar is content, and the accounts screen is the one place a
+        // sidebar sits beside a table rather than in the page chrome. Left
+        // out, its row was measured from the table's left edge — 602 rather
+        // than 346 — and the screen was reported as ragged against the
+        // explanation panel above it, which spans the whole column. Nothing
+        // was misaligned; the filter column simply was not being looked at.
+        ...document.querySelectorAll<HTMLElement>("main aside"),
         ...[...document.querySelectorAll("main table")].map(
           (table) => table.parentElement as HTMLElement,
         ),

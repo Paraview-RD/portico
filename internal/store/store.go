@@ -106,3 +106,11 @@ func (s *Store) WithTx(fn func(*sqlcgen.Queries) error) error {
 // Now returns the current time in UTC, truncated to the microsecond that
 // PostgreSQL stores, so a value written and read back compares equal.
 func Now() time.Time { return time.Now().UTC().Truncate(time.Microsecond) }
+
+// AfterEverything is a timestamp no stored row can hold, used as the opening
+// cursor of a newest-first page.
+//
+// It exists so that "the first page" and "the page after this row" are the
+// same query rather than two, which is what keeps a paging bug from living
+// in only one of them. Any real created_at compares below it.
+var AfterEverything = time.Date(9999, 12, 31, 23, 59, 59, 0, time.UTC)

@@ -5,6 +5,7 @@ import (
 	"crypto/rand"
 	"encoding/base64"
 	"fmt"
+	"net/http"
 	"strings"
 	"time"
 
@@ -13,8 +14,10 @@ import (
 	"github.com/Paraview-RD/portico/internal/httpx"
 	"github.com/Paraview-RD/portico/internal/model"
 	"github.com/Paraview-RD/portico/internal/oidcrp"
+	"github.com/Paraview-RD/portico/internal/socialrp"
 	"github.com/Paraview-RD/portico/internal/store"
 	"github.com/Paraview-RD/portico/internal/store/sqlcgen"
+	"github.com/Paraview-RD/portico/internal/webhook"
 )
 
 // Signing in, and binding, through an external provider.
@@ -330,7 +333,45 @@ func (s *ExternalIDPService) load(ctx context.Context, tenantID, id string) (sql
 }
 
 // party unseals what is needed to talk to a provider and prepares a client.
-func (s *ExternalIDPService) party(ctx context.Context, provider sqlcgen.ExternalIdentityProvider, tenantCode string) (*oidcrp.Party, error) {
+// externalParty is what the sign-in flow needs from a provider, whichever
+// protocol it speaks.
+//
+// Declared here, where it is consumed, rather than in either implementing
+// package. It is deliberately the smaller of the two shapes: oidcrp.Party
+// uses the nonce and the code verifier and socialrp's implementations ignore
+// them, and one interface covering both is what keeps a single path through
+// StartExternalSignIn and CompleteExternalSignIn. Two paths is where one of
+// them quietly stops checking something.
+type externalParty interface {
+	AuthURL(state, nonce, codeVerifier string) string
+	Exchange(ctx context.Context, code, codeVerifier, nonce string) (oidcrp.Identity, error)
+}
+
+// socialParty adapts a socialrp.Provider to that interface.
+//
+// A conversion rather than a shared Identity type in a third package: the
+// two structs are alike today because identity is what it is, and making
+// them one would turn a field one provider needs into every provider's
+// concern.
+type socialParty struct{ p socialrp.Provider }
+
+func (s socialParty) AuthURL(state, nonce, verifier string) string {
+	return s.p.AuthURL(state, nonce, verifier)
+}
+
+func (s socialParty) Exchange(ctx context.Context, code, verifier, nonce string) (oidcrp.Identity, error) {
+	identity, err := s.p.Exchange(ctx, code, verifier, nonce)
+	if err != nil {
+		return oidcrp.Identity{}, err
+	}
+	return oidcrp.Identity{
+		Issuer: identity.Issuer, Subject: identity.Subject,
+		Email: identity.Email, EmailVerified: identity.EmailVerified,
+		DisplayName: identity.DisplayName,
+	}, nil
+}
+
+func (s *ExternalIDPService) party(ctx context.Context, provider sqlcgen.ExternalIdentityProvider, tenantCode string) (externalParty, error) {
 	secret := ""
 	if provider.ClientSecret != "" {
 		opened, err := s.vault.Open(clientSecretBinding(provider.TenantID), provider.ClientSecret)
@@ -345,15 +386,40 @@ func (s *ExternalIDPService) party(ctx context.Context, provider sqlcgen.Externa
 		secret = opened
 	}
 
+	redirectURI := s.RedirectURI(tenantCode)
+
+	// The two that have no discovery document are built from constants, so
+	// there is nothing to fetch and nothing that can fail here — which is
+	// also why a misconfigured one is only discovered at the exchange.
+	switch provider.Kind {
+	case socialrp.KindWeChat:
+		return socialParty{socialrp.NewWeChat(
+			provider.ClientID, secret, redirectURI, s.socialClient())}, nil
+	case socialrp.KindDingTalk:
+		return socialParty{socialrp.NewDingTalk(
+			provider.ClientID, secret, redirectURI, s.socialClient())}, nil
+	}
+
 	party, err := oidcrp.Discover(ctx, oidcrp.Config{
 		Issuer: provider.Issuer, ClientID: provider.ClientID, ClientSecret: secret,
-		RedirectURI: s.RedirectURI(tenantCode), Scopes: strings.Fields(provider.Scopes),
+		RedirectURI: redirectURI, Scopes: strings.Fields(provider.Scopes),
 	})
 	if err != nil {
 		return nil, httpx.UnprocessableEntity("EXTERNAL_IDP_UNREACHABLE",
 			"That identity provider could not be reached.")
 	}
 	return party, nil
+}
+
+// socialClient is the HTTP client the vendor adapters use.
+//
+// The same hardened one the OIDC relying party and the webhook dispatcher
+// use. The destination check it carries proves nothing here — these
+// addresses are compile-time constants, not an administrator's input — but
+// the timeout does, and a sign-in that hangs on a vendor's outage is a
+// request holding a connection until something else gives up.
+func (s *ExternalIDPService) socialClient() *http.Client {
+	return webhook.NewClient(oidcrp.DiscoveryTimeout)
 }
 
 // randomToken is a state, a nonce, or a code verifier.

@@ -832,6 +832,11 @@ func (s *Scoped) ListGroupsWithMemberCounts(ctx context.Context) ([]sqlcgen.List
 	return s.q.ListGroupsWithMemberCounts(ctx, s.tenantID)
 }
 
+// CountOrganizations counts this tenant's organizations.
+func (s *Scoped) CountOrganizations(ctx context.Context) (int64, error) {
+	return s.q.CountOrganizations(ctx, s.tenantID)
+}
+
 // CountGroups returns how many the tenant has.
 func (s *Scoped) CountGroups(ctx context.Context) (int64, error) {
 	return s.q.CountGroups(ctx, s.tenantID)
@@ -1067,10 +1072,25 @@ func (s *Scoped) MarkWebhookAttemptFailed(ctx context.Context, arg sqlcgen.MarkW
 	return s.q.MarkWebhookAttemptFailed(ctx, arg)
 }
 
-// ListWebhookDeliveries returns a subscription's recent attempts.
-func (s *Scoped) ListWebhookDeliveries(ctx context.Context, subscriptionID string, limit int32) ([]sqlcgen.WebhookDelivery, error) {
+// ListWebhookDeliveries returns one page of a subscription's attempts,
+// newest first, starting after the cursor.
+func (s *Scoped) ListWebhookDeliveries(ctx context.Context, subscriptionID string,
+	cursorCreatedAt time.Time, cursorID, syncFilter string, pageSize int32,
+) ([]sqlcgen.WebhookDelivery, error) {
 	return s.q.ListWebhookDeliveries(ctx, sqlcgen.ListWebhookDeliveriesParams{
-		TenantID: s.tenantID, SubscriptionID: subscriptionID, Limit: limit,
+		TenantID:        s.tenantID,
+		SubscriptionID:  subscriptionID,
+		CursorCreatedAt: cursorCreatedAt,
+		CursorID:        cursorID,
+		SyncFilter:      syncFilter,
+		PageSize:        pageSize,
+	})
+}
+
+// GetWebhookDelivery returns one delivery, bodies included.
+func (s *Scoped) GetWebhookDelivery(ctx context.Context, subscriptionID, deliveryID string) (sqlcgen.WebhookDelivery, error) {
+	return s.q.GetWebhookDelivery(ctx, sqlcgen.GetWebhookDeliveryParams{
+		TenantID: s.tenantID, SubscriptionID: subscriptionID, ID: deliveryID,
 	})
 }
 
@@ -1267,6 +1287,48 @@ func (s *Scoped) DetachUserFromOrganization(ctx context.Context, userID, organiz
 // attached to, not counting the one they primarily belong to.
 func (s *Scoped) ListUserOrganizationAttachments(ctx context.Context, userID string) ([]sqlcgen.Organization, error) {
 	return s.q.ListUserOrganizationAttachments(ctx, sqlcgen.ListUserOrganizationAttachmentsParams{
+		TenantID: s.tenantID, UserID: userID,
+	})
+}
+
+// AssignOrganizationAdministrator records who would administer an
+// organization once delegated administration exists. It grants nothing
+// today; see migration 00020.
+func (s *Scoped) AssignOrganizationAdministrator(ctx context.Context, organizationID, userID, scope, grantedBy string, now time.Time) error {
+	return s.q.AssignOrganizationAdministrator(ctx, sqlcgen.AssignOrganizationAdministratorParams{
+		TenantID:       s.tenantID,
+		OrganizationID: organizationID,
+		UserID:         userID,
+		Scope:          scope,
+		GrantedBy:      grantedBy,
+		GrantedAt:      now,
+	})
+}
+
+// RevokeOrganizationAdministrator removes an assignment.
+func (s *Scoped) RevokeOrganizationAdministrator(ctx context.Context, organizationID, userID string) error {
+	return s.q.RevokeOrganizationAdministrator(ctx, sqlcgen.RevokeOrganizationAdministratorParams{
+		TenantID: s.tenantID, OrganizationID: organizationID, UserID: userID,
+	})
+}
+
+// GetOrganizationAdministrator returns one assignment.
+func (s *Scoped) GetOrganizationAdministrator(ctx context.Context, organizationID, userID string) (sqlcgen.OrganizationAdministrator, error) {
+	return s.q.GetOrganizationAdministrator(ctx, sqlcgen.GetOrganizationAdministratorParams{
+		TenantID: s.tenantID, OrganizationID: organizationID, UserID: userID,
+	})
+}
+
+// ListOrganizationAdministrators returns the assignments on an organization.
+func (s *Scoped) ListOrganizationAdministrators(ctx context.Context, organizationID string) ([]sqlcgen.ListOrganizationAdministratorsRow, error) {
+	return s.q.ListOrganizationAdministrators(ctx, sqlcgen.ListOrganizationAdministratorsParams{
+		TenantID: s.tenantID, OrganizationID: organizationID,
+	})
+}
+
+// ListOrganizationsAdministeredBy returns the assignments a person holds.
+func (s *Scoped) ListOrganizationsAdministeredBy(ctx context.Context, userID string) ([]sqlcgen.ListOrganizationsAdministeredByRow, error) {
+	return s.q.ListOrganizationsAdministeredBy(ctx, sqlcgen.ListOrganizationsAdministeredByParams{
 		TenantID: s.tenantID, UserID: userID,
 	})
 }

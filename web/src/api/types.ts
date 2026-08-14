@@ -61,6 +61,35 @@ export interface User {
 }
 
 /** An organization named without carrying the whole of it. */
+/**
+ * Somebody recorded as administering an organization.
+ *
+ * It grants them nothing in this version: no authorization decision reads
+ * it. The records are collected now because delegated administration is
+ * planned, and a chart entered by people over months cannot be reconstructed
+ * on the day the feature ships.
+ */
+export interface OrganizationAdministrator {
+  userId: string;
+  username: string;
+  displayName: string;
+  /** The account's status, so a disabled one can be shown as such. */
+  status: Status;
+  /** SELF is this organization; SUBTREE is it and every descendant. */
+  scope: AdminScope;
+  grantedBy: string;
+  grantedByName: string;
+  grantedAt: string;
+}
+
+/** The other direction: what an account is recorded as administering. */
+export interface AdministeredOrganization extends OrganizationRef {
+  scope: AdminScope;
+  grantedAt: string;
+}
+
+export type AdminScope = "SELF" | "SUBTREE";
+
 export interface OrganizationRef {
   id: string;
   name: string;
@@ -600,6 +629,26 @@ export interface WebhookSnapshot {
   pages: number;
 }
 
+/** Which deliveries a page asks for. See the endpoint for why live is the default. */
+export type DeliveryFilter = "all" | "live" | "sync";
+
+/** One page of deliveries. `nextCursor` is empty on the last page, and there
+ * is deliberately no total: the table is written to while it is read. */
+export interface WebhookDeliveryPage {
+  items: WebhookDelivery[];
+  nextCursor: string;
+}
+
+/** One delivery with the bodies the list leaves out. */
+export interface WebhookDeliveryDetail extends WebhookDelivery {
+  /** The request body exactly as sent — the bytes the signature covered. */
+  payload: string;
+  /** The beginning of what the receiver answered on the most recent attempt. */
+  response: string;
+  /** Where the stored answer was cut, so a screen can say so. */
+  responseCap: number;
+}
+
 /** One attempt to deliver one event. */
 export interface WebhookDelivery {
   id: string;
@@ -738,9 +787,21 @@ export type RecipientKind = "oauth" | "saml" | "cas" | "webhook";
  * form needs instead — enough to say that leaving the field blank keeps the
  * stored one, and nothing more.
  */
+/**
+ * Which protocol a provider speaks, and therefore which fields mean
+ * anything for it.
+ *
+ * OIDC is anything with a discovery document. The other two have none, so
+ * their endpoints are constants in the server and an issuer is not something
+ * anybody types.
+ */
+export type ExternalIdentityProviderKind = "OIDC" | "WECHAT" | "DINGTALK";
+
 export interface ExternalIdentityProvider {
   id: string;
   name: string;
+  /** Fixed at creation. An edit cannot change it. */
+  kind: ExternalIdentityProviderKind;
   /** What the sign-in button says, when it should not say `name`. */
   buttonLabel: string;
   issuer: string;
@@ -766,6 +827,7 @@ export interface ExternalIdentityProvider {
 export interface ExternalIdentityProviderInput {
   name: string;
   buttonLabel: string;
+  kind: ExternalIdentityProviderKind;
   issuer: string;
   clientId: string;
   /** Blank on an edit keeps the stored one; blank on a create means none. */

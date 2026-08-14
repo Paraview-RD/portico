@@ -93,6 +93,12 @@ func seededCollections(t *testing.T, api *apiTest, admin string) []collection {
 		{path: "/api/v1/directories", screen: "Directory integration — LDAP"},
 		{path: "/api/v1/scim-credentials", screen: "Directory integration — SCIM"},
 		{path: "/api/v1/webhooks", screen: "Webhooks"},
+		{path: "/api/v1/external-identity-providers", screen: "Identity providers"},
+		// The public half of the same thing, and not the same list: this one
+		// is the buttons a sign-in screen draws, so it carries the active
+		// provider and not the disabled one. Seeded because a sign-in screen
+		// with no button is the feature looking absent.
+		{path: "/api/v1/auth/external/providers", screen: "Sign-in screen — provider buttons"},
 		{path: "/api/v1/fields", screen: "Field catalogue (the mapping picker)"},
 		{path: "/api/v1/user-attributes", screen: "Tenant-defined user attributes"},
 		{path: "/api/v1/audit-logs?limit=20", screen: "Audit logs"},
@@ -269,10 +275,10 @@ var notSeeded = map[string]string{
 	"/api/v1/ready":                        "readiness, not a list",
 	"/api/v1/settings":                     "one settings object per tenant, and both tenants have one",
 	"/api/v1/users/me":                     "the caller, not a list",
-	"/api/v1/auth/external/providers":      "empty unless a tenant configured an external provider, and the seed configures none — it would need a real issuer this server could reach",
 	"/api/v1/auth/external/callback":       "not a list; it spends a state a browser brought back from somewhere else",
-	"/api/v1/external-identity-providers":  "the same, from the administrator's side",
-	"/api/v1/users/me/external-identities": "what the caller has linked, and nothing is linked without a provider",
+	"/api/v1/users/me/external-identities": "what the caller has linked, and the seed links two people who are deliberately not this one — an administrator whose way in is a provider nobody can reach is a locked door",
+
+	"/api/v1/webhooks/{id}/snapshot": "what a full sync would send, counted on demand — an answer about the tenant rather than a list, and it is right for a seeded tenant without the seed doing anything",
 
 	"/api/v1/auth/permission-check":              "a yes-or-no answer about the caller",
 	"/api/v1/auth/recovery-channels":             "what this deployment can send, from configuration",
@@ -311,6 +317,7 @@ func TestEverySeededCollectionIsAccountedFor(t *testing.T) {
 		"/api/v1/applications/cas-services", "/api/v1/directories",
 		"/api/v1/directories/{id}/runs", "/api/v1/scim-credentials",
 		"/api/v1/webhooks", "/api/v1/webhooks/{id}/deliveries",
+		"/api/v1/external-identity-providers", "/api/v1/auth/external/providers",
 		"/api/v1/audit-logs", "/api/v1/portal/applications",
 		"/api/v1/groups/{id}/members", "/api/v1/users/{id}/groups",
 		"/api/v1/users/{id}/sessions", "/api/v1/fields",
@@ -319,6 +326,8 @@ func TestEverySeededCollectionIsAccountedFor(t *testing.T) {
 		"/api/v1/applications/saml-service-providers/{id}/field-mappings",
 		"/api/v1/applications/cas-services/{id}/field-mappings",
 		"/api/v1/webhooks/{id}/field-mappings",
+		"/api/v1/organizations/{id}/administrators",
+		"/api/v1/users/{id}/administered-organizations",
 	} {
 		covered[c] = true
 	}

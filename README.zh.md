@@ -132,8 +132,9 @@ HTTPS，并且在建立连接时再检查一次，这样租户管理员没法把
 
 **双语界面** —— English 和简体中文，运行时可切换。
 
-这个版本刻意**没有**：自定义角色与权限（只有两个固定角色）、第三方与社交登录、
-MFA，以及登录端点之外的请求限流。这些东西的路线图在
+这个版本刻意**没有**：自定义角色与权限（只有两个固定角色）、MFA，以及登录端点之外
+的请求限流。组织可以**登记**谁将来管理它、以及生效范围，那是为路线图上的分级授权做的
+数据准备——今天不授予任何权限，并且有测试守着这一点。路线图在
 [docs/requirements/v0.1-requirements.md](docs/requirements/v0.1-requirements.md)（英文）。
 
 > **在把它暴露到网络之前：** Portico 提供的是明文 HTTP，这是刻意的。
@@ -149,6 +150,10 @@ MFA，以及登录端点之外的请求限流。这些东西的路线图在
 [**开一个 Codespace**](https://codespaces.new/Paraview-RD/portico) —— GitHub
 会构建控制台、手册和服务端，往数据库里灌进人、组织、应用和历史记录，然后在浏览
 器标签页里打开控制台。不用装任何东西，也不用配任何东西。
+
+第一次创建通常要 10-20 分钟：GitHub 先给容器装好 Go、Node、Python 这些工具链，
+之后才轮到上面说的那些构建 —— 编译控制台、手册和服务端，再灌入数据库。这段时
+间打开的那个标签页大多是空的，这是正常现象，不是卡住了。
 
 用 `admin`（超级管理员）或 `liyan`（普通用户）登录；所有种子账号共用密码
 `Portico@1`。`zhangwei` 是第二个管理员，也是大部分种子历史记录的操作者，想看一
@@ -303,6 +308,7 @@ internal/
   casp/            CAS 协议，直接实现
   oidcp/           把 Portico 适配到 OpenID Provider 接口
   oidcrp/          反过来的方向：经由别人的 OpenID Provider 登录
+  socialrp/        没有 discovery 文档的那两家，一家一个文件
   samlp/           把 Portico 适配到 SAML 身份提供方的角色
   scim/            目录用来供给的那些 SCIM 2.0 接口
   directory/       另一个方向：从 LDAP 里读账号

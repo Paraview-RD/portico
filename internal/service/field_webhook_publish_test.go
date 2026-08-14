@@ -102,7 +102,8 @@ func (f *publishFixture) account() model.User {
 // delivered is the `data` object of the body queued for one subscription.
 func (f *publishFixture) delivered(subscriptionID string) map[string]any {
 	f.t.Helper()
-	rows, err := f.store.ForTenant(f.tenantID).ListWebhookDeliveries(context.Background(), subscriptionID, 10)
+	rows, err := f.store.ForTenant(f.tenantID).ListWebhookDeliveries(
+		context.Background(), subscriptionID, store.AfterEverything, "", "all", 10)
 	if err != nil {
 		f.t.Fatalf("list deliveries: %v", err)
 	}

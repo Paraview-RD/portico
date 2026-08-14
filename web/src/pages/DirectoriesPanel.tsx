@@ -11,16 +11,19 @@ import {
   Alert,
   Badge,
   Button,
+  Code,
+  DocsLink,
   EmptyRow,
   Field,
   Input,
   LoadingRow,
   Modal,
   Select,
+  StatusBadge,
   Table,
   Td,
   Th,
-  DocsLink,
+  Timestamp,
 } from "../components/ui";
 import { useErrorMessage, useT } from "../i18n";
 
@@ -162,9 +165,9 @@ export function DirectoriesPanel() {
             <tr key={source.id}>
               <Td>{source.name}</Td>
               <Td>
-                <code className="text-[length:var(--font-size-sm)]">
+                <Code>
                   {source.host}:{source.port}
-                </code>
+                </Code>
                 <div className="text-[length:var(--font-size-xs)] text-[var(--color-fg-muted)]">
                   {source.baseDn}
                 </div>
@@ -172,9 +175,11 @@ export function DirectoriesPanel() {
               <Td>
                 {/* Never synchronized reads as a problem in its own right: a
                     directory that was configured and has never run. */}
-                {source.lastSyncedAt
-                  ? new Date(source.lastSyncedAt).toLocaleString()
-                  : t("directories.neverSynced")}
+                {source.lastSyncedAt ? (
+                  <Timestamp value={source.lastSyncedAt} />
+                ) : (
+                  t("directories.neverSynced")
+                )}
                 {/* Whether anything will happen without being asked, which is
                     otherwise only visible by opening each form in turn. */}
                 {source.syncIntervalMinutes > 0 && (
@@ -184,11 +189,7 @@ export function DirectoriesPanel() {
                 )}
               </Td>
               <Td>
-                <Badge
-                  tone={source.status === "ACTIVE" ? "success" : "neutral"}
-                >
-                  {t(`status.${source.status}`)}
-                </Badge>
+                <StatusBadge status={source.status} />
               </Td>
               <Td>
                 <div className="flex flex-wrap gap-2">
@@ -203,7 +204,7 @@ export function DirectoriesPanel() {
                   </Button>
                   <Button
                     size="sm"
-                    variant="secondary"
+                    variant="ghost"
                     onClick={() => void openHistory(source)}
                   >
                     {t("directories.history")}
@@ -268,7 +269,7 @@ export function DirectoriesPanel() {
                     {t(`directories.outcome.${run.outcome}`)}
                   </Badge>
                   <span className="text-[length:var(--font-size-sm)] text-[var(--color-fg-muted)]">
-                    {new Date(run.startedAt).toLocaleString()}
+                    <Timestamp value={run.startedAt} />
                   </span>
                   {/* Empty means the scheduler, which is not a person. */}
                   <span className="text-[length:var(--font-size-sm)] text-[var(--color-fg-muted)]">

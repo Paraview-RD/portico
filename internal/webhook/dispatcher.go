@@ -49,10 +49,23 @@ func Backoff(attempt int32) time.Duration {
 	}
 }
 
+// ResponseKeep is how much of a receiver's answer is kept.
+//
+// Enough for the first paragraph of an error message, which is what this is
+// for: a 400 is usually a sentence saying which field was not liked, and
+// until it was stored that sentence lived only in the receiver's logs. Not
+// enough to matter if a receiver answers an error with a page of HTML, which
+// they do.
+const ResponseKeep = 2048
+
 // Result is what one attempt produced.
 type Result struct {
 	StatusCode int
 	Err        error
+	// Body is the beginning of what the receiver answered, capped at
+	// ResponseKeep. It is stored so a failure can be read in the console
+	// rather than chased in somebody else's logs.
+	Body string
 	// Retryable is false for the failures that will not become successes:
 	// a 400 means the receiver understood and refused, and sending it four
 	// more times produces four more refusals. A 500 or a timeout is worth
@@ -96,17 +109,22 @@ func Deliver(ctx context.Context, client *http.Client, url string, secrets []str
 	}
 	defer func() { _ = resp.Body.Close() }()
 
-	// Drained and discarded so the connection can be reused, with a cap so a
-	// receiver answering with a gigabyte cannot make this the problem.
+	// The beginning is kept and the rest is drained so the connection can be
+	// reused, with the same cap as before on how much is read at all: a
+	// receiver answering with a gigabyte cannot make that this process's
+	// problem.
+	kept, _ := io.ReadAll(io.LimitReader(resp.Body, ResponseKeep))
 	_, _ = io.Copy(io.Discard, io.LimitReader(resp.Body, 64*1024))
+	answered := string(kept)
 
 	switch {
 	case resp.StatusCode >= 200 && resp.StatusCode < 300:
-		return Result{StatusCode: resp.StatusCode}
+		return Result{StatusCode: resp.StatusCode, Body: answered}
 	case resp.StatusCode == http.StatusTooManyRequests,
 		resp.StatusCode >= 500:
 		return Result{
 			StatusCode: resp.StatusCode,
+			Body:       answered,
 			Err:        fmt.Errorf("receiver returned %d", resp.StatusCode),
 			Retryable:  true,
 		}
@@ -116,6 +134,7 @@ func Deliver(ctx context.Context, client *http.Client, url string, secrets []str
 		// update the subscription.
 		return Result{
 			StatusCode: resp.StatusCode,
+			Body:       answered,
 			Err:        fmt.Errorf("receiver returned %d", resp.StatusCode),
 			Retryable:  false,
 		}

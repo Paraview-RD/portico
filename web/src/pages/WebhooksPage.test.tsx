@@ -94,7 +94,7 @@ describe("choosing which events to receive", () => {
   });
 });
 
-describe("sending a snapshot", () => {
+describe("sending a full sync", () => {
   const subscription = {
     id: "sub-1",
     name: "mirror",
@@ -110,14 +110,20 @@ describe("sending a snapshot", () => {
     renderWithLanguage(<WebhooksPage />, "zh-CN");
 
     await userEvent.click(
-      await screen.findByRole("button", { name: /发送快照/ }),
+      await screen.findByRole("button", { name: /全量同步/ }),
     );
 
     // Nothing has been queued yet. A button that fired on the first click
     // would send every account in the tenant to somebody's endpoint because
     // an operator's mouse slipped.
     expect(snapshot).not.toHaveBeenCalled();
-    expect(await screen.findByText(/最大的一次投递/)).toBeTruthy();
+    expect(
+      await screen.findByText(/全部账号、组织与用户组的副本/),
+    ).toBeTruthy();
+    // What it asks of the receiver belongs here, before the button, rather
+    // than only on the screen that reports success — it is a thing the
+    // receiver has to already be able to do.
+    expect(screen.getByText(/按 id 对账/)).toBeTruthy();
   });
 
   it("reports what it queued, and what the receiver has to do about it", async () => {
@@ -131,7 +137,7 @@ describe("sending a snapshot", () => {
     renderWithLanguage(<WebhooksPage />, "zh-CN");
 
     await userEvent.click(
-      await screen.findByRole("button", { name: /发送快照/ }),
+      await screen.findByRole("button", { name: /全量同步/ }),
     );
     await userEvent.click(
       await screen.findByRole("button", { name: /确认|确定/ }),
@@ -139,9 +145,8 @@ describe("sending a snapshot", () => {
 
     expect(snapshot).toHaveBeenCalledWith("sub-1");
     expect(await screen.findByText(/已排队 2 次分页投递/)).toBeTruthy();
-    // The demand on the receiver is on the screen that says the snapshot
-    // went, not only in the manual: this is the moment somebody is about to
-    // tell their counterpart what to expect.
+    // Said again on the screen that reports it went, because this is the
+    // moment somebody is about to tell their counterpart what to expect.
     expect(screen.getByText(/按 id 对账/)).toBeTruthy();
   });
 });

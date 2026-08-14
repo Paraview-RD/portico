@@ -12,6 +12,80 @@ Working toward 0.2.0. See
 
 ### Added
 
+- **A page on running this in production**, in English and 简体中文, and
+  Kubernetes manifests under `deploy/k8s/` to go with it. The manual had
+  thirty pages about what Portico does and none about operating it: which
+  probe points at which endpoint, what an upgrade does, and whether you may
+  run two of these at once.
+- **The answer to that last one is written down now, and it is not one
+  word.** Webhook delivery and directory synchronization claim work with
+  `FOR UPDATE SKIP LOCKED` and were built for several instances. Sessions
+  are JWTs, so there is nothing to replicate — provided every instance has
+  the same `PORTICO_JWT_SECRET`, which unset is generated per process. **The
+  sign-in rate limiter counts per process**, so three replicas hold three
+  allowances; that is what the limiter is for, and the real limit belongs at
+  the reverse proxy, which is the position `docs/access-guide.md` already
+  took and which `internal/httpx/ratelimit.go` now says out loud.
+- **Migrations run at every startup with no lock**, so instances starting
+  together race. Established by running it rather than by reading the
+  library: one wins and serves, the losers exit non-zero with a migration
+  error and are restarted into a database that is by then migrated. Nothing
+  is half-applied — every migration here is transactional and none carries
+  `NO TRANSACTION`. The page says how to avoid the noise if you would rather
+  not have it.
+- Also the arithmetic nobody hits until it is load: each instance opens at
+  most **25** connections, and PostgreSQL ships with `max_connections = 100`.
+- The manifests are **schema-checked with `kubeconform -strict` and have
+  never been applied to a cluster**, which is said in the file and on the
+  page rather than left for somebody to discover.
+- **The delivery log can be read.** It pages by cursor rather than showing
+  the newest fifty and stopping, defaults to hiding the pages a full sync
+  produces (a hundred of them arrive in seconds and would otherwise be all
+  anybody can see), shows when each delivery was queued and when it landed,
+  and names the event the way every other screen does rather than as
+  `user.created`.
+- **Each delivery can be opened**: the request body exactly as sent — the
+  bytes the signature covered, which is what a receiver debugging a
+  signature mismatch needs — and the beginning of what the receiver
+  answered, kept to 2 KiB. A 400 is usually a sentence saying which field
+  was wrong, and that sentence used to live only in the receiver's logs.
+  Request headers are **not** stored and not shown: a subscription's custom
+  headers are credentials, and a debugging screen is not a reason to copy
+  them into every delivery row.
+- The full-sync confirmation now says how much it would send **before** the
+  button, counted on demand through `GET /api/v1/webhooks/{id}/snapshot`.
+  "Queue a copy of everything?" is a different decision at fifty accounts
+  and at fifty thousand.
+
+### Changed
+
+- `GET /api/v1/webhooks/{id}/deliveries` **answers an object rather than an
+  array**: `{ items, nextCursor }`. A client reading `data[0]` has to change.
+  This is a break, and it is here rather than in a later version because the
+  array had no room for a cursor and offsets are wrong for a table that is
+  written to while it is read — an offset walked backwards returns some rows
+  twice and skips others, with nothing to tell the reader.
+
+- **Organizations can record who would administer them**, each with a scope:
+  that organization, or that organization and everything under it.
+  **Nothing is granted by it.** No authorization decision reads those
+  records, and a test assigns an ordinary account at the widest scope and
+  requires every administrative action to be refused exactly as before.
+- They exist because delegated administration is on the roadmap and a chart
+  is entered by people over months: a feature that arrives to an empty table
+  makes every deployment begin by re-entering what it already knows. The
+  scope and who recorded it are asked for at assignment time because neither
+  can be reconstructed afterwards — a record that did not say whether it
+  meant one organization or a whole branch is uninterpretable later, and
+  provenance for what becomes a privilege grant can only be written as it
+  happens.
+- Two scopes and no third dimension. "May manage people but not the
+  structure" would be a permission model designed one column at a time,
+  which is the thing the roadmap item is for.
+- **The organizations somebody is involved with beside their own are now
+  editable in the console.** They have had an API since 0.2 began and no
+  screen at all, which in practice meant they did not exist.
+
 - **People can sign in through somebody else's OpenID Provider.** Google,
   Entra, an internal Keycloak — anything with a discovery document. Register
   one under **Identity providers** and a button appears on the sign-in
@@ -824,6 +898,15 @@ Working toward 0.2.0. See
   says whether it resolves a tenant, and the document has to agree. It found
   the same nine, which is the first independent confirmation that the hand
   list was right.
+- **Editing an account no longer fails just because their organization was
+  disabled after the fact.** `PUT /api/v1/users/{id}` re-validated the
+  organization on every save, including the one the account already held —
+  so §3.4.1 ("disabling an organization does not touch the people already
+  in it") held for new accounts and broke for existing ones the moment
+  somebody disabled the organization they were in: from then on, saving so
+  much as a display name failed with `ORGANIZATION_DISABLED`. Resubmitting
+  the same, unchanged organization is no longer treated as a new binding;
+  moving somebody into a *different* disabled organization still is.
 
 ### Security
 

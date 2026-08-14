@@ -13,6 +13,7 @@ import (
 	"github.com/Paraview-RD/portico/internal/model"
 	"github.com/Paraview-RD/portico/internal/oidcrp"
 	"github.com/Paraview-RD/portico/internal/secrets"
+	"github.com/Paraview-RD/portico/internal/socialrp"
 	"github.com/Paraview-RD/portico/internal/store"
 	"github.com/Paraview-RD/portico/internal/store/sqlcgen"
 )
@@ -64,8 +65,11 @@ var (
 // field here would mean every list of providers carried every secret to a
 // browser.
 type ExternalIDP struct {
-	ID                 string `json:"id"`
-	Name               string `json:"name"`
+	ID   string `json:"id"`
+	Name string `json:"name"`
+	// Kind decides which fields the console shows: an issuer and scopes are
+	// meaningless for a provider whose endpoints are constants.
+	Kind               string `json:"kind"`
 	ButtonLabel        string `json:"buttonLabel"`
 	Issuer             string `json:"issuer"`
 	ClientID           string `json:"clientId"`
@@ -86,8 +90,11 @@ type ExternalIDP struct {
 type ExternalIDPInput struct {
 	Name        string
 	ButtonLabel string
-	Issuer      string
-	ClientID    string
+	// Kind is OIDC unless it is one of the two that need an adapter. Empty
+	// means OIDC, so every caller written before this existed still works.
+	Kind     string
+	Issuer   string
+	ClientID string
 	// ClientSecret empty on an edit means "keep the stored one". On a
 	// create it means a public client, which is why it is not required.
 	ClientSecret       string
@@ -172,7 +179,8 @@ func (s *ExternalIDPService) Create(ctx context.Context, actor auth.Principal, t
 	err = s.store.ForTenant(actor.TenantID).CreateExternalIdentityProvider(ctx,
 		sqlcgen.CreateExternalIdentityProviderParams{
 			ID: id, Name: in.Name, ButtonLabel: in.ButtonLabel,
-			Issuer: in.Issuer, ClientID: in.ClientID, ClientSecret: sealed,
+			Kind: in.Kind, Issuer: in.Issuer,
+			ClientID: in.ClientID, ClientSecret: sealed,
 			Scopes: in.Scopes, TrustVerifiedEmail: in.TrustVerifiedEmail,
 			CreatedAt: now,
 		})
@@ -206,12 +214,24 @@ func (s *ExternalIDPService) Get(ctx context.Context, tenantID, tenantCode, id s
 }
 
 // Update edits one. An empty secret keeps the stored one.
+//
+// The kind is not editable, and is taken from the stored row rather than
+// from the request. Changing it would leave every identity already bound to
+// this provider pointing at a protocol that did not issue them: the pair
+// (issuer, subject) stays in the table while the meaning of both halves
+// changes underneath it, and the first anybody would know is a person being
+// told their account is not linked to anything. Replacing a provider is
+// deleting it — which says how many bindings go with it — and creating
+// another.
 func (s *ExternalIDPService) Update(ctx context.Context, actor auth.Principal, tenantCode, id string, in ExternalIDPInput) (ExternalIDP, error) {
-	in, err := s.normalize(in)
+	existing, err := s.Get(ctx, actor.TenantID, tenantCode, id)
 	if err != nil {
 		return ExternalIDP{}, err
 	}
-	if _, err := s.Get(ctx, actor.TenantID, tenantCode, id); err != nil {
+	in.Kind = existing.Kind
+
+	in, err = s.normalize(in)
+	if err != nil {
 		return ExternalIDP{}, err
 	}
 	if err := s.verifyReachable(ctx, in, tenantCode); err != nil {
@@ -314,7 +334,24 @@ func (s *ExternalIDPService) Delete(ctx context.Context, actor auth.Principal, i
 }
 
 // verifyReachable proves the configuration describes a real provider.
+//
+// Only for OIDC, and the asymmetry is worth naming rather than leaving as a
+// silent early return. What is being proved is that an issuer resolves to a
+// discovery document — the one thing that can be checked without a person in
+// the loop, and the reason a mistyped issuer fails at the form rather than
+// at somebody's sign-in three days later.
+//
+// WeChat and DingTalk publish no such document. Their endpoints are
+// constants and are therefore right by construction; what could be wrong is
+// the appid and secret, and neither vendor offers a way to ask "is this
+// credential good" that does not involve a person completing a sign-in. So
+// for those two a saved configuration is unverified, and the first thing to
+// find out is the first sign-in. Contacting them anyway to prove the domain
+// resolves would test this deployment's DNS and call it a validation.
 func (s *ExternalIDPService) verifyReachable(ctx context.Context, in ExternalIDPInput, tenantCode string) error {
+	if in.Kind != KindOIDC {
+		return nil
+	}
 	_, err := oidcrp.Discover(ctx, oidcrp.Config{
 		Issuer: in.Issuer, ClientID: in.ClientID,
 		RedirectURI: s.RedirectURI(tenantCode),
@@ -348,34 +385,70 @@ func (s *ExternalIDPService) seal(tenantID, plaintext string) (string, error) {
 func (s *ExternalIDPService) normalize(in ExternalIDPInput) (ExternalIDPInput, error) {
 	in.Name = strings.TrimSpace(in.Name)
 	in.ButtonLabel = strings.TrimSpace(in.ButtonLabel)
+	in.Kind = strings.ToUpper(strings.TrimSpace(in.Kind))
 	in.Issuer = strings.TrimRight(strings.TrimSpace(in.Issuer), "/")
 	in.ClientID = strings.TrimSpace(in.ClientID)
 	in.Scopes = strings.Join(strings.Fields(in.Scopes), " ")
 
+	if in.Kind == "" {
+		in.Kind = KindOIDC
+	}
+
 	if in.Name == "" {
 		return in, httpx.BadRequest("NAME_REQUIRED", "A name is required.")
-	}
-	if in.Issuer == "" {
-		return in, httpx.BadRequest("EXTERNAL_IDP_ISSUER_REQUIRED",
-			"An issuer URL is required.")
 	}
 	if in.ClientID == "" {
 		return in, httpx.BadRequest("EXTERNAL_IDP_CLIENT_ID_REQUIRED",
 			"A client id is required.")
 	}
-	if in.Scopes == "" {
-		in.Scopes = "openid profile email"
+
+	switch in.Kind {
+	case KindOIDC:
+		if in.Issuer == "" {
+			return in, httpx.BadRequest("EXTERNAL_IDP_ISSUER_REQUIRED",
+				"An issuer URL is required.")
+		}
+		if in.Scopes == "" {
+			in.Scopes = "openid profile email"
+		}
+
+	case socialrp.KindWeChat, socialrp.KindDingTalk:
+		// The issuer is not a field for these. It is a constant, and it is
+		// overwritten rather than validated: an administrator has nothing to
+		// type there, and accepting one would let two tenants disagree about
+		// what "WeChat" means — after which the same person is two
+		// identities, because identity here is (issuer, subject).
+		in.Issuer = socialrp.Issuer(in.Kind)
+		// Nor are scopes. Each of these has exactly one that does anything,
+		// and it is sent by the adapter.
+		in.Scopes = ""
+		// WeChat returns no address at all, so the switch that lets an
+		// address reach an existing account can only be misleading here.
+		// Forced off rather than hidden and left set, which would be a
+		// stored `true` that means nothing until somebody changes the kind.
+		if !socialrp.SupportsVerifiedEmail(in.Kind) {
+			in.TrustVerifiedEmail = false
+		}
+
+	default:
+		return in, httpx.BadRequest("EXTERNAL_IDP_KIND_UNKNOWN",
+			"That is not a kind of identity provider this version speaks.")
 	}
+
 	if in.ButtonLabel == "" {
 		in.ButtonLabel = in.Name
 	}
 	return in, nil
 }
 
+// KindOIDC is a provider with a discovery document, which is every provider
+// that is not one of the two written out in internal/socialrp.
+const KindOIDC = "OIDC"
+
 func toExternalIDP(row sqlcgen.ExternalIdentityProvider, redirectURI string) ExternalIDP {
 	return ExternalIDP{
 		ID: row.ID, Name: row.Name, ButtonLabel: row.ButtonLabel,
-		Issuer: row.Issuer, ClientID: row.ClientID, Scopes: row.Scopes,
+		Kind: row.Kind, Issuer: row.Issuer, ClientID: row.ClientID, Scopes: row.Scopes,
 		TrustVerifiedEmail: row.TrustVerifiedEmail, Status: row.Status,
 		HasSecret:   row.ClientSecret != "",
 		RedirectURI: redirectURI,

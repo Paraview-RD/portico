@@ -165,8 +165,11 @@ func (h *Handler) UnlinkMyExternalIdentity(w http.ResponseWriter, r *http.Reques
 type externalIDPRequest struct {
 	Name        string `json:"name"`
 	ButtonLabel string `json:"buttonLabel"`
-	Issuer      string `json:"issuer"`
-	ClientID    string `json:"clientId"`
+	// Kind is OIDC when absent, so a caller written before WeChat and
+	// DingTalk existed still means what it meant.
+	Kind     string `json:"kind"`
+	Issuer   string `json:"issuer"`
+	ClientID string `json:"clientId"`
 	// ClientSecret blank on an edit keeps the stored one. The console never
 	// receives it, so a blank field is what an administrator always sees.
 	ClientSecret       string `json:"clientSecret"`
@@ -176,7 +179,8 @@ type externalIDPRequest struct {
 
 func (req externalIDPRequest) input() service.ExternalIDPInput {
 	return service.ExternalIDPInput{
-		Name: req.Name, ButtonLabel: req.ButtonLabel, Issuer: req.Issuer,
+		Name: req.Name, ButtonLabel: req.ButtonLabel,
+		Kind: req.Kind, Issuer: req.Issuer,
 		ClientID: req.ClientID, ClientSecret: req.ClientSecret,
 		Scopes: req.Scopes, TrustVerifiedEmail: req.TrustVerifiedEmail,
 	}

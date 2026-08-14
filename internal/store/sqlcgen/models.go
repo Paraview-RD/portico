@@ -104,6 +104,8 @@ type ExternalIdentityProvider struct {
 	Status             string
 	CreatedAt          time.Time
 	UpdatedAt          time.Time
+	// OIDC for anything with a discovery document; WECHAT and DINGTALK for the two that have none and need an adapter each.
+	Kind string
 }
 
 // Per-recipient renames, additions, and suppressions. The defaults stay in code — see internal/service/field_catalogue.go.
@@ -273,6 +275,17 @@ type Organization struct {
 	UpdatedAt time.Time
 	// Who is responsible for this organization. Grants nothing: this version has two fixed roles, and a field that quietly became a third would be the worst way to acquire one.
 	ManagerID *string
+}
+
+// Who would administer an organization once delegated administration exists. Grants nothing today: no authorization decision reads it, and a test enforces that. The scope and granted_by columns are recorded now because neither can be reconstructed later.
+type OrganizationAdministrator struct {
+	TenantID       string
+	OrganizationID string
+	UserID         string
+	// SELF is this organization only; SUBTREE is it and every descendant. Required, because a row that does not say which was meant cannot be interpreted when the feature that reads it arrives.
+	Scope     string
+	GrantedBy string
+	GrantedAt time.Time
 }
 
 type PasswordHistory struct {
@@ -500,6 +513,8 @@ type WebhookDelivery struct {
 	NextAttemptAt  *time.Time
 	CreatedAt      time.Time
 	DeliveredAt    *time.Time
+	// The beginning of what the receiver answered on the most recent attempt, capped at 2 KiB when written. Never contains request headers: a subscription's custom headers are credentials and are not copied here.
+	LastResponse string
 }
 
 type WebhookSubscription struct {

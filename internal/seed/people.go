@@ -327,6 +327,39 @@ func (s *Seeder) closeOffOrganizations(ctx context.Context, w *world) error {
 		}
 	}
 
+	// Two administrator records, at the two scopes, because the difference
+	// between them is the only thing about this feature somebody has to
+	// understand and a demo with one of each shows it in a glance.
+	//
+	// Deliberately not the same person as the manager above. Being
+	// responsible for a department and being recorded to administer it are
+	// different facts, and a seed where they are always the same account is
+	// one that teaches they are the same thing.
+	//
+	// Neither record grants anything, here or anywhere: liyan is an ordinary
+	// account in this seed and stays one, which is exactly what an operator
+	// should find when they check.
+	for _, assignment := range []struct {
+		org, username, scope string
+	}{
+		{"tech", "liyan", model.OrgScopeSubtree},
+		{"market", "wangfang", model.OrgScopeSelf},
+	} {
+		org, ok := t.orgs[assignment.org]
+		if !ok {
+			continue
+		}
+		person := findUser(t.users, assignment.username)
+		if person.ID == "" {
+			continue
+		}
+		err := s.orgs.AssignAdministrator(ctx, t.actor, org.ID, person.ID, assignment.scope)
+		if err != nil {
+			return fmt.Errorf("record %s as an administrator of %s: %w",
+				assignment.username, org.Code, err)
+		}
+	}
+
 	for _, spec := range mainOrgs {
 		if !spec.disabled {
 			continue

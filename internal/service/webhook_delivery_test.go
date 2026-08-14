@@ -30,6 +30,7 @@ import (
 	"net/http"
 	"net/http/httptest"
 	"strconv"
+	"strings"
 	"sync"
 	"testing"
 	"time"
@@ -55,7 +56,10 @@ type received struct {
 type receiver struct {
 	mu     sync.Mutex
 	status int
-	got    []received
+	// replyBody is what it writes back, so a test can assert that what a
+	// receiver says about a refusal is what the console will show.
+	replyBody string
+	got       []received
 }
 
 func (r *receiver) ServeHTTP(w http.ResponseWriter, req *http.Request) {
@@ -70,9 +74,13 @@ func (r *receiver) ServeHTTP(w http.ResponseWriter, req *http.Request) {
 		body:       body,
 	})
 	status := r.status
+	reply := r.replyBody
 	r.mu.Unlock()
 
 	w.WriteHeader(status)
+	if reply != "" {
+		_, _ = io.WriteString(w, reply)
+	}
 }
 
 func (r *receiver) count() int {
@@ -85,6 +93,12 @@ func (r *receiver) last() received {
 	r.mu.Lock()
 	defer r.mu.Unlock()
 	return r.got[len(r.got)-1]
+}
+
+func (r *receiver) setReply(body string) {
+	r.mu.Lock()
+	defer r.mu.Unlock()
+	r.replyBody = body
 }
 
 func (r *receiver) answer(status int) {
@@ -198,7 +212,7 @@ func (f *deliveryFixture) dispatch() int {
 func (f *deliveryFixture) delivery() sqlcgen.WebhookDelivery {
 	f.t.Helper()
 	rows, err := f.store.ForTenant(f.tenantID).ListWebhookDeliveries(
-		context.Background(), f.subID, 10)
+		context.Background(), f.subID, store.AfterEverything, "", "all", 10)
 	if err != nil {
 		f.t.Fatalf("list deliveries: %v", err)
 	}
@@ -417,7 +431,7 @@ func TestAPausedSubscriptionsBacklogDoesNotOutliveRetention(t *testing.T) {
 	}
 
 	rows, err := f.store.ForTenant(f.tenantID).ListWebhookDeliveries(
-		context.Background(), f.subID, 10)
+		context.Background(), f.subID, store.AfterEverything, "", "all", 10)
 	if err != nil {
 		t.Fatalf("list deliveries: %v", err)
 	}
@@ -460,5 +474,109 @@ func TestATamperedBodyDoesNotVerify(t *testing.T) {
 
 	if verifyAsDocumented(f.secret, req) {
 		t.Error("a body with one byte added still verified")
+	}
+}
+
+// What the receiver said is kept, because "500" is not a diagnosis.
+//
+// A receiver refusing a delivery almost always says why — which field it did
+// not like, which id it could not resolve — and until this was stored that
+// sentence lived only in their logs, on the other side of an email. The
+// status code was all this side kept.
+func TestWhatTheReceiverAnsweredIsKept(t *testing.T) {
+	f := newDeliveryFixture(t)
+	f.receiver.answer(http.StatusBadRequest)
+	f.receiver.setReply(`{"error":"unknown organization id org-404"}`)
+
+	f.queue(webhook.EventUserCreated)
+	f.dispatch()
+
+	detail, err := f.svc.Delivery(context.Background(), f.tenantID, f.subID, f.delivery().ID)
+	if err != nil {
+		t.Fatalf("delivery detail: %v", err)
+	}
+	if !strings.Contains(detail.Response, "org-404") {
+		t.Errorf("response = %q, want what the receiver actually said", detail.Response)
+	}
+	// And the request body, which is what the signature was computed over —
+	// the thing a receiver debugging a signature mismatch has to compare
+	// against.
+	if !strings.Contains(detail.Payload, "sam") {
+		t.Errorf("payload = %q, want the body as sent", detail.Payload)
+	}
+}
+
+// A receiver answering an error with a page of HTML must not put a page of
+// HTML in this database, once per attempt, forever.
+func TestTheKeptAnswerIsCapped(t *testing.T) {
+	f := newDeliveryFixture(t)
+	f.receiver.answer(http.StatusInternalServerError)
+	f.receiver.setReply(strings.Repeat("x", webhook.ResponseKeep*4))
+
+	f.queue(webhook.EventUserCreated)
+	f.dispatch()
+
+	detail, err := f.svc.Delivery(context.Background(), f.tenantID, f.subID, f.delivery().ID)
+	if err != nil {
+		t.Fatalf("delivery detail: %v", err)
+	}
+	if len(detail.Response) > webhook.ResponseKeep {
+		t.Errorf("kept %d bytes of the answer, cap is %d",
+			len(detail.Response), webhook.ResponseKeep)
+	}
+}
+
+// Paging is by cursor, and the pages do not overlap or skip.
+//
+// The table is written to while it is read, which is why this is not an
+// offset: the assertion that matters is that walking the pages visits every
+// delivery exactly once even though more arrive in between.
+func TestDeliveriesPageByCursor(t *testing.T) {
+	f := newDeliveryFixture(t)
+	for i := 0; i < 5; i++ {
+		f.queue(webhook.EventUserCreated)
+	}
+
+	ctx := context.Background()
+	seen := map[string]int{}
+	cursor := ""
+	for pages := 0; ; pages++ {
+		if pages > 10 {
+			t.Fatal("paging did not terminate")
+		}
+		page, err := f.svc.Deliveries(ctx, f.tenantID, f.subID, cursor, DeliveryFilterAll, 2)
+		if err != nil {
+			t.Fatalf("page %d: %v", pages, err)
+		}
+		for _, item := range page.Items {
+			seen[item.ID]++
+		}
+		// A delivery queued between pages, which is the case an offset gets
+		// wrong: it shifts every later row by one, so the reader sees one
+		// twice and misses another entirely.
+		f.queue(webhook.EventUserCreated)
+
+		if page.NextCursor == "" {
+			break
+		}
+		cursor = page.NextCursor
+	}
+
+	if len(seen) < 5 {
+		t.Errorf("walked the pages and saw %d deliveries, want at least the 5 that existed first", len(seen))
+	}
+	for id, times := range seen {
+		if times != 1 {
+			t.Errorf("delivery %s appeared %d times across the pages", id, times)
+		}
+	}
+}
+
+// A cursor this server did not issue is refused rather than interpreted.
+func TestAForeignCursorIsRefused(t *testing.T) {
+	f := newDeliveryFixture(t)
+	if _, err := f.svc.Deliveries(context.Background(), f.tenantID, f.subID,
+		"not-a-cursor", DeliveryFilterAll, 10); err == nil {
+		t.Error("a cursor this server never issued was accepted")
 	}
 }

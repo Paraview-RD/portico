@@ -103,6 +103,15 @@ const (
 	ActionOrgDisable = "ORG_DISABLE"
 	ActionOrgAssign  = "ORG_ASSIGN"
 
+	// Naming somebody an administrator of an organization, and taking it
+	// back. Audited at the weight of a privilege change even though it
+	// confers nothing yet: the rows exist so that delegated administration
+	// can read them later, and "who said this person would run that
+	// department, and when" is asked after the feature arrives, about
+	// assignments made long before it.
+	ActionOrgAdminAssign = "ORG_ADMIN_ASSIGN"
+	ActionOrgAdminRevoke = "ORG_ADMIN_REVOKE"
+
 	// Every attribute of every account in a tenant, leaving through one
 	// request. Nothing else here hands over that much at once, and "who took
 	// a copy of the directory, and when" is asked after an incident rather

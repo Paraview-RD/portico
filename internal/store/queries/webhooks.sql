@@ -74,9 +74,10 @@ SET status = 'DELIVERED',
     attempts = attempts + 1,
     last_status = $1,
     last_error = '',
+    last_response = $2,
     next_attempt_at = NULL,
-    delivered_at = $2
-WHERE tenant_id = $3 AND id = $4;
+    delivered_at = $3
+WHERE tenant_id = $4 AND id = $5;
 
 -- name: MarkWebhookAttemptFailed :exec
 -- One failed attempt, with when to try again. A NULL next_attempt_at and
@@ -86,14 +87,48 @@ SET status = $1,
     attempts = attempts + 1,
     last_status = $2,
     last_error = $3,
-    next_attempt_at = $4
-WHERE tenant_id = $5 AND id = $6;
+    last_response = $4,
+    next_attempt_at = $5
+WHERE tenant_id = $6 AND id = $7;
 
 -- name: ListWebhookDeliveries :many
+-- One page, newest first, optionally starting after a row the caller
+-- already has.
+--
+-- A cursor rather than an offset. This table is written to continuously —
+-- every event, every retry — so an offset walked backwards through it
+-- returns rows twice and skips others as it goes, and the reader has no way
+-- to tell. (created_at, id) is the same order the index is in, and id
+-- breaks the tie between two deliveries queued in the same instant.
+--
+-- @cursor_created_at and @cursor_id are the last row of the previous page.
+-- The first page passes store.AfterEverything, a timestamp no row can hold,
+-- so the same comparison serves both cases: every real created_at is below
+-- it, and a tuple comparison decided by its first element never reaches the
+-- id.
+--
+-- @sync_filter: 'all' is everything, 'live' hides the sync.* pages a full
+-- sync produces, 'sync' shows only those. A full sync of a large tenant is
+-- a hundred deliveries in a few seconds, which is not many rows but is
+-- enough to push every ordinary event off the first page of what somebody
+-- is reading.
 SELECT * FROM webhook_deliveries
 WHERE tenant_id = $1 AND subscription_id = $2
-ORDER BY created_at DESC
-LIMIT $3;
+  AND (created_at, id) < (sqlc.arg(cursor_created_at)::timestamptz, sqlc.arg(cursor_id)::text)
+  AND (
+    sqlc.arg(sync_filter)::text = 'all'
+    OR (sqlc.arg(sync_filter)::text = 'sync' AND event_type LIKE 'sync.%')
+    OR (sqlc.arg(sync_filter)::text = 'live' AND event_type NOT LIKE 'sync.%')
+  )
+ORDER BY created_at DESC, id DESC
+LIMIT sqlc.arg(page_size);
+
+-- name: GetWebhookDelivery :one
+-- One delivery with everything it holds, including the bodies. Fetched only
+-- when somebody opens it: a sync page's payload is five hundred objects, and
+-- putting that in a list would make the list unusable to save a click.
+SELECT * FROM webhook_deliveries
+WHERE tenant_id = $1 AND subscription_id = $2 AND id = $3;
 
 -- name: DeleteOldWebhookDeliveries :exec
 -- Past the retention window, whatever state it reached.

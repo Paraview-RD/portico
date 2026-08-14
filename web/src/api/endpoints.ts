@@ -2,6 +2,8 @@
 
 import { download, request, upload } from "./client";
 import type {
+  AdministeredOrganization,
+  AdminScope,
   AuditLog,
   Authorization,
   CASService,
@@ -15,6 +17,7 @@ import type {
   LogKind,
   OAuthClient,
   Organization,
+  OrganizationAdministrator,
   PageResult,
   PortalApplication,
   RecoveryChannel,
@@ -35,7 +38,9 @@ import type {
   Status,
   User,
   UserSession,
-  WebhookDelivery,
+  WebhookDeliveryDetail,
+  WebhookDeliveryPage,
+  DeliveryFilter,
   WebhookSnapshot,
   WebhookSubscription,
   CatalogueField,
@@ -411,6 +416,36 @@ export const organizationApi = {
       body: { managerId },
     }),
 
+  /**
+   * Who is recorded as administering an organization.
+   *
+   * These grant nothing today — see the API description. They exist so that
+   * delegated administration, when it arrives, reads a chart somebody has
+   * already entered rather than an empty table.
+   */
+  administrators: (id: string) =>
+    request<OrganizationAdministrator[]>(
+      `/organizations/${segment(id)}/administrators`,
+    ),
+
+  assignAdministrator: (id: string, userId: string, scope: AdminScope) =>
+    request<null>(`/organizations/${segment(id)}/administrators`, {
+      method: "POST",
+      body: { userId, scope },
+    }),
+
+  revokeAdministrator: (id: string, userId: string) =>
+    request<null>(
+      `/organizations/${segment(id)}/administrators/${segment(userId)}`,
+      { method: "DELETE" },
+    ),
+
+  /** What an account is recorded as administering. */
+  administeredBy: (userId: string) =>
+    request<AdministeredOrganization[]>(
+      `/users/${segment(userId)}/administered-organizations`,
+    ),
+
   /** Records that somebody is involved with an organization they do not
    * primarily belong to. Does not move their primary membership. */
   attachUser: (id: string, userId: string) =>
@@ -783,8 +818,30 @@ export const webhooksApi = {
       body: input,
     }),
 
-  deliveries: (id: string) =>
-    request<WebhookDelivery[]>(`/webhooks/${segment(id)}/deliveries`),
+  /**
+   * One page of attempts, newest first.
+   *
+   * `filter` defaults to `live` on the server, which hides the pages a full
+   * sync produces: a hundred of them arrive in a few seconds and would
+   * otherwise be the whole of what somebody opening this screen can see.
+   */
+  deliveries: (
+    id: string,
+    params: { cursor?: string; filter?: DeliveryFilter; limit?: number } = {},
+  ) =>
+    request<WebhookDeliveryPage>(
+      `/webhooks/${segment(id)}/deliveries${query(params)}`,
+    ),
+
+  /** One delivery with the request and response bodies, fetched on demand. */
+  delivery: (id: string, deliveryID: string) =>
+    request<WebhookDeliveryDetail>(
+      `/webhooks/${segment(id)}/deliveries/${segment(deliveryID)}`,
+    ),
+
+  /** What a full sync would send, without sending it. */
+  snapshotPreview: (id: string) =>
+    request<WebhookSnapshot>(`/webhooks/${segment(id)}/snapshot`),
 
   /**
    * Issues a new signing key, returned once. The subscription keeps its id,

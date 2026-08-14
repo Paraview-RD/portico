@@ -14,10 +14,11 @@ import { DirectoriesPanel } from "./DirectoriesPanel";
 import { useRouter } from "../router";
 import {
   Alert,
-  Badge,
   Button,
+  Code,
   ConfirmDialog,
   CopyField,
+  DocsLink,
   EmptyRow,
   Field,
   GuidePanel,
@@ -25,10 +26,11 @@ import {
   LoadingRow,
   Modal,
   PageHeader,
+  StatusBadge,
   Table,
   Td,
   Th,
-  DocsLink,
+  Timestamp,
 } from "../components/ui";
 import { useErrorMessage, useT } from "../i18n";
 
@@ -220,29 +222,25 @@ function SCIMCredentialsPanel() {
             <tr key={credential.id}>
               <Td>{credential.name}</Td>
               <Td>
-                <code className="text-[length:var(--font-size-sm)]">
-                  {credential.tokenPrefix}…
-                </code>
+                <Code>{credential.tokenPrefix}…</Code>
               </Td>
               <Td>
                 {/* Never used reads as a problem in its own right: a
                     directory that was configured and has never connected. */}
-                {credential.lastUsedAt
-                  ? new Date(credential.lastUsedAt).toLocaleString()
-                  : t("scim.neverUsed")}
+                {credential.lastUsedAt ? (
+                  <Timestamp value={credential.lastUsedAt} />
+                ) : (
+                  t("scim.neverUsed")
+                )}
               </Td>
               <Td>
-                <Badge
-                  tone={credential.status === "ACTIVE" ? "success" : "neutral"}
-                >
-                  {t(`status.${credential.status}`)}
-                </Badge>
+                <StatusBadge status={credential.status} />
               </Td>
               <Td>
                 <div className="flex gap-2">
                   <Button
                     size="sm"
-                    variant="secondary"
+                    variant="ghost"
                     onClick={() => void toggle(credential)}
                   >
                     {credential.status === "ACTIVE"
@@ -251,7 +249,7 @@ function SCIMCredentialsPanel() {
                   </Button>
                   <Button
                     size="sm"
-                    variant="danger"
+                    variant="ghost-danger"
                     onClick={() => setDeleting(credential)}
                   >
                     {t("common.delete")}
@@ -299,7 +297,7 @@ function SCIMCredentialsPanel() {
         title={t("scim.issued")}
         onClose={() => setIssued(null)}
         footer={
-          <Button onClick={() => setIssued(null)}>{t("common.done")}</Button>
+          <Button onClick={() => setIssued(null)}>{t("common.close")}</Button>
         }
       >
         <div className="flex flex-col gap-4">
@@ -386,11 +384,11 @@ function SyncActivity() {
           {entries?.length === 0 && <EmptyRow colSpan={4} />}
           {entries?.map((entry) => (
             <tr key={entry.id}>
-              <Td>{new Date(entry.createdAt).toLocaleString()}</Td>
               <Td>
-                <code className="text-[length:var(--font-size-sm)]">
-                  {entry.action}
-                </code>
+                <Timestamp value={entry.createdAt} />
+              </Td>
+              <Td>
+                <Code>{entry.action}</Code>
               </Td>
               <Td>{entry.targetName || "—"}</Td>
               <Td className="text-[var(--color-fg-muted)]">

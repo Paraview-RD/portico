@@ -162,8 +162,10 @@ explanation somebody no longer needs.
 **Bilingual UI** — English and 简体中文, switchable at runtime.
 
 Deliberately **not** in this version: custom roles and permissions (there are
-two fixed roles), third-party and social login, MFA, and any rate limiting
-beyond the sign-in endpoints. The roadmap for those is in
+two fixed roles), MFA, and any rate limiting beyond the sign-in endpoints.
+An organization can *record* who would administer it, and at what scope, for
+the delegated administration on the roadmap — those records grant nothing
+today and a test holds them to it. The roadmap is in
 [docs/requirements/v0.1-requirements.md](docs/requirements/v0.1-requirements.md).
 
 > **Before exposing this to a network:** Portico serves plain HTTP,
@@ -183,6 +185,12 @@ beyond the sign-in endpoints. The roadmap for those is in
 builds the console, the manual and the server, seeds a database with people,
 organizations, applications and history, and opens the console in a browser
 tab. Nothing to install and nothing to configure.
+
+First creation typically takes 10–20 minutes: GitHub installs the
+container's Go, Node and Python toolchains, and only then does the build
+described above run — compiling the console, the manual and the server, and
+seeding the database. The tab this opens can sit empty for most of that
+time, which is normal and not the process having stalled.
 
 Sign in as `admin` (super administrator) or `liyan` (ordinary user); every
 seeded account shares the password `Portico@1`. `zhangwei` is a second
@@ -354,6 +362,7 @@ internal/
   casp/            the CAS protocol, implemented directly
   oidcp/           adapts Portico to the OpenID Provider interface
   oidcrp/          the other direction: signing in through somebody else's
+  socialrp/        the two that have no discovery document, one file each
   samlp/           adapts Portico to the SAML identity provider role
   scim/            the SCIM 2.0 endpoints a directory provisions through
   directory/       the other direction: reading accounts out of LDAP

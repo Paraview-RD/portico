@@ -192,6 +192,65 @@ func snapshotScope(events string) []string {
 	return scope
 }
 
+// SnapshotPreview answers what a full sync would send, without sending it.
+//
+// The console asks before it puts the question to an operator, because "queue
+// a copy of everything?" is a different decision at fifty accounts and at
+// fifty thousand — and the only place that number was available was the
+// screen shown after it had already been queued.
+//
+// Counted rather than built. The real run pages every object out of the
+// database and renders it through the subscription's field mappings, which
+// is far too much work to do twice for a sentence in a dialog; three counts
+// and a division give the same numbers. They can be stale by the time the
+// operator clicks, which does not matter: this is an order of magnitude, not
+// an invoice.
+func (s *WebhookService) SnapshotPreview(ctx context.Context, tenantID, subscriptionID string) (SnapshotSummary, error) {
+	q := s.store.ForTenant(tenantID)
+
+	subscription, err := q.GetWebhookSubscription(ctx, subscriptionID)
+	if err != nil {
+		if store.IsNoRows(err) {
+			return SnapshotSummary{}, ErrWebhookNotFound
+		}
+		return SnapshotSummary{}, fmt.Errorf("get subscription: %w", err)
+	}
+
+	scope := snapshotScope(subscription.Events)
+	if len(scope) == 0 {
+		return SnapshotSummary{}, httpx.UnprocessableEntity("SNAPSHOT_EMPTY_SCOPE",
+			"This subscription selects no events a full sync can fill.")
+	}
+
+	counts := map[string]int{}
+	pages := 0
+	for _, kind := range scope {
+		var total int64
+		switch kind {
+		case "user":
+			total, err = q.CountUsers(ctx)
+		case "organization":
+			total, err = q.CountOrganizations(ctx)
+		case "group":
+			total, err = q.CountGroups(ctx)
+		}
+		if err != nil {
+			return SnapshotSummary{}, fmt.Errorf("count %s for preview: %w", kind, err)
+		}
+		counts[kind] = int(total)
+		// An empty kind still sends one page, so a receiver is told the
+		// answer is none rather than left waiting for a page that never
+		// comes. That is what the real run does; the arithmetic here has to
+		// agree with it or the preview is a different feature.
+		pages += int((total + SnapshotPageSize - 1) / SnapshotPageSize)
+		if total == 0 {
+			pages++
+		}
+	}
+
+	return SnapshotSummary{Scope: scope, Counts: counts, Pages: pages}, nil
+}
+
 // snapshotPages renders everything in scope into pages.
 //
 // Rendered here rather than at delivery time, the same way every other event

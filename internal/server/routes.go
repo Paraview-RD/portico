@@ -172,6 +172,7 @@ func (s *Server) routes() http.Handler {
 				r.Post("/{id}/unlock", h.UnlockUser)
 
 				// What is signed in as this person, and ending one of them.
+				r.Get("/{id}/administered-organizations", h.ListAdministeredOrganizations)
 				r.Get("/{id}/groups", h.ListUserGroups)
 				r.Get("/{id}/sessions", h.ListUserSessions)
 				r.Delete("/{id}/sessions/{sessionID}", h.RevokeUserSession)
@@ -200,6 +201,14 @@ func (s *Server) routes() http.Handler {
 			// attached to it beside their primary membership. Neither
 			// grants anything; see the handlers.
 			r.Put("/organizations/{id}/manager", h.SetOrganizationManager)
+			// Who would administer an organization once delegated
+			// administration exists. Administrator-only, like everything
+			// else here, and it grants the person named nothing at all —
+			// see migration 00020 and the test that holds it to that.
+			r.Get("/organizations/{id}/administrators", h.ListOrganizationAdministrators)
+			r.Post("/organizations/{id}/administrators", h.AssignOrganizationAdministrator)
+			r.Delete("/organizations/{id}/administrators/{userID}", h.RevokeOrganizationAdministrator)
+
 			r.Post("/organizations/{id}/attachments", h.AttachUserToOrganization)
 			r.Delete("/organizations/{id}/attachments/{userID}", h.DetachUserFromOrganization)
 			r.Put("/organizations/{id}", h.UpdateOrganization)
@@ -297,9 +306,11 @@ func (s *Server) routes() http.Handler {
 				r.Post("/", h.CreateWebhook)
 				r.Get("/events", h.WebhookEvents)
 				r.Get("/{id}/deliveries", h.ListWebhookDeliveries)
+				r.Get("/{id}/deliveries/{deliveryID}", h.GetWebhookDelivery)
 				r.Post("/{id}/rotate-secret", h.RotateWebhookSecret)
 				r.Post("/{id}/enable", h.EnableWebhook)
 				r.Post("/{id}/disable", h.DisableWebhook)
+				r.Get("/{id}/snapshot", h.PreviewWebhookSnapshot)
 				r.Post("/{id}/snapshot", h.SnapshotWebhook)
 				r.Delete("/{id}", h.DeleteWebhook)
 

@@ -177,17 +177,19 @@ func TestCreatingAnOrganizationQueuesAnEvent(t *testing.T) {
 		t.Fatalf("create organization: %d %s %s", res.Status, res.Code, res.Message)
 	}
 
-	var deliveries []struct {
-		EventType string `json:"eventType"`
+	var page struct {
+		Items []struct {
+			EventType string `json:"eventType"`
+		} `json:"items"`
 	}
 	api.do(http.MethodGet, "/api/v1/webhooks/"+subscriptionID+"/deliveries", admin, nil).
-		into(t, &deliveries)
+		into(t, &page)
 
-	for _, delivery := range deliveries {
+	for _, delivery := range page.Items {
 		if delivery.EventType == webhook.EventOrgCreated {
 			return
 		}
 	}
 	t.Errorf("creating an organization queued %v, and none of them is %s",
-		deliveries, webhook.EventOrgCreated)
+		page.Items, webhook.EventOrgCreated)
 }

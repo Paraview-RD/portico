@@ -147,3 +147,109 @@ func TestLinksAreTheirOwnersAndProvidersAreTheAdministrators(t *testing.T) {
 			res.Status, res.Code)
 	}
 }
+
+// WeChat and DingTalk need no issuer and must not accept one.
+//
+// The issuer is what every stored identity is namespaced under, and for
+// these two it is a constant. Letting an administrator type one would let
+// two tenants disagree about what "WeChat" means, after which the same
+// person is two identities — the one thing an identity must not be.
+func TestAVendorProviderTakesItsIssuerFromTheCodeAndNotTheForm(t *testing.T) {
+	api := newAPITest(t)
+	admin := api.adminToken()
+
+	res := api.do(http.MethodPost, "/api/v1/external-identity-providers", admin,
+		map[string]any{
+			"name": "微信", "kind": "WECHAT",
+			"clientId": "wx-appid",
+			// Offered, and expected to be ignored rather than honoured.
+			"issuer": "https://not-wechat.example.com",
+		})
+	if res.Status != http.StatusOK {
+		t.Fatalf("create a WeChat provider = %d %s, want 200", res.Status, res.Code)
+	}
+
+	var created map[string]any
+	if err := json.Unmarshal(res.Data, &created); err != nil {
+		t.Fatalf("decode: %v", err)
+	}
+	if created["issuer"] != "https://open.weixin.qq.com" {
+		t.Errorf("issuer = %v, want the constant; an issuer somebody typed "+
+			"means two tenants can disagree about what WeChat is",
+			created["issuer"])
+	}
+	if created["kind"] != "WECHAT" {
+		t.Errorf("kind = %v, want WECHAT — stored as OIDC it would be sent "+
+			"through a discovery it has no document for", created["kind"])
+	}
+}
+
+// A provider with no discovery document is saved without being contacted.
+//
+// The OIDC path proves an issuer resolves before writing the row. There is
+// no equivalent question to ask WeChat, so this must not fail the way an
+// unreachable issuer does — which is the whole reason a test names it.
+func TestAVendorProviderIsSavedWithoutReachingTheVendor(t *testing.T) {
+	api := newAPITest(t)
+	admin := api.adminToken()
+
+	for _, kind := range []string{"WECHAT", "DINGTALK"} {
+		res := api.do(http.MethodPost, "/api/v1/external-identity-providers", admin,
+			map[string]any{
+				"name": kind, "kind": kind, "clientId": kind + "-id",
+			})
+		if res.Status != http.StatusOK {
+			t.Errorf("create %s = %d %s; these have no discovery document, so "+
+				"a save that requires reaching them can never succeed on a "+
+				"network that cannot", kind, res.Status, res.Code)
+		}
+	}
+}
+
+// The kind cannot be edited afterwards.
+func TestAProvidersKindIsFixedOnceIdentitiesCanBeBoundToIt(t *testing.T) {
+	api := newAPITest(t)
+	admin := api.adminToken()
+
+	res := api.do(http.MethodPost, "/api/v1/external-identity-providers", admin,
+		map[string]any{"name": "钉钉", "kind": "DINGTALK", "clientId": "ding-id"})
+	if res.Status != http.StatusOK {
+		t.Fatalf("create = %d %s", res.Status, res.Code)
+	}
+	var created map[string]any
+	if err := json.Unmarshal(res.Data, &created); err != nil {
+		t.Fatalf("decode: %v", err)
+	}
+
+	edit := api.do(http.MethodPut,
+		"/api/v1/external-identity-providers/"+created["id"].(string), admin,
+		map[string]any{
+			"name": "钉钉", "kind": "WECHAT", "clientId": "ding-id",
+		})
+	if edit.Status != http.StatusOK {
+		t.Fatalf("edit = %d %s", edit.Status, edit.Code)
+	}
+	var edited map[string]any
+	if err := json.Unmarshal(edit.Data, &edited); err != nil {
+		t.Fatalf("decode: %v", err)
+	}
+	if edited["kind"] != "DINGTALK" {
+		t.Errorf("kind became %v; every identity already bound would keep its "+
+			"(issuer, subject) while both halves changed meaning, and the "+
+			"first sign of it is somebody told their account is not linked",
+			edited["kind"])
+	}
+}
+
+// A kind nobody implements is refused rather than stored and met later.
+func TestAKindThisVersionDoesNotSpeakIsRefused(t *testing.T) {
+	api := newAPITest(t)
+	admin := api.adminToken()
+
+	res := api.do(http.MethodPost, "/api/v1/external-identity-providers", admin,
+		map[string]any{"name": "QQ", "kind": "QQ", "clientId": "qq-id"})
+	if res.Code != "EXTERNAL_IDP_KIND_UNKNOWN" {
+		t.Errorf("create with an unknown kind = %d %s, want "+
+			"EXTERNAL_IDP_KIND_UNKNOWN", res.Status, res.Code)
+	}
+}

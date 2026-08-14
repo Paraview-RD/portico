@@ -13,7 +13,9 @@ import {
   Badge,
   Button,
   Card,
+  Code,
   PageHeader,
+  Timestamp,
 } from "../components/ui";
 import { useErrorMessage, useT } from "../i18n";
 import { useRouter } from "../router";
@@ -316,7 +318,7 @@ function AccountSummary() {
             as a row would make an absent policy look like a configured one. */}
         {user.passwordExpiresAt && (
           <Row label={t("portal.passwordExpires")}>
-            {new Date(user.passwordExpiresAt).toLocaleDateString()}
+            <Timestamp value={user.passwordExpiresAt} precision="date" />
           </Row>
         )}
       </dl>
@@ -380,11 +382,9 @@ function RecentSignIns() {
                   question this answers is "was that me" and the answer is
                   usually decided by the pair together. */}
               <div className="flex flex-wrap items-center gap-2">
-                <code className="text-[length:var(--font-size-sm)]">
-                  {session.ip || "—"}
-                </code>
+                <Code>{session.ip || "—"}</Code>
                 <span className="text-[length:var(--font-size-sm)] text-[var(--color-fg-muted)]">
-                  {new Date(session.lastSeenAt).toLocaleString()}
+                  <Timestamp value={session.lastSeenAt} />
                 </span>
                 {session.current && (
                   <Badge tone="success">{t("profile.sessionCurrent")}</Badge>

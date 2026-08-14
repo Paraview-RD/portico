@@ -3,20 +3,25 @@ import { useCallback, useEffect, useState } from "react";
 import { webhooksApi } from "../api/endpoints";
 import type {
   CreatedWebhookSubscription,
+  DeliveryFilter,
   WebhookDelivery,
+  WebhookDeliveryDetail,
   WebhookSnapshot,
   WebhookSubscription,
 } from "../api/types";
 import { FieldMappingEditor } from "../components/FieldMappingEditor";
 import { useErrorMessage, useT } from "../i18n";
+import { formatInstant } from "../i18n/format";
 import type { Translate } from "../i18n";
 import type { TranslationKey } from "../i18n/en-US";
 import {
   Alert,
   Badge,
   Button,
+  Code,
   ConfirmDialog,
   CopyField,
+  DocsLink,
   EmptyRow,
   Field,
   GuidePanel,
@@ -24,10 +29,11 @@ import {
   LoadingRow,
   Modal,
   PageHeader,
+  StatusBadge,
   Table,
   Td,
   Th,
-  DocsLink,
+  Timestamp,
 } from "../components/ui";
 
 /**
@@ -54,6 +60,25 @@ import {
  * the fallback has to be the identifier, which at least says what happened
  * and is what the receiver matches on anyway.
  */
+/**
+ * "55 accounts, 4 groups" — the counts as a sentence rather than a map.
+ *
+ * Named kinds rather than the raw keys, because "user: 55" is the API's
+ * vocabulary and this is the sentence somebody reads before deciding to send
+ * fifty thousand records to a receiver.
+ */
+function describeCounts(t: Translate, counts: Record<string, number>): string {
+  return Object.entries(counts)
+    .map(([kind, count]) =>
+      t(
+        "webhooks.snapshotCount",
+        String(count),
+        labelFor(t, "webhooks.kind.", kind),
+      ),
+    )
+    .join("、");
+}
+
 function labelFor(t: Translate, prefix: string, value: string): string {
   const key = `${prefix}${value}` as TranslationKey;
   const translated = t(key);
@@ -123,6 +148,15 @@ export function WebhooksPage() {
     null,
   );
   const [deliveries, setDeliveries] = useState<WebhookDelivery[]>([]);
+  const [deliveryCursor, setDeliveryCursor] = useState("");
+  const [deliveryFilter, setDeliveryFilter] = useState<DeliveryFilter>("live");
+  const [loadingMore, setLoadingMore] = useState(false);
+  // Which row is open, and what it holds. Fetched on expand rather than with
+  // the list: a full sync page's payload is five hundred objects.
+  const [expanded, setExpanded] = useState<string>("");
+  const [detail, setDetail] = useState<WebhookDeliveryDetail | null>(null);
+  const [snapshotPreview, setSnapshotPreview] =
+    useState<WebhookSnapshot | null>(null);
   // What this subscriber receives, and under what name. Its own dialog rather
   // than a section of the create form: it is edited long after registration,
   // usually because the receiving end asked for a different name.
@@ -193,10 +227,74 @@ export function WebhooksPage() {
   async function inspect(subscription: WebhookSubscription) {
     setError("");
     setInspecting(subscription);
+    setExpanded("");
+    setDetail(null);
+    await loadDeliveries(subscription.id, deliveryFilter);
+  }
+
+  // The first page. A filter change is the same thing — the cursor from one
+  // filter means nothing under another, so it starts over rather than
+  // continuing from a marker that describes a different query.
+  async function loadDeliveries(
+    subscriptionID: string,
+    filter: DeliveryFilter,
+  ) {
+    setError("");
+    setExpanded("");
     try {
-      setDeliveries(await webhooksApi.deliveries(subscription.id));
+      const page = await webhooksApi.deliveries(subscriptionID, { filter });
+      setDeliveries(page.items);
+      setDeliveryCursor(page.nextCursor);
     } catch (err) {
       setError(describeError(err));
+    }
+  }
+
+  async function loadMoreDeliveries() {
+    if (!inspecting || !deliveryCursor) return;
+    setLoadingMore(true);
+    try {
+      const page = await webhooksApi.deliveries(inspecting.id, {
+        cursor: deliveryCursor,
+        filter: deliveryFilter,
+      });
+      setDeliveries((current) => [...current, ...page.items]);
+      setDeliveryCursor(page.nextCursor);
+    } catch (err) {
+      setError(describeError(err));
+    } finally {
+      setLoadingMore(false);
+    }
+  }
+
+  async function toggleDetail(deliveryID: string) {
+    if (!inspecting) return;
+    if (expanded === deliveryID) {
+      setExpanded("");
+      return;
+    }
+    setExpanded(deliveryID);
+    setDetail(null);
+    try {
+      setDetail(await webhooksApi.delivery(inspecting.id, deliveryID));
+    } catch (err) {
+      setError(describeError(err));
+    }
+  }
+
+  // Asked before the question, not after the answer: "queue a copy of
+  // everything?" is a different decision at fifty accounts and at fifty
+  // thousand, and the count used to appear only on the screen that reports
+  // it was already queued.
+  async function askForSnapshot(subscription: WebhookSubscription) {
+    setSnapshotting(subscription);
+    setSnapshotPreview(null);
+    try {
+      setSnapshotPreview(await webhooksApi.snapshotPreview(subscription.id));
+    } catch {
+      // Silent: the preview is context for a decision, and failing to count
+      // must not stop somebody making it. The dialog simply says less.
+      setSnapshotPreview(null);
     }
   }
 
@@ -210,7 +308,7 @@ export function WebhooksPage() {
       // The delivery list is where the pages can be watched, so the result
       // dialog is a summary rather than a progress bar: nothing here polls.
       if (inspecting?.id === subscription.id) {
-        setDeliveries(await webhooksApi.deliveries(subscription.id));
+        await loadDeliveries(subscription.id, deliveryFilter);
       }
     } catch (err) {
       setError(describeError(err));
@@ -290,9 +388,7 @@ export function WebhooksPage() {
             <tr key={subscription.id}>
               <Td>{subscription.name}</Td>
               <Td>
-                <code className="text-[length:var(--font-size-sm)]">
-                  {subscription.url}
-                </code>
+                <Code>{subscription.url}</Code>
               </Td>
               <Td>
                 {subscription.events.includes("*")
@@ -302,33 +398,27 @@ export function WebhooksPage() {
                       .join(", ")}
               </Td>
               <Td>
-                <Badge
-                  tone={
-                    subscription.status === "ACTIVE" ? "success" : "neutral"
-                  }
-                >
-                  {t(`status.${subscription.status}`)}
-                </Badge>
+                <StatusBadge status={subscription.status} />
               </Td>
               <Td>
                 <div className="flex gap-2">
                   <Button
                     size="sm"
-                    variant="secondary"
+                    variant="ghost"
                     onClick={() => void inspect(subscription)}
                   >
                     {t("webhooks.deliveries")}
                   </Button>
                   <Button
                     size="sm"
-                    variant="secondary"
+                    variant="ghost"
                     onClick={() => setMapping(subscription)}
                   >
                     {t("fieldMappings.open")}
                   </Button>
                   <Button
                     size="sm"
-                    variant="secondary"
+                    variant="ghost"
                     onClick={() => void toggle(subscription)}
                   >
                     {subscription.status === "ACTIVE"
@@ -337,21 +427,21 @@ export function WebhooksPage() {
                   </Button>
                   <Button
                     size="sm"
-                    variant="secondary"
-                    onClick={() => setSnapshotting(subscription)}
+                    variant="ghost"
+                    onClick={() => void askForSnapshot(subscription)}
                   >
                     {t("webhooks.snapshot")}
                   </Button>
                   <Button
                     size="sm"
-                    variant="secondary"
+                    variant="ghost"
                     onClick={() => setRotating(subscription)}
                   >
                     {t("webhooks.rotate")}
                   </Button>
                   <Button
                     size="sm"
-                    variant="danger"
+                    variant="ghost-danger"
                     onClick={() => setDeleting(subscription)}
                   >
                     {t("common.delete")}
@@ -450,9 +540,7 @@ export function WebhooksPage() {
                           second time beside itself says nothing. */}
                       <span>{labelFor(t, "webhooks.event.", event)}</span>
                       {labelFor(t, "webhooks.event.", event) !== event && (
-                        <code className="text-[length:var(--font-size-xs)] text-[var(--color-fg-subtle)]">
-                          {event}
-                        </code>
+                        <Code size="xs">{event}</Code>
                       )}
                     </label>
                   ))}
@@ -470,6 +558,7 @@ export function WebhooksPage() {
             {headerRows.map((row, index) => (
               <div key={index} className="flex gap-2">
                 <Input
+                  aria-label={t("webhooks.headerName")}
                   placeholder={t("webhooks.headerName")}
                   value={row.name}
                   onChange={(e) =>
@@ -484,6 +573,7 @@ export function WebhooksPage() {
                     screen behind whoever is doing the configuring. */}
                 <Input
                   type="password"
+                  aria-label={t("webhooks.headerValue")}
                   placeholder={t("webhooks.headerValue")}
                   value={row.value}
                   onChange={(e) =>
@@ -526,6 +616,27 @@ export function WebhooksPage() {
         open={snapshotting !== null}
         title={t("webhooks.snapshotTitle")}
         message={t("webhooks.snapshotConfirm", snapshotting?.name ?? "")}
+        // What it will do, and what it asks of the receiver — before the
+        // button rather than after it. The reconciling requirement used to
+        // appear on the screen that reports success, which is one screen too
+        // late: it is a thing the receiver has to already be able to do.
+        details={
+          <ul className="flex flex-col gap-2 text-[length:var(--font-size-sm)] text-[var(--color-fg-muted)]">
+            {snapshotPreview && (
+              <li className="text-[var(--color-fg)]">
+                {t(
+                  "webhooks.snapshotSize",
+                  describeCounts(t, snapshotPreview.counts),
+                  String(snapshotPreview.pages),
+                )}
+              </li>
+            )}
+            <li>{t("webhooks.snapshotWhat")}</li>
+            <li>{t("webhooks.snapshotSequence")}</li>
+            <li>{t("webhooks.snapshotReconcile")}</li>
+            <li>{t("webhooks.snapshotCost")}</li>
+          </ul>
+        }
         onCancel={() => setSnapshotting(null)}
         onConfirm={() => void snapshot()}
       />
@@ -536,7 +647,7 @@ export function WebhooksPage() {
         onClose={() => setSnapshotResult(null)}
         footer={
           <Button onClick={() => setSnapshotResult(null)}>
-            {t("common.done")}
+            {t("common.close")}
           </Button>
         }
       >
@@ -565,7 +676,7 @@ export function WebhooksPage() {
         title={t("webhooks.created")}
         onClose={() => setCreated(null)}
         footer={
-          <Button onClick={() => setCreated(null)}>{t("common.done")}</Button>
+          <Button onClick={() => setCreated(null)}>{t("common.close")}</Button>
         }
       >
         <div className="flex flex-col gap-4">
@@ -578,7 +689,7 @@ export function WebhooksPage() {
             <Alert tone="warning">
               {t(
                 "webhooks.rotateOverlap",
-                new Date(created.previousSecretExpiresAt).toLocaleString(),
+                formatInstant(created.previousSecretExpiresAt),
               )}
             </Alert>
           )}
@@ -589,29 +700,81 @@ export function WebhooksPage() {
         open={inspecting !== null}
         title={t("webhooks.deliveriesFor", inspecting?.name ?? "")}
         onClose={() => setInspecting(null)}
+        // Wide: this is a table of five columns, one of which is a URL and
+        // another an error from somebody else's server. At the default
+        // width the error wrapped to four lines and the event name to two.
+        size="xl"
         footer={
           <Button onClick={() => setInspecting(null)}>
             {t("common.close")}
           </Button>
         }
       >
+        <div className="mb-3 flex items-center gap-2">
+          <span className="text-[length:var(--font-size-sm)] text-[var(--color-fg-muted)]">
+            {t("webhooks.deliveryFilter")}
+          </span>
+          {/* Events first and selected by default. A full sync queues a
+              hundred pages in a few seconds, and somebody opening this
+              screen is almost always looking for the one event that did not
+              arrive rather than for those. */}
+          {(["live", "sync", "all"] as DeliveryFilter[]).map((option) => (
+            <Button
+              key={option}
+              size="sm"
+              variant={deliveryFilter === option ? "secondary" : "ghost"}
+              onClick={() => {
+                setDeliveryFilter(option);
+                if (inspecting) void loadDeliveries(inspecting.id, option);
+              }}
+            >
+              {t(`webhooks.filter.${option}`)}
+            </Button>
+          ))}
+        </div>
+
         <Table>
           <thead>
             <tr>
+              <Th>{t("webhooks.colQueuedAt")}</Th>
               <Th>{t("webhooks.colEvent")}</Th>
               <Th>{t("webhooks.colDeliveryStatus")}</Th>
               <Th>{t("webhooks.colAttempts")}</Th>
               <Th>{t("webhooks.colResponse")}</Th>
+              <Th>{t("webhooks.colDetail")}</Th>
             </tr>
           </thead>
           <tbody>
-            {deliveries.length === 0 && <EmptyRow colSpan={4} />}
+            {deliveries.length === 0 && <EmptyRow colSpan={6} />}
             {deliveries.map((delivery) => (
               <tr key={delivery.id}>
                 <Td>
-                  <code className="text-[length:var(--font-size-sm)]">
-                    {delivery.eventType}
-                  </code>
+                  <div className="whitespace-nowrap">
+                    <Timestamp value={delivery.createdAt} />
+                  </div>
+                  {/* When it actually landed, and only when that is a
+                      different fact from when it was queued: a delivery
+                      that succeeded first time says nothing new here, and
+                      one that succeeded on the fifth attempt an hour later
+                      says quite a lot. */}
+                  {delivery.deliveredAt && (
+                    <div className="whitespace-nowrap text-[length:var(--font-size-sm)] text-[var(--color-fg-muted)]">
+                      {t(
+                        "webhooks.deliveredAt",
+                        formatInstant(delivery.deliveredAt),
+                      )}
+                    </div>
+                  )}
+                </Td>
+                <Td>
+                  {/* The name the subscription form and the list use. It was
+                      the raw type here, which meant the one screen where
+                      somebody is chasing a failure was the one screen that
+                      spoke in identifiers. */}
+                  <div>
+                    {labelFor(t, "webhooks.event.", delivery.eventType)}
+                  </div>
+                  <Code>{delivery.eventType}</Code>
                 </Td>
                 <Td>
                   <Badge tone={deliveryTone(delivery.status)}>
@@ -620,14 +783,98 @@ export function WebhooksPage() {
                 </Td>
                 <Td>{delivery.attempts}</Td>
                 <Td>
-                  {/* The last error rather than the last status when there
-                      is one: "connection refused" says more than a blank. */}
-                  {delivery.lastStatus ?? delivery.lastError ?? ""}
+                  {/* The status code is the answer when there is one. The
+                      transport error is what there is instead when the
+                      request never reached a server, and it is somebody
+                      else's sentence — clamped to two lines here rather
+                      than allowed to set the height of the row. */}
+                  {delivery.lastStatus !== null ? (
+                    <span>{delivery.lastStatus}</span>
+                  ) : (
+                    <span
+                      className="line-clamp-2 text-[length:var(--font-size-sm)] text-[var(--color-fg-muted)]"
+                      title={delivery.lastError}
+                    >
+                      {delivery.lastError}
+                    </span>
+                  )}
+                </Td>
+                <Td>
+                  <Button
+                    size="sm"
+                    variant="ghost"
+                    onClick={() => void toggleDetail(delivery.id)}
+                  >
+                    {expanded === delivery.id
+                      ? t("webhooks.detailClose")
+                      : t("webhooks.detailOpen")}
+                  </Button>
                 </Td>
               </tr>
             ))}
           </tbody>
         </Table>
+
+        {/* Below the table rather than inside it. A row that expands into a
+            second row of the same table has to fake a colspan and loses the
+            column alignment for everything under it; this keeps the table a
+            table and puts the bodies where there is room for them. */}
+        {expanded !== "" && (
+          <div className="mt-4 rounded-[var(--radius-sm)] border border-[var(--color-border)] p-3">
+            {detail === null ? (
+              <p className="text-[var(--color-fg-muted)]">
+                {t("common.loading")}
+              </p>
+            ) : (
+              <div className="flex flex-col gap-3">
+                <div>
+                  <div className="mb-1 text-[length:var(--font-size-sm)] text-[var(--color-fg-muted)]">
+                    {t("webhooks.detailRequest")}
+                  </div>
+                  <pre className="max-h-60 overflow-auto rounded-[var(--radius-sm)] bg-[var(--color-bg-soft)] p-2 text-[length:var(--font-size-sm)]">
+                    {detail.payload}
+                  </pre>
+                </div>
+                <div>
+                  <div className="mb-1 text-[length:var(--font-size-sm)] text-[var(--color-fg-muted)]">
+                    {t("webhooks.detailResponse")}
+                  </div>
+                  {detail.response === "" ? (
+                    <p className="text-[length:var(--font-size-sm)]">
+                      {t("webhooks.detailResponseEmpty")}
+                    </p>
+                  ) : (
+                    <>
+                      <pre className="max-h-60 overflow-auto rounded-[var(--radius-sm)] bg-[var(--color-bg-soft)] p-2 text-[length:var(--font-size-sm)]">
+                        {detail.response}
+                      </pre>
+                      {detail.response.length >= detail.responseCap && (
+                        <p className="mt-1 text-[length:var(--font-size-sm)] text-[var(--color-fg-muted)]">
+                          {t(
+                            "webhooks.detailTruncated",
+                            String(detail.responseCap),
+                          )}
+                        </p>
+                      )}
+                    </>
+                  )}
+                </div>
+              </div>
+            )}
+          </div>
+        )}
+
+        {deliveryCursor !== "" && (
+          <div className="mt-3">
+            <Button
+              variant="secondary"
+              disabled={loadingMore}
+              onClick={() => void loadMoreDeliveries()}
+            >
+              {loadingMore ? t("common.loading") : t("webhooks.loadMore")}
+            </Button>
+          </div>
+        )}
       </Modal>
 
       <ConfirmDialog

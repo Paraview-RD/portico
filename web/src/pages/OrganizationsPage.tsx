@@ -4,22 +4,25 @@ import { organizationApi } from "../api/endpoints";
 import type { Organization } from "../api/types";
 import {
   Alert,
-  Badge,
   Button,
+  Code,
   ConfirmDialog,
+  DocsLink,
   EmptyRow,
-  LoadingRow,
   Field,
   GuidePanel,
   Input,
+  LoadingRow,
   Modal,
   PageHeader,
   Select,
+  StatusBadge,
   Table,
   Td,
   Th,
 } from "../components/ui";
 import { useErrorMessage, useT } from "../i18n";
+import { OrganizationAdministratorsDialog } from "./OrganizationAdministratorsDialog";
 
 export function OrganizationsPage() {
   const t = useT();
@@ -30,6 +33,7 @@ export function OrganizationsPage() {
   const [error, setError] = useState("");
   const [editing, setEditing] = useState<Organization | null>(null);
   const [creating, setCreating] = useState(false);
+  const [managing, setManaging] = useState<Organization | null>(null);
   const [confirming, setConfirming] = useState<{
     org: Organization;
     enable: boolean;
@@ -93,9 +97,12 @@ export function OrganizationsPage() {
         title={t("organizations.title")}
         subtitle={t("organizations.subtitle")}
         actions={
-          <Button onClick={() => setCreating(true)}>
-            {t("organizations.create")}
-          </Button>
+          <>
+            <DocsLink page="organizations/" />
+            <Button onClick={() => setCreating(true)}>
+              {t("organizations.create")}
+            </Button>
+          </>
         }
       />
 
@@ -109,6 +116,7 @@ export function OrganizationsPage() {
 
       <div className="mb-4 w-72">
         <Input
+          aria-label={t("organizations.searchPlaceholder")}
           placeholder={t("organizations.searchPlaceholder")}
           value={keyword}
           onChange={(e) => setKeyword(e.target.value)}
@@ -157,25 +165,28 @@ export function OrganizationsPage() {
                   </span>
                 </Td>
                 <Td>
-                  <code className="text-[length:var(--font-size-sm)] text-[var(--color-fg-muted)]">
-                    {org.code}
-                  </code>
+                  <Code>{org.code}</Code>
                 </Td>
                 <Td>{org.userCount}</Td>
                 <Td>{org.remark || "—"}</Td>
                 <Td>
-                  <Badge tone={org.status === "ACTIVE" ? "success" : "danger"}>
-                    {t(`status.${org.status}`)}
-                  </Badge>
+                  <StatusBadge status={org.status} />
                 </Td>
                 <Td>
-                  <div className="flex gap-1">
+                  <div className="flex gap-2">
                     <Button
                       size="sm"
                       variant="ghost"
                       onClick={() => setEditing(org)}
                     >
                       {t("common.edit")}
+                    </Button>
+                    <Button
+                      size="sm"
+                      variant="ghost"
+                      onClick={() => setManaging(org)}
+                    >
+                      {t("organizations.administratorsAction")}
                     </Button>
                     <Button
                       size="sm"
@@ -209,6 +220,12 @@ export function OrganizationsPage() {
           setEditing(null);
           void load();
         }}
+      />
+
+      <OrganizationAdministratorsDialog
+        open={managing !== null}
+        organization={managing}
+        onClose={() => setManaging(null)}
       />
 
       <ConfirmDialog

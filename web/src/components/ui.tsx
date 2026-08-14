@@ -32,6 +32,7 @@ import {
 } from "react";
 
 import { docsUrl, useLanguage, useT } from "../i18n";
+import { formatInstant } from "../i18n/format";
 import { useOptionalSession } from "../session";
 import { ChevronRightIcon, CloseIcon, GuideIcon } from "./icons";
 
@@ -41,7 +42,8 @@ function cx(...classes: (string | false | undefined | null)[]): string {
 
 /* -------------------------------------------------------------- Button */
 
-type ButtonVariant = "primary" | "secondary" | "ghost" | "danger";
+type ButtonVariant =
+  "primary" | "secondary" | "ghost" | "ghost-danger" | "danger";
 type ButtonSize = "sm" | "md";
 
 const buttonVariants: Record<ButtonVariant, string> = {
@@ -51,6 +53,15 @@ const buttonVariants: Record<ButtonVariant, string> = {
     "bg-[var(--color-bg)] text-[var(--color-fg)] border border-[var(--color-border-strong)] hover:bg-[var(--color-bg-hover)]",
   ghost:
     "text-[var(--color-fg-muted)] hover:bg-[var(--color-bg-hover)] hover:text-[var(--color-fg)]",
+  // The destructive action inside a row of ghosts.
+  //
+  // `danger` is filled, and a filled button is what `primary` is: at most one
+  // per view. A table that draws one per row has as many as it has rows, and
+  // the eye reads the column as five captions and a button rather than as six
+  // buttons. This keeps the weight of a ghost and spends colour — which is
+  // the part that carries the warning — on the text.
+  "ghost-danger":
+    "text-[var(--color-danger-text)] hover:bg-[var(--color-danger-bg)]",
   danger:
     "bg-[var(--color-danger)] text-[var(--color-fg-on-primary)] hover:opacity-90",
 };
@@ -319,13 +330,100 @@ export function Badge({
   return (
     <span
       className={cx(
-        "inline-flex items-center rounded-full border px-2 py-0.5",
+        // whitespace-nowrap because a badge is a label, not a paragraph.
+        // Without it a two-character status in a narrow column wrapped to
+        // two lines, and a pill with two lines in it renders as a circle —
+        // which is what it looked like on the subscriptions table.
+        "inline-flex items-center whitespace-nowrap rounded-full border px-2 py-0.5",
         "text-[length:var(--font-size-xs)] font-[weight:var(--font-weight-medium)]",
         badgeTones[tone],
       )}
     >
       {children}
     </span>
+  );
+}
+
+/**
+ * An instant, in the reader's own locale and time zone.
+ *
+ * The server sends ISO 8601 UTC and the browser decides how to write it —
+ * see i18n-conventions.md, which is emphatic that a preformatted date from
+ * the server commits every reader to one locale and one zone. Twelve call
+ * sites each did `new Date(x).toLocaleString()`, agreeing by luck rather
+ * than by anything holding them together.
+ *
+ * `formatInstant` exists for the several that pass the result into a
+ * translated sentence; `Timestamp` is for the ones that render it alone, and
+ * emits `<time dateTime>` so the machine-readable original survives beside
+ * the human-readable rendering — which the hand-written ones threw away.
+ */
+export function Timestamp({
+  value,
+  precision = "instant",
+}: {
+  value: string;
+  precision?: "instant" | "date";
+}) {
+  return <time dateTime={value}>{formatInstant(value, precision)}</time>;
+}
+
+/**
+ * An identifier shown as itself: a client id, an organization code, a URI,
+ * an event name, a row id in the audit log.
+ *
+ * Twenty-one of these were written by hand in five combinations — with and
+ * without a size, with `fg-muted`, with `fg-subtle`, and three times with
+ * nothing at all. They are the same kind of thing and were three different
+ * shades of grey, which reads as a distinction nobody meant.
+ *
+ * Two sizes, because there is one real distinction underneath: `md` is an
+ * identifier the reader came for, and `xs` is one printed beside the
+ * human-readable name as a technical aside — `user.created` next to 账号创建.
+ * `break-all` throughout, since half of these are URLs and a URL that cannot
+ * break is a URL that widens the table.
+ */
+export function Code({
+  size = "md",
+  children,
+}: {
+  size?: "md" | "xs";
+  children: ReactNode;
+}) {
+  return (
+    <code
+      className={cx(
+        "break-all",
+        size === "md"
+          ? "text-[length:var(--font-size-sm)] text-[var(--color-fg-muted)]"
+          : "text-[length:var(--font-size-xs)] text-[var(--color-fg-subtle)]",
+      )}
+    >
+      {children}
+    </code>
+  );
+}
+
+/**
+ * Enabled or disabled, wherever the answer is that enumeration.
+ *
+ * Eight screens each wrote the same conditional — success when ACTIVE,
+ * neutral otherwise, labelled from the same `status.` keys. Eight copies of
+ * one mapping is eight chances to disagree, and they already had: the
+ * organization administrators dialog drew a disabled account in `danger`,
+ * so the same account was red in one list and grey in the next.
+ *
+ * Neutral rather than red is the decision this fixes in one place. A
+ * disabled account is an administrative state somebody chose, not a
+ * failure — red is for what went wrong, and spending it here leaves nothing
+ * louder for a delivery that failed.
+ */
+export function StatusBadge({ status }: { status: "ACTIVE" | "DISABLED" }) {
+  const t = useT();
+  return (
+    <Badge tone={status === "ACTIVE" ? "success" : "neutral"}>
+      {t(`status.${status}`)}
+    </Badge>
   );
 }
 
@@ -337,7 +435,29 @@ interface ModalProps {
   onClose: () => void;
   children: ReactNode;
   footer?: ReactNode;
+  /**
+   * How wide the dialog may grow. `md` is the default and is what every
+   * dialog was before this existed — one width for a two-field form and for
+   * a table of delivery attempts, which the table lost.
+   *
+   * Not a free-form class: four sizes so the console keeps a rhythm, and so
+   * that widening one dialog is a choice between named options rather than
+   * a number somebody picks.
+   */
+  size?: ModalSize;
 }
+
+// Two, because two is what twenty-two dialogs needed: the default, and one
+// wide enough for the delivery table. `sm` and `lg` were also defined and
+// never once passed — an option nobody chose in a year is a decision the
+// next reader has to make for no reason, and four plausible widths is how a
+// screen ends up narrower than the one beside it for no stated cause.
+type ModalSize = "md" | "xl";
+
+const modalWidths: Record<ModalSize, string> = {
+  md: "max-w-lg",
+  xl: "max-w-5xl",
+};
 
 /**
  * A modal dialog whose chrome stays put.
@@ -357,7 +477,14 @@ interface ModalProps {
  * The close button belongs to that pinned header for the same reason. A way
  * out that is only reachable before anyone has scrolled is not a way out.
  */
-export function Modal({ open, title, onClose, children, footer }: ModalProps) {
+export function Modal({
+  open,
+  title,
+  onClose,
+  children,
+  footer,
+  size = "md",
+}: ModalProps) {
   const t = useT();
 
   // Escape closes the dialog, which users expect and which also gives
@@ -384,7 +511,8 @@ export function Modal({ open, title, onClose, children, footer }: ModalProps) {
         aria-modal="true"
         aria-label={title}
         className={cx(
-          "flex w-full max-w-lg flex-col rounded-[var(--radius-lg)]",
+          "flex w-full flex-col rounded-[var(--radius-lg)]",
+          modalWidths[size],
           "bg-[var(--color-bg)] shadow-[var(--shadow-md)] max-h-[90vh]",
         )}
         onClick={(event) => event.stopPropagation()}
@@ -424,6 +552,7 @@ export function ConfirmDialog({
   open,
   title,
   message,
+  details,
   destructive,
   onConfirm,
   onCancel,
@@ -431,6 +560,18 @@ export function ConfirmDialog({
   open: boolean;
   title: string;
   message: string;
+  /**
+   * Whatever the reader needs before deciding, beyond the question itself.
+   *
+   * A node rather than more text, because the alternative that was reached
+   * for first was markdown in the message — and one translated string
+   * arrived with `**` around a sentence that then rendered as asterisks,
+   * because this dialog puts the message in a `<p>` and always has. The
+   * choice is to render markup or to take structure as structure; taking it
+   * as structure means no string can carry styling into a screen that does
+   * not parse it.
+   */
+  details?: ReactNode;
   destructive?: boolean;
   onConfirm: () => void;
   onCancel: () => void;
@@ -456,6 +597,7 @@ export function ConfirmDialog({
       }
     >
       <p className="text-[var(--color-fg)]">{message}</p>
+      {details && <div className="mt-3">{details}</div>}
     </Modal>
   );
 }

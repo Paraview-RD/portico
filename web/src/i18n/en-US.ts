@@ -26,6 +26,8 @@ export const enUS = {
 
   "common.copy": "Copy",
   "common.copied": "Copied",
+  "common.remove": "Remove",
+  "common.search": "Search",
 
   "status.ACTIVE": "Active",
   "status.DISABLED": "Disabled",
@@ -149,6 +151,9 @@ export const enUS = {
   "users.filterOrganization": "Organization",
   "users.filterOrganizationHint": "Includes everything below",
   "users.filterNoOrganization": "Not in one",
+  "users.guideTitle": "What an account here decides",
+  "users.guideBody":
+    "This is where a person exists at all: the account they sign in with, and the two facts every application is told about them.\nDescribing and permitting are separate::Editing somebody's details is not editing their access. Role is its own field and its own audit entry, so maintaining a phone number cannot become a promotion.\nDisabled, never deleted::A closed account keeps its history and can be reinstated. Nothing here removes a person from the audit trail.\nOwned elsewhere, sometimes::An account a directory pushed is marked as theirs, and an edit here is overwritten on the next synchronization.",
   "users.create": "New user",
   "users.profileSection": "Further details",
   "users.profileHint":
@@ -227,6 +232,29 @@ export const enUS = {
   "organizations.parentHelp":
     "Leave as none for a top-level organization. An organization cannot be moved inside its own branch.",
   "organizations.noParent": "None (top level)",
+  "users.attachedOrganizations": "Also involved with",
+  "users.noAttachments": "No other organizations.",
+  "users.chooseOrganization": "Choose an organization",
+  "users.attach": "Attach",
+  "users.administersOrganizations": "Recorded as administering",
+  "users.administersGrantsNothing":
+    "Recorded for a feature that has not shipped; it grants no access today.",
+
+  "organizations.administratorsAction": "Administrators",
+  "organizations.administrators": "Administrators of {0}",
+  "organizations.administratorsGrantNothing":
+    "Recorded for a feature that has not shipped. Naming somebody here gives them no access at all today — it describes who would administer this organization once delegated administration exists, so that the chart is already in place when it does.",
+  "organizations.noAdministrators": "Nobody is recorded here yet.",
+  "organizations.addAdministrator": "Record an administrator",
+  "organizations.searchAccount": "Search by name or username",
+  "organizations.recordAdministrator": "Record {0}",
+  "organizations.grantedBy": "recorded by {0}",
+  "organizations.scopeLabel": "How far it reaches",
+  "organizations.scopeChoose": "Choose one",
+  "organizations.scopeHelp":
+    "This cannot be added later: a record that does not say which was meant is one nobody can interpret when the feature that reads it arrives.",
+  "organizations.scope.SELF": "This organization only",
+  "organizations.scope.SUBTREE": "This organization and everything under it",
   "organizations.sortOrder": "Sort order",
   "organizations.confirmDisable":
     "Disable {0}? Existing members stay, but no new members can be assigned.",
@@ -436,7 +464,6 @@ export const enUS = {
   "settings.lockoutDurationHelp":
     "Also the window failures are counted over. Further attempts while locked do not extend it.",
 
-  "common.done": "Done",
   "common.delete": "Delete",
 
   "groups.title": "Groups",
@@ -483,18 +510,47 @@ export const enUS = {
   "webhooks.headerName": "Header",
   "webhooks.headerValue": "Value",
   "webhooks.headerAdd": "Add a header",
-  "webhooks.snapshot": "Send a snapshot",
+  // "Full sync", not "snapshot". A snapshot elsewhere in operations is a
+  // stored copy of a moment — a volume, a database — and this stores
+  // nothing: it sends the current state, in pages, to one receiver. The
+  // events have always been called sync.*, so the protocol was already
+  // using the right word and only the button was not.
+  //
+  // The endpoint stays /snapshot and the events stay sync.*: both are
+  // published contract, and renaming them to match a label would break
+  // every integration for the sake of tidiness.
+  "webhooks.snapshot": "Full sync",
   "webhooks.snapshotTitle": "Send everything that already exists",
-  // Says the size before the confirmation, because the size is the reason to
-  // think twice: this is every account, organization and group the tenant
-  // has, in one run.
   "webhooks.snapshotConfirm":
-    "Queue a copy of every account, organization and group for “{0}”? This is the largest delivery Portico makes. The receiver gets sync.started, then pages, then sync.completed.",
-  "webhooks.snapshotQueued": "Snapshot queued",
+    "Queue a copy of every account, organization and group for “{0}”?",
+  "webhooks.snapshotWhat":
+    "It sends what exists now, in pages of 500 — not the history. Nothing is stored on this side and nothing changes here.",
+  "webhooks.snapshotSequence":
+    "The receiver gets sync.started, then sync.users / sync.organizations / sync.groups pages, then sync.completed — through the same endpoint, signature and field mappings as every other event.",
+  "webhooks.snapshotCost":
+    "One delivery per page shows up under Deliveries, and finished ones are cleared after 30 days.",
+  "webhooks.snapshotQueued": "Full sync queued",
+  "webhooks.snapshotSize": "It would send {0} — {1} page deliveries in all.",
+  "webhooks.snapshotCount": "{0} {1}",
+  "webhooks.kind.user": "accounts",
+  "webhooks.kind.organization": "organizations",
+  "webhooks.kind.group": "groups",
+  "webhooks.deliveryFilter": "Show",
+  "webhooks.filter.live": "Events",
+  "webhooks.filter.sync": "Full sync pages",
+  "webhooks.filter.all": "Everything",
+  "webhooks.loadMore": "Load more",
+  "webhooks.colDetail": "Detail",
+  "webhooks.detailOpen": "Open",
+  "webhooks.detailClose": "Close",
+  "webhooks.detailRequest": "Request body — the bytes the signature covered",
+  "webhooks.detailResponse": "What the receiver answered",
+  "webhooks.detailResponseEmpty": "The receiver answered with no body.",
+  "webhooks.detailTruncated": "Kept to the first {0} bytes.",
   "webhooks.snapshotSummary":
     "{0} page deliveries queued, covering: {1}. Watch them under Deliveries — nothing here polls.",
   "webhooks.snapshotReconcile":
-    "A snapshot is not taken atomically. An account edited while it runs may arrive as a page or as a live event, in either order — the receiver must reconcile by id and prefer the newer occurredAt.",
+    "A full sync is not taken atomically. An account edited while it runs may arrive as a page or as a live event, in either order — the receiver must reconcile by id and prefer the newer occurredAt.",
   "webhooks.rotate": "Rotate secret",
   "webhooks.rotateTitle": "Rotate the signing secret",
   // Said before the button, not after. During the overlap each delivery
@@ -532,6 +588,14 @@ export const enUS = {
   "webhooks.event.group.created": "Group created",
   "webhooks.event.group.updated": "Group details changed",
   "webhooks.event.group.deleted": "Group deleted",
+  // The five a full sync sends. They were never in this list, so the
+  // delivery log — the one screen somebody opens while chasing a failure —
+  // spoke in identifiers for exactly the deliveries there are most of.
+  "webhooks.event.sync.started": "Full sync started",
+  "webhooks.event.sync.users": "Full sync — accounts",
+  "webhooks.event.sync.organizations": "Full sync — organizations",
+  "webhooks.event.sync.groups": "Full sync — groups",
+  "webhooks.event.sync.completed": "Full sync finished",
   "webhooks.event.group.members_changed": "Group membership changed",
   "webhooks.allEvents": "All events",
   "webhooks.allEventsHint":
@@ -545,6 +609,8 @@ export const enUS = {
   "webhooks.colEvent": "Event",
   "webhooks.colDeliveryStatus": "Result",
   "webhooks.colAttempts": "Attempts",
+  "webhooks.colQueuedAt": "Queued",
+  "webhooks.deliveredAt": "delivered {0}",
   "webhooks.colResponse": "Response",
   "webhooks.status.PENDING": "Pending",
   "webhooks.status.DELIVERED": "Delivered",
@@ -907,6 +973,18 @@ export const enUS = {
   "identityProviders.trusted": "Trusted",
   "identityProviders.notTrusted": "Not trusted",
   "identityProviders.redirectUri": "Redirect URI to register there",
+  "identityProviders.kind": "Kind",
+  "identityProviders.kindHint":
+    "Fixed once created. Changing it later would leave every linked account pointing at a protocol that did not issue it, so replacing a provider means removing it and adding another.",
+  "identityProviders.kind.OIDC": "OpenID Connect",
+  "identityProviders.kind.WECHAT": "WeChat (Open Platform, QR sign-in)",
+  "identityProviders.kind.DINGTALK": "DingTalk",
+  "identityProviders.clientId.OIDC": "Client ID",
+  "identityProviders.clientId.WECHAT": "AppID",
+  "identityProviders.clientId.DINGTALK": "Client ID (AppKey)",
+  "identityProviders.clientSecret.OIDC": "Client secret",
+  "identityProviders.clientSecret.WECHAT": "AppSecret",
+  "identityProviders.clientSecret.DINGTALK": "Client secret (AppSecret)",
   "identityProviders.name": "Name",
   "identityProviders.buttonLabel": "Button label",
   "identityProviders.buttonLabelHint":

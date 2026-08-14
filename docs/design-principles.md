@@ -70,6 +70,33 @@ buttons". A lone ghost button reads as a caption. So a single action at the
 end of a list row is `secondary`, and two buttons side by side are the same
 variant as each other unless one of them genuinely outranks the other.
 
+`ghost-danger` is the destructive one inside such a group. `danger` is
+filled, and filled is what `primary` is — at most one per view — so a table
+that draws one per row has as many as it has rows, and the column stops
+reading as a set of peers. Keep the weight of a ghost and spend the colour on
+the text. The filled `danger` is for the confirmation the row opens, where
+there is one of it.
+
+`web/src/design-consistency.test.ts` reads the source and holds this: a cell
+with two or more buttons may use only `ghost` and `ghost-danger`. It was
+written after six of the thirteen action columns had drifted to `secondary`,
+which nothing noticed because each screen is consistent with itself.
+
+## One answer, one component
+
+Where the same question is answered on more than one screen, the answer is a
+component in `components/ui.tsx` and not a conditional repeated per screen.
+Enabled-or-disabled is the worked example: eight screens each wrote
+`status === "ACTIVE" ? "success" : "neutral"`, and by the time anybody
+compared them one of the eight was drawing a disabled account in red. Use
+`StatusBadge`. The same applies to a table's loading and empty rows —
+`LoadingRow` and `EmptyRow`, which exist because a hand-written one forgot
+`colSpan` and rendered its message inside the first column.
+
+The rule is not "avoid duplication". It is that a copy makes a decision
+silently re-decidable, and the second person to decide it is not comparing
+against the first.
+
 ## Component states
 
 Every interactive component defines, at minimum: default, hover, active,
@@ -95,3 +122,12 @@ color somewhere upstream; fix that instead of adding a conditional.
 - Status semantics (`success`/`warning`/`danger`) are never the only
   signal — pair color with an icon or text label so the UI still works
   for color-blind users and in any future high-contrast theme.
+- **Every control has an accessible name.** A visible label through `Field`
+  or a `<label>` where there is room for one, `aria-label` where there is
+  not — a filter bar, a repeated row of inputs. A `placeholder` is not a
+  name: it is advisory text that disappears the moment somebody types, and
+  what a screen reader announces for the control is then nothing at all.
+  Naming a filter by putting its label in the first option
+  (`Role: All`) has the same defect — the option is read, the control still
+  has no name. `web/src/design-consistency.test.ts` holds this for `Input`,
+  `Select` and `Textarea`.
