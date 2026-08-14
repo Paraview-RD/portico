@@ -30,8 +30,10 @@ docker compose -f deploy/docker-compose.yml up -d
 `/docs` 下，所以它描述的是你刚启动的这个版本，而不是最新的那个。
 
 [运行](#运行) 一节里有从源码构建的方式、每个环境变量是干什么的，以及一份备份必
-须包含什么。下面全部是「它做什么、以及为什么这么做」；要查具体用法看手册 ——
-[就在本仓库里](docs/)，也在你启动的任何一个实例的 `/docs` 下。
+须包含什么。下面全部是「它做什么、以及为什么这么做」。
+
+还没装、想先读的话，同一份手册也发布在
+[paraview-rd.github.io/portico](https://paraview-rd.github.io/portico/zh/)。
 
 ## 它做什么
 
