@@ -13,7 +13,7 @@ web UI compiled in, backed by PostgreSQL.
 > deliberately absent from both. There are no published binaries yet; build
 > from source with either recipe under [Running it](#running-it).
 
-## Try it
+## Try it with Docker
 
 PostgreSQL and the server, with nothing else to install:
 
