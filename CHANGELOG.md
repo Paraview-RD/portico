@@ -872,6 +872,15 @@ Working toward 0.2.0. See
   says whether it resolves a tenant, and the document has to agree. It found
   the same nine, which is the first independent confirmation that the hand
   list was right.
+- **Editing an account no longer fails just because their organization was
+  disabled after the fact.** `PUT /api/v1/users/{id}` re-validated the
+  organization on every save, including the one the account already held —
+  so §3.4.1 ("disabling an organization does not touch the people already
+  in it") held for new accounts and broke for existing ones the moment
+  somebody disabled the organization they were in: from then on, saving so
+  much as a display name failed with `ORGANIZATION_DISABLED`. Resubmitting
+  the same, unchanged organization is no longer treated as a new binding;
+  moving somebody into a *different* disabled organization still is.
 
 ### Security
 
