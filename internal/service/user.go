@@ -499,9 +499,19 @@ func (s *UserService) Update(ctx context.Context, actor auth.Principal, userID s
 		}
 	}
 
-	orgID, err := s.resolveAssignableOrganization(ctx, q, in.OrganizationID)
-	if err != nil {
-		return model.User{}, err
+	// §3.4.1: disabling an organization leaves its existing members alone —
+	// only a new binding to it is refused. Resubmitting the same,
+	// unchanged organization is not a new binding, so it skips the status
+	// check that would otherwise make saving any other field impossible
+	// once somebody's organization is disabled after the fact.
+	var orgID *string
+	if in.OrganizationID == organizationRef(current.OrganizationID) {
+		orgID = current.OrganizationID
+	} else {
+		orgID, err = s.resolveAssignableOrganization(ctx, q, in.OrganizationID)
+		if err != nil {
+			return model.User{}, err
+		}
 	}
 
 	now := store.Now()
