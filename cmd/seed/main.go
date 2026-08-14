@@ -36,6 +36,12 @@ func run() error {
 	force := flag.Bool("force", false,
 		"seed a database that already holds accounts (you are certain it is a development one)")
 	quiet := flag.Bool("quiet", false, "only report the summary")
+	// For a demonstration on a public address. Unset means the published
+	// DemoPassword, which is right for a Codespace and wrong the moment the
+	// address can be reached by somebody who did not deploy it — see
+	// seed.Options.Password.
+	password := flag.String("password", "",
+		"the password every seeded account signs in with (default: the published demo password)")
 	flag.Parse()
 
 	cfg, err := config.Load()
@@ -55,7 +61,9 @@ func run() error {
 	}
 	defer func() { _ = seeder.Close() }()
 
-	summary, err := seeder.Run(context.Background(), seed.Options{Force: *force, Log: log})
+	summary, err := seeder.Run(context.Background(), seed.Options{
+		Force: *force, Password: *password, Log: log,
+	})
 	if err != nil {
 		if errors.Is(err, seed.ErrNotEmpty) {
 			return err
@@ -63,13 +71,17 @@ func run() error {
 		return fmt.Errorf("seeding stopped: %w", err)
 	}
 
-	report(summary)
+	signInWith := *password
+	if signInWith == "" {
+		signInWith = seed.DemoPassword
+	}
+	report(summary, signInWith)
 	return nil
 }
 
 // report prints what was created and how to sign in. The password is printed
 // because a seed nobody can sign in to is a database, not a demonstration.
-func report(s seed.Summary) {
+func report(s seed.Summary, password string) {
 	fmt.Printf(`Seeded.
 
   tenants        %d
@@ -95,5 +107,5 @@ and shows how little carries across.
 		s.Directories, s.Subscriptions, s.FieldMappings,
 		s.IdentityProviders, s.ExternalIdentities, s.AuditEntries, s.Sessions,
 		s.Deliveries, s.SyncRuns,
-		seed.DemoPassword, "admin", seed.TenantSecond)
+		password, "admin", seed.TenantSecond)
 }

@@ -96,6 +96,49 @@ something inside your network comes and reads it, and if you never set the
 address, the listener does not exist. See
 [access-guide.md](access-guide.md#metrics) for why it is a separate port.
 
+## Where the demonstration is hosted — this project's choice, not Portico's
+
+Nothing below is a dependency of Portico. It is where *we* run the public
+demonstration, recorded here because somebody has to know what the bill is
+attached to and who can reach the database.
+
+### Render — the public demo, free tier
+
+| | |
+|---|---|
+| For | `render.yaml`: one web service built from `deploy/Dockerfile`, one Postgres |
+| Auth | The Render account owning the Blueprint. No token is stored in this repository |
+| Owner | The repository owner |
+| Cost | **$0.** Two consequences below, both of them the price of that |
+| Variables | `PORTICO_DB_DSN` (from the database), `PORTICO_JWT_SECRET` (generated), and `PORTICO_ENCRYPTION_KEY` / `PORTICO_PUBLIC_URL` entered by hand — see the comments in `render.yaml` |
+
+**A free web service sleeps after 15 minutes without traffic.**
+`.github/workflows/demo-keepalive.yml` asks it for `/api/v1/health` every ten
+minutes, which helps and is not a fix: GitHub's scheduler is best-effort and
+runs late under load, so the window sometimes elapses anyway and a visitor
+pays for the cold start. Render's $7/month tier removes the problem outright.
+
+**A free Postgres is deleted after 90 days.** Nothing works around that. The
+demo and everything in it goes, and the Blueprint has to be applied again.
+
+### GitHub Actions — the two jobs Render's free tier cannot run
+
+Scheduled jobs are a paid feature on Render, and Actions minutes are unmetered
+on a public repository, so both live here instead.
+
+`demo-keepalive.yml` pokes the health endpoint. `demo-reseed.yml` drops the
+schema and seeds a fresh one nightly, because a demo that signs everybody in
+as an administrator becomes a demonstration of whatever the last visitor left
+behind. It reaches the database directly over Render's external connection
+string.
+
+| Secret / variable | What it is |
+|---|---|
+| `DEMO_DATABASE_URL` (secret) | Render's **external** connection string, TLS required |
+| `DEMO_SEED_PASSWORD` (secret) | What every seeded account signs in with. Deliberately not the published one: the address is public and the way in is not |
+| `DEMO_ENCRYPTION_KEY`, `DEMO_JWT_SECRET` (secrets) | The same values the service has, so the seed writes credentials the service can open |
+| `DEMO_URL` (variable, not secret) | The public address. A secret would be redacted out of the only logs these jobs produce |
+
 ## Nothing else
 
 No message broker, no cache, no object store. No external identity provider

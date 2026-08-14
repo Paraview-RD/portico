@@ -33,11 +33,26 @@
     "ghcr.io/devcontainers/features/sshd:1": {}
   },
 
-  // 8410 is the product. The other two are the fixtures around it, and both
-  // are named service:port rather than by number: they listen in their own
-  // containers, so a bare number would forward a port on `app` that nothing
-  // is bound to.
-  "forwardPorts": [8410, "mailpit:8025"],
+  // Only mailpit is declared, and 8410 deliberately is not.
+  //
+  // A declared port is forwarded as soon as the container is up, whether or
+  // not anything is listening on it — and `onAutoForward` fires at that
+  // moment. So declaring 8410 opened a browser tab within a minute of the
+  // button being pressed, fifteen minutes before setup.sh had finished
+  // building the server that would answer it. The tab showed nothing, never
+  // recovered on its own, and the environment read as a failed build. It was
+  // not: the build succeeded every time, quietly, into a Codespace whose
+  // owner had already given up on it.
+  //
+  // Undeclared, Codespaces forwards 8410 when something actually binds it,
+  // and applies the attributes below at that point — so the tab opens on a
+  // console that exists. 8413 has always worked this way; this is 8410
+  // joining it.
+  //
+  // mailpit stays declared because it has to be: it listens in its own
+  // container, which port detection on `app` cannot see. It is `silent`, so
+  // an early forward costs nothing.
+  "forwardPorts": ["mailpit:8025"],
 
   "portsAttributes": {
     "8410": {

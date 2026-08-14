@@ -1,0 +1,84 @@
+# The public demonstration, on Render's free tier.
+#
+# A Blueprint rather than clicking through the dashboard: what the demo is
+# configured with is then reviewable, and rebuilding it after the free
+# database expires is one button rather than remembering nine fields.
+#
+# Free tier, deliberately and with two consequences that are not worked
+# around here because they cannot be:
+#
+#   - The web service spins down after 15 minutes without inbound traffic.
+#     .github/workflows/demo-keepalive.yml pokes it, which helps and does not
+#     fix it: GitHub's scheduler runs late under load, so the service will
+#     still be asleep sometimes and the first visitor then waits out a cold
+#     start. Paid is $7/month and removes the whole problem.
+#   - **A free Postgres is deleted after 90 days.** Nothing prevents that.
+#     Every trial tenant and everything in them goes with it, and the
+#     Blueprint has to be applied again to get a new one. Put a reminder
+#     somewhere that is not this file.
+#
+# Two values are not set here and must be filled in the dashboard after the
+# first deploy — see docs/access-guide.md, "Publishing a demonstration".
+services:
+  - type: web
+    name: portico-demo
+    runtime: docker
+    dockerfilePath: ./deploy/Dockerfile
+    # The repository root, because the Dockerfile copies the whole tree: it
+    # builds the console, the manual and the server, all of which live above
+    # deploy/.
+    dockerContext: .
+    plan: free
+    # Nearest to the people this demo is for. Render's free tier offers no
+    # choice beyond its listed regions; change this before the first apply,
+    # because a service cannot be moved afterwards.
+    region: singapore
+
+    # What Render polls to decide the instance is up. It does not keep a free
+    # service awake — spin-down is decided by inbound traffic from outside,
+    # which an internal check is not. That is what the keepalive workflow is
+    # for.
+    healthCheckPath: /api/v1/health
+
+    envVars:
+      - key: PORTICO_DB_DSN
+        fromDatabase:
+          name: portico-demo-db
+          property: connectionString
+
+      # Generated once and kept by Render. Regenerating it signs everybody
+      # out, which for a demonstration is a shrug.
+      - key: PORTICO_JWT_SECRET
+        generateValue: true
+
+      # Must be 32 bytes as 64 hexadecimal characters, which generateValue
+      # does not produce — so it is entered by hand. Without it the server
+      # still runs and refuses to store a directory bind password or a
+      # webhook header, which the seeded data works around rather than fails
+      # on. Generate with: openssl rand -hex 32
+      - key: PORTICO_ENCRYPTION_KEY
+        sync: false
+
+      # The address this deployment answers on, which only exists after the
+      # first deploy — so it is filled in afterwards, and the service
+      # redeployed. It is not cosmetic: OpenID Connect redirects and SAML
+      # metadata are built from it, so a wrong value gives a console that
+      # works perfectly and every single-sign-on flow sending the browser
+      # somewhere unreachable.
+      - key: PORTICO_PUBLIC_URL
+        sync: false
+
+      # Free tier holds this at 512MB. Stated rather than left implicit
+      # because the seed is the memory-hungriest thing that runs here.
+      - key: PORTICO_LOG_LEVEL
+        value: info
+
+# Free Postgres: 1GB, and deleted after 90 days. One seeded tenant set is
+# comfortably inside that; a self-service trial handing out a tenant per
+# visitor is not, which is the sizing question to answer before that feature
+# is switched on.
+databases:
+  - name: portico-demo-db
+    plan: free
+    databaseName: portico
+    user: portico

@@ -67,6 +67,11 @@ type Seeder struct {
 	mappings *service.FieldMappingService
 	audit    *service.AuditService
 
+	// password is Options.Password, resolved once at the start of Run so that
+	// every account created below gets the same one without threading it
+	// through each stage.
+	password string
+
 	// canSeal records whether this deployment has PORTICO_ENCRYPTION_KEY.
 	// Without it the services refuse to store a bind password or a webhook
 	// header, which is correct; the seed registers those things without the
@@ -94,6 +99,24 @@ type Options struct {
 	// the usual cost of that mistake is a real user list with fifty-five
 	// invented colleagues in it.
 	Force bool
+
+	// Password is what every seeded account signs in with. Empty means
+	// DemoPassword, which is published and belongs in a Codespace or on a
+	// laptop.
+	//
+	// It exists for the one deployment where neither is true: a demonstration
+	// on a public address. There, a published password means the first
+	// visitor to read the README is an administrator, and by the second day
+	// the demonstration is of whatever they left behind. A value passed in
+	// here is known only to whoever deployed it, so the address can be public
+	// while the way in is not.
+	//
+	// Not read from the environment on purpose. .env.example describes what
+	// the *server* reads, and a test holds that correspondence in both
+	// directions; a seed-only variable would have to be excluded from it by
+	// hand, which is how a list stops being trustworthy. A flag is also
+	// simply harder to leave set by accident.
+	Password string
 
 	// Log receives one line per stage. Nil discards them.
 	Log *slog.Logger
@@ -207,6 +230,10 @@ func (s *Seeder) Run(ctx context.Context, opts Options) (Summary, error) {
 	if opts.Now.IsZero() {
 		opts.Now = store.Now()
 	}
+	if opts.Password == "" {
+		opts.Password = DemoPassword
+	}
+	s.password = opts.Password
 
 	if err := s.checkEmpty(ctx, opts.Force); err != nil {
 		return Summary{}, err

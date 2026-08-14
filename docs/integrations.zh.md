@@ -77,6 +77,46 @@ Amazon SES、Postmark、Resend，或者一个本地 Postfix。
 如果你从不设那个地址，这个监听根本不存在。为什么它是一个独立端口，见
 [访问指南](access-guide.md#指标)。
 
+## 演示环境托管在哪 —— 这是本项目的选择，不是 Portico 的依赖
+
+下面这些都**不是** Portico 的依赖，而是**我们**跑那个公开演示环境的地方。记在这
+里，是因为总得有人知道账单挂在哪、以及谁能连到那个数据库。
+
+### Render —— 公开演示环境，免费层
+
+| | |
+|---|---|
+| 用来做什么 | `render.yaml`：一个由 `deploy/Dockerfile` 构建的 web 服务，加一个 Postgres |
+| 认证方式 | 持有这份 Blueprint 的 Render 账号。本仓库里不存任何 token |
+| 归属 | 仓库所有者 |
+| 成本 | **$0。** 代价是下面那两条 |
+| 环境变量 | `PORTICO_DB_DSN`（取自数据库）、`PORTICO_JWT_SECRET`（自动生成），以及需要手填的 `PORTICO_ENCRYPTION_KEY` / `PORTICO_PUBLIC_URL` —— 见 `render.yaml` 里的注释 |
+
+**免费的 web 服务在 15 分钟无流量后会休眠。**
+`.github/workflows/demo-keepalive.yml` 每十分钟问它一次
+`/api/v1/health` —— 这有帮助，但**不是解决**：GitHub 的调度是尽力而为的，负载高
+时会迟到，所以那个 15 分钟的窗口仍然会偶尔走完，于是某个访客替所有人付了冷启动的
+时间。Render 的 $7/月 档位能把这个问题整个消掉。
+
+**免费的 Postgres 在 90 天后会被删除。** 这一条没有任何绕法。演示环境连里面的东
+西一起消失，只能重新应用一次 Blueprint。
+
+### GitHub Actions —— Render 免费层跑不了的那两个定时任务
+
+定时任务在 Render 上是付费功能，而公开仓库的 Actions 时长不计量，所以这两件事放
+在这里。
+
+`demo-keepalive.yml` 去戳健康检查端点。`demo-reseed.yml` 每晚把 schema 清空并重
+新灌一遍种子 —— 因为一个把所有人都当管理员放进来的演示环境，很快就变成「上一位访
+客留下了什么」的演示。它通过 Render 的外部连接串直接连库。
+
+| Secret / 变量 | 是什么 |
+|---|---|
+| `DEMO_DATABASE_URL`（secret） | Render 的**外部**连接串，必须带 TLS |
+| `DEMO_SEED_PASSWORD`（secret） | 所有种子账号的登录密码。刻意不用那个公开的：**地址是公开的，进门的方式不是** |
+| `DEMO_ENCRYPTION_KEY`、`DEMO_JWT_SECRET`（secret） | 与服务端相同的值，这样种子写进去的凭据服务端才打得开 |
+| `DEMO_URL`（变量，不是 secret） | 那个公开地址。设成 secret 会被从日志里涂掉，而日志是这两个任务唯一的产出 |
+
 ## 别的没有了
 
 没有消息队列、没有缓存、没有对象存储。**也没有外部身份提供方**：上面那个目录是被

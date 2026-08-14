@@ -121,6 +121,39 @@ Portico 自己保存账号——MVP 里没有外部身份提供方。
   单点登录是通的，而那张证书 Portico 从头到尾没见过。在你自己的机器上，这是
   反向代理的活，见[对外暴露之前](#对外暴露之前)。
 
+## 发布一个任何人都能打开的演示环境
+
+Codespace 只属于你一个人 —— 它转发的端口认的是你自己的 GitHub 会话，而且你一停用
+它就停。要一个能发给别人的地址，仓库根目录的 `render.yaml` 是一份 Render
+Blueprint：一个由 `deploy/Dockerfile` 构建的 web 服务，加一个 Postgres。
+
+**开始之前先读免费层的两条代价**，见
+[集成文档](integrations.md#render--公开演示环境免费层) —— 服务会休眠，数据库 90
+天后会被删除。
+
+1. **应用这份 Blueprint。** Render → New → Blueprint，指向你要发布的那个仓库。如
+   果新加坡不是离你最近的区域，**先改 `region`** —— 服务建好之后不能迁移。
+2. **填两个它不可能知道的值。** `PORTICO_ENCRYPTION_KEY` —— 32 字节的十六进制，
+   用 `openssl rand -hex 32` 生成。以及 `PORTICO_PUBLIC_URL`，它在第一次部署给出
+   地址之前根本不存在，所以是**部署之后回填再重新部署**。它不是装饰：OpenID
+   Connect 的回跳和 SAML 元数据都由它拼出来，填错会得到一个用起来完全正常的控制
+   台，和每一次都把浏览器送去打不开的地方的单点登录。
+3. **定下进门的方式，并且守住它。** 地址是公开的，密码不该是。生成一个，**绝不要
+   用那个公开的演示密码** —— 在公网地址上，那等于让第一个读过 README 的访客成为管
+   理员。把它作为 `DEMO_SEED_PASSWORD` 存进仓库的 Actions secrets，同时存
+   `DEMO_DATABASE_URL`（Render 的**外部**连接串）、`DEMO_ENCRYPTION_KEY` 和
+   `DEMO_JWT_SECRET` —— 后两个就是服务正在用的那两个值。再把 `DEMO_URL` 加成
+   Actions 的**变量**（不是 secret）。
+4. **灌种子。** 手动跑一次 `Demo reseed` 工作流。它会清空 schema 并重新灌一遍，
+   之后每晚也做同一件事：一个把所有人都当管理员放进来的演示环境，很快就变成「上一
+   位访客留下了什么」的演示。
+5. **登录**：`https://<你的服务名>.onrender.com/login`，用 `admin` 和第 3 步那个
+   密码。
+
+种子账号就是上面说的那几个 —— `admin`、`zhangwei`、`liyan` —— 密码是你自己选的那
+个，不是公开那个。密码找回在这里用不了，除非你另外配了 SMTP；忘记密码那个页面会
+直接说明，而不是接受一个它完成不了的请求。
+
 ## 第一次运行
 
 1. 启动服务。`./portico` 需要 `PORTICO_DB_DSN`；compose 则需要先导出

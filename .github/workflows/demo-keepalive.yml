@@ -1,0 +1,71 @@
+# Keep the free-tier demonstration awake.
+#
+# Render spins a free web service down after 15 minutes without inbound
+# traffic, and the next visitor waits out a cold start. This asks it for its
+# health endpoint often enough that the 15 minutes rarely elapses.
+#
+# What this is not: a fix. GitHub's scheduler is best-effort and runs late
+# when the fleet is busy — a job asked for every 10 minutes can arrive 20 or
+# more minutes later, which is longer than the window it is trying to stay
+# inside. So the service will still be found asleep sometimes. The honest
+# fixes are Render's $7/month tier or a host that does not sleep; this is the
+# free-tier compromise, chosen knowingly.
+#
+# Free for this repository: Actions minutes are unmetered on public
+# repositories, so the only cost is the noise in the run list.
+name: Demo keepalive
+
+on:
+  schedule:
+    # Every 10 minutes, offset off the hour. Scheduled jobs across GitHub
+    # pile onto :00, which is exactly when the scheduler is slowest.
+    - cron: "3,13,23,33,43,53 * * * *"
+  # For checking by hand whether the address is up at all.
+  workflow_dispatch:
+
+# One at a time. A backlog of pokes after an outage would all arrive at once
+# and tell us nothing extra.
+concurrency:
+  group: demo-keepalive
+  cancel-in-progress: true
+
+permissions: {}
+
+jobs:
+  poke:
+    runs-on: ubuntu-latest
+    # A cold start on the free tier can take most of a minute, and the
+    # request that triggers it is the one that waits. Nothing here should
+    # ever approach this; it exists so a hung request cannot hold a runner.
+    timeout-minutes: 5
+    steps:
+      # DEMO_URL is a variable rather than a secret: it is a public address,
+      # and a secret would be redacted out of the logs that are the only
+      # thing this job produces. Set it under Settings → Actions → Variables.
+      - name: Ask the demo for its health
+        env:
+          DEMO_URL: ${{ vars.DEMO_URL }}
+        run: |
+          # Not an error. This runs every ten minutes on every fork of this
+          # repository, and most of them publish no demo — failing there would
+          # be a red cross every ten minutes for something nobody asked for,
+          # which is how a repository teaches people to ignore its Actions
+          # tab. Nothing to poke is nothing to do.
+          if [ -z "$DEMO_URL" ]; then
+            echo "DEMO_URL is not set — no demo to keep awake."
+            echo "To publish one, see docs/access-guide.md."
+            exit 0
+          fi
+
+          # --max-time generously: this request is often the one paying for
+          # the cold start, and treating that as a failure would report an
+          # outage every time the service had been asleep — the one case
+          # where it worked exactly as intended.
+          code=$(curl -sS -o /dev/null -w '%{http_code}' --max-time 120 \
+            "${DEMO_URL%/}/api/v1/health") || code=000
+
+          echo "GET ${DEMO_URL%/}/api/v1/health -> $code"
+
+          # 200 only. A 502 from Render's edge means the instance is not
+          # answering, which is worth a red run rather than a quiet pass.
+          [ "$code" = "200" ]

@@ -250,7 +250,7 @@ func (s *Seeder) createPerson(ctx context.Context, t *seededTenant, actor auth.P
 	}
 
 	in := service.CreateUserInput{
-		Username: p.username, DisplayName: p.displayName, Password: DemoPassword,
+		Username: p.username, DisplayName: p.displayName, Password: s.password,
 		Role: p.role, Source: p.source,
 	}
 	if !p.noContact {
