@@ -38,6 +38,20 @@ Working toward 0.2.0. See
 - The manifests are **schema-checked with `kubeconform -strict` and have
   never been applied to a cluster**, which is said in the file and on the
   page rather than left for somebody to discover.
+- **The browser suite checks accessibility**, with axe, against the same
+  binary it already drives — the screens people meet, failing on serious and
+  critical findings. It found two on its first run: the role and status
+  filters on the user list are `<select>` elements whose label lives in the
+  first option, so a screen reader announced an unnamed combo box. Somebody
+  was told there is a filter and not what it filters. Both now carry the
+  name they already display.
+- **`color-contrast` is deliberately not enforced yet, and the reason is
+  written down** in the test and in CONTRIBUTING.md rather than left as a
+  quiet exclusion. The palette misses WCAG AA on five colour pairs, two of
+  them by less than a tenth; the catch is that on a light background AA
+  leaves very little room between `--color-fg-muted` and
+  `--color-fg-subtle`, so clearing it would collapse a distinction every
+  screen uses. That is a palette decision, not a test fix.
 - **The delivery log can be read.** It pages by cursor rather than showing
   the newest fifty and stopping, defaults to hiding the pages a full sync
   produces (a hundred of them arrive in seconds and would otherwise be all

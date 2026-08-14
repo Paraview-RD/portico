@@ -182,6 +182,32 @@ Rebuild the binary after changing frontend code. The tests run against what
 is embedded in it, so a stale binary silently tests the previous version;
 that is the one confusing failure mode of this setup.
 
+#### Accessibility
+
+`e2e/accessibility.spec.ts` runs axe over the screens people actually meet —
+sign-in, registration, password recovery, the portal, the user list, the
+provider list, a profile, and one dialog — and fails on **serious** and
+**critical** findings. The lower two severities are largely advice and are
+reported rather than enforced.
+
+It lives here rather than beside the component tests because the questions
+are ones only a browser answers: a computed contrast depends on what the
+cascade resolved, an accessible name on the rendered tree, a role on the
+element the browser built. jsdom answers all three optimistically.
+
+**One rule is deliberately off: `color-contrast`.** The palette does not
+pass WCAG AA — five colour pairs, worst of them 2.34:1 against a required
+4.5:1 — and fixing it is a change to how every screen reads rather than a
+bug fix, because on a light background AA leaves very little room between
+`--color-fg-muted` and `--color-fg-subtle`. The arithmetic is in the test
+file. Turning the rule back on is one line once somebody decides what the
+palette should be.
+
+Do not read a green run as a claim of conformance. Automated checking finds
+roughly a third of what an audit would, and says nothing about whether the
+focus order makes sense or whether an error message reaches the person who
+needs it.
+
 ## Pull requests
 
 - Keep PRs scoped to one concern.

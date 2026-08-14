@@ -339,6 +339,10 @@ export function UsersPage() {
                 }}
               />
             </div>
+            {/* Named for a screen reader, which the first option does not do.
+                "Role: All" reads as the current value, so a control whose
+                label lives there announces itself as an unnamed combo box —
+                somebody is told there is a filter and not what it filters. */}
             <div className="w-44">
               <Select
                 aria-label={t("users.filterRole")}
