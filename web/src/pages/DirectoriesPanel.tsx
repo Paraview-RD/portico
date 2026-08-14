@@ -175,9 +175,11 @@ export function DirectoriesPanel() {
               <Td>
                 {/* Never synchronized reads as a problem in its own right: a
                     directory that was configured and has never run. */}
-                {source.lastSyncedAt
-                  ? <Timestamp value={source.lastSyncedAt} />
-                  : t("directories.neverSynced")}
+                {source.lastSyncedAt ? (
+                  <Timestamp value={source.lastSyncedAt} />
+                ) : (
+                  t("directories.neverSynced")
+                )}
                 {/* Whether anything will happen without being asked, which is
                     otherwise only visible by opening each form in turn. */}
                 {source.syncIntervalMinutes > 0 && (

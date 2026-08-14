@@ -360,9 +360,7 @@ function SessionsCard() {
             >
               <div className="min-w-0">
                 <div className="flex items-center gap-2">
-                  <Code>
-                    {session.ip || t("profile.sessionNoAddress")}
-                  </Code>
+                  <Code>{session.ip || t("profile.sessionNoAddress")}</Code>
                   {session.current && (
                     <Badge tone="success">{t("profile.sessionCurrent")}</Badge>
                   )}

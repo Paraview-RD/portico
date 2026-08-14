@@ -382,9 +382,7 @@ function RecentSignIns() {
                   question this answers is "was that me" and the answer is
                   usually decided by the pair together. */}
               <div className="flex flex-wrap items-center gap-2">
-                <Code>
-                  {session.ip || "—"}
-                </Code>
+                <Code>{session.ip || "—"}</Code>
                 <span className="text-[length:var(--font-size-sm)] text-[var(--color-fg-muted)]">
                   <Timestamp value={session.lastSeenAt} />
                 </span>

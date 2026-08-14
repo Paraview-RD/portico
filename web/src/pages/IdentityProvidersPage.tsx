@@ -206,9 +206,7 @@ export function IdentityProvidersPage() {
             <tr key={provider.id}>
               <Td>{provider.name}</Td>
               <Td>
-                <Code>
-                  {provider.issuer}
-                </Code>
+                <Code>{provider.issuer}</Code>
               </Td>
               <Td>
                 {/* Called out rather than shown as a tick, because it is the

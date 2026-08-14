@@ -222,16 +222,16 @@ function SCIMCredentialsPanel() {
             <tr key={credential.id}>
               <Td>{credential.name}</Td>
               <Td>
-                <Code>
-                  {credential.tokenPrefix}…
-                </Code>
+                <Code>{credential.tokenPrefix}…</Code>
               </Td>
               <Td>
                 {/* Never used reads as a problem in its own right: a
                     directory that was configured and has never connected. */}
-                {credential.lastUsedAt
-                  ? <Timestamp value={credential.lastUsedAt} />
-                  : t("scim.neverUsed")}
+                {credential.lastUsedAt ? (
+                  <Timestamp value={credential.lastUsedAt} />
+                ) : (
+                  t("scim.neverUsed")
+                )}
               </Td>
               <Td>
                 <StatusBadge status={credential.status} />
@@ -384,11 +384,11 @@ function SyncActivity() {
           {entries?.length === 0 && <EmptyRow colSpan={4} />}
           {entries?.map((entry) => (
             <tr key={entry.id}>
-              <Td><Timestamp value={entry.createdAt} /></Td>
               <Td>
-                <Code>
-                  {entry.action}
-                </Code>
+                <Timestamp value={entry.createdAt} />
+              </Td>
+              <Td>
+                <Code>{entry.action}</Code>
               </Td>
               <Td>{entry.targetName || "—"}</Td>
               <Td className="text-[var(--color-fg-muted)]">

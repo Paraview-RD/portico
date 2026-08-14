@@ -165,9 +165,7 @@ export function OrganizationsPage() {
                   </span>
                 </Td>
                 <Td>
-                  <Code>
-                    {org.code}
-                  </Code>
+                  <Code>{org.code}</Code>
                 </Td>
                 <Td>{org.userCount}</Td>
                 <Td>{org.remark || "—"}</Td>

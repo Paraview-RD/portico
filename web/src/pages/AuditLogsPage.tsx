@@ -253,9 +253,7 @@ function AuditRow({
         </Td>
         <Td>{t(`auditLogs.kind.${log.kind}`)}</Td>
         <Td>
-          <Code>
-            {log.action}
-          </Code>
+          <Code>{log.action}</Code>
         </Td>
         <Td>{log.actorName || "—"}</Td>
         <Td>{log.targetName || "—"}</Td>

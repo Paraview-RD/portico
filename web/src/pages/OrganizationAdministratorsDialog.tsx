@@ -168,9 +168,7 @@ export function OrganizationAdministratorsDialog({
                 <div>
                   <div className="flex items-center gap-2">
                     <span>{admin.displayName}</span>
-                    <Code>
-                      {admin.username}
-                    </Code>
+                    <Code>{admin.username}</Code>
                     {/* The account's own status, not the assignment's: an
                         assignment is not removed when somebody is suspended,
                         because it would come back on its own when they were
@@ -230,10 +228,7 @@ export function OrganizationAdministratorsDialog({
                   }`}
                   onClick={() => setSelected(candidate)}
                 >
-                  {candidate.displayName}{" "}
-                  <Code>
-                    {candidate.username}
-                  </Code>
+                  {candidate.displayName} <Code>{candidate.username}</Code>
                 </button>
               </li>
             ))}
