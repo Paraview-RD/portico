@@ -66,6 +66,8 @@ export const errorsEnUS = {
   EXTERNAL_IDP_ISSUER_TAKEN:
     "This tenant already has a provider for that issuer.",
   EXTERNAL_IDP_ISSUER_REQUIRED: "An issuer URL is required.",
+  EXTERNAL_IDP_KIND_UNKNOWN:
+    "That is not a kind of identity provider this version speaks.",
   EXTERNAL_IDP_CLIENT_ID_REQUIRED: "A client id is required.",
   EXTERNAL_IDP_UNREACHABLE:
     "That issuer could not be read as an OpenID Provider. Check the URL, and that this server can reach it.",
