@@ -175,10 +175,17 @@ type Summary struct {
 	// much has been decided, not how many things could have decided something.
 	FieldMappings int
 	Directories   int
-	AuditEntries  int
-	Sessions      int
-	Deliveries    int
-	SyncRuns      int
+	// IdentityProviders is providers configured, and ExternalIdentities is
+	// accounts linked to one. Both, because the first is what an
+	// administrator set up and the second is what people did with it, and a
+	// seed that reported only the first would look identical whether or not
+	// anybody had ever used the button.
+	IdentityProviders  int
+	ExternalIdentities int
+	AuditEntries       int
+	Sessions           int
+	Deliveries         int
+	SyncRuns           int
 }
 
 // ErrNotEmpty is returned when the database already holds accounts and Force
@@ -218,6 +225,7 @@ func (s *Seeder) Run(ctx context.Context, opts Options) (Summary, error) {
 		{"accounts", s.seedUsers},
 		{"applications", s.seedApplications},
 		{"integrations", s.seedIntegrations},
+		{"federation", s.seedFederation},
 		{"history", s.seedHistory},
 	} {
 		if err := stage.run(ctx, w); err != nil {
