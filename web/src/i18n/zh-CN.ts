@@ -193,7 +193,7 @@ export const zhCN: Record<keyof typeof enUS, string> = {
   "organizations.subtitle": "单层级的用户分组。",
   "organizations.guideTitle": "组织与用户组的分工",
   "organizations.guideBody":
-    "组织回答的是「这个人在哪儿」——一人一个，排成一棵树。\n不给权限::放进任何组织都不会多给他任何能力。本版本只有两种角色，且设在账号自己身上。\n常由目录维护::账号从 AD / LDAP 同步进来时，这棵树往往也归目录管，这里手工改动会在下次同步被覆盖。\n不管交叉集合::「同时属于多个集合」是用户组要解决的事，不是这一页。",
+    "组织回答的是「这个人在哪儿」——恰好一个，或者没有，排成一棵树。\n不给权限::放进任何组织都不会多给他任何能力。本版本只有两种角色，且设在账号自己身上。\n常由目录维护::账号从 AD / LDAP 同步进来时，这棵树往往也归目录管，这里手工改动会在下次同步被覆盖。\n不管交叉集合::「同时属于多个集合」是用户组要解决的事，不是这一页。",
   "organizations.create": "新建组织",
   "organizations.colName": "组织名称",
   "organizations.colCode": "组织编码",
