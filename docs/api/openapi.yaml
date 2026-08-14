@@ -1406,6 +1406,39 @@ paths:
         "404":
           $ref: "#/components/responses/NotFound"
 
+  /api/v1/users/{id}/administered-organizations:
+    get:
+      tags: [Users]
+      operationId: listAdministeredOrganizations
+      summary: The organizations an account is recorded as administering.
+      description: |
+        **These records grant nothing** in this version — see
+        `listOrganizationAdministrators` for why they are collected before
+        anything can act on them.
+
+        This is the direction delegated administration will read on every
+        request, which is why it is indexed and exposed now rather than
+        derived by a caller from the other list.
+      parameters:
+        - $ref: "#/components/parameters/ID"
+      responses:
+        "200":
+          description: What they are recorded as administering.
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: "#/components/schemas/Envelope"
+                  - type: object
+                    properties:
+                      data:
+                        type: array
+                        items: { $ref: "#/components/schemas/AdministeredOrganization" }
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+
   /api/v1/users/{id}/groups:
     get:
       tags: [Users]
@@ -2718,6 +2751,122 @@ paths:
             application/json:
               schema: { $ref: "#/components/schemas/Envelope" }
 
+  /api/v1/organizations/{id}/administrators:
+    get:
+      tags: [Organizations]
+      operationId: listOrganizationAdministrators
+      summary: Who is recorded as administering this organization.
+      description: |
+        **These records grant nothing.** No authorization decision in this
+        version reads them, and a test requires that to stay true.
+
+        They exist because delegated administration is planned, and an
+        organization chart is entered by people over months: a feature that
+        arrives to an empty table makes every deployment re-enter what it
+        already knows. Collecting the facts early is cheap; reconstructing
+        them afterwards is not possible.
+
+        Assignments on accounts that have since been disabled are listed
+        rather than filtered, with the account's status, so a screen can say
+        that somebody named here cannot currently sign in.
+      parameters:
+        - $ref: "#/components/parameters/ID"
+      responses:
+        "200":
+          description: The assignments on this organization.
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: "#/components/schemas/Envelope"
+                  - type: object
+                    properties:
+                      data:
+                        type: array
+                        items: { $ref: "#/components/schemas/OrganizationAdministrator" }
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+    post:
+      tags: [Organizations]
+      operationId: assignOrganizationAdministrator
+      summary: Record somebody as an administrator of this organization.
+      description: |
+        **It grants the person named nothing at all.** See the note on the
+        GET above for why the record exists before anything can act on it.
+
+        `scope` is required and has no default. `SELF` is this organization;
+        `SUBTREE` is it and every descendant. The distinction cannot be added
+        afterwards — a row that did not say which was meant is one nobody can
+        interpret when the feature that reads it arrives — so the person
+        assigning has to state it.
+
+        Changing a scope is a removal followed by an addition, so that both
+        appear in the audit trail as the decisions they are. A second
+        assignment of the same account is refused.
+      parameters:
+        - $ref: "#/components/parameters/ID"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [userId, scope]
+              properties:
+                userId: { type: string }
+                scope:
+                  type: string
+                  enum: [SELF, SUBTREE]
+      responses:
+        "200":
+          description: Recorded.
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Envelope" }
+        "400":
+          description: The scope was missing or was not one of the two values.
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Envelope" }
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "409":
+          description: |
+            That account is already recorded here. Remove the assignment and
+            make it again to change its scope.
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Envelope" }
+
+  /api/v1/organizations/{id}/administrators/{userID}:
+    delete:
+      tags: [Organizations]
+      operationId: revokeOrganizationAdministrator
+      summary: Remove such a record.
+      description: |
+        Idempotent: removing one that is not there succeeds, because a caller
+        reconciling a list should not have to know what is already gone.
+      parameters:
+        - $ref: "#/components/parameters/ID"
+        - name: userID
+          in: path
+          required: true
+          schema: { type: string }
+      responses:
+        "200":
+          description: Removed.
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Envelope" }
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+
   /api/v1/organizations/{id}/attachments:
     post:
       tags: [Organizations]
@@ -3258,13 +3407,100 @@ paths:
         own logs. Kept for thirty days.
       parameters:
         - $ref: "#/components/parameters/ID"
+        - name: cursor
+          in: query
+          description: |
+            `nextCursor` from the previous page; omit for the first. Opaque:
+            it encodes this query's ordering, and a client that parsed it
+            would be depending on that ordering never changing.
+
+            A cursor rather than an offset because the table is written to
+            while it is read — every event, every retry — and an offset
+            walked backwards through it returns some rows twice and skips
+            others, with nothing to tell the reader.
+          schema: { type: string }
+        - name: filter
+          in: query
+          description: |
+            `live` (the default) hides the pages a full sync produces;
+            `sync` shows only those; `all` shows both. A full sync of a large
+            tenant queues a hundred deliveries in a few seconds, which is
+            enough to push every ordinary event off the first page.
+          schema:
+            type: string
+            enum: [all, live, sync]
+            default: live
+        - name: limit
+          in: query
+          description: Page size, 1–200, default 50.
+          schema: { type: integer, minimum: 1, maximum: 200, default: 50 }
       responses:
         "200":
-          description: The deliveries, most recent first.
+          description: One page, most recent first.
           content:
             application/json:
               schema:
-                { $ref: "#/components/schemas/WebhookDeliveryListEnvelope" }
+                allOf:
+                  - $ref: "#/components/schemas/Envelope"
+                  - type: object
+                    properties:
+                      data:
+                        type: object
+                        properties:
+                          items:
+                            type: array
+                            items:
+                              { $ref: "#/components/schemas/WebhookDelivery" }
+                          nextCursor:
+                            type: string
+                            description: Empty on the last page. There is deliberately no total — it would be stale before it arrived.
+        "400":
+          description: A cursor this server did not issue, or an unknown filter.
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Envelope" }
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+
+  /api/v1/webhooks/{id}/deliveries/{deliveryID}:
+    get:
+      tags: [Webhooks]
+      operationId: getWebhookDelivery
+      summary: One delivery, with the bodies.
+      description: |
+        The request body exactly as it was sent — the same bytes the
+        signature was computed over — and the beginning of what the receiver
+        answered, capped at `responseCap` bytes when it was stored.
+
+        Fetched on demand rather than included in the list: a full sync
+        page's payload is five hundred objects, and putting that in a list
+        would make the list unusable to save a click.
+
+        **Request headers are not here, and not stored.** A subscription's
+        custom headers are credentials — sealed with
+        `PORTICO_ENCRYPTION_KEY` precisely so a database dump does not yield
+        them — and a debugging screen is not a reason to copy them into every
+        delivery row.
+      parameters:
+        - $ref: "#/components/parameters/ID"
+        - name: deliveryID
+          in: path
+          required: true
+          schema: { type: string }
+      responses:
+        "200":
+          description: The delivery.
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: "#/components/schemas/Envelope"
+                  - type: object
+                    properties:
+                      data:
+                        { $ref: "#/components/schemas/WebhookDeliveryDetail" }
         "403":
           $ref: "#/components/responses/Forbidden"
         "404":
@@ -3416,6 +3652,54 @@ paths:
           $ref: "#/components/responses/NotFound"
 
   /api/v1/webhooks/{id}/snapshot:
+    get:
+      tags: [Webhooks]
+      operationId: previewWebhookSnapshot
+      summary: What a full sync would send, without sending it.
+      description: |
+        The same summary the POST returns, counted rather than built: three
+        counts and a division, so the console can put the size in front of an
+        operator **before** asking the question rather than after they have
+        answered it. "Queue a copy of everything?" is a different decision at
+        fifty accounts and at fifty thousand.
+
+        It can be stale by the time somebody clicks, which does not matter —
+        this is an order of magnitude, not an invoice. Queues nothing and
+        changes nothing.
+      parameters:
+        - $ref: "#/components/parameters/ID"
+      responses:
+        "200":
+          description: What a full sync would cover.
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: "#/components/schemas/Envelope"
+                  - type: object
+                    properties:
+                      data:
+                        type: object
+                        properties:
+                          scope:
+                            type: array
+                            items: { type: string, enum: [user, organization, group] }
+                          counts:
+                            type: object
+                            additionalProperties: { type: integer }
+                          pages: { type: integer }
+                          syncId:
+                            type: string
+                            description: Empty here — nothing has been queued, so there is no run to name.
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "422":
+          description: This subscription selects no events a full sync can fill.
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Envelope" }
     post:
       tags: [Webhooks]
       operationId: snapshotWebhook
@@ -4991,6 +5275,53 @@ components:
             data:
               type: array
               items: { $ref: "#/components/schemas/GroupMember" }
+
+    OrganizationAdministrator:
+      type: object
+      description: |
+        Somebody recorded as administering an organization, for a feature
+        that does not exist yet. It grants them nothing today.
+      properties:
+        userId: { type: string }
+        username: { type: string }
+        displayName: { type: string }
+        status:
+          $ref: "#/components/schemas/Status"
+          description: The account's, so a screen can show that somebody named here is disabled.
+        scope:
+          type: string
+          enum: [SELF, SUBTREE]
+          description: SELF is this organization; SUBTREE is it and every descendant.
+        grantedBy: { type: string, description: The account that made the assignment. }
+        grantedByName: { type: string }
+        grantedAt: { type: string, format: date-time }
+
+    AdministeredOrganization:
+      type: object
+      description: An organization somebody is recorded as administering. Grants nothing today.
+      properties:
+        id: { type: string }
+        name: { type: string }
+        code: { type: string }
+        scope:
+          type: string
+          enum: [SELF, SUBTREE]
+        grantedAt: { type: string, format: date-time }
+
+    WebhookDeliveryDetail:
+      allOf:
+        - $ref: "#/components/schemas/WebhookDelivery"
+        - type: object
+          properties:
+            payload:
+              type: string
+              description: The request body exactly as sent — the bytes the signature was computed over.
+            response:
+              type: string
+              description: The beginning of what the receiver answered on the most recent attempt.
+            responseCap:
+              type: integer
+              description: How many bytes of the answer are kept, so a screen can say "truncated" rather than leave a reader wondering whether the receiver stopped mid-sentence.
 
     GroupRefListEnvelope:
       allOf:

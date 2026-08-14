@@ -124,6 +124,10 @@ export const errorsEnUS = {
     "No such account to put in charge of this organization.",
   ALREADY_PRIMARY_ORGANIZATION:
     "That account already belongs to this organization. An attachment is for the ones it does not.",
+  ALREADY_ORGANIZATION_ADMIN:
+    "That account is already recorded as an administrator of this organization. Remove it first to change its scope.",
+  INVALID_ADMIN_SCOPE:
+    "Choose how far this reaches: this organization only, or it and everything under it.",
   ORGANIZATION_CYCLE:
     "That would put the organization inside itself or one of its own descendants.",
   ORGANIZATION_TOO_DEEP: "Organizations may not be nested that deeply.",
@@ -260,6 +264,11 @@ export const errorsEnUS = {
   MALFORMED_BODY: "The request could not be read.",
   EMPTY_BODY: "The request had no content.",
   BODY_TOO_LARGE: "That request is too large.",
+  WEBHOOK_DELIVERY_NOT_FOUND:
+    "No such delivery. Finished deliveries are removed after 30 days.",
+  INVALID_CURSOR:
+    "That page marker is no longer valid. Go back to the first page.",
+  INVALID_DELIVERY_FILTER: "That is not a filter this list offers.",
   UNSUPPORTED_MEDIA_TYPE:
     "The request was sent in a format this endpoint does not read.",
   TOO_MANY_ATTEMPTS:

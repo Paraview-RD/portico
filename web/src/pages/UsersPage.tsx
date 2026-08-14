@@ -8,6 +8,8 @@ import {
   userAttributesApi,
 } from "../api/endpoints";
 import type {
+  AdministeredOrganization,
+  OrganizationRef,
   BulkResult,
   GroupRef,
   Organization,
@@ -532,7 +534,9 @@ export function UsersPage() {
                     <Td>
                       <div className="flex flex-wrap items-center gap-1">
                         <Badge
-                          tone={user.status === "ACTIVE" ? "success" : "danger"}
+                          tone={
+                            user.status === "ACTIVE" ? "success" : "neutral"
+                          }
                         >
                           {t(`status.${user.status}`)}
                         </Badge>
@@ -735,6 +739,17 @@ function UserFormDialog({
   const [error, setError] = useState("");
   const [submitting, setSubmitting] = useState(false);
   const [groups, setGroups] = useState<GroupRef[] | null>(null);
+  // The organizations beside the one they belong to, and the ones they are
+  // recorded as administering. Two different kinds of fact about the same
+  // person: the first is where they are involved, the second is a note for
+  // a feature that has not shipped and grants nothing today.
+  const [attachments, setAttachments] = useState<OrganizationRef[] | null>(
+    null,
+  );
+  const [administers, setAdministers] = useState<
+    AdministeredOrganization[] | null
+  >(null);
+  const [attaching, setAttaching] = useState("");
 
   // Reset the form whenever the dialog opens, so a previous edit does not
   // leak into the next one.
@@ -834,6 +849,63 @@ function UserFormDialog({
       current = false;
     };
   }, [open, user]);
+
+  // Both fetched here for the same reason the groups are: the account list
+  // does not carry them, and the question they answer — what else is this
+  // person involved with — is asked while looking at the person.
+  const loadOrganizationLinks = useCallback(async () => {
+    if (!user) return;
+    try {
+      const [account, administered] = await Promise.all([
+        userApi.get(user.id),
+        organizationApi.administeredBy(user.id),
+      ]);
+      setAttachments(account.attachments ?? []);
+      setAdministers(administered);
+    } catch {
+      // Silent, like the groups above: this sits beside the fields being
+      // edited and must not stop somebody fixing a display name.
+      setAttachments([]);
+      setAdministers([]);
+    }
+  }, [user]);
+
+  useEffect(() => {
+    if (!open || !user) {
+      setAttachments(null);
+      setAdministers(null);
+      setAttaching("");
+      return;
+    }
+    void loadOrganizationLinks();
+  }, [open, user, loadOrganizationLinks]);
+
+  // Attaching and detaching take effect immediately rather than on Save.
+  // They are their own endpoints and their own decisions — and a list that
+  // looked edited but was not written until a Save the reader might cancel
+  // is the worse surprise.
+  async function attach() {
+    if (!user || !attaching) return;
+    setError("");
+    try {
+      await organizationApi.attachUser(attaching, user.id);
+      setAttaching("");
+      await loadOrganizationLinks();
+    } catch (err) {
+      setError(describeError(err));
+    }
+  }
+
+  async function detach(organizationId: string) {
+    if (!user) return;
+    setError("");
+    try {
+      await organizationApi.detachUser(organizationId, user.id);
+      await loadOrganizationLinks();
+    } catch (err) {
+      setError(describeError(err));
+    }
+  }
 
   function set(field: keyof typeof form, value: string) {
     setForm((previous) => ({ ...previous, [field]: value }));
@@ -1111,6 +1183,85 @@ function UserFormDialog({
                 ))}
               </div>
             )}
+          </div>
+        )}
+
+        {isEdit && attachments !== null && (
+          <div className="flex flex-col gap-1.5">
+            <div className="text-[length:var(--font-size-sm)] text-[var(--color-fg-muted)]">
+              {t("users.attachedOrganizations")}
+            </div>
+            {attachments.length === 0 ? (
+              <div className="text-[length:var(--font-size-sm)]">
+                {t("users.noAttachments")}
+              </div>
+            ) : (
+              <ul className="flex flex-col gap-1">
+                {attachments.map((org) => (
+                  <li
+                    key={org.id}
+                    className="flex items-center justify-between gap-2"
+                  >
+                    <span className="text-[length:var(--font-size-sm)]">
+                      {org.name}
+                    </span>
+                    <Button
+                      type="button"
+                      size="sm"
+                      variant="ghost"
+                      onClick={() => void detach(org.id)}
+                    >
+                      {t("common.remove")}
+                    </Button>
+                  </li>
+                ))}
+              </ul>
+            )}
+            <div className="flex gap-2">
+              <Select
+                value={attaching}
+                onChange={(e) => setAttaching(e.target.value)}
+              >
+                <option value="">{t("users.chooseOrganization")}</option>
+                {organizations
+                  .filter(
+                    (org) =>
+                      org.id !== form.organizationId &&
+                      !attachments.some((held) => held.id === org.id),
+                  )
+                  .map((org) => (
+                    <option key={org.id} value={org.id}>
+                      {org.name}
+                    </option>
+                  ))}
+              </Select>
+              <Button
+                type="button"
+                variant="secondary"
+                disabled={!attaching}
+                onClick={() => void attach()}
+              >
+                {t("users.attach")}
+              </Button>
+            </div>
+          </div>
+        )}
+
+        {isEdit && administers !== null && administers.length > 0 && (
+          <div className="flex flex-col gap-1.5">
+            <div className="text-[length:var(--font-size-sm)] text-[var(--color-fg-muted)]">
+              {t("users.administersOrganizations")}
+            </div>
+            <div className="flex flex-wrap gap-1">
+              {administers.map((org) => (
+                <Badge key={org.id} tone="neutral">
+                  {org.name} · {t(`organizations.scope.${org.scope}`)}
+                </Badge>
+              ))}
+            </div>
+            <div className="text-[length:var(--font-size-sm)] text-[var(--color-fg-muted)]">
+              {t("users.administersGrantsNothing")}
+            </div>
           </div>
         )}
 

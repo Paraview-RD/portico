@@ -20,6 +20,7 @@ import {
   Th,
 } from "../components/ui";
 import { useErrorMessage, useT } from "../i18n";
+import { OrganizationAdministratorsDialog } from "./OrganizationAdministratorsDialog";
 
 export function OrganizationsPage() {
   const t = useT();
@@ -30,6 +31,7 @@ export function OrganizationsPage() {
   const [error, setError] = useState("");
   const [editing, setEditing] = useState<Organization | null>(null);
   const [creating, setCreating] = useState(false);
+  const [managing, setManaging] = useState<Organization | null>(null);
   const [confirming, setConfirming] = useState<{
     org: Organization;
     enable: boolean;
@@ -164,7 +166,7 @@ export function OrganizationsPage() {
                 <Td>{org.userCount}</Td>
                 <Td>{org.remark || "—"}</Td>
                 <Td>
-                  <Badge tone={org.status === "ACTIVE" ? "success" : "danger"}>
+                  <Badge tone={org.status === "ACTIVE" ? "success" : "neutral"}>
                     {t(`status.${org.status}`)}
                   </Badge>
                 </Td>
@@ -176,6 +178,13 @@ export function OrganizationsPage() {
                       onClick={() => setEditing(org)}
                     >
                       {t("common.edit")}
+                    </Button>
+                    <Button
+                      size="sm"
+                      variant="ghost"
+                      onClick={() => setManaging(org)}
+                    >
+                      {t("organizations.administratorsAction")}
                     </Button>
                     <Button
                       size="sm"
@@ -209,6 +218,12 @@ export function OrganizationsPage() {
           setEditing(null);
           void load();
         }}
+      />
+
+      <OrganizationAdministratorsDialog
+        open={managing !== null}
+        organization={managing}
+        onClose={() => setManaging(null)}
       />
 
       <ConfirmDialog

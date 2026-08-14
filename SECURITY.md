@@ -139,7 +139,12 @@ lengthen that lifetime.
   password persists until the account holder changes it.
 - **Custom roles and permissions.** There are two fixed roles per tenant:
   administrator and user. There is no RBAC to configure, and therefore no
-  way to grant a subset of administrative capability.
+  way to grant a subset of administrative capability. The console does let
+  an administrator *record* who would administer an organization, and at
+  what scope, for the delegated administration on the roadmap — those
+  records grant nothing, no authorization decision reads them, and a test
+  requires that to remain true. If you are auditing this deployment, that
+  table is a plan rather than a permission.
 - **No third-party or social sign-in.** SCIM provisioning does exist, for
   users and groups; see [docs/scim.md](docs/scim.md). A provisioning
   credential can create, rename, and deactivate every account in its tenant

@@ -91,9 +91,10 @@ func (s *WebhookService) recordAttempt(ctx context.Context, q *store.Scoped, del
 
 	if result.Err == nil {
 		return q.MarkWebhookDelivered(ctx, sqlcgen.MarkWebhookDeliveredParams{
-			ID:          delivery.ID,
-			LastStatus:  statusCode(result.StatusCode),
-			DeliveredAt: &now,
+			ID:           delivery.ID,
+			LastStatus:   statusCode(result.StatusCode),
+			LastResponse: result.Body,
+			DeliveredAt:  &now,
 		})
 	}
 
@@ -103,10 +104,11 @@ func (s *WebhookService) recordAttempt(ctx context.Context, q *store.Scoped, del
 	giveUp := !result.Retryable || attempts >= webhook.MaxAttempts
 
 	params := sqlcgen.MarkWebhookAttemptFailedParams{
-		ID:         delivery.ID,
-		LastStatus: statusCode(result.StatusCode),
-		LastError:  truncateError(result.Err.Error()),
-		Status:     string(model.WebhookFailed),
+		ID:           delivery.ID,
+		LastStatus:   statusCode(result.StatusCode),
+		LastError:    truncateError(result.Err.Error()),
+		LastResponse: result.Body,
+		Status:       string(model.WebhookFailed),
 	}
 	if !giveUp {
 		// attempts, not delivery.Attempts: Backoff is indexed by the attempt

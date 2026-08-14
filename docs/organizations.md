@@ -51,6 +51,30 @@ membership — that stays the single thing SCIM writes and an export names. A
 field that quietly became a third role would be a permission model nobody
 designed.
 
+### Administrators, recorded before they can act
+
+An organization can also name **administrators**, each with a scope: this
+organization, or this organization and everything under it.
+
+**Nobody named there can do anything today.** No authorization decision in
+this version reads those records, and a test in the source requires that to
+stay true. What they are for is the delegated administration on the roadmap:
+a chart is entered by people over months, and a feature that arrives to an
+empty table makes every deployment start by re-entering what it already
+knows. So the place to write it exists first.
+
+Two things are asked for at the time of recording because neither can be
+recovered afterwards. **The scope** — a record that did not say whether it
+meant one organization or a whole branch is one nobody can interpret when
+the feature that reads it ships. **Who recorded it** — this becomes a
+privilege grant, and provenance can only be written as it happens.
+
+Changing a scope is a removal followed by a new record, so that both appear
+in the audit trail as the decisions they were. Removing somebody's account
+does not remove their assignments; the list shows the account's status
+instead, because an assignment that vanished on a suspension would come back
+on its own at a reinstatement and nobody would have decided either.
+
 ### When a directory owns the chart
 
 Where accounts synchronize from Active Directory or OpenLDAP, the tree is
