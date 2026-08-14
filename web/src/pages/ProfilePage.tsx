@@ -11,12 +11,14 @@ import {
   Badge,
   Button,
   Card,
+  Code,
   ConfirmDialog,
   Field,
   Input,
   PageHeader,
 } from "../components/ui";
 import { useErrorMessage, useT } from "../i18n";
+import { formatInstant } from "../i18n/format";
 import { useSession } from "../session";
 
 export function ProfilePage() {
@@ -358,9 +360,9 @@ function SessionsCard() {
             >
               <div className="min-w-0">
                 <div className="flex items-center gap-2">
-                  <code className="text-[length:var(--font-size-sm)]">
+                  <Code>
                     {session.ip || t("profile.sessionNoAddress")}
-                  </code>
+                  </Code>
                   {session.current && (
                     <Badge tone="success">{t("profile.sessionCurrent")}</Badge>
                   )}
@@ -371,7 +373,7 @@ function SessionsCard() {
                 <p className="mt-0.5 text-[length:var(--font-size-xs)] text-[var(--color-fg-muted)]">
                   {t(
                     "profile.sessionLastSeen",
-                    new Date(session.lastSeenAt).toLocaleString(),
+                    formatInstant(session.lastSeenAt),
                   )}
                 </p>
               </div>

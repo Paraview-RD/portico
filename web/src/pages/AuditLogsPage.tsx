@@ -5,16 +5,19 @@ import type { AuditLog, LogKind } from "../api/types";
 import {
   Alert,
   Badge,
+  Code,
+  DocsLink,
   EmptyRow,
   GuidePanel,
-  LoadingRow,
   Input,
+  LoadingRow,
   PageHeader,
   Pagination,
   Select,
   Table,
   Td,
   Th,
+  Timestamp,
 } from "../components/ui";
 import { useErrorMessage, useT } from "../i18n";
 
@@ -92,6 +95,7 @@ export function AuditLogsPage() {
       <PageHeader
         title={t("auditLogs.title")}
         subtitle={t("auditLogs.subtitle")}
+        actions={<DocsLink page="settings/" />}
       />
 
       <GuidePanel
@@ -105,6 +109,7 @@ export function AuditLogsPage() {
       <div className="mb-4 flex flex-wrap items-end gap-3">
         <div className="w-64">
           <Input
+            aria-label={t("auditLogs.searchPlaceholder")}
             placeholder={t("auditLogs.searchPlaceholder")}
             value={keyword}
             onChange={(e) => {
@@ -116,6 +121,7 @@ export function AuditLogsPage() {
 
         <div className="w-48">
           <Select
+            aria-label={t("auditLogs.filterKind")}
             value={kind}
             onChange={(e) => {
               setKind(e.target.value as LogKind | "");
@@ -243,13 +249,13 @@ function AuditRow({
     <>
       <tr>
         <Td className="whitespace-nowrap">
-          {new Date(log.createdAt).toLocaleString()}
+          <Timestamp value={log.createdAt} />
         </Td>
         <Td>{t(`auditLogs.kind.${log.kind}`)}</Td>
         <Td>
-          <code className="text-[length:var(--font-size-sm)]">
+          <Code>
             {log.action}
-          </code>
+          </Code>
         </Td>
         <Td>{log.actorName || "—"}</Td>
         <Td>{log.targetName || "—"}</Td>
@@ -298,7 +304,7 @@ function AuditRow({
                     {t("auditLogs.targetType")}
                   </dt>
                   <dd>
-                    <code>{log.targetType}</code>
+                    <Code>{log.targetType}</Code>
                   </dd>
                 </>
               )}
@@ -308,7 +314,7 @@ function AuditRow({
                     {t("auditLogs.targetId")}
                   </dt>
                   <dd className="break-all">
-                    <code>{log.targetId}</code>
+                    <Code>{log.targetId}</Code>
                   </dd>
                 </>
               )}
@@ -318,7 +324,7 @@ function AuditRow({
                     {t("auditLogs.actorId")}
                   </dt>
                   <dd className="break-all">
-                    <code>{log.actorId}</code>
+                    <Code>{log.actorId}</Code>
                   </dd>
                 </>
               )}

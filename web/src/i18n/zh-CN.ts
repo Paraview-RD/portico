@@ -133,6 +133,9 @@ export const zhCN: Record<keyof typeof enUS, string> = {
   "users.filterOrganization": "所属组织",
   "users.filterOrganizationHint": "含其下级",
   "users.filterNoOrganization": "未归属组织",
+  "users.guideTitle": "在这里，一个账号决定了什么",
+  "users.guideBody":
+    "一个人首先在这里存在：他用来登录的账号，以及每个应用都会被告知的那两件事。\n描述和授权是两回事::改一个人的资料不等于改他的权限。角色是独立的字段、独立的审计条目，所以维护一个手机号不会顺带变成升职。\n只停用，不删除::注销的账号保留全部历史，随时可以恢复。这里没有任何操作会把一个人从审计链里抹掉。\n有些账号的主人在别处::由目录推送来的账号会被标记，在这里做的修改会在下一次同步时被覆盖。",
   "users.create": "新建用户",
   "users.profileSection": "更多信息",
   "users.profileHint":
@@ -433,7 +436,6 @@ export const zhCN: Record<keyof typeof enUS, string> = {
   "settings.lockoutDurationHelp":
     "同时也是统计失败次数的时间窗。锁定期间继续尝试不会延长它。",
 
-  "common.done": "完成",
   "common.delete": "删除",
 
   "groups.title": "用户组",
@@ -513,8 +515,6 @@ export const zhCN: Record<keyof typeof enUS, string> = {
   "webhooks.detailResponse": "接收方的响应",
   "webhooks.detailResponseEmpty": "接收方没有返回响应体。",
   "webhooks.detailTruncated": "只保留了前 {0} 字节。",
-  "webhooks.detailNoHeaders":
-    "请求头不会被存储。订阅的自定义请求头是凭据，而「方便排查」不足以成为把它们抄进每一条投递记录的理由。",
   "webhooks.snapshotSummary":
     "已排队 {0} 次分页投递，覆盖：{1}。到「投递记录」里看进度——这里不轮询。",
   "webhooks.snapshotReconcile":

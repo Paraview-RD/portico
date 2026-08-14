@@ -9,8 +9,10 @@ import {
   Alert,
   Badge,
   Button,
+  Code,
   ConfirmDialog,
   CopyField,
+  DocsLink,
   EmptyRow,
   Field,
   GuidePanel,
@@ -18,10 +20,10 @@ import {
   LoadingRow,
   Modal,
   PageHeader,
+  StatusBadge,
   Table,
   Td,
   Th,
-  DocsLink,
 } from "../components/ui";
 import { useErrorMessage, useT } from "../i18n";
 
@@ -204,9 +206,9 @@ export function IdentityProvidersPage() {
             <tr key={provider.id}>
               <Td>{provider.name}</Td>
               <Td>
-                <code className="text-[length:var(--font-size-sm)]">
+                <Code>
                   {provider.issuer}
-                </code>
+                </Code>
               </Td>
               <Td>
                 {/* Called out rather than shown as a tick, because it is the
@@ -221,24 +223,20 @@ export function IdentityProvidersPage() {
                 </Badge>
               </Td>
               <Td>
-                <Badge
-                  tone={provider.status === "ACTIVE" ? "success" : "neutral"}
-                >
-                  {t(`status.${provider.status}`)}
-                </Badge>
+                <StatusBadge status={provider.status} />
               </Td>
               <Td>
                 <div className="flex gap-2">
                   <Button
                     size="sm"
-                    variant="secondary"
+                    variant="ghost"
                     onClick={() => startEdit(provider)}
                   >
                     {t("common.edit")}
                   </Button>
                   <Button
                     size="sm"
-                    variant="secondary"
+                    variant="ghost"
                     onClick={() => void toggle(provider)}
                   >
                     {provider.status === "ACTIVE"
@@ -247,7 +245,7 @@ export function IdentityProvidersPage() {
                   </Button>
                   <Button
                     size="sm"
-                    variant="danger"
+                    variant="ghost-danger"
                     onClick={() => setDeleting(provider)}
                   >
                     {t("common.delete")}

@@ -171,7 +171,7 @@ func (s *Seeder) seedSubscriptions(ctx context.Context, w *world, t *seededTenan
 			// Behind a gateway that wants an Authorization of its own. The
 			// signature says who produced the body; it cannot answer whether
 			// the request may come in at all.
-			name: "审计归档（网关后）", url: "https://203.0.113.20/portico/events",
+			name: "审计归档", url: "https://203.0.113.20/portico/events",
 			events:  []string{"user.disabled", "group.members_changed", "user.locked"},
 			headers: map[string]string{"Authorization": "Bearer gateway-demo-token"},
 		},

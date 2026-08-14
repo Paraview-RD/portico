@@ -9,12 +9,13 @@ import type {
 } from "../api/types";
 import {
   Alert,
-  Badge,
   Button,
+  Code,
   Field,
   Input,
   Modal,
   Select,
+  StatusBadge,
 } from "../components/ui";
 import { useErrorMessage, useT } from "../i18n";
 
@@ -140,7 +141,7 @@ export function OrganizationAdministratorsDialog({
       {/* Not an Alert: nothing has gone wrong and nothing needs doing. It
           is the standing fact about this screen, and the three Alert tones
           all say something else. */}
-      <p className="rounded border border-[var(--color-border)] bg-[var(--color-bg-soft)] px-3 py-2 text-[length:var(--font-size-sm)] text-[var(--color-fg-muted)]">
+      <p className="rounded-[var(--radius-sm)] border border-[var(--color-border)] bg-[var(--color-bg-soft)] px-3 py-2 text-[length:var(--font-size-sm)] text-[var(--color-fg-muted)]">
         {t("organizations.administratorsGrantNothing")}
       </p>
 
@@ -167,15 +168,15 @@ export function OrganizationAdministratorsDialog({
                 <div>
                   <div className="flex items-center gap-2">
                     <span>{admin.displayName}</span>
-                    <code className="text-[length:var(--font-size-sm)] text-[var(--color-fg-muted)]">
+                    <Code>
                       {admin.username}
-                    </code>
+                    </Code>
                     {/* The account's own status, not the assignment's: an
                         assignment is not removed when somebody is suspended,
                         because it would come back on its own when they were
                         reinstated and nobody would have decided either. */}
                     {admin.status !== "ACTIVE" && (
-                      <Badge tone="danger">{t(`status.${admin.status}`)}</Badge>
+                      <StatusBadge status={admin.status} />
                     )}
                   </div>
                   <div className="text-[length:var(--font-size-sm)] text-[var(--color-fg-muted)]">
@@ -217,7 +218,7 @@ export function OrganizationAdministratorsDialog({
         </Field>
 
         {candidates.length > 0 && (
-          <ul className="mt-2 max-h-40 overflow-y-auto rounded border border-[var(--color-border)]">
+          <ul className="mt-2 max-h-40 overflow-y-auto rounded-[var(--radius-sm)] border border-[var(--color-border)]">
             {candidates.map((candidate) => (
               <li key={candidate.id}>
                 <button
@@ -230,9 +231,9 @@ export function OrganizationAdministratorsDialog({
                   onClick={() => setSelected(candidate)}
                 >
                   {candidate.displayName}{" "}
-                  <code className="text-[length:var(--font-size-sm)] text-[var(--color-fg-muted)]">
+                  <Code>
                     {candidate.username}
-                  </code>
+                  </Code>
                 </button>
               </li>
             ))}
