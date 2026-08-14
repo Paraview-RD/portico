@@ -30,8 +30,11 @@ just started rather than the newest one.
 
 [Running it](#running-it) has the from-source recipe, what each variable
 does, and what a backup has to include. Everything below is what the thing
-does and why it does it that way; the manual — [in this repository](docs/),
-and at `/docs` in anything you start — is the reference.
+does and why it does it that way.
+
+If you would rather read before installing anything, the same manual is
+published at
+[paraview-rd.github.io/portico](https://paraview-rd.github.io/portico/).
 
 ## What it does
 
