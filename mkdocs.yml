@@ -120,6 +120,7 @@ plugins:
           build: true
           nav_translations:
             Home: 首页
+            What it does: 能做什么
             Getting in: 访问指南
             Organizations and groups: 组织与用户组
             Reading a directory: 从目录读取
@@ -142,6 +143,7 @@ extra:
 
 nav:
   - Home: index.md
+  - What it does: capabilities.md
   - Getting in: access-guide.md
   - Organizations and groups: organizations.md
   - Reading a directory: ldap.md
