@@ -104,6 +104,8 @@ type ExternalIdentityProvider struct {
 	Status             string
 	CreatedAt          time.Time
 	UpdatedAt          time.Time
+	// OIDC for anything with a discovery document; WECHAT and DINGTALK for the two that have none and need an adapter each.
+	Kind string
 }
 
 // Per-recipient renames, additions, and suppressions. The defaults stay in code — see internal/service/field_catalogue.go.

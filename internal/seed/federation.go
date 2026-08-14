@@ -7,6 +7,7 @@ import (
 	"github.com/google/uuid"
 
 	"github.com/Paraview-RD/portico/internal/model"
+	"github.com/Paraview-RD/portico/internal/service"
 	"github.com/Paraview-RD/portico/internal/store"
 	"github.com/Paraview-RD/portico/internal/store/sqlcgen"
 )
@@ -53,6 +54,7 @@ func (s *Seeder) seedFederation(ctx context.Context, w *world) error {
 		key         string
 		name        string
 		buttonLabel string
+		kind        string
 		issuer      string
 		clientID    string
 		trustEmail  bool
@@ -63,6 +65,7 @@ func (s *Seeder) seedFederation(ctx context.Context, w *world) error {
 			// most people recognise, and because its discovery document is
 			// the one an operator is most likely to have met.
 			key: "google", name: "公司 Google", buttonLabel: "Google",
+			kind:     service.KindOIDC,
 			issuer:   "https://accounts.google.com",
 			clientID: "portico-demo.apps.googleusercontent.com",
 			// Off, like every provider unless somebody decides otherwise.
@@ -78,6 +81,7 @@ func (s *Seeder) seedFederation(ctx context.Context, w *world) error {
 			// the difference between the screens is visible rather than
 			// asserted.
 			key: "entra", name: "合作方 Entra", buttonLabel: "",
+			kind:     service.KindOIDC,
 			issuer:   "https://login.microsoftonline.com/common/v2.0",
 			clientID: "0000-partner-directory-0000",
 			// On, so the console shows both states of the setting that
@@ -94,7 +98,7 @@ func (s *Seeder) seedFederation(ctx context.Context, w *world) error {
 		err := q.CreateExternalIdentityProvider(ctx, sqlcgen.CreateExternalIdentityProviderParams{
 			ID: id, TenantID: t.tenant.ID,
 			Name: p.name, ButtonLabel: p.buttonLabel,
-			Issuer: p.issuer, ClientID: p.clientID,
+			Kind: p.kind, Issuer: p.issuer, ClientID: p.clientID,
 			// Empty: a secret would have to be sealed, and the seed has
 			// nothing true to put there anyway. An empty one is a public
 			// client, which is a state the console has a sentence for.

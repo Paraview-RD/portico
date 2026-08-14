@@ -973,6 +973,18 @@ export const enUS = {
   "identityProviders.trusted": "Trusted",
   "identityProviders.notTrusted": "Not trusted",
   "identityProviders.redirectUri": "Redirect URI to register there",
+  "identityProviders.kind": "Kind",
+  "identityProviders.kindHint":
+    "Fixed once created. Changing it later would leave every linked account pointing at a protocol that did not issue it, so replacing a provider means removing it and adding another.",
+  "identityProviders.kind.OIDC": "OpenID Connect",
+  "identityProviders.kind.WECHAT": "WeChat (Open Platform, QR sign-in)",
+  "identityProviders.kind.DINGTALK": "DingTalk",
+  "identityProviders.clientId.OIDC": "Client ID",
+  "identityProviders.clientId.WECHAT": "AppID",
+  "identityProviders.clientId.DINGTALK": "Client ID (AppKey)",
+  "identityProviders.clientSecret.OIDC": "Client secret",
+  "identityProviders.clientSecret.WECHAT": "AppSecret",
+  "identityProviders.clientSecret.DINGTALK": "Client secret (AppSecret)",
   "identityProviders.name": "Name",
   "identityProviders.buttonLabel": "Button label",
   "identityProviders.buttonLabelHint":

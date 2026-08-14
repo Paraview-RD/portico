@@ -90,9 +90,9 @@ func (q *Queries) CreateExternalIdentity(ctx context.Context, arg CreateExternal
 
 const createExternalIdentityProvider = `-- name: CreateExternalIdentityProvider :exec
 INSERT INTO external_identity_providers (
-    id, tenant_id, name, button_label, issuer, client_id, client_secret,
+    id, tenant_id, name, button_label, kind, issuer, client_id, client_secret,
     scopes, trust_verified_email, status, created_at, updated_at
-) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, 'ACTIVE', $10, $10)
+) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, 'ACTIVE', $11, $11)
 `
 
 type CreateExternalIdentityProviderParams struct {
@@ -100,6 +100,7 @@ type CreateExternalIdentityProviderParams struct {
 	TenantID           string
 	Name               string
 	ButtonLabel        string
+	Kind               string
 	Issuer             string
 	ClientID           string
 	ClientSecret       string
@@ -114,6 +115,7 @@ func (q *Queries) CreateExternalIdentityProvider(ctx context.Context, arg Create
 		arg.TenantID,
 		arg.Name,
 		arg.ButtonLabel,
+		arg.Kind,
 		arg.Issuer,
 		arg.ClientID,
 		arg.ClientSecret,
@@ -205,7 +207,7 @@ func (q *Queries) GetExternalIdentity(ctx context.Context, arg GetExternalIdenti
 }
 
 const getExternalIdentityProvider = `-- name: GetExternalIdentityProvider :one
-SELECT id, tenant_id, name, button_label, issuer, client_id, client_secret, scopes, trust_verified_email, status, created_at, updated_at FROM external_identity_providers WHERE tenant_id = $1 AND id = $2
+SELECT id, tenant_id, name, button_label, issuer, client_id, client_secret, scopes, trust_verified_email, status, created_at, updated_at, kind FROM external_identity_providers WHERE tenant_id = $1 AND id = $2
 `
 
 type GetExternalIdentityProviderParams struct {
@@ -229,12 +231,13 @@ func (q *Queries) GetExternalIdentityProvider(ctx context.Context, arg GetExtern
 		&i.Status,
 		&i.CreatedAt,
 		&i.UpdatedAt,
+		&i.Kind,
 	)
 	return i, err
 }
 
 const listActiveExternalIdentityProviders = `-- name: ListActiveExternalIdentityProviders :many
-SELECT id, tenant_id, name, button_label, issuer, client_id, client_secret, scopes, trust_verified_email, status, created_at, updated_at FROM external_identity_providers
+SELECT id, tenant_id, name, button_label, issuer, client_id, client_secret, scopes, trust_verified_email, status, created_at, updated_at, kind FROM external_identity_providers
 WHERE tenant_id = $1 AND status = 'ACTIVE' ORDER BY name
 `
 
@@ -263,6 +266,7 @@ func (q *Queries) ListActiveExternalIdentityProviders(ctx context.Context, tenan
 			&i.Status,
 			&i.CreatedAt,
 			&i.UpdatedAt,
+			&i.Kind,
 		); err != nil {
 			return nil, err
 		}
@@ -320,7 +324,7 @@ func (q *Queries) ListExternalIdentitiesForUser(ctx context.Context, arg ListExt
 }
 
 const listExternalIdentityProviders = `-- name: ListExternalIdentityProviders :many
-SELECT id, tenant_id, name, button_label, issuer, client_id, client_secret, scopes, trust_verified_email, status, created_at, updated_at FROM external_identity_providers
+SELECT id, tenant_id, name, button_label, issuer, client_id, client_secret, scopes, trust_verified_email, status, created_at, updated_at, kind FROM external_identity_providers
 WHERE tenant_id = $1 ORDER BY name
 `
 
@@ -347,6 +351,7 @@ func (q *Queries) ListExternalIdentityProviders(ctx context.Context, tenantID st
 			&i.Status,
 			&i.CreatedAt,
 			&i.UpdatedAt,
+			&i.Kind,
 		); err != nil {
 			return nil, err
 		}

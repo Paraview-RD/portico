@@ -43,6 +43,7 @@ export const errorsZhCN: Record<keyof typeof errorsEnUS, string> = {
   EXTERNAL_IDP_DISABLED: "这个身份提供方已关闭。",
   EXTERNAL_IDP_ISSUER_TAKEN: "本租户已经有一个使用该 issuer 的提供方了。",
   EXTERNAL_IDP_ISSUER_REQUIRED: "需要填写 issuer 地址。",
+  EXTERNAL_IDP_KIND_UNKNOWN: "这一版还不支持这种身份提供方。",
   EXTERNAL_IDP_CLIENT_ID_REQUIRED: "需要填写 client id。",
   EXTERNAL_IDP_UNREACHABLE:
     "这个 issuer 读不出 OpenID Provider 配置。请检查地址，以及本服务器能否访问到它。",

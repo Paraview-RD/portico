@@ -905,6 +905,18 @@ export const zhCN: Record<keyof typeof enUS, string> = {
   "identityProviders.trusted": "信任",
   "identityProviders.notTrusted": "不信任",
   "identityProviders.redirectUri": "需要在对方那边登记的回调地址",
+  "identityProviders.kind": "类型",
+  "identityProviders.kindHint":
+    "创建后不可更改。事后改它会让所有已关联的账号指向一个并没有签发过它们的协议，所以要换提供方就是删掉再建一个。",
+  "identityProviders.kind.OIDC": "OpenID Connect",
+  "identityProviders.kind.WECHAT": "微信（开放平台 · 扫码登录）",
+  "identityProviders.kind.DINGTALK": "钉钉",
+  "identityProviders.clientId.OIDC": "Client ID",
+  "identityProviders.clientId.WECHAT": "AppID",
+  "identityProviders.clientId.DINGTALK": "Client ID（AppKey）",
+  "identityProviders.clientSecret.OIDC": "Client Secret",
+  "identityProviders.clientSecret.WECHAT": "AppSecret",
+  "identityProviders.clientSecret.DINGTALK": "Client Secret（AppSecret）",
   "identityProviders.name": "名称",
   "identityProviders.buttonLabel": "按钮文字",
   "identityProviders.buttonLabelHint":
