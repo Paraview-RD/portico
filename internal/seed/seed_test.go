@@ -233,3 +233,56 @@ WHERE t.code = $1 AND u.username = 'admin'`, code)
 			"on sight or the tenant boundary is not visible", mainName, secondName)
 	}
 }
+
+// A password passed in reaches every account, and the published one does not.
+//
+// This is the whole of what makes a public demonstration safe to leave up: the
+// address can be shared while the way in cannot. So it is checked at the
+// sign-in boundary rather than by reading the option back — what matters is
+// that the stored hash opens with the chosen password and refuses the one
+// printed in the README, for a directory-sourced account as much as for
+// `admin`, since the seed deliberately gives both the same one.
+func TestAPassedPasswordReplacesThePublishedOneEverywhere(t *testing.T) {
+	st, err := store.Open("postgres", testdb.DSN(t))
+	if err != nil {
+		t.Fatalf("open store: %v", err)
+	}
+	t.Cleanup(func() { _ = st.Close() })
+
+	const chosen = "Not-The-Published-One-9"
+	cfg := &config.Config{
+		DatabaseDriver: "postgres",
+		JWTSecret:      []byte("0123456789abcdef0123456789abcdef"),
+		TokenTTL:       2 * time.Hour,
+		EncryptionKey:  []byte("0123456789abcdef0123456789abcdef"),
+	}
+	if _, err := seed.New(st, cfg).Run(context.Background(), seed.Options{
+		Now:      store.Now(),
+		Password: chosen,
+	}); err != nil {
+		t.Fatalf("seed: %v", err)
+	}
+
+	// `admin` is the name a visitor types first; `arjun.patel` arrives from a
+	// directory and takes the same password by design, so it is the one that
+	// would be missed if the value were threaded through only one path.
+	for _, username := range []string{"admin", "arjun.patel"} {
+		var hash string
+		row := st.ForTenant(seed.TenantMain).DB().QueryRow(`
+SELECT u.password_hash FROM users u JOIN tenants t ON t.id = u.tenant_id
+WHERE t.code = $1 AND u.username = $2`, seed.TenantMain, username)
+		if err := row.Scan(&hash); err != nil {
+			t.Errorf("%s: %v", username, err)
+			continue
+		}
+
+		if !auth.CheckPassword(hash, chosen) {
+			t.Errorf("%s does not open with the password the seed was given", username)
+		}
+		if auth.CheckPassword(hash, seed.DemoPassword) {
+			t.Errorf("%s still opens with the published demo password, so a "+
+				"public deployment is readable by anybody who read the README",
+				username)
+		}
+	}
+}
