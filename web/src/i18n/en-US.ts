@@ -213,7 +213,7 @@ export const enUS = {
   "organizations.subtitle": "A single flat tier of groupings for users.",
   "organizations.guideTitle": "Organizations and groups divide the work",
   "organizations.guideBody":
-    "An organization answers where somebody sits: one each, arranged as a tree.\nGrants nothing::Putting somebody in one gives them no permission. This version has two roles and they are set on the account.\nOften the directory's::Where accounts synchronize from AD or LDAP, hand edits here are overwritten on the next run.\nNot for overlapping sets::Belonging to several at once is what a group is for, not this page.",
+    "An organization answers where somebody sits: exactly one, or none, arranged as a tree.\nGrants nothing::Putting somebody in one gives them no permission. This version has two roles and they are set on the account.\nOften the directory's::Where accounts synchronize from AD or LDAP, hand edits here are overwritten on the next run.\nNot for overlapping sets::Belonging to several at once is what a group is for, not this page.",
   "organizations.create": "New organization",
   "organizations.colName": "Name",
   "organizations.colCode": "Code",

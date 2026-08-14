@@ -21,7 +21,8 @@ because it is the assumption people arrive with.
 
 ## Organizations
 
-One each, arranged as a tree, usually matching the real departments.
+Exactly one, or none, arranged as a tree, usually matching the real
+departments.
 
 The **code** is what downstream systems store and what an import file names,
 so it cannot be changed after creation. The name can.
