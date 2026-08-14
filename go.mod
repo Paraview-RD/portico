@@ -14,7 +14,7 @@ go 1.26.0
 // Keep this at or below the Go in deploy/Dockerfile's build stage. The
 // official golang images set GOTOOLCHAIN=local, so a toolchain line newer
 // than the image does not quietly download one — it fails the build.
-toolchain go1.26.5
+toolchain go1.26.6
 
 require (
 	github.com/crewjam/saml v0.5.1
