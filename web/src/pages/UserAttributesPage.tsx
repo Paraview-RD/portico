@@ -213,9 +213,7 @@ export function UserAttributesPage() {
                   what an application will see — the one string on this row
                   that somebody may have to type somewhere else. */}
               <Td>
-                <Code>
-                  {attribute.key}
-                </Code>
+                <Code>{attribute.key}</Code>
               </Td>
               <Td>{t(`userAttributes.kind.${attribute.kind}`)}</Td>
               {/* A dash rather than the word "no": the column is scanned for

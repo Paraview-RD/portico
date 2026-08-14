@@ -388,9 +388,7 @@ export function WebhooksPage() {
             <tr key={subscription.id}>
               <Td>{subscription.name}</Td>
               <Td>
-                <Code>
-                  {subscription.url}
-                </Code>
+                <Code>{subscription.url}</Code>
               </Td>
               <Td>
                 {subscription.events.includes("*")
@@ -542,9 +540,7 @@ export function WebhooksPage() {
                           second time beside itself says nothing. */}
                       <span>{labelFor(t, "webhooks.event.", event)}</span>
                       {labelFor(t, "webhooks.event.", event) !== event && (
-                        <Code size="xs">
-                          {event}
-                        </Code>
+                        <Code size="xs">{event}</Code>
                       )}
                     </label>
                   ))}
@@ -778,9 +774,7 @@ export function WebhooksPage() {
                   <div>
                     {labelFor(t, "webhooks.event.", delivery.eventType)}
                   </div>
-                  <Code>
-                    {delivery.eventType}
-                  </Code>
+                  <Code>{delivery.eventType}</Code>
                 </Td>
                 <Td>
                   <Badge tone={deliveryTone(delivery.status)}>

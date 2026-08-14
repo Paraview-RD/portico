@@ -43,11 +43,7 @@ function cx(...classes: (string | false | undefined | null)[]): string {
 /* -------------------------------------------------------------- Button */
 
 type ButtonVariant =
-  | "primary"
-  | "secondary"
-  | "ghost"
-  | "ghost-danger"
-  | "danger";
+  "primary" | "secondary" | "ghost" | "ghost-danger" | "danger";
 type ButtonSize = "sm" | "md";
 
 const buttonVariants: Record<ButtonVariant, string> = {

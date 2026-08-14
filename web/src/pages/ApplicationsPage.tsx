@@ -257,9 +257,7 @@ export function ApplicationsPage() {
                       </span>
                     </Td>
                     <Td>
-                      <Code>
-                        {client.clientId}
-                      </Code>
+                      <Code>{client.clientId}</Code>
                     </Td>
                     <Td>
                       <Badge tone={client.confidential ? "neutral" : "warning"}>
@@ -376,9 +374,7 @@ export function ApplicationsPage() {
                       </span>
                     </Td>
                     <Td>
-                      <Code>
-                        {provider.entityId}
-                      </Code>
+                      <Code>{provider.entityId}</Code>
                     </Td>
                     <Td>
                       <UriList values={provider.acsUrls} />
@@ -460,9 +456,7 @@ export function ApplicationsPage() {
                       </span>
                     </Td>
                     <Td>
-                      <Code>
-                        {svc.urlPrefix}
-                      </Code>
+                      <Code>{svc.urlPrefix}</Code>
                     </Td>
                     <Td>
                       <StatusBadge status={svc.status} />
