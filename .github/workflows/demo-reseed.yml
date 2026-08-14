@@ -1,0 +1,136 @@
+# Put the public demonstration back the way it was.
+#
+# The demo signs anybody in as an administrator, so within a day it shows
+# whatever the last visitor left behind — an account they disabled, an
+# application they deleted, a webhook secret they rotated. None of that is
+# abuse; it is what a demonstration is for. It just has to be undone.
+#
+# This drops the schema and seeds a new one rather than passing `-force`.
+# `-force` only skips the "this database already has accounts" refusal: it
+# then creates what is missing and leaves what is there, including every
+# password already set. So it adds to a used demo instead of replacing it,
+# which is the opposite of a reset. cmd/seed applies the migrations itself,
+# so an empty schema is all it needs.
+#
+# Run from Actions rather than from Render: scheduled jobs are a paid feature
+# there, and the runner already has the Go toolchain this needs.
+name: Demo reseed
+
+on:
+  schedule:
+    # 03:17 UTC — the small hours for the audience this demo is aimed at, and
+    # a minute nobody else schedules on.
+    - cron: "17 3 * * *"
+  # The one that matters in practice: somebody has broken the demo and wants
+  # it back before tomorrow.
+  workflow_dispatch:
+
+concurrency:
+  group: demo-reseed
+  cancel-in-progress: false
+
+permissions:
+  contents: read
+
+jobs:
+  reseed:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    # Named so that the secrets below have somewhere to be scoped, and so
+    # that a reviewer can see which deployment a run touched.
+    environment: demo
+    steps:
+      # The gate, before anything is installed or checked out.
+      #
+      # This is scheduled on every fork of this repository and most of them
+      # publish no demo. A run that finds nothing configured should say so and
+      # be green: a nightly red cross for something nobody asked for is how a
+      # repository teaches people to ignore its Actions tab. Secrets cannot be
+      # tested in a job-level `if`, so the gate is a step and everything below
+      # it is conditional on the answer.
+      - id: gate
+        env:
+          DEMO_DATABASE_URL: ${{ secrets.DEMO_DATABASE_URL }}
+          SEED_PASSWORD: ${{ secrets.DEMO_SEED_PASSWORD }}
+        run: |
+          if [ -z "$DEMO_DATABASE_URL" ]; then
+            echo "DEMO_DATABASE_URL is not set — no demo to reseed."
+            echo "To publish one, see docs/access-guide.md."
+            echo "configured=false" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+          if [ -z "$SEED_PASSWORD" ]; then
+            echo "::error::DEMO_DATABASE_URL is set but DEMO_SEED_PASSWORD is not."
+            echo "::error::Seeding without one would use the published demo"
+            echo "::error::password, which makes a public demo administrable by"
+            echo "::error::anybody who read the README. Refusing."
+            exit 1
+          fi
+          echo "configured=true" >> "$GITHUB_OUTPUT"
+
+      - if: steps.gate.outputs.configured == 'true'
+        uses: actions/checkout@v4
+
+      - if: steps.gate.outputs.configured == 'true'
+        uses: actions/setup-go@v7
+        with:
+          go-version-file: go.mod
+
+      # psql, for the one thing the seed cannot do to itself.
+      - name: Install the Postgres client
+        if: steps.gate.outputs.configured == 'true'
+        run: sudo apt-get update -qq && sudo apt-get install -y --no-install-recommends postgresql-client
+
+      # DEMO_DATABASE_URL is Render's *external* connection string, which
+      # requires TLS — keep the ?sslmode=require it comes with.
+      #
+      # DEMO_SEED_PASSWORD is what every seeded account will sign in with. It
+      # is a secret on purpose: the demo's address is public and its way in is
+      # not, which is the only thing that keeps a public identity platform
+      # from being administered by whoever read the README. Give it to people
+      # deliberately.
+      - name: Empty the schema
+        if: steps.gate.outputs.configured == 'true'
+        env:
+          DEMO_DATABASE_URL: ${{ secrets.DEMO_DATABASE_URL }}
+        run: |
+          # Everything, including the migration history: the seed reapplies
+          # the migrations, and a half-dropped schema is worse than either
+          # state.
+          psql "$DEMO_DATABASE_URL" -v ON_ERROR_STOP=1 \
+            -c 'DROP SCHEMA public CASCADE;' -c 'CREATE SCHEMA public;'
+
+      - name: Seed it
+        if: steps.gate.outputs.configured == 'true'
+        env:
+          PORTICO_DB_DSN: ${{ secrets.DEMO_DATABASE_URL }}
+          # The seed stores a directory bind password and a webhook header
+          # when a key is present, and registers them without the credential
+          # when it is not. Same key as the service, so what the seed writes
+          # is what the service can open.
+          PORTICO_ENCRYPTION_KEY: ${{ secrets.DEMO_ENCRYPTION_KEY }}
+          # Required by config.Load even though seeding issues no sessions.
+          PORTICO_JWT_SECRET: ${{ secrets.DEMO_JWT_SECRET }}
+          # Through the environment rather than interpolated into the command:
+          # an expression expanded into a `run:` block lands in the shell's
+          # argument list, where a process listing can read it.
+          SEED_PASSWORD: ${{ secrets.DEMO_SEED_PASSWORD }}
+        run: |
+          go run ./cmd/seed -quiet -password "$SEED_PASSWORD"
+
+      # The service caches nothing that a reseed invalidates — it reads the
+      # account per request — so there is nothing to restart. Asking it a
+      # question is how we learn the reseed did not leave it broken.
+      - name: Check the demo still answers
+        if: steps.gate.outputs.configured == 'true'
+        env:
+          DEMO_URL: ${{ vars.DEMO_URL }}
+        run: |
+          if [ -z "$DEMO_URL" ]; then
+            echo "DEMO_URL is not set; skipping the check." >&2
+            exit 0
+          fi
+          code=$(curl -sS -o /dev/null -w '%{http_code}' --max-time 120 \
+            "${DEMO_URL%/}/api/v1/health") || code=000
+          echo "GET ${DEMO_URL%/}/api/v1/health -> $code"
+          [ "$code" = "200" ]

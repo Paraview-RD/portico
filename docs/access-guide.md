@@ -140,6 +140,47 @@ Portico's:
   Portico never sees. On your own hardware that is the reverse proxy's job;
   see [Before you expose this](#before-you-expose-this).
 
+## Publishing a demonstration anybody can open
+
+A Codespace is yours alone — its forwarded ports authenticate against your own
+GitHub session, and it stops when you stop using it. For an address that can
+be handed to somebody else, `render.yaml` in the repository root is a Render
+Blueprint: one web service built from `deploy/Dockerfile`, one Postgres.
+
+Read the free-tier consequences in
+[integrations.md](integrations.md#render--the-public-demo-free-tier) before
+starting — the service sleeps, and the database is deleted after ninety days.
+
+1. **Apply the Blueprint.** Render → New → Blueprint, pointed at the fork you
+   want to publish. Change `region` first if Singapore is not the nearest one:
+   a service cannot be moved afterwards.
+2. **Fill the two values it cannot know.** `PORTICO_ENCRYPTION_KEY` — 32 bytes
+   as hex, from `openssl rand -hex 32`. And `PORTICO_PUBLIC_URL`, which does
+   not exist until the first deploy has given the service its address, so set
+   it afterwards and redeploy. It is not cosmetic: OpenID Connect redirects
+   and SAML metadata are built from it, so a wrong value gives a console that
+   works perfectly and every federation flow sending the browser somewhere
+   unreachable.
+3. **Decide the way in, and keep it.** The address is public; the password
+   should not be. Generate one, and never use the published demo password —
+   on a public address it makes the first visitor who read the README an
+   administrator. Put it in the repository's Actions secrets as
+   `DEMO_SEED_PASSWORD`, along with `DEMO_DATABASE_URL` (Render's *external*
+   connection string), `DEMO_ENCRYPTION_KEY` and `DEMO_JWT_SECRET` — the same
+   two values the service is running with. Add `DEMO_URL` as an Actions
+   *variable*.
+4. **Seed it.** Run the `Demo reseed` workflow by hand. It empties the schema
+   and seeds a new one, which is also what it does nightly from then on: a
+   demo that signs everybody in as an administrator becomes a demonstration
+   of whatever the last visitor left behind.
+5. **Sign in** at `https://<your-service>.onrender.com/login` as `admin` with
+   the password from step 3.
+
+The seeded accounts are the ones described above — `admin`, `zhangwei`,
+`liyan` — under whichever password you chose, not the published one. Password
+recovery does not work unless you also configure SMTP; the forgotten-password
+screen says so rather than accepting a request it cannot finish.
+
 ## First run
 
 1. Start the server. `./portico` needs `PORTICO_DB_DSN`; compose needs
