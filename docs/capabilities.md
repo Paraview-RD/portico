@@ -28,7 +28,7 @@ serves several organizations with separate issuers.
 |---|---|
 | **Password** | The identifier may be a **username, an email address, or a phone number** — the server works out which. All three are unique within a tenant, so which one somebody typed never changes who they are. |
 | **Through somebody else's OpenID Provider** | Any provider with a discovery document: Google, Microsoft Entra ID, Okta, Auth0, Keycloak, GitLab, Authentik. Configured per tenant, and it **never creates accounts** — see below. |
-| **WeChat and DingTalk** | **In development.** Neither speaks standard OIDC, so each needs an adapter of its own rather than a configuration entry. |
+| **WeChat and DingTalk** | Supported. Neither speaks OpenID Connect, so each is an adapter in the server rather than a configuration entry — WeChat through the Open Platform's website application, the QR code somebody scans. |
 | **Multi-factor** | **Not implemented.** Planned for V0.3, TOTP only. |
 
 ### An external identity never creates an account
@@ -93,7 +93,7 @@ this manual.
 | | |
 |---|---|
 | **Multi-factor authentication** | Planned for V0.3, TOTP only. Not SMS — NIST has downgraded SMS one-time codes, and this project has no SMS provider to send them with anyway. |
-| **WeChat, DingTalk, and other non-OIDC social logins** | In development. WeChat Work, QQ, Weibo and Feishu are not. |
+| **WeChat Work, QQ, Weibo, Feishu** | Each is a different API again. WeChat and DingTalk are supported; these are not, and adding one is a file rather than a row in a table. |
 | **GitHub sign-in** | GitHub is OAuth 2 without OpenID Connect, so it needs an adapter rather than a configuration entry. |
 | **Fine-grained permissions** | Two fixed roles. No role builder, no per-application assignment, no menu-level control. Group membership grants nothing. |
 | **API keys** | The SCIM credential is a tenant-scoped token for `/scim/v2` and nothing else. There is no general-purpose API key system. |
