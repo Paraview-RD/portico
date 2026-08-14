@@ -29,6 +29,8 @@ internal/
   service/         business rules
   oidcp/           the OpenID Provider adapter
   oidcrp/          the relying party: spending another provider's tokens
+  socialrp/        the relying party for providers with no discovery
+                   document — WeChat and DingTalk, written out by hand
   samlp/           the SAML identity provider adapter
   casp/            the CAS protocol
   scim/            the SCIM 2.0 endpoints a directory provisions through

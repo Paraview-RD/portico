@@ -336,6 +336,7 @@ internal/
   casp/            the CAS protocol, implemented directly
   oidcp/           adapts Portico to the OpenID Provider interface
   oidcrp/          the other direction: signing in through somebody else's
+  socialrp/        the two that have no discovery document, one file each
   samlp/           adapts Portico to the SAML identity provider role
   scim/            the SCIM 2.0 endpoints a directory provisions through
   directory/       the other direction: reading accounts out of LDAP

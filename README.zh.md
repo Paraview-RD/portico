@@ -286,6 +286,7 @@ internal/
   casp/            CAS 协议，直接实现
   oidcp/           把 Portico 适配到 OpenID Provider 接口
   oidcrp/          反过来的方向：经由别人的 OpenID Provider 登录
+  socialrp/        没有 discovery 文档的那两家，一家一个文件
   samlp/           把 Portico 适配到 SAML 身份提供方的角色
   scim/            目录用来供给的那些 SCIM 2.0 接口
   directory/       另一个方向：从 LDAP 里读账号
