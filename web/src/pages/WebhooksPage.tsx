@@ -155,6 +155,11 @@ export function WebhooksPage() {
   // the list: a full sync page's payload is five hundred objects.
   const [expanded, setExpanded] = useState<string>("");
   const [detail, setDetail] = useState<WebhookDeliveryDetail | null>(null);
+  // Ticked in the create form, acted on after the secret has been read.
+  // Not a second way to queue a snapshot: it routes into the same
+  // confirmation the list-page button uses, so the counts and the warnings
+  // are the same ones, arrived at from a different door.
+  const [snapshotOnCreate, setSnapshotOnCreate] = useState(false);
   const [snapshotPreview, setSnapshotPreview] =
     useState<WebhookSnapshot | null>(null);
   // What this subscriber receives, and under what name. Its own dialog rather
@@ -295,6 +300,21 @@ export function WebhooksPage() {
       // Silent: the preview is context for a decision, and failing to count
       // must not stop somebody making it. The dialog simply says less.
       setSnapshotPreview(null);
+    }
+  }
+
+  // Closing the dialog that showed the signing secret, and asking the
+  // snapshot question if the create form asked for it.
+  //
+  // In that order, and not both at once. The secret appears exactly once and
+  // is never served again; stacking a second dialog over it is how somebody
+  // closes both and finds they never copied it.
+  function closeCreated() {
+    const subscription = created;
+    setCreated(null);
+    if (subscription && snapshotOnCreate) {
+      setSnapshotOnCreate(false);
+      void askForSnapshot(subscription);
     }
   }
 
@@ -609,6 +629,40 @@ export function WebhooksPage() {
               </Button>
             </div>
           </fieldset>
+
+          {/* Last, and unticked.
+
+              A subscription created today has missed every change before
+              it, and this is where somebody realises that — so the question
+              belongs here rather than only on a button they have to know to
+              look for afterwards.
+
+              Unticked because ticking it queues the largest delivery this
+              product makes, and a default that did so would make "create a
+              subscription" mean something different from what it says.
+
+              It does not queue anything on its own either. What it does is
+              ask, after the signing secret has been read, through the same
+              confirmation the list-page button uses — with the real counts
+              in it. So this is a shortcut to a decision, not a way around
+              one. */}
+          <label className="flex items-start gap-2 text-[length:var(--font-size-sm)]">
+            <input
+              type="checkbox"
+              className="mt-1"
+              checked={snapshotOnCreate}
+              onChange={(e) => setSnapshotOnCreate(e.target.checked)}
+            />
+            <span>
+              <span className="font-[weight:var(--font-weight-medium)]">
+                {t("webhooks.snapshotOnCreate")}
+              </span>
+              <br />
+              <span className="text-[var(--color-fg-muted)]">
+                {t("webhooks.snapshotOnCreateHint")}
+              </span>
+            </span>
+          </label>
         </form>
       </Modal>
 
@@ -674,10 +728,8 @@ export function WebhooksPage() {
       <Modal
         open={created !== null}
         title={t("webhooks.created")}
-        onClose={() => setCreated(null)}
-        footer={
-          <Button onClick={() => setCreated(null)}>{t("common.close")}</Button>
-        }
+        onClose={closeCreated}
+        footer={<Button onClick={closeCreated}>{t("common.close")}</Button>}
       >
         <div className="flex flex-col gap-4">
           <Alert tone="warning">{t("webhooks.secretWarning")}</Alert>

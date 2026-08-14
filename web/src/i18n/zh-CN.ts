@@ -487,6 +487,9 @@ export const zhCN: Record<keyof typeof enUS, string> = {
   //
   // 接口路径仍是 /snapshot、事件名仍是 sync.*：两者都是已发布的契约，为了让
   // 名字整齐而改掉它们，等于用破坏每一个集成来换一次改名。
+  "webhooks.snapshotOnCreate": "同时把已经存在的数据全量发一遍",
+  "webhooks.snapshotOnCreateHint":
+    "事件描述的是变化，所以这个订阅听不到它创建之前发生过的任何事。勾上之后，会在你抄完签名密钥之后再问一次：要不要把它订阅范围内的全部账号、组织和用户组排进投递队列。这件事以后也可以在这个列表里做。",
   "webhooks.snapshot": "全量同步",
   "webhooks.snapshotTitle": "把已经存在的数据全部发过去",
   "webhooks.snapshotConfirm":

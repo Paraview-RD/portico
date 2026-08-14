@@ -519,6 +519,9 @@ export const enUS = {
   // The endpoint stays /snapshot and the events stay sync.*: both are
   // published contract, and renaming them to match a label would break
   // every integration for the sake of tidiness.
+  "webhooks.snapshotOnCreate": "Also send everything that already exists",
+  "webhooks.snapshotOnCreateHint":
+    "Events describe changes, so this subscription will not hear about anything that happened before it. Ticking this asks — once you have copied the signing secret — whether to queue a copy of every account, organization and group it subscribes to. You can do the same later from this list.",
   "webhooks.snapshot": "Full sync",
   "webhooks.snapshotTitle": "Send everything that already exists",
   "webhooks.snapshotConfirm":
