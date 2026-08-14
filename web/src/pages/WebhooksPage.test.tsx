@@ -22,17 +22,22 @@ import { renderWithLanguage } from "../test/render";
 const list = vi.fn();
 const events = vi.fn();
 const snapshot = vi.fn();
+const create = vi.fn();
+const snapshotPreview = vi.fn();
 
 vi.mock("../api/endpoints", () => ({
   webhooksApi: {
     list: () => list(),
     events: () => events(),
-    create: vi.fn(),
+    create: (input: unknown) => create(input),
     remove: vi.fn(),
     enable: vi.fn(),
     disable: vi.fn(),
     deliveries: vi.fn(),
     snapshot: (id: string) => snapshot(id),
+    snapshotPreview: (id: string) => snapshotPreview(id),
+    rotateSecret: vi.fn(),
+    delivery: vi.fn(),
   },
 }));
 
@@ -148,5 +153,86 @@ describe("sending a full sync", () => {
     // Said again on the screen that reports it went, because this is the
     // moment somebody is about to tell their counterpart what to expect.
     expect(screen.getByText(/按 id 对账/)).toBeTruthy();
+  });
+});
+
+/**
+ * Creating a subscription and asking for a snapshot in the same breath.
+ *
+ * The order is the property. A snapshot is the largest delivery this product
+ * makes, and the signing secret is shown exactly once and never served
+ * again — so the tick must not queue anything on its own, and must not put
+ * a second dialog over the one carrying the secret.
+ */
+describe("asking for a snapshot from the create form", () => {
+  async function createWith(tick: boolean) {
+    create.mockResolvedValue({
+      id: "sub-1",
+      name: "Downstream",
+      url: "https://example.com/hook",
+      events: ["user.created"],
+      status: "ACTIVE",
+      secret: "whsec_once",
+    });
+    snapshotPreview.mockResolvedValue({
+      counts: { user: 12 },
+      pages: 1,
+    });
+
+    renderWithLanguage(<WebhooksPage />);
+    await userEvent.click(
+      await screen.findByRole("button", { name: /New subscription/i }),
+    );
+    await userEvent.type(
+      screen.getByRole("textbox", { name: /Name/i }),
+      "Downstream",
+    );
+    await userEvent.type(
+      screen.getByRole("textbox", { name: /URL/i }),
+      "https://example.com/hook",
+    );
+    if (tick) {
+      await userEvent.click(
+        screen.getByRole("checkbox", { name: /already exists/i }),
+      );
+    }
+    await userEvent.click(screen.getByRole("button", { name: /^Create$/ }));
+  }
+
+  /** The footer button, not the dialog's corner X — both are named Close. */
+  function closeButton() {
+    const all = screen.getAllByRole("button", { name: /^Close$/ });
+    return all[all.length - 1];
+  }
+
+  it("queues nothing until the secret has been read and the question answered", async () => {
+    await createWith(true);
+
+    // The secret dialog is up. Nothing has been queued, and nothing else is
+    // covering it.
+    expect(await screen.findByText(/whsec_once/)).toBeTruthy();
+    expect(snapshot).not.toHaveBeenCalled();
+    expect(snapshotPreview).not.toHaveBeenCalled();
+
+    // Closing it asks the question — through the same confirmation the list
+    // uses, which is why the count is fetched.
+    await userEvent.click(closeButton());
+    await vi.waitFor(() =>
+      expect(snapshotPreview).toHaveBeenCalledWith("sub-1"),
+    );
+    expect(snapshot).not.toHaveBeenCalled();
+
+    await userEvent.click(screen.getByRole("button", { name: /^Confirm$/ }));
+    await vi.waitFor(() => expect(snapshot).toHaveBeenCalledWith("sub-1"));
+  });
+
+  it("asks nothing when the box was left alone", async () => {
+    await createWith(false);
+
+    expect(await screen.findByText(/whsec_once/)).toBeTruthy();
+    await userEvent.click(closeButton());
+
+    expect(snapshotPreview).not.toHaveBeenCalled();
+    expect(snapshot).not.toHaveBeenCalled();
   });
 });

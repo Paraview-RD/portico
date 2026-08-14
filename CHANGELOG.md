@@ -12,6 +12,16 @@ Working toward 0.2.0. See
 
 ### Added
 
+- **The create-subscription form can ask for a snapshot**, which is where
+  somebody realises they need one: a subscription created today has missed
+  every change before it, and until now the only way to fill that gap was a
+  button on the list they had to know to look for afterwards.
+- **Unticked, and it queues nothing by itself.** What it does is ask —
+  after the signing secret has been read, because that appears once and
+  never again — through the same confirmation the list-page button uses,
+  with the real counts in it. So it is a shortcut to a decision rather than
+  a way around one, and "create a subscription" still means only that.
+
 - **A page on running this in production**, in English and 简体中文, and
   Kubernetes manifests under `deploy/k8s/` to go with it. The manual had
   thirty pages about what Portico does and none about operating it: which
