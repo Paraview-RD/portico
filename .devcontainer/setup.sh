@@ -16,26 +16,43 @@ cd "$(dirname "$0")/.."
 
 say() { printf '\n\033[1m▸ %s\033[0m\n' "$1"; }
 
-say "Go modules"
+# Each step says roughly how long it takes, because two of them produce no
+# output at all while they run and this terminal is the only thing a reader
+# has to go on. `go build` and the seed are both several silent minutes, which
+# is indistinguishable from a hang — and the environment was already being
+# abandoned as broken at about that point.
+cat <<'EOF'
+
+  Building Portico. This takes 10-20 minutes on a fresh Codespace, most of
+  it before this script even starts: GitHub installs Go, Node and Python
+  first. Two of the steps below print nothing for minutes at a time. That is
+  normal.
+
+  The Portico port does not exist yet and will not open until the last step
+  says Ready. A tab opens by itself at that point.
+
+EOF
+
+say "Go modules (~1 min)"
 go mod download
 
 # Both of these are compiled into the binary. A build without them produces a
 # server that answers the API and serves neither a console nor a manual, which
 # is a confusing thing to hand somebody who came to look at the console.
-say "Console"
+say "Console (~2 min)"
 npm ci --prefix web
 npm run build --prefix web
 
-say "Manual"
+say "Manual (~1 min)"
 pip install --quiet --disable-pip-version-check -r hack/docs-requirements.txt
 ./hack/build-docs.sh
 
-say "Server"
+say "Server — silent, ~3 min"
 CGO_ENABLED=0 go build -o portico ./cmd/server
 
 # Migrations and data, in one step, from a binary that is deliberately not
 # part of the release image — see cmd/seed for why.
-say "Accounts, organizations, applications and history"
+say "Accounts, organizations, applications and history — silent, ~2 min"
 go run ./cmd/seed
 
 say "Ready"
