@@ -11,14 +11,17 @@ import type {
 } from "../api/types";
 import { FieldMappingEditor } from "../components/FieldMappingEditor";
 import { useErrorMessage, useT } from "../i18n";
+import { formatInstant } from "../i18n/format";
 import type { Translate } from "../i18n";
 import type { TranslationKey } from "../i18n/en-US";
 import {
   Alert,
   Badge,
   Button,
+  Code,
   ConfirmDialog,
   CopyField,
+  DocsLink,
   EmptyRow,
   Field,
   GuidePanel,
@@ -26,10 +29,11 @@ import {
   LoadingRow,
   Modal,
   PageHeader,
+  StatusBadge,
   Table,
   Td,
   Th,
-  DocsLink,
+  Timestamp,
 } from "../components/ui";
 
 /**
@@ -384,9 +388,9 @@ export function WebhooksPage() {
             <tr key={subscription.id}>
               <Td>{subscription.name}</Td>
               <Td>
-                <code className="text-[length:var(--font-size-sm)]">
+                <Code>
                   {subscription.url}
-                </code>
+                </Code>
               </Td>
               <Td>
                 {subscription.events.includes("*")
@@ -396,33 +400,27 @@ export function WebhooksPage() {
                       .join(", ")}
               </Td>
               <Td>
-                <Badge
-                  tone={
-                    subscription.status === "ACTIVE" ? "success" : "neutral"
-                  }
-                >
-                  {t(`status.${subscription.status}`)}
-                </Badge>
+                <StatusBadge status={subscription.status} />
               </Td>
               <Td>
                 <div className="flex gap-2">
                   <Button
                     size="sm"
-                    variant="secondary"
+                    variant="ghost"
                     onClick={() => void inspect(subscription)}
                   >
                     {t("webhooks.deliveries")}
                   </Button>
                   <Button
                     size="sm"
-                    variant="secondary"
+                    variant="ghost"
                     onClick={() => setMapping(subscription)}
                   >
                     {t("fieldMappings.open")}
                   </Button>
                   <Button
                     size="sm"
-                    variant="secondary"
+                    variant="ghost"
                     onClick={() => void toggle(subscription)}
                   >
                     {subscription.status === "ACTIVE"
@@ -431,21 +429,21 @@ export function WebhooksPage() {
                   </Button>
                   <Button
                     size="sm"
-                    variant="secondary"
+                    variant="ghost"
                     onClick={() => void askForSnapshot(subscription)}
                   >
                     {t("webhooks.snapshot")}
                   </Button>
                   <Button
                     size="sm"
-                    variant="secondary"
+                    variant="ghost"
                     onClick={() => setRotating(subscription)}
                   >
                     {t("webhooks.rotate")}
                   </Button>
                   <Button
                     size="sm"
-                    variant="danger"
+                    variant="ghost-danger"
                     onClick={() => setDeleting(subscription)}
                   >
                     {t("common.delete")}
@@ -544,9 +542,9 @@ export function WebhooksPage() {
                           second time beside itself says nothing. */}
                       <span>{labelFor(t, "webhooks.event.", event)}</span>
                       {labelFor(t, "webhooks.event.", event) !== event && (
-                        <code className="text-[length:var(--font-size-xs)] text-[var(--color-fg-subtle)]">
+                        <Code size="xs">
                           {event}
-                        </code>
+                        </Code>
                       )}
                     </label>
                   ))}
@@ -564,6 +562,7 @@ export function WebhooksPage() {
             {headerRows.map((row, index) => (
               <div key={index} className="flex gap-2">
                 <Input
+                  aria-label={t("webhooks.headerName")}
                   placeholder={t("webhooks.headerName")}
                   value={row.name}
                   onChange={(e) =>
@@ -578,6 +577,7 @@ export function WebhooksPage() {
                     screen behind whoever is doing the configuring. */}
                 <Input
                   type="password"
+                  aria-label={t("webhooks.headerValue")}
                   placeholder={t("webhooks.headerValue")}
                   value={row.value}
                   onChange={(e) =>
@@ -651,7 +651,7 @@ export function WebhooksPage() {
         onClose={() => setSnapshotResult(null)}
         footer={
           <Button onClick={() => setSnapshotResult(null)}>
-            {t("common.done")}
+            {t("common.close")}
           </Button>
         }
       >
@@ -680,7 +680,7 @@ export function WebhooksPage() {
         title={t("webhooks.created")}
         onClose={() => setCreated(null)}
         footer={
-          <Button onClick={() => setCreated(null)}>{t("common.done")}</Button>
+          <Button onClick={() => setCreated(null)}>{t("common.close")}</Button>
         }
       >
         <div className="flex flex-col gap-4">
@@ -693,7 +693,7 @@ export function WebhooksPage() {
             <Alert tone="warning">
               {t(
                 "webhooks.rotateOverlap",
-                new Date(created.previousSecretExpiresAt).toLocaleString(),
+                formatInstant(created.previousSecretExpiresAt),
               )}
             </Alert>
           )}
@@ -754,7 +754,7 @@ export function WebhooksPage() {
               <tr key={delivery.id}>
                 <Td>
                   <div className="whitespace-nowrap">
-                    {new Date(delivery.createdAt).toLocaleString()}
+                    <Timestamp value={delivery.createdAt} />
                   </div>
                   {/* When it actually landed, and only when that is a
                       different fact from when it was queued: a delivery
@@ -765,7 +765,7 @@ export function WebhooksPage() {
                     <div className="whitespace-nowrap text-[length:var(--font-size-sm)] text-[var(--color-fg-muted)]">
                       {t(
                         "webhooks.deliveredAt",
-                        new Date(delivery.deliveredAt).toLocaleString(),
+                        formatInstant(delivery.deliveredAt),
                       )}
                     </div>
                   )}
@@ -778,9 +778,9 @@ export function WebhooksPage() {
                   <div>
                     {labelFor(t, "webhooks.event.", delivery.eventType)}
                   </div>
-                  <code className="text-[length:var(--font-size-sm)] text-[var(--color-fg-muted)]">
+                  <Code>
                     {delivery.eventType}
-                  </code>
+                  </Code>
                 </Td>
                 <Td>
                   <Badge tone={deliveryTone(delivery.status)}>
@@ -826,7 +826,7 @@ export function WebhooksPage() {
             column alignment for everything under it; this keeps the table a
             table and puts the bodies where there is room for them. */}
         {expanded !== "" && (
-          <div className="mt-4 rounded border border-[var(--color-border)] p-3">
+          <div className="mt-4 rounded-[var(--radius-sm)] border border-[var(--color-border)] p-3">
             {detail === null ? (
               <p className="text-[var(--color-fg-muted)]">
                 {t("common.loading")}
@@ -837,7 +837,7 @@ export function WebhooksPage() {
                   <div className="mb-1 text-[length:var(--font-size-sm)] text-[var(--color-fg-muted)]">
                     {t("webhooks.detailRequest")}
                   </div>
-                  <pre className="max-h-60 overflow-auto rounded bg-[var(--color-bg-soft)] p-2 text-[length:var(--font-size-sm)]">
+                  <pre className="max-h-60 overflow-auto rounded-[var(--radius-sm)] bg-[var(--color-bg-soft)] p-2 text-[length:var(--font-size-sm)]">
                     {detail.payload}
                   </pre>
                 </div>
@@ -851,7 +851,7 @@ export function WebhooksPage() {
                     </p>
                   ) : (
                     <>
-                      <pre className="max-h-60 overflow-auto rounded bg-[var(--color-bg-soft)] p-2 text-[length:var(--font-size-sm)]">
+                      <pre className="max-h-60 overflow-auto rounded-[var(--radius-sm)] bg-[var(--color-bg-soft)] p-2 text-[length:var(--font-size-sm)]">
                         {detail.response}
                       </pre>
                       {detail.response.length >= detail.responseCap && (
@@ -865,12 +865,6 @@ export function WebhooksPage() {
                     </>
                   )}
                 </div>
-                {/* Said rather than left as an absence: somebody looking for
-                    the headers should learn that they are not kept, and
-                    why, instead of concluding the screen is incomplete. */}
-                <p className="text-[length:var(--font-size-sm)] text-[var(--color-fg-muted)]">
-                  {t("webhooks.detailNoHeaders")}
-                </p>
               </div>
             )}
           </div>

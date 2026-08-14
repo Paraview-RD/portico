@@ -24,20 +24,24 @@ import {
   Badge,
   Button,
   ConfirmDialog,
+  DocsLink,
   EmptyRow,
-  LoadingRow,
   Field,
+  GuidePanel,
   Input,
+  LoadingRow,
   Modal,
   PageHeader,
   Pagination,
   Select,
+  StatusBadge,
   Table,
   Td,
   Th,
 } from "../components/ui";
 import { UserAttributeValues } from "../components/UserAttributeValues";
 import { useErrorMessage, useT } from "../i18n";
+import { formatInstant } from "../i18n/format";
 import { ImportDialog } from "./ImportDialog";
 // Borrowed rather than reimplemented. Two functions turning a flat list into
 // a chart would drift, and the subtle half — a row whose parent is not in the
@@ -263,6 +267,7 @@ export function UsersPage() {
         subtitle={t("users.subtitle")}
         actions={
           <>
+            <DocsLink page="access-guide/" />
             {/* Exports what is on screen, not everything: the same filters
                 the list is using. "Export what I am looking at" is what
                 somebody means, and a button that quietly ignored the filters
@@ -295,6 +300,14 @@ export function UsersPage() {
         }
       />
 
+      <GuidePanel
+        id="users"
+        docsPage="access-guide/"
+        title={t("users.guideTitle")}
+      >
+        {t("users.guideBody")}
+      </GuidePanel>
+
       {/* Two columns inside the page's own column, rather than a second
           sidebar beside the navigation. The chart is a filter for this
           screen, not a place of its own — and every screen is laid out in
@@ -317,6 +330,7 @@ export function UsersPage() {
           <div className="mb-4 flex flex-wrap items-end gap-3">
             <div className="w-64">
               <Input
+                aria-label={t("users.searchPlaceholder")}
                 placeholder={t("users.searchPlaceholder")}
                 value={keyword}
                 onChange={(e) => {
@@ -327,6 +341,7 @@ export function UsersPage() {
             </div>
             <div className="w-44">
               <Select
+                aria-label={t("users.filterRole")}
                 value={roleFilter}
                 onChange={(e) => {
                   setRoleFilter(e.target.value as Role | "");
@@ -342,6 +357,7 @@ export function UsersPage() {
             </div>
             <div className="w-44">
               <Select
+                aria-label={t("users.filterStatus")}
                 value={statusFilter}
                 onChange={(e) => {
                   setStatusFilter(e.target.value as Status | "");
@@ -395,6 +411,7 @@ export function UsersPage() {
               </Button>
               <div className="w-56">
                 <Select
+                  aria-label={t("users.bulkMoveTo")}
                   value=""
                   onChange={(e) => {
                     const organizationId = e.target.value;
@@ -533,13 +550,7 @@ export function UsersPage() {
                     </Td>
                     <Td>
                       <div className="flex flex-wrap items-center gap-1">
-                        <Badge
-                          tone={
-                            user.status === "ACTIVE" ? "success" : "neutral"
-                          }
-                        >
-                          {t(`status.${user.status}`)}
-                        </Badge>
+                        <StatusBadge status={user.status} />
                         {/* Shown next to the status rather than instead of it:
                         locked and disabled are different situations with
                         different remedies, and an account can be both. */}
@@ -547,14 +558,14 @@ export function UsersPage() {
                           <Badge tone="warning">
                             {t(
                               "users.lockedUntil",
-                              new Date(user.lockedUntil).toLocaleString(),
+                              formatInstant(user.lockedUntil),
                             )}
                           </Badge>
                         )}
                       </div>
                     </Td>
                     <Td>
-                      <div className="flex gap-1">
+                      <div className="flex gap-2">
                         <Button
                           size="sm"
                           variant="ghost"
@@ -1219,6 +1230,7 @@ function UserFormDialog({
             )}
             <div className="flex gap-2">
               <Select
+                aria-label={t("users.chooseOrganization")}
                 value={attaching}
                 onChange={(e) => setAttaching(e.target.value)}
               >

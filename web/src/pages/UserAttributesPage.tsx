@@ -7,7 +7,9 @@ import {
   Alert,
   Badge,
   Button,
+  Code,
   ConfirmDialog,
+  DocsLink,
   EmptyRow,
   Field,
   GuidePanel,
@@ -173,7 +175,10 @@ export function UserAttributesPage() {
         title={t("userAttributes.title")}
         subtitle={t("userAttributes.subtitle")}
         actions={
-          <Button onClick={openCreate}>{t("userAttributes.new")}</Button>
+          <>
+            <DocsLink page="field-mappings/" />
+            <Button onClick={openCreate}>{t("userAttributes.new")}</Button>
+          </>
         }
       />
 
@@ -208,9 +213,9 @@ export function UserAttributesPage() {
                   what an application will see — the one string on this row
                   that somebody may have to type somewhere else. */}
               <Td>
-                <code className="text-[length:var(--font-size-sm)]">
+                <Code>
                   {attribute.key}
-                </code>
+                </Code>
               </Td>
               <Td>{t(`userAttributes.kind.${attribute.kind}`)}</Td>
               {/* A dash rather than the word "no": the column is scanned for
@@ -230,14 +235,14 @@ export function UserAttributesPage() {
                 <div className="flex gap-2">
                   <Button
                     size="sm"
-                    variant="secondary"
+                    variant="ghost"
                     onClick={() => openEdit(attribute)}
                   >
                     {t("common.edit")}
                   </Button>
                   <Button
                     size="sm"
-                    variant="secondary"
+                    variant="ghost"
                     onClick={() => void toggle(attribute)}
                   >
                     {attribute.disabled
@@ -246,7 +251,7 @@ export function UserAttributesPage() {
                   </Button>
                   <Button
                     size="sm"
-                    variant="danger"
+                    variant="ghost-danger"
                     onClick={() => setDeleting(attribute)}
                   >
                     {t("common.delete")}

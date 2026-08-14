@@ -8,6 +8,7 @@ import {
   Badge,
   Button,
   ConfirmDialog,
+  DocsLink,
   EmptyRow,
   Field,
   GuidePanel,
@@ -153,7 +154,12 @@ export function GroupsPage() {
       <PageHeader
         title={t("groups.title")}
         subtitle={t("groups.subtitle")}
-        actions={<Button onClick={openCreate}>{t("groups.new")}</Button>}
+        actions={
+          <>
+            <DocsLink page="organizations/" />
+            <Button onClick={openCreate}>{t("groups.new")}</Button>
+          </>
+        }
       />
 
       <GuidePanel
@@ -195,21 +201,21 @@ export function GroupsPage() {
                 <div className="flex gap-2">
                   <Button
                     size="sm"
-                    variant="secondary"
+                    variant="ghost"
                     onClick={() => void openMembers(group)}
                   >
                     {t("groups.members")}
                   </Button>
                   <Button
                     size="sm"
-                    variant="secondary"
+                    variant="ghost"
                     onClick={() => openEdit(group)}
                   >
                     {t("common.edit")}
                   </Button>
                   <Button
                     size="sm"
-                    variant="danger"
+                    variant="ghost-danger"
                     onClick={() => setDeleting(group)}
                   >
                     {t("common.delete")}
