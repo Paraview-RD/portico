@@ -236,7 +236,21 @@ change that came before it, and the delivery history cannot fill the gap:
 finished deliveries are removed after thirty days, and the ones that survive
 say what happened rather than what is.
 
-So a receiver building a mirror asks for a **full sync**:
+So a receiver building a mirror asks for a **full sync**. In the console
+there are two doors to it, and they arrive at the same question:
+
+- **Full sync** on the subscription in the list, at any time.
+- A box on the create form — *also send everything that already exists* —
+  which is where most people realise they need one. It is unticked, and
+  ticking it queues nothing by itself: it asks, once the signing secret has
+  been read, through the same confirmation the button opens.
+
+Either way the confirmation names what will go — how many accounts,
+organizations and groups, and how many pages — before anything is queued.
+That count is the point of asking: "send a copy of everything?" is a
+different decision at fifty accounts and at fifty thousand.
+
+From the API:
 
 ```sh
 curl -X POST -H "Authorization: Bearer $TOKEN" \

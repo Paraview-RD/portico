@@ -90,8 +90,11 @@ http://<host>:8410/login?tenant=acme
 
 ## Credentials
 
-Portico stores its own accounts — there is no external identity provider in
-the MVP.
+Portico stores its own accounts. It can also accept somebody else's word for
+who a person is — an OpenID Provider, WeChat or DingTalk — but never as a way
+to *create* an account. The administrator's journey for that is under
+**Identity providers** below; [federation.md](federation.md) has what it does
+and does not delegate.
 
 | Credential | Where it comes from |
 |---|---|
