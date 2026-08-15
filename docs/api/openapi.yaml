@@ -4765,14 +4765,16 @@ components:
 
     TrialRequest:
       type: object
-      required: [email, companyName, tenantCode]
+      required: [email, tenantCode]
       properties:
         email:
           type: string
           description: Where the link and, later, the password are sent.
         companyName:
           type: string
-          description: Becomes the tenant's display name.
+          description: |
+            Becomes the tenant's display name. Optional: omitted or blank, the
+            tenant is named after its code.
         tenantCode:
           type: string
           description: |
