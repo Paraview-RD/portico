@@ -35,7 +35,7 @@ type trialConfirmRequest struct {
 //
 // Readable without signing in because the screen asking is the signed-out one.
 // It says nothing a visitor could not learn by pressing the button.
-func (h *Handler) TrialStatus(w http.ResponseWriter, r *http.Request) {
+func (h *Handler) TrialStatus(w http.ResponseWriter, _ *http.Request) {
 	httpx.OK(w, map[string]any{
 		"enabled":    h.trials.Enabled(),
 		"industries": []string{service.TrialIndustryGeneric},
@@ -79,7 +79,7 @@ func (h *Handler) ConfirmTrial(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	tenant, err := h.trials.Confirm(r.Context(), req.Token, httpx.ClientIP(r))
+	tenant, err := h.trials.Confirm(r.Context(), req.Token)
 	if err != nil {
 		httpx.Fail(w, r, err)
 		return

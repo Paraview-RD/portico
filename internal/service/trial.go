@@ -35,9 +35,9 @@ import (
 // and to keep one visitor from opening fifty. It is not an assertion that they
 // are who they say they work for.
 
-// The seeded worlds a trial may ask for.
+// TrialIndustryGeneric is the one seeded world a trial may ask for today.
 //
-// Only the generic one has data behind it today. The four industry packs are
+// The four industry packs are the next piece of work. The four industry packs are
 // the next piece of work — manufacturing, banking, hospital, university, each
 // with its own organization shape, custom attributes and application mix — and
 // the column holding this is free text precisely so adding one needs no
@@ -69,24 +69,37 @@ var (
 	ErrTrialSignupClosed = httpx.NotFound("TRIAL_SIGNUP_CLOSED",
 		"This deployment does not offer self-service trials.")
 
+	// ErrTrialQuotaReached is the shared demonstration being full. Said out
+	// loud rather than swallowed: a visitor told to check their email waits
+	// for a link that will never come.
 	ErrTrialQuotaReached = httpx.Conflict("TRIAL_QUOTA_REACHED",
 		"This demonstration is full. Try again later, or run Portico yourself.")
 
+	// ErrTrialCodeTaken is the one failure a visitor can fix, which is why it
+	// is reported before a link is sent rather than after.
 	ErrTrialCodeTaken = httpx.Conflict("TRIAL_CODE_TAKEN",
 		"That tenant code is already in use. Choose another.")
 
+	// ErrTrialEmailUsed is one tenant per address, already spent.
 	ErrTrialEmailUsed = httpx.Conflict("TRIAL_EMAIL_USED",
 		"That address already has a trial tenant.")
 
+	// ErrTrialTooManyFromAddress bounds one client address over a day, which
+	// the per-minute throttle cannot see.
 	ErrTrialTooManyFromAddress = httpx.TooManyRequests("TRIAL_TOO_MANY",
 		"Too many trials requested from this address today.")
 
+	// ErrTrialLinkInvalid is a token that names no request.
 	ErrTrialLinkInvalid = httpx.BadRequest("TRIAL_LINK_INVALID",
 		"That link is not valid. Request a new trial.")
 
+	// ErrTrialLinkExpired is a link that outlived its two hours, and with it
+	// the tenant code it was holding.
 	ErrTrialLinkExpired = httpx.BadRequest("TRIAL_LINK_EXPIRED",
 		"That link has expired. Request a new trial.")
 
+	// ErrTrialLinkSpent is a second click. The credentials from the first are
+	// valid, so this says to use them rather than reporting a broken link.
 	ErrTrialLinkSpent = httpx.Conflict("TRIAL_LINK_SPENT",
 		"That link has already been used. Sign in with the credentials it sent.")
 )
@@ -270,7 +283,11 @@ func (s *TrialService) Request(ctx context.Context, in TrialRequestInput, ip str
 
 // Confirm spends a link, creates the tenant and its administrator, and mails
 // the credentials.
-func (s *TrialService) Confirm(ctx context.Context, token, ip string) (TrialTenant, error) {
+//
+// No client address, unlike Request. There is nothing here to attribute it to:
+// the audit trail is per tenant and this runs before one exists, and the
+// address that mattered — the one that asked — is already on the row.
+func (s *TrialService) Confirm(ctx context.Context, token string) (TrialTenant, error) {
 	if !s.enabled {
 		return TrialTenant{}, ErrTrialSignupClosed
 	}
@@ -373,7 +390,7 @@ func (s *TrialService) sendLink(ctx context.Context, email, company, token strin
 		// with their own abandoned request and report the code as taken. An
 		// unsent link reserves nothing.
 		if _, del := s.store.Queries.DeleteTrialRequestByToken(ctx, hashTrialToken(token)); del != nil {
-			return fmt.Errorf("send trial link (%v) and could not release the reservation: %w", err, del)
+			return fmt.Errorf("send trial link: %w; and could not release the reservation: %w", err, del)
 		}
 		return fmt.Errorf("send trial link: %w", err)
 	}
