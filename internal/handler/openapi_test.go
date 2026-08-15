@@ -36,6 +36,8 @@ const specPath = "../../docs/api/openapi.yaml"
 // unchecked.
 var bodies = map[string]any{
 	"login":                           loginRequest{},
+	"requestTrial":                    trialRequest{},
+	"confirmTrial":                    trialConfirmRequest{},
 	"changeExpiredPassword":           changeExpiredPasswordRequest{},
 	"register":                        registerRequest{},
 	"confirmRegistration":             verifyRequest{},

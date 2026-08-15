@@ -43,6 +43,33 @@ var unscopedQueries = map[string]string{
 		"nothing else; the credential row is what says which tenant it acts in",
 }
 
+// unscopedTables hold a tenant_id that is not what they belong to.
+//
+// The guard decides a table is tenant-scoped by finding "tenant_id" in its
+// CREATE TABLE, which is the right question for every table but these: here
+// the column is an *outcome* rather than an owner, so there is nothing for a
+// query to filter by and filtering would be meaningless.
+//
+// Same discipline as the query allowlist above: the count is asserted, so a
+// second table has to be a decision somebody wrote down rather than a name
+// that slipped in.
+var unscopedTables = map[string]string{
+	"trial_requests": "a request exists before its tenant does; the tenant_id " +
+		"records which tenant confirming it created, and is null until then. " +
+		"Nothing else may read this table, and nothing does — see " +
+		"internal/service/trial.go",
+}
+
+func TestOnlyTheTenantOutcomeTablesAreUnscoped(t *testing.T) {
+	if len(unscopedTables) != 1 {
+		t.Fatalf("the unscoped-table allowlist has %d entries, want 1.\n"+
+			"A table with a tenant_id that is not its owner is unusual enough "+
+			"that adding one should mean explaining, here, what the column is "+
+			"instead — and confirming nothing reads the table across tenants.",
+			len(unscopedTables))
+	}
+}
+
 func TestOnlyTheTenantResolvingQueriesAreUnscoped(t *testing.T) {
 	if len(unscopedQueries) != 2 {
 		t.Fatalf("the unscoped-query allowlist has %d entries, want 2.\n"+
@@ -181,6 +208,9 @@ func scopedTables(t *testing.T) []string {
 	createTable := regexp.MustCompile(`(?is)CREATE TABLE (\w+) \((.*?)\n\);`)
 	var tables []string
 	for _, m := range createTable.FindAllStringSubmatch(schema.String(), -1) {
+		if _, exempt := unscopedTables[m[1]]; exempt {
+			continue
+		}
 		if strings.Contains(m[2], "tenant_id") {
 			tables = append(tables, m[1])
 		}

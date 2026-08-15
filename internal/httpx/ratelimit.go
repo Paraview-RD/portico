@@ -231,3 +231,35 @@ func isAuthPath(path string) bool {
 func isCostly(method string) bool {
 	return method != http.MethodGet && method != http.MethodHead && method != http.MethodOptions
 }
+
+// RateLimitWrites rations the costly methods on whatever it is mounted on,
+// without judging the path.
+//
+// RateLimitAuth above decides for itself, because it is mounted at the root
+// and has to pick out the endpoints worth rationing. This one is for a route
+// group that is entirely worth rationing — the trial signup, where every POST
+// sends mail and one of them creates a tenant — so the group is the filter and
+// repeating it here as a second prefix test would be a second thing to keep in
+// step with the routing.
+//
+// Reads pass. On these groups a GET is the screen asking what to draw.
+func RateLimitWrites(limiter *RateLimiter) func(http.Handler) http.Handler {
+	return func(next http.Handler) http.Handler {
+		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			if limiter == nil || !isCostly(r.Method) {
+				next.ServeHTTP(w, r)
+				return
+			}
+
+			allowed, retryAfter := limiter.Allow(ClientIP(r))
+			if !allowed {
+				w.Header().Set("Retry-After", strconv.Itoa(int(retryAfter.Seconds())))
+				Fail(w, r, TooManyRequests("TOO_MANY_ATTEMPTS",
+					"Too many attempts from this address. Please wait and try again."))
+				return
+			}
+
+			next.ServeHTTP(w, r)
+		})
+	}
+}

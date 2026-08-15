@@ -773,6 +773,51 @@ export const enUS = {
   "verify.subtitle": "Finishing the sign-up you started.",
   "verify.working": "Confirming…",
   "verify.done": "Your address is confirmed. You can sign in now.",
+  // Self-service trials, on a demonstration deployment. The visitor here has
+  // no account anywhere and no support channel, so every message has to be
+  // actionable on its own.
+  "login.noTenant": "No tenant of your own?",
+  "login.tryIt": "Try Portico",
+  "trial.title": "Try Portico",
+  "trial.subtitle":
+    "Get a tenant of your own, with an administrator account, in about a minute.",
+  "trial.email": "Email address",
+  "trial.emailHint":
+    "Where the confirmation link and your password are sent. A typo here is the one mistake that cannot be undone from this page.",
+  "trial.company": "Organization name",
+  "trial.tenantCode": "Tenant code",
+  "trial.tenantCodeHint":
+    "What you and everybody in your tenant will type at sign-in. Lowercase, and it cannot be changed afterwards.",
+  "trial.industry": "Seeded data",
+  "trial.industryHint":
+    "What your tenant starts with. More industries are on the way.",
+  "trial.industry.generic": "A general-purpose organization",
+  "trial.notReal":
+    "This is a demonstration. Do not put anything real in it — the data is not private and may be reset at any time.",
+  "trial.submit": "Send me the link",
+  "trial.submitting": "Sending…",
+  "trial.backToSignIn": "Back to sign-in",
+  "trial.sentTitle": "Check your email",
+  "trial.sentBody":
+    "The link is good for two hours. Nothing has been created yet — clicking it is what makes your tenant.",
+  "trial.sentTo": "Sent to {0}",
+  "trialConfirm.workingTitle": "Setting up your tenant",
+  "trialConfirm.working": "This takes a moment.",
+  "trialConfirm.failedTitle": "That did not work",
+  "trialConfirm.startAgain": "Request a new trial",
+  "trialConfirm.noToken":
+    "This address needs the link from your email; there is no token in it.",
+  "trialConfirm.readyTitle": "Your tenant is ready",
+  "trialConfirm.ready": "{0} is set up, and these are the keys to it.",
+  "trialConfirm.tenant": "Tenant code",
+  "trialConfirm.username": "Username",
+  "trialConfirm.password": "Password",
+  "trialConfirm.onlyTime":
+    "This is the only time the password is shown here. It is also in your email; nothing stores it in readable form.",
+  "trialConfirm.notReal":
+    "A demonstration, not a deployment. Do not put anything real in it.",
+  "trialConfirm.signInHint": "At sign-in, the tenant field takes",
+  "trialConfirm.signIn": "Go to sign-in",
   "verify.noToken":
     "This address is missing its confirmation code. Open the link from the message rather than typing the address by hand.",
   "verify.resendAddress": "Send another confirmation to",

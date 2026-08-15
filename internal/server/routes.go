@@ -53,6 +53,38 @@ func (s *Server) routes() http.Handler {
 		// Lets the sign-in screen decide whether to offer registration.
 		r.Get("/auth/registration-status", h.RegistrationStatus)
 
+		// Whether this deployment hands out tenants. Always registered, and
+		// answering "no" on almost every deployment.
+		//
+		// It was conditional at first, on the reasoning that an installation
+		// which did not ask for this should look like one where it was never
+		// written. That was wrong, and the browser suite is what said so: the
+		// sign-in screen asks this on every load, so a missing route left a
+		// 404 in the console of every ordinary deployment — a permanent piece
+		// of noise for every visitor, which is how a real error later goes
+		// unnoticed. The thing it bought was concealment of a feature whose
+		// source is public, which is worth nothing.
+		r.Get("/trial/status", h.TrialStatus)
+
+		// The two that create something are conditional, because those are
+		// the attack surface: the only writes in this API reachable without
+		// signing in, and the only ones that create a tenant. Off, they are
+		// not routed and answer 404 from the router rather than from a handler
+		// that decided to refuse.
+		//
+		// Their own limiter, because the one installed at the root only
+		// applies to /api/v1/auth/ — and both of these send mail, one of them
+		// creating a tenant. Same budget as sign-in: a person filling in a
+		// form fits comfortably, a script does not.
+		if s.cfg.TrialSignup {
+			r.Group(func(r chi.Router) {
+				r.Use(httpx.RateLimitWrites(httpx.NewRateLimiter(
+					s.cfg.AuthRateLimit, s.cfg.AuthRateLimitBurst)))
+				r.Post("/trial", h.RequestTrial)
+				r.Post("/trial/confirm", h.ConfirmTrial)
+			})
+		}
+
 		// Password recovery (§3.5). All three are public by necessity: the
 		// caller is someone who cannot sign in. None reveals whether an
 		// account exists.

@@ -120,6 +120,13 @@ Configuration is entirely environment variables:
                                    proxy — it is per address and per process
   PORTICO_AUTH_RATE_LIMIT_BURST    how many of that minute's allowance may
                                    arrive at once (default 30)
+  PORTICO_TRIAL_SIGNUP             let strangers create a tenant by proving an
+                                   email address (default false). For a public
+                                   demonstration only: these are the only
+                                   writes here reachable without signing in,
+                                   and needs SMTP configured
+  PORTICO_TRIAL_MAX_TENANTS        how many trial tenants may exist at once
+                                   (default 50)
   PORTICO_PUBLIC_URL               where people reach this deployment. Used for
                                    password-recovery links and as the OpenID
                                    Connect issuer identifier

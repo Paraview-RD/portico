@@ -275,6 +275,24 @@ export const errorsEnUS = {
     "The request was sent in a format this endpoint does not read.",
   TOO_MANY_ATTEMPTS:
     "Too many attempts from this address. Please wait a moment and try again.",
+  // Self-service trials, on a demonstration deployment. Every one of these is
+  // something the visitor can act on, which is why none of them is a bare
+  // refusal: a stranger who cannot get in has no support channel to ask.
+  TRIAL_SIGNUP_CLOSED: "This deployment does not offer self-service trials.",
+  TRIAL_MAIL_UNAVAILABLE:
+    "Trials need email, and this deployment has no relay configured. Tell whoever runs it.",
+  TRIAL_QUOTA_REACHED:
+    "The demonstration is full. Try again later, or run Portico yourself.",
+  TRIAL_CODE_TAKEN: "That tenant code is taken. Choose another.",
+  TRIAL_EMAIL_USED:
+    "That address already has a trial. Sign in with it instead.",
+  TRIAL_TOO_MANY: "Too many trials requested from this address today.",
+  TRIAL_LINK_INVALID: "That link is not valid. Request a new trial.",
+  TRIAL_LINK_EXPIRED: "That link has expired. Request a new trial.",
+  TRIAL_LINK_SPENT:
+    "That link has already been used. Sign in with the credentials it sent you.",
+  COMPANY_REQUIRED: "Enter an organization name.",
+  INVALID_INDUSTRY: "Pick one of the offered industries.",
   INVALID_PATH_PARAMETER: "That address is not valid.",
   ROUTE_NOT_FOUND: "No such endpoint.",
   METHOD_NOT_ALLOWED: "That endpoint does not support this method.",
