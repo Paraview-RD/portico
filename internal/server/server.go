@@ -109,7 +109,7 @@ func New(cfg *config.Config, opts ...Option) (*Server, error) {
 	orgs := service.NewOrganizationService(st, audit)
 	tenants := service.NewTenantService(st)
 
-	mailer, err := notify.NewMailer(cfg.SMTP)
+	mailer, err := notify.NewMailer(cfg.Mail)
 	if err != nil {
 		_ = st.Close()
 		return nil, err

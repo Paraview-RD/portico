@@ -16,6 +16,7 @@ package notify
 import (
 	"context"
 	"errors"
+	"fmt"
 )
 
 // ErrNotConfigured means no provider was configured for this channel.
@@ -38,6 +39,48 @@ type Message struct {
 // Mailer sends email.
 type Mailer interface {
 	Send(ctx context.Context, msg Message) error
+}
+
+// Transport names for MailConfig.
+const (
+	// TransportSMTP relays through a mail server. The default, and the right
+	// answer for anybody who has one.
+	TransportSMTP = "smtp"
+	// TransportResend posts to an HTTP API instead, for the deployments where
+	// SMTP ports are not open at all. See resend.go.
+	TransportResend = "resend"
+)
+
+// MailConfig is which transport carries the mail, and the settings for each.
+//
+// One struct rather than a choice made at the call site: the server asks for
+// a Mailer and is handed one, and how a deployment configured it is a
+// question the server has no business answering twice.
+type MailConfig struct {
+	// Transport is TransportSMTP (or empty, meaning the same) or
+	// TransportResend.
+	Transport string
+	SMTP      SMTPConfig
+	Resend    ResendConfig
+}
+
+// NewMailer builds the Mailer this deployment asked for.
+//
+// An unrecognised transport is an error rather than a fall back to SMTP. A
+// typo that silently selects the default would leave somebody configuring a
+// key that is never read, watching every message fail to connect to a relay
+// they thought they had stopped using.
+func NewMailer(cfg MailConfig) (Mailer, error) {
+	switch cfg.Transport {
+	case TransportSMTP, "":
+		return NewSMTPMailer(cfg.SMTP)
+	case TransportResend:
+		return NewResendMailer(cfg.Resend)
+	default:
+		return nil, fmt.Errorf(
+			"notify: unknown mail transport %q; it must be one of %s, %s",
+			cfg.Transport, TransportSMTP, TransportResend)
+	}
 }
 
 // SMSSender sends a text message.

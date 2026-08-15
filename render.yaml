@@ -92,7 +92,17 @@ services:
       # TRIAL_MAIL_UNAVAILABLE. Turning this on first produces a button that
       # always fails, which is worse than no button.
       #
-      # To switch it on, add these in the dashboard and set this to true:
+      # On a free instance the relay cannot be SMTP. Render blocks outbound
+      # 25, 465 and 587 there, and the symptom is a connection timeout — no
+      # correction to the relay settings fixes it. So add these in the
+      # dashboard and set this to true:
+      #
+      #   PORTICO_MAIL_TRANSPORT   resend
+      #   PORTICO_RESEND_API_KEY   a send-only key from the Resend dashboard
+      #   PORTICO_MAIL_FROM        the sender, on a domain verified there
+      #
+      # On a paid instance SMTP works on 465 and 587 (25 stays blocked), and
+      # these are the keys instead:
       #
       #   PORTICO_SMTP_HOST        the relay
       #   PORTICO_SMTP_PORT        587 for starttls, 465 for implicit tls
@@ -101,9 +111,9 @@ services:
       #   PORTICO_SMTP_FROM        the sender, which most relays insist on
       #   PORTICO_SMTP_ENCRYPTION  starttls | tls | none
       #
-      # A relay that lets anything through is a relay that will be used to
-      # send something else: this one sends to addresses strangers type in.
-      # Pick a provider with a sending quota and watch it.
+      # Whichever it is: something that lets anything through will be used to
+      # send something else, because this sends to addresses strangers type
+      # in. Pick a provider with a sending quota and watch it.
       - key: PORTICO_TRIAL_SIGNUP
         value: "false"
 

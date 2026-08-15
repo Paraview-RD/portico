@@ -46,6 +46,45 @@ link, so a silent downgrade is the whole threat.
 No credential belongs in the repository. `.env.example` lists the variable
 names only.
 
+### Resend — an alternative to SMTP, for hosts that block it
+
+Optional, and off unless asked for. SMTP remains the default and is the right
+answer for anybody with a relay of their own.
+
+It exists because a great many places a small deployment can afford will not
+let a process open an SMTP port at all. Render blocks outbound 25, 465 and 587
+on free instances; port 25 stays blocked on paid ones, as it is on most cloud
+providers. The failure is a connection timeout, so nothing in the relay
+settings is wrong and no amount of correcting them helps. HTTPS is not blocked
+anywhere, which is the whole argument.
+
+Set `PORTICO_MAIL_TRANSPORT=resend` and the same messages go out over
+`https://api.resend.com/emails` instead. Nothing above the mail interface
+changes.
+
+| Setting | Meaning |
+|---|---|
+| `PORTICO_MAIL_TRANSPORT` | `smtp` (default) or `resend`. |
+| `PORTICO_RESEND_API_KEY` | A Resend API key. A send-only key is enough and is what should be used — nothing here reads or lists anything. |
+| `PORTICO_MAIL_FROM` | Sender address, on a domain verified with Resend. |
+
+- **Purpose**: delivering password-recovery, address-confirmation and trial
+  messages from a host that blocks SMTP.
+- **Auth**: a bearer API key, from the Resend dashboard.
+- **Account owner**: whoever runs the deployment. This project holds no Resend
+  account and ships no key; the public demo's key belongs to its operator.
+- **Cost**: free at 3,000 messages a month and 100 a day at the time of
+  writing, which is more than a demonstration sends. Paid above that.
+
+With no verified domain a Resend account may only send *from*
+`onboarding@resend.dev` and *to* the address that owns the account. That is
+enough to walk the flow end to end and not enough to run anything real, so a
+deployment that anybody else uses needs a domain verified first.
+
+Both halves fail at startup rather than at the first message: asking for this
+transport without a key or a sender is a misconfiguration, not a deployment
+that chose to do without email.
+
 ### SMS — optional
 
 Password recovery by phone needs an SMS gateway, and unlike email there is

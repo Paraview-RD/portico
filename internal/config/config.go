@@ -157,10 +157,10 @@ type Config struct {
 	// than dangerous when it is unset.
 	PublicURL string
 
-	// SMTP is the mail relay password-recovery messages go through. An empty
-	// Host means email recovery is not available on this deployment, which
-	// is the default — the binary must run with no environment at all.
-	SMTP notify.SMTPConfig
+	// Mail is how messages leave this deployment: which transport, and the
+	// settings for it. The default is SMTP with no host, which means email is
+	// not available here — the binary must run with no environment at all.
+	Mail notify.MailConfig
 
 	// DefaultLocale is the language of a message sent to somebody whose own
 	// preference and whose tenant's default both say nothing.
@@ -237,7 +237,7 @@ func Load() (*Config, error) {
 	if err != nil {
 		return nil, err
 	}
-	cfg.SMTP = notify.SMTPConfig{
+	cfg.Mail.SMTP = notify.SMTPConfig{
 		Host:       os.Getenv("PORTICO_SMTP_HOST"),
 		Port:       smtpPort,
 		Username:   os.Getenv("PORTICO_SMTP_USERNAME"),
@@ -245,12 +245,39 @@ func Load() (*Config, error) {
 		From:       os.Getenv("PORTICO_SMTP_FROM"),
 		Encryption: envString("PORTICO_SMTP_ENCRYPTION", notify.EncryptionSTARTTLS),
 	}
-	switch cfg.SMTP.Encryption {
+	switch cfg.Mail.SMTP.Encryption {
 	case notify.EncryptionSTARTTLS, notify.EncryptionTLS, notify.EncryptionNone:
 	default:
 		return nil, fmt.Errorf(
 			"PORTICO_SMTP_ENCRYPTION is %q; it must be one of starttls, tls, none",
-			cfg.SMTP.Encryption)
+			cfg.Mail.SMTP.Encryption)
+	}
+
+	// Which of them carries the mail. Validated here, at startup, so a
+	// deployment that asked for a transport it did not finish configuring
+	// finds out while somebody is watching rather than at the first password
+	// reset.
+	cfg.Mail.Transport = envString("PORTICO_MAIL_TRANSPORT", notify.TransportSMTP)
+	switch cfg.Mail.Transport {
+	case notify.TransportSMTP:
+	case notify.TransportResend:
+		cfg.Mail.Resend = notify.ResendConfig{
+			APIKey: os.Getenv("PORTICO_RESEND_API_KEY"),
+			From:   os.Getenv("PORTICO_MAIL_FROM"),
+		}
+		if cfg.Mail.Resend.APIKey == "" {
+			return nil, fmt.Errorf(
+				"PORTICO_MAIL_TRANSPORT is resend and PORTICO_RESEND_API_KEY is empty")
+		}
+		if cfg.Mail.Resend.From == "" {
+			return nil, fmt.Errorf(
+				"PORTICO_MAIL_TRANSPORT is resend and PORTICO_MAIL_FROM is empty; " +
+					"it must be an address on a domain verified with Resend")
+		}
+	default:
+		return nil, fmt.Errorf(
+			"PORTICO_MAIL_TRANSPORT is %q; it must be one of smtp, resend",
+			cfg.Mail.Transport)
 	}
 
 	ttl, err := envDuration("PORTICO_TOKEN_TTL", 2*time.Hour)

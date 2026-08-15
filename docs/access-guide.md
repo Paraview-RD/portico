@@ -206,13 +206,22 @@ than no button. Password recovery is in the same position, and the
 forgotten-password screen says so rather than accepting a request it cannot
 finish.
 
-1. **Configure SMTP** in the Render dashboard: `PORTICO_SMTP_HOST`, `_PORT`,
-   `_USERNAME`, `_PASSWORD`, `_FROM`, `_ENCRYPTION`. Pick a provider with a
-   sending quota and watch it — this relay sends to addresses strangers type
-   in, and one that lets anything through will eventually be used to send
-   something else.
+1. **Configure a way to send mail** in the Render dashboard. On a *free*
+   instance this cannot be SMTP: Render blocks outbound 25, 465 and 587 there,
+   and the symptom is a connection timeout rather than anything a relay
+   setting can fix. So either
+
+   - set `PORTICO_MAIL_TRANSPORT=resend` with `PORTICO_RESEND_API_KEY` and
+     `PORTICO_MAIL_FROM`, which goes over HTTPS and is not blocked; or
+   - move to a paid instance and use SMTP: `PORTICO_SMTP_HOST`, `_PORT`,
+     `_USERNAME`, `_PASSWORD`, `_FROM`, `_ENCRYPTION`. Port 25 stays blocked
+     even there, so use 465 or 587.
+
+   Either way, pick a provider with a sending quota and watch it — this sends
+   to addresses strangers type in, and anything that lets everything through
+   will eventually be used to send something else.
 2. **Set `PORTICO_TRIAL_SIGNUP` to `true`** and redeploy. `render.yaml` ships
-   it as `false` and lists the SMTP keys beside it.
+   it as `false` and lists both sets of keys beside it.
 3. **Check the sign-in screen** offers "Try Portico", and that the form lists
    five industries. If it offers none, the console is talking to a build
    without the packs.

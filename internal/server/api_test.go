@@ -76,9 +76,11 @@ func testConfig(t *testing.T) *config.Config {
 	// it present and out of the way.
 	cfg.AuthRateLimit = 100000
 	cfg.AuthRateLimitBurst = 100000
-	// No relay: the tests that want one substitute a recorder, and the ones
-	// that want none are asserting exactly this.
-	cfg.SMTP = notify.SMTPConfig{}
+	// No relay, and no transport but the default: the tests that want mail
+	// substitute a recorder, and the ones that want none are asserting
+	// exactly this. Both halves are reset, so a developer with
+	// PORTICO_MAIL_TRANSPORT exported does not fail the suite either.
+	cfg.Mail = notify.MailConfig{}
 
 	// A fixed data key, so the tests exercise the path a configured
 	// deployment takes. A test that ran without one would only ever see the

@@ -151,6 +151,12 @@ Configuration is entirely environment variables:
   PORTICO_SMTP_PASSWORD
   PORTICO_SMTP_FROM                required once a host is set
   PORTICO_SMTP_ENCRYPTION          starttls (default) | tls | none
+  PORTICO_MAIL_TRANSPORT           smtp (default) | resend. Use resend where
+                                   the host blocks outbound SMTP ports, which
+                                   many do; it posts to an HTTP API instead
+  PORTICO_RESEND_API_KEY           required when the transport is resend
+  PORTICO_MAIL_FROM                sender address for the resend transport,
+                                   on a domain verified with Resend
   PORTICO_DEFAULT_LOCALE           language of messages sent to somebody whose
                                    own preference and whose tenant's default
                                    both say nothing: en-US (default) | zh-CN.

@@ -175,11 +175,19 @@ Blueprint：一个由 `deploy/Dockerfile` 构建的 web 服务，加一个 Postg
 `TRIAL_MAIL_UNAVAILABLE` 拒掉 —— 一个必然失败的按钮，比没有按钮更糟。密码找回也是
 同样处境，忘记密码那个页面会直接说明，而不是接受一个它完成不了的请求。
 
-1. **配 SMTP**，在 Render 控制台里加 `PORTICO_SMTP_HOST`、`_PORT`、`_USERNAME`、
-   `_PASSWORD`、`_FROM`、`_ENCRYPTION`。挑一个有发信配额的服务商并且盯着它 ——
-   这个中继要往陌生人填进来的地址发信，一个什么都放行的中继迟早会被拿去发别的。
+1. **配一条能发信的通道**，在 Render 控制台里。**免费实例上这条通道不能是 SMTP**：
+   Render 在免费档封了出站 25、465、587，症状是连接超时，而不是任何一处中继配置写
+   错了。所以二选一：
+
+   - 设 `PORTICO_MAIL_TRANSPORT=resend`，配上 `PORTICO_RESEND_API_KEY` 和
+     `PORTICO_MAIL_FROM`，走 HTTPS，不受封锁；或者
+   - 升到付费实例再用 SMTP：`PORTICO_SMTP_HOST`、`_PORT`、`_USERNAME`、
+     `_PASSWORD`、`_FROM`、`_ENCRYPTION`。25 端口在那里也依然封着，请用 465 或 587。
+
+   无论走哪条，都要挑一个有发信配额的服务商并且盯着它 —— 这条通道要往陌生人填进来
+   的地址发信，一个什么都放行的通道迟早会被拿去发别的。
 2. **把 `PORTICO_TRIAL_SIGNUP` 改成 `true`** 并重新部署。`render.yaml` 里它默认是
-   `false`，SMTP 那几个键名就列在它旁边。
+   `false`，两套键名都列在它旁边。
 3. **看一眼登录页**是否出现「试用 Portico」，表单里是否列出五个行业。一个都没有，
    说明控制台连的是一个不带数据包的构建。
 

@@ -13,7 +13,7 @@ import (
 // mail server already has one, and every hosted provider speaks it. Nothing
 // here ties a deployment to a company.
 type SMTPConfig struct {
-	// Host empty means email is not configured, and NewMailer returns the
+	// Host empty means email is not configured, and NewSMTPMailer returns the
 	// not-configured sender rather than an error — running with no
 	// environment at all has to work.
 	Host string
@@ -38,9 +38,9 @@ const (
 	EncryptionNone     = "none"
 )
 
-// NewMailer builds a Mailer from cfg, or the not-configured sender when no
-// host is set.
-func NewMailer(cfg SMTPConfig) (Mailer, error) {
+// NewSMTPMailer builds a Mailer from cfg, or the not-configured sender when
+// no host is set.
+func NewSMTPMailer(cfg SMTPConfig) (Mailer, error) {
 	if cfg.Host == "" {
 		return NotConfiguredMailer{}, nil
 	}
