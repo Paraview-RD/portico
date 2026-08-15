@@ -2,6 +2,8 @@ package server_test
 
 import (
 	"context"
+	"encoding/json"
+	"fmt"
 	"net/http"
 	"net/url"
 	"regexp"
@@ -280,6 +282,172 @@ func TestTheQuotaRefusesRatherThanQueueing(t *testing.T) {
 		t.Errorf("%d messages sent, want %d — a refused request mailed something",
 			sent, before+2)
 	}
+}
+
+// TestEveryOfferedIndustryProducesATenantWorthLookingAt is what stage two of
+// this feature exists for.
+//
+// A trial used to hand back a tenant with one account in it and nothing else,
+// which answered none of the questions a visitor arrives with. Every industry
+// the status endpoint offers is confirmed here and the result is read back
+// through the API, as the console would — not out of the pack, which would only
+// prove that a slice literal has the length it has.
+//
+// One server for all of them, deliberately: each pack costs a bcrypt hash per
+// account, and a fresh server per subtest would multiply the slowest part of
+// this file by five for nothing.
+func TestEveryOfferedIndustryProducesATenantWorthLookingAt(t *testing.T) {
+	api, mailer := newTrialTest(t, true)
+
+	status := api.do(http.MethodGet, "/api/v1/trial/status", "", nil)
+	var offered struct {
+		Industries []string `json:"industries"`
+	}
+	status.into(t, &offered)
+	if len(offered.Industries) < 5 {
+		t.Fatalf("%d industries offered, want the generic pack and four industries",
+			len(offered.Industries))
+	}
+
+	for i, industry := range offered.Industries {
+		t.Run(industry, func(t *testing.T) {
+			code := fmt.Sprintf("filled-%s", industry)
+			before := len(mailer.sent())
+			asked := api.do(http.MethodPost, "/api/v1/trial", "", map[string]string{
+				"email":       fmt.Sprintf("filled%d@example.test", i),
+				"companyName": "Filled " + industry,
+				"tenantCode":  code,
+				"industry":    industry,
+			})
+			if asked.Status != http.StatusOK {
+				t.Fatalf("request: %d %s %s", asked.Status, asked.Code, asked.Message)
+			}
+
+			token := tokenFromLink(t, mailer.waitFor(t, before+1).Body)
+			confirmed := api.do(http.MethodPost, "/api/v1/trial/confirm", "",
+				map[string]string{"token": token})
+			if confirmed.Status != http.StatusOK {
+				t.Fatalf("confirm: %d %s %s", confirmed.Status, confirmed.Code, confirmed.Message)
+			}
+
+			var out struct {
+				TenantCode    string `json:"tenantCode"`
+				AdminUsername string `json:"adminUsername"`
+				AdminPassword string `json:"adminPassword"`
+				DemoPassword  string `json:"demoPassword"`
+				Industry      string `json:"industry"`
+			}
+			confirmed.into(t, &out)
+
+			if out.Industry != industry {
+				t.Fatalf("asked for %q and the response reports %q — the fill did not "+
+					"happen, and the visitor has an empty tenant", industry, out.Industry)
+			}
+			if out.DemoPassword == "" {
+				t.Fatal("no password for the seeded accounts, so the only way in is as " +
+					"the administrator and the portal cannot be looked at")
+			}
+			if out.DemoPassword == out.AdminPassword {
+				t.Error("the seeded accounts share the administrator's password; anybody " +
+					"who guessed the tenant code would be an administrator")
+			}
+
+			token = api.loginTo(out.TenantCode, out.AdminUsername, out.AdminPassword)
+
+			// Read back through the API, which is the only view that proves a
+			// console would show something.
+			for _, want := range []struct {
+				path  string
+				least int
+				why   string
+			}{
+				{"/api/v1/organizations", 5, "a tree needs enough nodes to look like one"},
+				{"/api/v1/users", 13, "twelve people and the administrator"},
+				{"/api/v1/user-attributes", 3, "the facts this tenant decided to record"},
+				{"/api/v1/groups", 2, "groups are the other half of the organization story"},
+			} {
+				got := api.do(http.MethodGet, want.path, token, nil)
+				if got.Status != http.StatusOK {
+					t.Errorf("GET %s: %d %s", want.path, got.Status, got.Code)
+					continue
+				}
+				if n := countRows(t, got.Data); n < want.least {
+					t.Errorf("GET %s returned %d rows, want at least %d — %s",
+						want.path, n, want.least, want.why)
+				}
+			}
+
+			// Applications are three endpoints because they are three protocols,
+			// and what matters is the total plus that more than one protocol is
+			// represented.
+			var apps, protocols int
+			for _, path := range []string{
+				"/api/v1/applications/oauth-clients",
+				"/api/v1/applications/saml-service-providers",
+				"/api/v1/applications/cas-services",
+			} {
+				got := api.do(http.MethodGet, path, token, nil)
+				if got.Status != http.StatusOK {
+					t.Errorf("GET %s: %d %s", path, got.Status, got.Code)
+					continue
+				}
+				n := countRows(t, got.Data)
+				apps += n
+				if n > 0 {
+					protocols++
+				}
+			}
+			if apps < 3 {
+				t.Errorf("%d applications registered, want at least 3", apps)
+			}
+			if protocols < 2 {
+				t.Errorf("applications use %d protocol(s); telling OAuth, SAML and CAS "+
+					"apart on that screen needs more than one present", protocols)
+			}
+
+			// And the demonstration password actually opens one of the seeded
+			// accounts. Everything above would pass for a tenant full of accounts
+			// nobody can sign in to, which is the failure this catches.
+			if seeded := api.do(http.MethodGet, "/api/v1/users", token, nil); seeded.Status == http.StatusOK {
+				name := firstUsernameOtherThan(t, seeded.Data, out.AdminUsername)
+				if name == "" {
+					t.Fatal("the tenant holds nobody but its administrator")
+				}
+				if api.loginTo(out.TenantCode, name, out.DemoPassword) == "" {
+					t.Errorf("%s cannot sign in with the password the trial handed out", name)
+				}
+			}
+		})
+	}
+}
+
+// Counting rows is seed_test.go's countRows, which already handles all three
+// shapes this file asks about.
+
+// firstUsernameOtherThan picks somebody the pack created, so that the
+// demonstration password can be tried against a real account rather than a
+// name this test invented.
+func firstUsernameOtherThan(t *testing.T, data json.RawMessage, exclude string) string {
+	t.Helper()
+
+	var envelope struct {
+		Items []struct {
+			Username string `json:"username"`
+			Status   string `json:"status"`
+		} `json:"items"`
+	}
+	if err := json.Unmarshal(data, &envelope); err != nil {
+		t.Fatalf("read the account list: %v", err)
+	}
+	for _, u := range envelope.Items {
+		// Disabled accounts are in every pack on purpose and cannot sign in,
+		// which would make this assertion fail for the right reason at the
+		// wrong place.
+		if u.Username != exclude && u.Status != "DISABLED" {
+			return u.Username
+		}
+	}
+	return ""
 }
 
 func TestTheStatusEndpointOnlyOffersWorldsThatExist(t *testing.T) {

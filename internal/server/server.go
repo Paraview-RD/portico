@@ -13,6 +13,7 @@ import (
 	"github.com/Paraview-RD/portico/internal/auth"
 	"github.com/Paraview-RD/portico/internal/casp"
 	"github.com/Paraview-RD/portico/internal/config"
+	"github.com/Paraview-RD/portico/internal/demo"
 	"github.com/Paraview-RD/portico/internal/handler"
 	"github.com/Paraview-RD/portico/internal/httpx"
 	"github.com/Paraview-RD/portico/internal/metrics"
@@ -161,6 +162,17 @@ func New(cfg *config.Config, opts ...Option) (*Server, error) {
 	users.WithEvents(webhooks)
 	groups.WithEvents(webhooks)
 	orgs.WithEvents(webhooks)
+
+	// The demonstration packs, attached here rather than at construction
+	// because they need every service a pack creates something with, and those
+	// are built above.
+	//
+	// Attached whether or not trials are enabled. What it changes when they are
+	// not is nothing: no route reaches the trial service, and it refuses every
+	// call anyway. What it would cost to make this conditional is a second
+	// place where "are trials on" is decided.
+	trials.WithFiller(demo.NewFiller(
+		orgs, groups, users, attributes, clients, serviceProviders, casServices))
 
 	scimCredentials := service.NewSCIMCredentialService(st, audit)
 

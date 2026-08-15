@@ -39,6 +39,9 @@ internal/
                    HTTP surface: tenants, clients, service providers
   seed/            a third one, for filling a development database with
                    ninety days of plausible history
+  demo/            the industry packs a self-service trial is filled with.
+                   Linked into the server, unlike seed/, which is why it
+                   calls only service/ and never seed/
   handler/         HTTP handlers
   server/          wiring: builds everything and mounts routes
   web/             embeds the built frontend

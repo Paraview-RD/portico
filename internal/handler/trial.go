@@ -37,8 +37,11 @@ type trialConfirmRequest struct {
 // It says nothing a visitor could not learn by pressing the button.
 func (h *Handler) TrialStatus(w http.ResponseWriter, _ *http.Request) {
 	httpx.OK(w, map[string]any{
-		"enabled":    h.trials.Enabled(),
-		"industries": []string{service.TrialIndustryGeneric},
+		"enabled": h.trials.Enabled(),
+		// Asked rather than listed here. The packs are data in another package,
+		// and a copy of their names in this handler is a list that would go
+		// stale the first time somebody adds one.
+		"industries": h.trials.Industries(),
 	})
 }
 
@@ -91,5 +94,9 @@ func (h *Handler) ConfirmTrial(w http.ResponseWriter, r *http.Request) {
 		"adminUsername": tenant.AdminUsername,
 		"adminPassword": tenant.AdminPassword,
 		"signInUrl":     tenant.SignInURL,
+		// Both empty when nothing was seeded, which the screen reads as "this
+		// tenant is empty" rather than being told so in a separate flag.
+		"demoPassword": tenant.DemoPassword,
+		"industry":     tenant.Industry,
 	})
 }

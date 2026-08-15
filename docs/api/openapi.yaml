@@ -4760,6 +4760,22 @@ components:
             Generated, and returned once. Not stored in readable form
             anywhere; the mailed copy is the only other one.
         signInUrl: { type: string }
+        demoPassword:
+          type: string
+          description: |
+            What the seeded accounts sign in with — one password for all of
+            them, generated per tenant. Every one of those accounts is an
+            ordinary user, never a second administrator, which is what makes
+            sharing a password between them safe.
+
+            Empty when the tenant could not be filled, which is the one case
+            where a working tenant is handed over with nothing in it.
+        industry:
+          type: string
+          description: |
+            The pack that was created. Empty for the same reason as
+            `demoPassword`, so that a visitor who asked for a hospital and got
+            an empty tenant can tell.
 
     Authorization:
       type: object

@@ -319,6 +319,7 @@ internal/
   metrics/         Prometheus，配了才启用它自己的监听
   provision/       租户与客户端开通，给 CLI 用
   seed/            一个看起来被用过的开发数据库，给 cmd/seed 用
+  demo/            往单个租户里灌一个行业的示例数据，给自助试用用
   testdb/          测试用的一次性 PostgreSQL
   web/             嵌入构建好的前端
   docs/            嵌入这份文档，由二进制自己提供

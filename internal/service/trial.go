@@ -9,13 +9,16 @@ import (
 	"encoding/hex"
 	"errors"
 	"fmt"
+	"log/slog"
 	"net/url"
 	"strings"
 	"time"
 
 	"github.com/google/uuid"
 
+	"github.com/Paraview-RD/portico/internal/auth"
 	"github.com/Paraview-RD/portico/internal/httpx"
+	"github.com/Paraview-RD/portico/internal/model"
 	"github.com/Paraview-RD/portico/internal/notify"
 	"github.com/Paraview-RD/portico/internal/store"
 	"github.com/Paraview-RD/portico/internal/store/sqlcgen"
@@ -35,18 +38,45 @@ import (
 // and to keep one visitor from opening fifty. It is not an assertion that they
 // are who they say they work for.
 
-// TrialIndustryGeneric is the one seeded world a trial may ask for today.
+// TrialIndustryGeneric is what a request naming no industry gets.
 //
-// The four industry packs are the next piece of work. The four industry packs are
-// the next piece of work — manufacturing, banking, hospital, university, each
-// with its own organization shape, custom attributes and application mix — and
-// the column holding this is free text precisely so adding one needs no
-// migration. Offering a name with nothing behind it would hand somebody an
-// empty tenant and a wrong expectation, so the list is what exists.
+// The rest of the list comes from the filler rather than from a constant here.
+// A trial names a world it wants seeded, the worlds are data in another
+// package, and a copy of their names in this one would be a second list to
+// keep in agreement — with the first symptom of disagreement being a visitor
+// choosing an industry that turns out not to exist.
 const TrialIndustryGeneric = "generic"
 
-func validTrialIndustry(name string) bool {
-	return name == TrialIndustryGeneric
+// TenantFill is the request to fill a tenant that has just been created.
+type TenantFill struct {
+	TenantID string
+	Industry string
+	// Actor is whose name the audit trail carries for everything the fill
+	// does. The tenant's own administrator, so that clicking through from an
+	// entry lands on an account that exists.
+	Actor auth.Principal
+	// Password is what the demonstration accounts sign in with — one string for
+	// all of them, generated per tenant and sent to the visitor along with the
+	// administrator's own.
+	//
+	// Generated rather than published: these accounts share a password by
+	// design, so a fixed one would mean anybody who guessed a tenant code could
+	// sign in to somebody else's trial.
+	Password string
+}
+
+// TenantFiller creates demonstration data inside a tenant.
+//
+// An interface here and an implementation elsewhere, because the packs are
+// fixtures — a few hundred lines of invented people — and this package is the
+// domain. It also breaks what would otherwise be an import cycle: the filler
+// creates its contents by calling the services in this package.
+type TenantFiller interface {
+	// Industries returns the pack keys on offer, in the order to show them.
+	Industries() []string
+	// Fill creates one pack's contents. It is called after the tenant and its
+	// administrator exist.
+	Fill(ctx context.Context, in TenantFill) error
 }
 
 // TrialTokenTTL is how long a confirmation link stays usable.
@@ -116,9 +146,43 @@ type TrialService struct {
 	maxTenants int
 	publicURL  string
 
+	// filler is what turns a new tenant from empty into something worth
+	// looking at. Optional: without one a trial still produces a working
+	// tenant, and the only industry on offer is the generic name.
+	filler TenantFiller
+
 	// now is replaceable so a test can expire a link without waiting two
 	// hours for it.
 	now func() time.Time
+}
+
+// WithFiller attaches the demonstration packs.
+//
+// Separate from the constructor, which already takes eight arguments, and
+// separate for a second reason: this is the one dependency that reaches back
+// into a package that depends on this one, so keeping it visible at the
+// assembly site is worth a line.
+func (s *TrialService) WithFiller(f TenantFiller) *TrialService {
+	s.filler = f
+	return s
+}
+
+// Industries is what the sign-in screen offers, which is exactly what the
+// filler can create.
+func (s *TrialService) Industries() []string {
+	if s.filler == nil {
+		return []string{TrialIndustryGeneric}
+	}
+	return s.filler.Industries()
+}
+
+func (s *TrialService) validIndustry(name string) bool {
+	for _, offered := range s.Industries() {
+		if offered == name {
+			return true
+		}
+	}
+	return false
 }
 
 // NewTrialService wires a TrialService. A nil mailer is the same as no SMTP:
@@ -160,6 +224,19 @@ type TrialTenant struct {
 	AdminUsername string
 	AdminPassword string
 	SignInURL     string
+
+	// DemoPassword is what the seeded accounts sign in with, and is empty when
+	// nothing was seeded.
+	//
+	// Given out because looking at the portal as an ordinary person is half of
+	// what there is to see, and the administrator's own account cannot show it.
+	// Every one of these accounts is an ordinary user, so handing out one
+	// password for all of them costs nothing an administrator has.
+	DemoPassword string
+	// Industry is the pack that was created, or empty if the fill failed. Said
+	// out loud rather than assumed from the request: a visitor who asked for a
+	// hospital and got an empty tenant should be able to tell.
+	Industry string
 }
 
 // Request records an intent and emails a link. It deliberately reports the
@@ -193,7 +270,7 @@ func (s *TrialService) Request(ctx context.Context, in TrialRequestInput, ip str
 	if industry == "" {
 		industry = TrialIndustryGeneric
 	}
-	if !validTrialIndustry(industry) {
+	if !s.validIndustry(industry) {
 		return httpx.BadRequest("INVALID_INDUSTRY", "Pick one of the offered industries.")
 	}
 
@@ -345,10 +422,56 @@ func (s *TrialService) Confirm(ctx context.Context, token string) (TrialTenant, 
 		SignInURL:     s.signInLink(tenant.Code),
 	}
 
+	// The pack the visitor asked for.
+	//
+	// Best effort, and the one place in this method where a failure does not
+	// become the visitor's problem. Everything above has already happened: the
+	// tenant exists, its administrator can sign in, and the link is spent.
+	// Returning an error here would report a failure for something that
+	// succeeded and leave them with credentials they were never shown — so the
+	// tenant is handed over as it is, empty, and the reason is in the log where
+	// whoever runs the demonstration can find it.
+	//
+	// That is the opposite of the rule internal/seed follows, and deliberately:
+	// there, a half-seeded database is worse than none because nobody is
+	// waiting and it can simply be run again. Here somebody is standing in
+	// front of the page.
+	if s.filler != nil {
+		demoPassword, fillErr := newTrialPassword()
+		if fillErr == nil {
+			fillErr = s.filler.Fill(ctx, TenantFill{
+				TenantID: tenant.ID,
+				Industry: row.Industry,
+				Actor:    s.fillActor(ctx, tenant.ID),
+				Password: demoPassword,
+			})
+		}
+		if fillErr != nil {
+			slog.ErrorContext(ctx, "a trial tenant was created but could not be filled",
+				"tenant", tenant.Code, "industry", row.Industry, "error", fillErr)
+		} else {
+			out.DemoPassword = demoPassword
+			out.Industry = row.Industry
+		}
+	}
+
 	// Best effort, and after the tenant exists. A mail failure here must not
 	// undo a tenant somebody can already sign in to — the response carries
 	// the same credentials, which is why this is not the only copy.
 	if s.mailer != nil {
+		// The second password is mentioned only when there is one. A line
+		// offering credentials for accounts that were never created is worse
+		// than no line: it reads as a bug in the product rather than as a fill
+		// that failed.
+		var extra string
+		if out.DemoPassword != "" {
+			extra = fmt.Sprintf(
+				"\nThe tenant is filled with example people and applications. Every one of\n"+
+					"those accounts is an ordinary user and they all sign in with:\n\n"+
+					"    Password:  %s\n\n"+
+					"Use one of them to see what somebody who is not an administrator sees.\n",
+				out.DemoPassword)
+		}
 		_ = s.mailer.Send(ctx, notify.Message{
 			To:      row.Email,
 			Subject: fmt.Sprintf("Your Portico trial: %s", tenant.Name),
@@ -357,9 +480,10 @@ func (s *TrialService) Confirm(ctx context.Context, token string) (TrialTenant, 
 					"    Address:   %s\n"+
 					"    Tenant:    %s\n"+
 					"    Username:  %s\n"+
-					"    Password:  %s\n\n"+
+					"    Password:  %s\n"+
+					"%s\n"+
 					"This is a demonstration. Do not put anything real in it.\n",
-				out.SignInURL, out.TenantCode, out.AdminUsername, out.AdminPassword),
+				out.SignInURL, out.TenantCode, out.AdminUsername, out.AdminPassword, extra),
 		})
 	}
 
@@ -395,6 +519,23 @@ func (s *TrialService) sendLink(ctx context.Context, email, company, token strin
 		return fmt.Errorf("send trial link: %w", err)
 	}
 	return nil
+}
+
+// fillActor is whose name the audit trail carries for everything the pack
+// creates.
+//
+// The tenant's own administrator, looked up rather than assumed, so that an
+// audit entry links to an account somebody can open. If the lookup fails the
+// fill still runs under a principal with no account behind it — a trail that
+// names "admin" without linking anywhere is worth more than no tenant.
+func (s *TrialService) fillActor(ctx context.Context, tenantID string) auth.Principal {
+	actor := auth.Principal{TenantID: tenantID, Username: "admin", Role: model.RoleSuperAdmin}
+	admin, err := s.store.ForTenant(tenantID).GetUserByUsername(ctx, "admin")
+	if err != nil {
+		return actor
+	}
+	actor.UserID = admin.ID
+	return actor
 }
 
 func (s *TrialService) confirmLink(token string) string {

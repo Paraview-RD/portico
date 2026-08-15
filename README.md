@@ -374,6 +374,8 @@ internal/
   metrics/         Prometheus, on its own listener when one is configured
   provision/       tenant and client provisioning, for the CLI
   seed/            a development database that looks used, for cmd/seed
+  demo/            fills one tenant with an industry's worth of example
+                   data, for self-service trials
   testdb/          throwaway PostgreSQL for tests
   web/             embeds the built frontend
   docs/            embeds this documentation, served from the binary
