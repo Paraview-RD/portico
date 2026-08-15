@@ -319,3 +319,67 @@ jobs:
             web/test-results/
             web/playwright-report/
           retention-days: 7
+
+  # The image the public demonstration is built from, which nothing built
+  # until now.
+  #
+  # render.yaml points at deploy/Dockerfile, and applying that Blueprint was
+  # going to be the first time anybody compiled it. A Dockerfile that has
+  # drifted from the tree fails in somebody's Render build log, several
+  # minutes into a deploy, with no local reproduction — and the person
+  # reading that log is usually the one who least expected to be debugging a
+  # build.
+  #
+  # Every run, not only when deploy/ changes. A full image build is three
+  # compilers deep — npm, mkdocs, go — which argues for a path filter, and
+  # the argument is wrong: what breaks this image is almost never a change to
+  # the Dockerfile. It is a Go file that no longer compiles under the
+  # container's toolchain, a dependency the build stage cannot fetch, a
+  # frontend that needs a newer Node. A filter on deploy/** would skip
+  # exactly the changes that break it.
+  #
+  # The layer cache is what makes that affordable: unchanged stages are
+  # restored rather than rebuilt, so an ordinary run pays for the Go stage
+  # and nothing else. This job runs in parallel with the rest, so it costs
+  # wall-clock only when it is the slowest.
+  demo-image:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: docker/setup-buildx-action@v3
+
+      # Built, not pushed. What is being asked is whether it compiles and
+      # produces a runnable image; publishing one is release.yml's job and
+      # needs credentials this workflow deliberately does not have.
+      - name: Build the demo image
+        uses: docker/build-push-action@v6
+        with:
+          context: .
+          file: ./deploy/Dockerfile
+          push: false
+          load: true
+          tags: portico-demo:ci
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+
+      # That it starts, finds no database, and says so — rather than
+      # crashing, hanging, or starting anyway. The image is FROM scratch with
+      # no shell, so this is the only way to ask it anything.
+      #
+      # The exit status is expected to be non-zero: a server with no DSN must
+      # refuse to start. What is being checked is that it refuses for the
+      # stated reason, which is the difference between a working image and
+      # one that fails for some other reason entirely.
+      - name: The image runs and refuses a missing database
+        run: |
+          output=$(docker run --rm portico-demo:ci 2>&1) && status=0 || status=$?
+          echo "$output"
+          if [ "$status" -eq 0 ]; then
+            echo "::error::the server started with no PORTICO_DB_DSN"
+            exit 1
+          fi
+          echo "$output" | grep -q "PORTICO_DB_DSN" || {
+            echo "::error::the image failed, but not for the missing DSN"
+            exit 1
+          }

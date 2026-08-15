@@ -180,9 +180,34 @@ starting — the service sleeps, and the database is deleted after ninety days.
    the password from step 3.
 
 The seeded accounts are the ones described above — `admin`, `zhangwei`,
-`liyan` — under whichever password you chose, not the published one. Password
-recovery does not work unless you also configure SMTP; the forgotten-password
-screen says so rather than accepting a request it cannot finish.
+`liyan` — under whichever password you chose, not the published one.
+
+### Then, if you want self-service trials
+
+Optional, and a second step rather than part of the first, because it has a
+prerequisite the Blueprint cannot supply: **a mail relay**. The email address
+is the whole of the identity check, so without one every request is refused
+with `TRIAL_MAIL_UNAVAILABLE` — a button that always fails, which is worse
+than no button. Password recovery is in the same position, and the
+forgotten-password screen says so rather than accepting a request it cannot
+finish.
+
+1. **Configure SMTP** in the Render dashboard: `PORTICO_SMTP_HOST`, `_PORT`,
+   `_USERNAME`, `_PASSWORD`, `_FROM`, `_ENCRYPTION`. Pick a provider with a
+   sending quota and watch it — this relay sends to addresses strangers type
+   in, and one that lets anything through will eventually be used to send
+   something else.
+2. **Set `PORTICO_TRIAL_SIGNUP` to `true`** and redeploy. `render.yaml` ships
+   it as `false` and lists the SMTP keys beside it.
+3. **Check the sign-in screen** offers "Try Portico", and that the form lists
+   five industries. If it offers none, the console is talking to a build
+   without the packs.
+
+Each confirmed trial creates a tenant filled with one of the five worlds —
+see [what a trial tenant is filled with](#what-a-trial-tenant-is-filled-with).
+`PORTICO_TRIAL_MAX_TENANTS` bounds how many exist at once; fifty is the
+default and is bounded by attention rather than by disk, since fifty trial
+tenants are a few megabytes against a 1GB database.
 
 ## First run
 
