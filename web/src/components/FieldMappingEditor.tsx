@@ -217,7 +217,7 @@ export function FieldMappingEditor({
                             // for. Three of them among forty are otherwise
                             // indistinguishable from the rest.
                             (isSet
-                              ? "border-[var(--color-primary)] bg-[var(--color-bg-subtle)]"
+                              ? "border-[var(--color-primary)] bg-[var(--color-bg-soft)]"
                               : "border-transparent")
                           }
                         >
