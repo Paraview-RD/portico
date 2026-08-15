@@ -42,6 +42,7 @@ import type {
   Session,
   Settings,
   Status,
+  LandingStatus,
   TrialStatus,
   TrialTenant,
   User,
@@ -235,6 +236,19 @@ export const authApi = {
  * routes are not under /auth/ either — they are the only endpoints here that
  * create a tenant, and on most deployments they do not exist at all.
  */
+/**
+ * What the root address does, which the console has to know before it renders
+ * anything for a signed-out visitor.
+ *
+ * Its own call rather than a field on trialStatus: that one answers whether
+ * this deployment hands out tenants, which is a different question. A landing
+ * page is worth having whether or not trials are on.
+ */
+export const landingApi = {
+  landingStatus: (signal?: AbortSignal) =>
+    request<LandingStatus>("/landing", { anonymous: true, signal }),
+};
+
 export const trialApi = {
   /**
    * Whether this deployment offers self-service trials, and which seeded

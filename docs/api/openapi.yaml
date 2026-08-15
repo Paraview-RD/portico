@@ -274,6 +274,31 @@ paths:
             application/json:
               schema: { $ref: "#/components/schemas/TrialStatusEnvelope" }
 
+  /api/v1/landing:
+    get:
+      tags: [Trials]
+      operationId: landingStatus
+      summary: Whether the root address has a page of its own.
+      security: []
+      description: |
+        Read by the console before it renders anything for a signed-out
+        visitor: off, the root address sends them to the sign-in form, which
+        is the behaviour every deployment had before this existed.
+
+        Separate from `/api/v1/trial/status`, which answers a different
+        question — a landing page is worth having whether or not trials are
+        on, and a deployment with trials on may still want visitors to arrive
+        at the sign-in form.
+
+        Routed whether or not the page is enabled, for the reason given at
+        `/api/v1/trial/status`.
+      responses:
+        "200":
+          description: Whether the root address has a page.
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/LandingStatusEnvelope" }
+
   /api/v1/trial:
     post:
       tags: [Trials]
@@ -4717,6 +4742,15 @@ components:
         tenant: { type: string }
         tenantName: { type: string }
 
+    LandingStatus:
+      type: object
+      properties:
+        enabled:
+          type: boolean
+          description: |
+            Whether the root address renders a page of its own. False means
+            a signed-out visitor asking for it is sent to the sign-in form.
+
     TrialStatus:
       type: object
       properties:
@@ -5543,6 +5577,13 @@ components:
         - type: object
           properties:
             data: { $ref: "#/components/schemas/RegistrationStatus" }
+
+    LandingStatusEnvelope:
+      allOf:
+        - $ref: "#/components/schemas/Envelope"
+        - type: object
+          properties:
+            data: { $ref: "#/components/schemas/LandingStatus" }
 
     TrialStatusEnvelope:
       allOf:

@@ -129,6 +129,21 @@ func (q *Queries) DeleteExpiredTrialRequests(ctx context.Context) (int64, error)
 	return result.RowsAffected()
 }
 
+const deleteTrialRequestByTenant = `-- name: DeleteTrialRequestByTenant :execrows
+DELETE FROM trial_requests WHERE tenant_id = $1
+`
+
+// Releases the address and the code together with the tenant they named. Kept
+// separate from deleting the tenant so that the order is visible at the call
+// site: this row is what the foreign key points from.
+func (q *Queries) DeleteTrialRequestByTenant(ctx context.Context, tenantID *string) (int64, error) {
+	result, err := q.db.ExecContext(ctx, deleteTrialRequestByTenant, tenantID)
+	if err != nil {
+		return 0, err
+	}
+	return result.RowsAffected()
+}
+
 const deleteTrialRequestByToken = `-- name: DeleteTrialRequestByToken :execrows
 DELETE FROM trial_requests WHERE token_hash = $1 AND confirmed_at IS NULL
 `
@@ -142,6 +157,35 @@ func (q *Queries) DeleteTrialRequestByToken(ctx context.Context, tokenHash strin
 		return 0, err
 	}
 	return result.RowsAffected()
+}
+
+const getConfirmedTrialByTenantCode = `-- name: GetConfirmedTrialByTenantCode :one
+SELECT r.id, r.email, r.tenant_id, r.confirmed_at
+FROM trial_requests r
+JOIN tenants t ON t.id = r.tenant_id
+WHERE t.code = $1 AND r.confirmed_at IS NOT NULL
+`
+
+type GetConfirmedTrialByTenantCodeRow struct {
+	ID          string
+	Email       string
+	TenantID    *string
+	ConfirmedAt *time.Time
+}
+
+// Whether a tenant came from a trial, which is what bounds what the command
+// line is allowed to delete. A tenant nobody can find here was provisioned by
+// hand and is not this command's business.
+func (q *Queries) GetConfirmedTrialByTenantCode(ctx context.Context, code string) (GetConfirmedTrialByTenantCodeRow, error) {
+	row := q.db.QueryRowContext(ctx, getConfirmedTrialByTenantCode, code)
+	var i GetConfirmedTrialByTenantCodeRow
+	err := row.Scan(
+		&i.ID,
+		&i.Email,
+		&i.TenantID,
+		&i.ConfirmedAt,
+	)
+	return i, err
 }
 
 const getTrialRequestByToken = `-- name: GetTrialRequestByToken :one
@@ -168,6 +212,67 @@ func (q *Queries) GetTrialRequestByToken(ctx context.Context, tokenHash string) 
 		&i.CreatedAt,
 	)
 	return i, err
+}
+
+const listConfirmedTrials = `-- name: ListConfirmedTrials :many
+SELECT
+    t.code AS tenant_code,
+    t.name AS tenant_name,
+    t.status AS tenant_status,
+    r.email,
+    r.industry,
+    r.confirmed_at,
+    r.request_ip
+FROM trial_requests r
+JOIN tenants t ON t.id = r.tenant_id
+WHERE r.confirmed_at IS NOT NULL
+ORDER BY r.confirmed_at DESC
+`
+
+type ListConfirmedTrialsRow struct {
+	TenantCode   string
+	TenantName   string
+	TenantStatus string
+	Email        string
+	Industry     string
+	ConfirmedAt  *time.Time
+	RequestIp    string
+}
+
+// The confirmed trials and the tenants they produced, for the command line.
+//
+// A join rather than two reads because the interesting row is the pair: a
+// tenant that came from a trial, and the address that asked for it. Neither
+// table alone can say which tenants a stranger created.
+func (q *Queries) ListConfirmedTrials(ctx context.Context) ([]ListConfirmedTrialsRow, error) {
+	rows, err := q.db.QueryContext(ctx, listConfirmedTrials)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	items := []ListConfirmedTrialsRow{}
+	for rows.Next() {
+		var i ListConfirmedTrialsRow
+		if err := rows.Scan(
+			&i.TenantCode,
+			&i.TenantName,
+			&i.TenantStatus,
+			&i.Email,
+			&i.Industry,
+			&i.ConfirmedAt,
+			&i.RequestIp,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Close(); err != nil {
+		return nil, err
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
 }
 
 const markTrialRequestConfirmed = `-- name: MarkTrialRequestConfirmed :one

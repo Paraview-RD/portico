@@ -53,6 +53,12 @@ func main() {
 				os.Exit(1)
 			}
 			return
+		case "trial":
+			if err := runTrial(os.Args[2:]); err != nil {
+				fmt.Fprintln(os.Stderr, "portico:", err)
+				os.Exit(1)
+			}
+			return
 		case "ready":
 			// Exit status is the whole answer here: a container runtime
 			// reads it and nothing else.
@@ -85,6 +91,8 @@ Usage:
   portico client ...   register OAuth/OIDC applications (see: portico client --help)
   portico sp ...       register SAML service providers (see: portico sp --help)
   portico cas ...      register CAS services (see: portico cas --help)
+  portico trial ...    look after tenants self-service trials created
+                       (see: portico trial --help)
   portico ready        ask a running instance whether it can serve, and exit
                        0 or 1. The release image is FROM scratch, so this is
                        what a container health check has to run.
@@ -120,6 +128,11 @@ Configuration is entirely environment variables:
                                    proxy — it is per address and per process
   PORTICO_AUTH_RATE_LIMIT_BURST    how many of that minute's allowance may
                                    arrive at once (default 30)
+  PORTICO_LANDING_PAGE             give the root address a page saying what
+                                   this is, instead of the sign-in form
+                                   (default false). For a public address a
+                                   stranger reaches with no idea what they
+                                   have opened
   PORTICO_TRIAL_SIGNUP             let strangers create a tenant by proving an
                                    email address (default false). For a public
                                    demonstration only: these are the only

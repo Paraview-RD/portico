@@ -26,6 +26,13 @@ export default defineConfig({
     setupFiles: ['./src/test/setup.ts'],
     // Only files under src/test and *.test.tsx; nothing in the build.
     include: ['src/**/*.test.{ts,tsx}'],
+    // Process CSS rather than stubbing it to an empty string, which is
+    // vitest's default. One test reads theme.css to check that every design
+    // token a screen names is actually defined — a `var(--font-size-2xl)`
+    // that does not exist falls back to the inherited value rather than
+    // failing, so nothing else can catch it. With CSS stubbed that test read
+    // an empty file and would have passed no matter what.
+    css: true,
   },
   server: {
     port: 5410,

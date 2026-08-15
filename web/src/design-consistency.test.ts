@@ -179,3 +179,67 @@ it("takes radii from tokens, not from Tailwind's own scale", () => {
 
   expect(literals).toEqual([]);
 });
+
+/**
+ * Every design token a screen names has to exist.
+ *
+ * A `var(--font-size-2xl)` that was never defined does not fail: CSS falls
+ * back to the inherited value, so the element renders at whatever size its
+ * parent had. The landing page shipped with exactly that — a page heading
+ * silently smaller than the paragraph beneath it, from one token that had
+ * never been in theme.css.
+ *
+ * That is the failure this catches and a rendering test cannot: the page is
+ * valid, the class is applied, and the only symptom is that it looks wrong to
+ * somebody who happens to look.
+ */
+const theme = Object.entries(
+  import.meta.glob<string>("./styles/*.css", {
+    query: "?raw",
+    import: "default",
+    eager: true,
+  }),
+)
+  .map(([, text]) => text)
+  .join("\n");
+
+const components = Object.entries(
+  import.meta.glob<string>("./components/*.tsx", {
+    query: "?raw",
+    import: "default",
+    eager: true,
+  }),
+)
+  .filter(([path]) => !path.endsWith(".test.tsx"))
+  .map(([path, text]) => ({ name: path.replace("./components/", ""), text }));
+
+it("found the theme it is supposed to be reading", () => {
+  expect(theme).toBeTruthy();
+  expect(theme).toContain("--font-size-sm:");
+});
+
+it("names only design tokens that exist", () => {
+  const defined = new Set(
+    Array.from(theme.matchAll(/^\s*(--[a-z0-9-]+)\s*:/gm), (m) => m[1]),
+  );
+  expect(defined.size).toBeGreaterThan(20);
+
+  const missing: string[] = [];
+  for (const { name, text } of [...screens, ...components]) {
+    text.split("\n").forEach((line, index) => {
+      for (const match of line.matchAll(/var\((--[a-z0-9-]+)\)/g)) {
+        if (!defined.has(match[1])) {
+          missing.push(`${name}:${index + 1} ${match[1]}`);
+        }
+      }
+    });
+  }
+
+  expect(
+    missing,
+    "these name a design token theme.css does not define. CSS falls back to " +
+      "the inherited value rather than failing, so the element renders at " +
+      "whatever the parent had and nothing reports it:\n" +
+      missing.join("\n"),
+  ).toEqual([]);
+});

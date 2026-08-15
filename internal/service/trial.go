@@ -422,6 +422,33 @@ func (s *TrialService) Confirm(ctx context.Context, token string) (TrialTenant, 
 		SignInURL:     s.signInLink(tenant.Code),
 	}
 
+	// The address that proved itself, kept on the account it created.
+	//
+	// EnsureInitialAdmin makes an account with a username and a password and
+	// nothing else, which is right for the bootstrap administrator of an
+	// ordinary deployment: nobody has proved an address at that point. Here
+	// somebody has — this tenant exists *because* a link sent to that address
+	// was opened — and throwing it away left the one person who can administer
+	// the tenant unable to recover it, with the portal saying so on every
+	// visit.
+	//
+	// Done here rather than by giving EnsureInitialAdmin an address parameter,
+	// because that function is shared with first-start bootstrap and this has
+	// nothing to do with it.
+	//
+	// Best effort, on the same reasoning as the fill below.
+	actor := s.fillActor(ctx, tenant.ID)
+	if actor.UserID != "" {
+		if _, err := s.users.Update(ctx, actor, actor.UserID, UpdateUserInput{
+			DisplayName: "Administrator",
+			Email:       row.Email,
+			Role:        model.RoleSuperAdmin,
+		}); err != nil {
+			slog.ErrorContext(ctx, "a trial tenant's administrator did not keep its address",
+				"tenant", tenant.Code, "error", err)
+		}
+	}
+
 	// The pack the visitor asked for.
 	//
 	// Best effort, and the one place in this method where a failure does not
@@ -442,7 +469,7 @@ func (s *TrialService) Confirm(ctx context.Context, token string) (TrialTenant, 
 			fillErr = s.filler.Fill(ctx, TenantFill{
 				TenantID: tenant.ID,
 				Industry: row.Industry,
-				Actor:    s.fillActor(ctx, tenant.ID),
+				Actor:    actor,
 				Password: demoPassword,
 			})
 		}
@@ -480,7 +507,11 @@ func (s *TrialService) Confirm(ctx context.Context, token string) (TrialTenant, 
 					"    Address:   %s\n"+
 					"    Tenant:    %s\n"+
 					"    Username:  %s\n"+
-					"    Password:  %s\n"+
+					"    Password:  %s\n\n"+
+					// Said because it is not obvious and it is the difference
+					// between losing the password and losing the tenant.
+					"This address is on the administrator account, so \"forgot password\"\n"+
+					"on the sign-in screen will reach you here.\n"+
 					"%s\n"+
 					"This is a demonstration. Do not put anything real in it.\n",
 				out.SignInURL, out.TenantCode, out.AdminUsername, out.AdminPassword, extra),

@@ -778,6 +778,20 @@ export const enUS = {
   // actionable on its own.
   "login.noTenant": "No tenant of your own?",
   "login.tryIt": "Try Portico",
+  "landing.title": "Sign your people in, once, to everything.",
+  "landing.subtitle":
+    "Portico is an open-source identity provider: one directory of accounts, one sign-in, and the applications that trust it.",
+  "landing.point.signIn":
+    "One sign-in for every application, over OAuth 2.1 / OIDC, SAML 2.0 or CAS.",
+  "landing.point.directory":
+    "Accounts, organizations and groups — kept by hand, imported, or synchronized from LDAP or SCIM.",
+  "landing.point.applications":
+    "Register an application in a form, and hand its developers one address.",
+  "landing.tryIt": "Get a tenant to try",
+  "landing.signIn": "Sign in",
+  "landing.docs": "Documentation",
+  "landing.source": "Source on GitHub",
+
   "trial.title": "Try Portico",
   "trial.subtitle":
     "Get a tenant of your own, with an administrator account, in about a minute.",

@@ -46,11 +46,15 @@ type Server struct {
 	users         *service.UserService
 	tenants       *service.TenantService
 	settings      *service.SettingsService
-	oidc          *oidcp.Providers
-	saml          *samlp.Providers
-	cas           *casp.Server
-	scim          *scim.Handler
-	router        http.Handler
+	// Held for the sweep. A trial request reserves its tenant code from the
+	// moment it is made, so an abandoned one keeps a name until something
+	// takes it back — see SweepExpired.
+	trials *service.TrialService
+	oidc   *oidcp.Providers
+	saml   *samlp.Providers
+	cas    *casp.Server
+	scim   *scim.Handler
+	router http.Handler
 }
 
 // Option overrides a dependency New would otherwise build from cfg.
@@ -219,6 +223,7 @@ func New(cfg *config.Config, opts ...Option) (*Server, error) {
 		users:         users,
 		tenants:       tenants,
 		settings:      settings,
+		trials:        trials,
 		oidc:          providers,
 		saml:          samlProviders,
 		cas:           casServer,
@@ -305,6 +310,11 @@ func (s *Server) Handler() http.Handler { return s.router }
 // completed, service tickets nobody validated, reset links that have gone
 // cold, and refresh-token chains no longer capable of anything.
 //
+// Plus one that is not dead weight — a trial request nobody confirmed, which
+// costs a tenant code rather than a page of disk. It is swept on the same
+// schedule because that is where anybody would look for it, not because it
+// has the same reason.
+//
 // It is one call rather than several because they share a schedule and a
 // failure mode, and because a periodic job that only cleans some of what
 // grows is a job somebody will assume covers the rest. The caller decides
@@ -324,6 +334,22 @@ func (s *Server) SweepExpired(ctx context.Context) error {
 		return err
 	}
 	if err := s.cas.SweepExpired(ctx); err != nil {
+		return err
+	}
+	// Trial requests nobody confirmed, which is the only one of these that
+	// holds something a person can be refused.
+	//
+	// The others are dead weight: a row nobody will look at again, costing
+	// disk. This one reserves a tenant code from the moment it is made and
+	// keeps it whether or not the link is ever opened — so on a public
+	// demonstration, where the first names typed are `demo`, `test` and the
+	// visitor's own company, leaving them uncollected means those names are
+	// refused forever against tenants that do not exist.
+	//
+	// It was missing here, and the comment above this function is why that
+	// mattered: a sweep that covers some of what grows is one everybody
+	// assumes covers the rest, so nothing else was ever going to collect them.
+	if _, err := s.trials.SweepExpired(ctx); err != nil {
 		return err
 	}
 	return s.sweepCredentialRemnants(ctx)

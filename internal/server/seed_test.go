@@ -284,6 +284,7 @@ var notSeeded = map[string]string{
 	"/api/v1/auth/recovery-channels":             "what this deployment can send, from configuration",
 	"/api/v1/auth/registration-status":           "whether registration is open, from settings",
 	"/api/v1/trial/status":                       "whether this deployment offers trials, from configuration",
+	"/api/v1/landing":                            "whether the root address has a page of its own, from configuration",
 	"/api/v1/webhooks/events":                    "the catalogue of event types, a constant",
 	"/api/v1/applications/integration-endpoints": "the URLs this deployment publishes, a constant",
 	"/api/v1/users/export":                       "a spreadsheet of the list that is already asserted",

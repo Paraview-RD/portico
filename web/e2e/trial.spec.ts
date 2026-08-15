@@ -50,3 +50,23 @@ test("a confirmation link with no token explains itself rather than asking for a
     page.getByRole("heading", { name: "Sign in" }),
   ).not.toBeVisible();
 });
+
+/**
+ * The root address, on a deployment that did not ask for a landing page.
+ *
+ * This is the assertion that the toggle changed nothing. Every deployment
+ * before it existed sent a signed-out visitor from "/" to the sign-in form,
+ * and the default has to keep doing exactly that — the e2e server runs
+ * without PORTICO_LANDING_PAGE, like an ordinary installation.
+ *
+ * The other half of the rule is asked directly in src/routing.test.ts, which
+ * can set the flag both ways without a second server.
+ */
+test("the root address still goes to sign-in when no landing page is configured", async ({
+  page,
+}) => {
+  await page.goto("/");
+
+  await expect(page).toHaveURL(/\/login$/);
+  await expect(page.getByRole("heading", { name: "Sign in" })).toBeVisible();
+});

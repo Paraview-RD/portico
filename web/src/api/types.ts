@@ -873,6 +873,11 @@ export function isSession(result: ExternalSignInResult): result is Session {
 }
 
 /** What the sign-in screen asks before offering a trial at all. */
+/** Whether the root address renders a page of its own. */
+export interface LandingStatus {
+  enabled: boolean;
+}
+
 export interface TrialStatus {
   enabled: boolean;
   /** Only worlds that have seeded data behind them. */

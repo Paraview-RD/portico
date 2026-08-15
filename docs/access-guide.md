@@ -182,6 +182,20 @@ starting — the service sleeps, and the database is deleted after ninety days.
 The seeded accounts are the ones described above — `admin`, `zhangwei`,
 `liyan` — under whichever password you chose, not the published one.
 
+### The root address
+
+By default `/` sends a signed-out visitor to the sign-in form, which is right
+where everybody arriving already has an account.
+
+`PORTICO_LANDING_PAGE=true` gives it a page instead: what Portico is, what it
+does, and the way in. For a public address a stranger opens with no idea what
+they have found — there a sign-in form asks for something they do not have,
+and the way in is a line of small print underneath it. Where trials are also
+on, the page offers one.
+
+Off changes nothing: `/` behaves exactly as it did before the flag existed,
+which `web/src/routing.test.ts` and the browser suite both hold in place.
+
 ### Then, if you want self-service trials
 
 Optional, and a second step rather than part of the first, because it has a
@@ -208,6 +222,31 @@ see [what a trial tenant is filled with](#what-a-trial-tenant-is-filled-with).
 `PORTICO_TRIAL_MAX_TENANTS` bounds how many exist at once; fifty is the
 default and is bounded by attention rather than by disk, since fifty trial
 tenants are a few megabytes against a 1GB database.
+
+### Looking after what the trials created
+
+On the command line, for the same reason tenant provisioning is: no account
+can act outside its own tenant, so there is nobody the API could authorize to
+list or delete one.
+
+```bash
+portico trial list                              # every tenant a trial made,
+                                                # and the address that asked
+portico trial prune                             # release codes held by links
+                                                # nobody opened
+portico trial delete --code acme-trial --yes    # the tenant and everything
+                                                # in it, irreversibly
+```
+
+`delete` refuses any tenant no trial created, so the default tenant and
+anything provisioned by hand are out of reach of a typo. It removes accounts,
+organizations, applications and the audit trail in one transaction — a failure
+part-way leaves the tenant whole rather than half-emptied — and frees both the
+tenant code and the address, so that person can try again.
+
+`prune` is the same collection a running server already does every hour. It is
+here for when there is no server running, or when the names are wanted back
+now rather than within the hour.
 
 ## First run
 
@@ -321,12 +360,17 @@ What a visitor goes through:
    and mailed. The administrator's password is not forced to change on the way
    in — they did not choose it and have nowhere to look it up.
 
+   The address they proved goes onto that administrator account, so "forgot
+   password" works for it. That is the whole reason to bother verifying an
+   address: without it on the account, the one person who can administer the
+   tenant has no way back into it.
+
 | Bound | Default | Why |
 |---|---|---|
 | Tenants at once | `PORTICO_TRIAL_MAX_TENANTS`, 50 | A shared demonstration database. Reached, the form says so rather than queueing |
 | Per address | one tenant | Enforced by a unique index, not only checked |
 | Per client address | 5 requests a day | The per-minute throttle cannot see fifty requests spread across an afternoon |
-| Link lifetime | 2 hours | It holds a reserved tenant code, so an abandoned request costs somebody else a name |
+| Link lifetime | 2 hours | It holds a reserved tenant code from the moment it is requested. Expired and unconfirmed, it is deleted by the hourly sweep and the name goes back into circulation |
 
 ### What a trial tenant is filled with
 
