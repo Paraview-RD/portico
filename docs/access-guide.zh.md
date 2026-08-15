@@ -78,7 +78,9 @@ http://<host>:8410/login?tenant=acme
 
 ## 凭据
 
-Portico 自己保存账号——MVP 里没有外部身份提供方。
+Portico 自己保存账号。它也可以接受别人对"这个人是谁"的说法——一个 OpenID
+Provider、微信或钉钉——但**永远不能以此创建账号**：见下面的**身份提供方**一节，以及
+[federation.zh.md](federation.zh.md) 里"这件事委托了什么、没委托什么"。
 
 | 凭据 | 从哪里来 |
 |---|---|

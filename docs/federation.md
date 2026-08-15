@@ -278,6 +278,65 @@ Whether the journey is a sign-in or a link is decided when it starts and
 remembered server-side — never read from what comes back. A callback that
 could say which it was would be one a crafted link could lie in.
 
+### WeChat and DingTalk, which are not OpenID Connect
+
+Both are supported, and neither is configured the way everything above is.
+OpenID Connect's discovery document is what makes a provider a form to fill
+in: give Portico an issuer and it learns the endpoints, the keys, and how to
+check what comes back. These two publish no such document, so each is an
+adapter compiled into the server — which is why adding a third vendor is a
+release rather than a setting.
+
+Pick the kind first; the form changes with it.
+
+| | |
+|---|---|
+| **WeChat** | The Open Platform's **website application** — the QR code somebody scans. Not the official-account web authorization, which only works inside WeChat's own browser and so cannot sign anybody in to a console; not WeCom, which is a different product. You supply the **AppID** and **AppSecret** under those names, because that is what WeChat's own console calls them. |
+| **DingTalk** | The login API it has had since 2022. `scope=openid` is DingTalk's spelling, not a promise: nothing signed comes back. |
+
+There is no issuer field for either, and that is deliberate rather than a
+simplification. The issuer is the namespace every stored subject lives in —
+identity here is the pair `(issuer, subject)` — so it is a constant this
+server chooses. If two tenants could type their own, the same person would be
+two identities.
+
+Nor is a saved configuration verified. An OIDC issuer is contacted before the
+row is written, which is what makes a typo fail at the form; there is nothing
+equivalent to ask these two, because what could be wrong is the credential
+and neither vendor offers a way to check one without a person completing a
+sign-in. **So for these, the first sign-in is the test.**
+
+#### What these two do not have
+
+Worth stating plainly, because the same button and the same callback serve
+them and the providers above:
+
+- **No ID token.** Nothing in either exchange is signed anywhere. The token
+  request therefore goes server-to-server over TLS with the client secret,
+  and the browser is trusted with nothing but the authorization code.
+- **No nonce**, because there is no token to carry one.
+- **No PKCE.** Neither implements it.
+
+What ties a callback to a request this server started is the single-use
+`state`, and for these two that is the whole of it — where an OIDC provider
+is held to three separate checks. That is what those providers offer rather
+than something given up here.
+
+**WeChat returns no email address at all**, so the switch above cannot do
+anything for it and the form does not offer it. DingTalk returns one and does
+not claim it is proved, which Portico records as unverified.
+
+#### One thing to decide before you have users
+
+WeChat identifies people by a `unionid` where the application is bound to an
+Open Platform account and an `openid` where it is not. Portico prefers the
+first and records which it used, because the difference matters later: if an
+application **gains** a unionid it did not have, every identity bound under
+an openid stops matching and those people are told their account is not
+linked. That is a migration, and it is writable only because the rows say
+which key they used — but it is much cheaper to bind the application to an
+Open Platform account before anybody links, than after.
+
 ### Removing a provider
 
 **Disable** takes the button off the sign-in screen and leaves every link in
