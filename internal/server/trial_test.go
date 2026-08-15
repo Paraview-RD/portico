@@ -13,6 +13,7 @@ import (
 	"testing"
 
 	"github.com/Paraview-RD/portico/internal/config"
+	"github.com/Paraview-RD/portico/internal/notify"
 	"github.com/Paraview-RD/portico/internal/provision"
 	"github.com/Paraview-RD/portico/internal/server"
 	"github.com/Paraview-RD/portico/internal/testdb"
@@ -977,6 +978,112 @@ func newLandingTest(t *testing.T) *apiTest {
 		t.Fatalf("bootstrap: %v", err)
 	}
 	return &apiTest{t: t, srv: srv, dsn: cfg.DatabaseDSN}
+}
+
+// A relay that will not take the message.
+//
+// The most likely thing to go wrong with this feature on a real deployment,
+// and the one furthest outside its control: a quota reached, a credential
+// rotated, a network that drops SMTP. None of it is the visitor's doing and
+// none of it is a defect in this server.
+type failingMailer struct{}
+
+func (failingMailer) Send(context.Context, notify.Message) error {
+	return errors.New("dial failed: EOF")
+}
+
+func TestAMailRelayThatFailsIsNotReportedAsAServerFault(t *testing.T) {
+	silenceLogs(t)
+
+	cfg, err := config.Load()
+	if err != nil {
+		t.Fatalf("load config: %v", err)
+	}
+	cfg.DatabaseDriver = "postgres"
+	cfg.DatabaseDSN = testdb.DSN(t)
+	cfg.InitialAdminUsername = adminUsername
+	cfg.InitialAdminPassword = adminPassword
+	cfg.AuthRateLimit, cfg.AuthRateLimitBurst = 100000, 100000
+	cfg.TrialSignup = true
+	cfg.TrialMaxTenants = 50
+
+	srv, err := server.New(cfg, server.WithMailer(failingMailer{}))
+	if err != nil {
+		t.Fatalf("new server: %v", err)
+	}
+	t.Cleanup(func() { _ = srv.Close() })
+	if err := srv.Bootstrap(context.Background()); err != nil {
+		t.Fatalf("bootstrap: %v", err)
+	}
+	api := &apiTest{t: t, srv: srv, dsn: cfg.DatabaseDSN}
+
+	got := api.do(http.MethodPost, "/api/v1/trial", "", map[string]string{
+		"email":       "unreachable@example.test",
+		"companyName": "Unreachable",
+		"tenantCode":  "unreachable-co",
+	})
+
+	// 503 rather than 500: the request was fine, this server is fine, and a
+	// dependency outside both is not. Reported as "something went wrong on
+	// the server" it sends the visitor away believing the product is broken
+	// and tells whoever runs the demonstration nothing.
+	if got.Status != http.StatusServiceUnavailable {
+		t.Errorf("a failed send answered %d, want 503", got.Status)
+	}
+	if got.Code != "TRIAL_MAIL_FAILED" {
+		t.Errorf("answered %s, want TRIAL_MAIL_FAILED", got.Code)
+	}
+	if strings.Contains(got.Message, "EOF") || strings.Contains(got.Message, "dial") {
+		t.Errorf("the message repeats the internal failure to the caller: %q", got.Message)
+	}
+
+	// And the reservation is released, so the same details can be retried the
+	// moment the relay is working again.
+	retry := api.do(http.MethodPost, "/api/v1/trial", "", map[string]string{
+		"email":       "someone@example.test",
+		"companyName": "Someone",
+		"tenantCode":  "unreachable-co",
+	})
+	if retry.Code == "TRIAL_CODE_TAKEN" {
+		t.Error("a send that failed left the tenant code reserved")
+	}
+}
+
+func TestTheOrganizationNameIsOptional(t *testing.T) {
+	api, mailer := newTrialTest(t, true)
+
+	// No companyName at all. It used to be the one field on this form asking
+	// for something the product does not need — a tenant works with its code
+	// as its name, and somebody trying a demonstration has not decided what
+	// to call it yet.
+	before := len(mailer.sent())
+	asked := api.do(http.MethodPost, "/api/v1/trial", "", map[string]string{
+		"email":      "nameless@example.test",
+		"tenantCode": "nameless-co",
+	})
+	if asked.Status != http.StatusOK {
+		t.Fatalf("a request with no organization name: %d %s %s",
+			asked.Status, asked.Code, asked.Message)
+	}
+
+	token := tokenFromLink(t, mailer.waitFor(t, before+1).Body)
+	confirmed := api.do(http.MethodPost, "/api/v1/trial/confirm", "",
+		map[string]string{"token": token})
+	if confirmed.Status != http.StatusOK {
+		t.Fatalf("confirm: %d %s %s", confirmed.Status, confirmed.Code, confirmed.Message)
+	}
+
+	var out struct {
+		TenantCode string `json:"tenantCode"`
+		TenantName string `json:"tenantName"`
+	}
+	confirmed.into(t, &out)
+
+	// The code, rather than an empty name that would leave the console showing
+	// a tenant with no title anywhere it is displayed.
+	if out.TenantName != out.TenantCode {
+		t.Errorf("the tenant is named %q, want its code %q", out.TenantName, out.TenantCode)
+	}
 }
 
 func TestTheStatusEndpointOnlyOffersWorldsThatExist(t *testing.T) {

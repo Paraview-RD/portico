@@ -230,6 +230,9 @@ export const errorsZhCN: Record<keyof typeof errorsEnUS, string> = {
   TRIAL_SIGNUP_CLOSED: "本部署不提供自助试用。",
   TRIAL_MAIL_UNAVAILABLE:
     "试用需要邮件，而本部署没有配置邮件中继。请告知运维。",
+  // 与 UNAVAILABLE 是两回事：那条是「没配」，这条是「配了但这一刻发不出去」——
+  // 配额、凭据、网络。前者要找运维，后者过一会儿再试就行，所以措辞不同。
+  TRIAL_MAIL_FAILED: "确认邮件这会儿发不出去，请过一分钟再试。",
   TRIAL_QUOTA_REACHED: "演示环境已满。请稍后再试，或者自己部署一套 Portico。",
   TRIAL_CODE_TAKEN: "该租户编码已被占用，请换一个。",
   TRIAL_EMAIL_USED: "该邮箱已经有一个试用租户了，直接用它登录即可。",

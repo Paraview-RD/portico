@@ -119,6 +119,15 @@ var (
 	ErrTrialTooManyFromAddress = httpx.TooManyRequests("TRIAL_TOO_MANY",
 		"Too many trials requested from this address today.")
 
+	// ErrTrialMailFailed is the relay refusing the message.
+	//
+	// 503 rather than 500: the request was well formed, this server is
+	// working, and something outside it is not. The visitor is told to try
+	// again because that is genuinely what to do — the reservation is
+	// released before this is returned, so the same details are free.
+	ErrTrialMailFailed = httpx.ServiceUnavailable("TRIAL_MAIL_FAILED",
+		"The confirmation email could not be sent just now. Try again in a minute.")
+
 	// ErrTrialLinkInvalid is a token that names no request.
 	ErrTrialLinkInvalid = httpx.BadRequest("TRIAL_LINK_INVALID",
 		"That link is not valid. Request a new trial.")
@@ -258,13 +267,21 @@ func (s *TrialService) Request(ctx context.Context, in TrialRequestInput, ip str
 	if email == "" || !strings.Contains(email, "@") {
 		return httpx.BadRequest("INVALID_EMAIL", "Enter an email address.")
 	}
-	company := strings.TrimSpace(in.CompanyName)
-	if company == "" {
-		return httpx.BadRequest("COMPANY_REQUIRED", "Enter an organization name.")
-	}
 	code := strings.ToLower(strings.TrimSpace(in.TenantCode))
 	if err := validateTenantCode(code); err != nil {
 		return err
+	}
+
+	// The display name, which the visitor may not bother with.
+	//
+	// It used to be required, and it was the one field on the form asking for
+	// something the product does not need: a tenant works perfectly with its
+	// code as its name, and somebody trying a demonstration has no reason to
+	// have decided what to call it. Left blank it becomes the code, which is
+	// what they typed one field earlier and can rename in Settings.
+	company := strings.TrimSpace(in.CompanyName)
+	if company == "" {
+		company = code
 	}
 	industry := strings.TrimSpace(in.Industry)
 	if industry == "" {
@@ -547,7 +564,17 @@ func (s *TrialService) sendLink(ctx context.Context, email, company, token strin
 		if _, del := s.store.Queries.DeleteTrialRequestByToken(ctx, hashTrialToken(token)); del != nil {
 			return fmt.Errorf("send trial link: %w; and could not release the reservation: %w", err, del)
 		}
-		return fmt.Errorf("send trial link: %w", err)
+
+		// The real reason to the log, a usable one to the visitor.
+		//
+		// This used to fall through to a 500 and "an unexpected error
+		// occurred", which is wrong twice: nothing about a relay refusing a
+		// message is unexpected — a quota, a rotated credential, a network
+		// that drops SMTP — and the visitor is told the product is broken
+		// when the thing to do is try again in a minute.
+		slog.ErrorContext(ctx, "could not send a trial confirmation link",
+			"to", email, "error", err)
+		return ErrTrialMailFailed
 	}
 	return nil
 }

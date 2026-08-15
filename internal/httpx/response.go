@@ -119,6 +119,18 @@ func TooManyRequests(code, message string) *Error {
 	return NewError(http.StatusTooManyRequests, code, message)
 }
 
+// ServiceUnavailable reports that something this server depends on is not
+// answering — a mail relay, a directory, anything outside the process.
+//
+// Distinct from Internal on purpose. Both are 5xx and only one of them says
+// "this software is broken": a relay that has hit its quota is a working
+// deployment with a dependency that is down, and reporting it as an internal
+// error sends the caller away believing the product failed while telling
+// whoever runs it nothing about where to look.
+func ServiceUnavailable(code, message string) *Error {
+	return NewError(http.StatusServiceUnavailable, code, message)
+}
+
 // Internal reports a server-side failure. The cause is logged; the client
 // gets a generic message so internals are not leaked.
 func Internal(err error) *Error {

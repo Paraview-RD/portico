@@ -281,6 +281,11 @@ export const errorsEnUS = {
   TRIAL_SIGNUP_CLOSED: "This deployment does not offer self-service trials.",
   TRIAL_MAIL_UNAVAILABLE:
     "Trials need email, and this deployment has no relay configured. Tell whoever runs it.",
+  // A different thing from UNAVAILABLE: that one is "not configured", this
+  // one is "configured and refusing right now" — a quota, a credential, a
+  // network. The first needs whoever runs it; the second needs a minute.
+  TRIAL_MAIL_FAILED:
+    "The confirmation email could not be sent just now. Try again in a minute.",
   TRIAL_QUOTA_REACHED:
     "The demonstration is full. Try again later, or run Portico yourself.",
   TRIAL_CODE_TAKEN: "That tenant code is taken. Choose another.",
