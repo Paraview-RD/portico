@@ -66,6 +66,10 @@ func (s *Server) routes() http.Handler {
 		// source is public, which is worth nothing.
 		r.Get("/trial/status", h.TrialStatus)
 
+		// What the root address does, which the console has to know before it
+		// renders anything for a signed-out visitor.
+		r.Get("/landing", s.handleLanding)
+
 		// The two that create something are conditional, because those are
 		// the attack surface: the only writes in this API reachable without
 		// signing in, and the only ones that create a tenant. Off, they are
@@ -532,6 +536,27 @@ type healthResponse struct {
 // failing database does not make the process look dead to an orchestrator.
 func (s *Server) handleHealth(w http.ResponseWriter, _ *http.Request) {
 	httpx.OK(w, healthResponse{Status: "ok", Version: Version})
+}
+
+// handleLanding says whether the root address has a page of its own.
+//
+// On the Server rather than the Handler because it answers from configuration
+// and touches no service — the same arrangement as health above, and the
+// reason the Handler's constructor does not grow a twenty-third argument for
+// a boolean.
+//
+// Its own endpoint rather than a field on /api/v1/trial/status. That one
+// answers "does this deployment hand out tenants", which is a different
+// question with a different answer: a landing page is worth having on a
+// public address whether or not trials are on, and a demonstration with
+// trials on may still want visitors to arrive at the sign-in form. Folding
+// them together would save one request and make both names wrong.
+//
+// Always routed, including when the page is off, because the console asks on
+// every load — a conditional route would leave a 404 in the browser console
+// of every ordinary deployment. That lesson is written out at /trial/status.
+func (s *Server) handleLanding(w http.ResponseWriter, _ *http.Request) {
+	httpx.OK(w, map[string]any{"enabled": s.cfg.LandingPage})
 }
 
 // readinessResponse says whether this instance can actually serve.

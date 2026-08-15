@@ -906,6 +906,79 @@ func queryOne(t *testing.T, dsn, query string, args []any, dest any) {
 	}
 }
 
+// The landing page toggle, asked at the endpoint the console reads.
+//
+// Two states and one endpoint, because the whole of this feature on the server
+// is a boolean read from configuration. What the console does with each answer
+// is in web/src/routing.test.ts, which can set the flag both ways without a
+// second server.
+func TestTheRootAddressSaysWhetherItHasAPageOfItsOwn(t *testing.T) {
+	// Off, which is the default and what every deployment did before this
+	// existed. Asserted rather than assumed: this is the answer that keeps
+	// ordinary installations behaving as they always have.
+	api, _ := newTrialTest(t, false)
+	got := api.do(http.MethodGet, "/api/v1/landing", "", nil)
+	if got.Status != http.StatusOK {
+		t.Fatalf("landing: %d %s", got.Status, got.Code)
+	}
+	var answer struct {
+		Enabled bool `json:"enabled"`
+	}
+	got.into(t, &answer)
+	if answer.Enabled {
+		t.Error("a deployment that did not ask for a landing page says it has one")
+	}
+}
+
+func TestTheLandingPageIsOfferedWhereItWasAskedFor(t *testing.T) {
+	api := newLandingTest(t)
+
+	got := api.do(http.MethodGet, "/api/v1/landing", "", nil)
+	if got.Status != http.StatusOK {
+		t.Fatalf("landing: %d %s", got.Status, got.Code)
+	}
+	var answer struct {
+		Enabled bool `json:"enabled"`
+	}
+	got.into(t, &answer)
+	if !answer.Enabled {
+		t.Error("PORTICO_LANDING_PAGE is on and the endpoint says otherwise")
+	}
+
+	// Readable without signing in, which is the only way it is any use: it is
+	// read before the console renders anything for a visitor who has no
+	// account.
+	if got.Code != "SUCCESS" {
+		t.Errorf("answered %s to an anonymous caller", got.Code)
+	}
+}
+
+// newLandingTest builds a server with the landing page switched on.
+func newLandingTest(t *testing.T) *apiTest {
+	t.Helper()
+	silenceLogs(t)
+
+	cfg, err := config.Load()
+	if err != nil {
+		t.Fatalf("load config: %v", err)
+	}
+	cfg.DatabaseDriver = "postgres"
+	cfg.DatabaseDSN = testdb.DSN(t)
+	cfg.InitialAdminUsername = adminUsername
+	cfg.InitialAdminPassword = adminPassword
+	cfg.LandingPage = true
+
+	srv, err := server.New(cfg)
+	if err != nil {
+		t.Fatalf("new server: %v", err)
+	}
+	t.Cleanup(func() { _ = srv.Close() })
+	if err := srv.Bootstrap(context.Background()); err != nil {
+		t.Fatalf("bootstrap: %v", err)
+	}
+	return &apiTest{t: t, srv: srv, dsn: cfg.DatabaseDSN}
+}
+
 func TestTheStatusEndpointOnlyOffersWorldsThatExist(t *testing.T) {
 	api, _ := newTrialTest(t, true)
 

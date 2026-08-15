@@ -128,6 +128,11 @@ Configuration is entirely environment variables:
                                    proxy — it is per address and per process
   PORTICO_AUTH_RATE_LIMIT_BURST    how many of that minute's allowance may
                                    arrive at once (default 30)
+  PORTICO_LANDING_PAGE             give the root address a page saying what
+                                   this is, instead of the sign-in form
+                                   (default false). For a public address a
+                                   stranger reaches with no idea what they
+                                   have opened
   PORTICO_TRIAL_SIGNUP             let strangers create a tenant by proving an
                                    email address (default false). For a public
                                    demonstration only: these are the only

@@ -85,6 +85,20 @@ type Config struct {
 	InitialAdminUsername string
 	InitialAdminPassword string
 
+	// LandingPage gives the root address something other than a sign-in form.
+	//
+	// Off by default, and off means the behaviour this had before it existed:
+	// a signed-out visitor asking for anything is sent to /login. That default
+	// is right for the deployments this is mostly used by, where everybody
+	// arriving already has an account and a page explaining what Portico is
+	// would be a click between them and their work.
+	//
+	// On, it is for the other case: a public address a stranger reaches with
+	// no idea what they have opened. There the sign-in form is the wrong first
+	// screen — it asks for something they do not have, and the way in is a
+	// line of small print underneath it.
+	LandingPage bool
+
 	// TrialSignup registers the self-service trial routes, which let somebody
 	// with no account at all create a tenant by proving an email address.
 	//
@@ -190,6 +204,7 @@ func Load() (*Config, error) {
 		InitialAdminUsername: envString("PORTICO_INITIAL_ADMIN_USERNAME", "admin"),
 		InitialAdminPassword: os.Getenv("PORTICO_INITIAL_ADMIN_PASSWORD"),
 		TrustProxyHeaders:    os.Getenv("PORTICO_TRUST_PROXY_HEADERS") == "true",
+		LandingPage:          os.Getenv("PORTICO_LANDING_PAGE") == "true",
 		TrialSignup:          os.Getenv("PORTICO_TRIAL_SIGNUP") == "true",
 	}
 

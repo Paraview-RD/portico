@@ -182,6 +182,20 @@ starting — the service sleeps, and the database is deleted after ninety days.
 The seeded accounts are the ones described above — `admin`, `zhangwei`,
 `liyan` — under whichever password you chose, not the published one.
 
+### The root address
+
+By default `/` sends a signed-out visitor to the sign-in form, which is right
+where everybody arriving already has an account.
+
+`PORTICO_LANDING_PAGE=true` gives it a page instead: what Portico is, what it
+does, and the way in. For a public address a stranger opens with no idea what
+they have found — there a sign-in form asks for something they do not have,
+and the way in is a line of small print underneath it. Where trials are also
+on, the page offers one.
+
+Off changes nothing: `/` behaves exactly as it did before the flag existed,
+which `web/src/routing.test.ts` and the browser suite both hold in place.
+
 ### Then, if you want self-service trials
 
 Optional, and a second step rather than part of the first, because it has a

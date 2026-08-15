@@ -59,6 +59,9 @@ var publicAPIRoutes = map[string]string{
 	"POST /api/v1/auth/login":              "the endpoint that issues the credential",
 	"POST /api/v1/auth/register":           "self-registration, which by definition precedes an account",
 	"GET /api/v1/auth/registration-status": "the sign-in screen asks before anybody has signed in",
+	"GET /api/v1/landing": "what the root address does, which the console has to " +
+		"know before it renders anything for somebody who is not signed in — and " +
+		"which is the same for every visitor, signed in or not",
 	"GET /api/v1/trial/status": "the same screen, asking whether this deployment " +
 		"hands out tenants. Always routed and almost always answering no: it is " +
 		"read on every sign-in load, so a 404 here would be a permanent console " +
