@@ -19,6 +19,8 @@ import { ProfilePage } from "./pages/ProfilePage";
 import { ProvisioningPage } from "./pages/ProvisioningPage";
 import { RegisterPage } from "./pages/RegisterPage";
 import { ResetPasswordPage } from "./pages/ResetPasswordPage";
+import { TrialConfirmPage } from "./pages/TrialConfirmPage";
+import { TrialPage } from "./pages/TrialPage";
 import { VerifyPage } from "./pages/VerifyPage";
 import { SettingsPage } from "./pages/SettingsPage";
 import { UserAttributesPage } from "./pages/UserAttributesPage";
@@ -146,6 +148,14 @@ export function App() {
         return <ResetPasswordPage />;
       case "/verify":
         return <VerifyPage />;
+      // Reachable whether or not this deployment offers trials: the form
+      // refuses on submit rather than on mount, so somebody who typed the
+      // address is told by the server rather than by a screen that flickers
+      // into an error.
+      case "/trial":
+        return <TrialPage />;
+      case "/trial/confirm":
+        return <TrialConfirmPage />;
       default:
         return <LoginPage />;
     }

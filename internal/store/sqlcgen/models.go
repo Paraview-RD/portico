@@ -405,6 +405,21 @@ type Tenant struct {
 	UpdatedAt time.Time
 }
 
+// Self-service trial signups, for a public demonstration only. The one table with no tenant_id: it is what exists before a tenant does. Unreachable unless PORTICO_TRIAL_SIGNUP is on.
+type TrialRequest struct {
+	ID          string
+	Email       string
+	CompanyName string
+	TenantCode  string
+	Industry    string
+	TokenHash   string
+	ExpiresAt   time.Time
+	ConfirmedAt *time.Time
+	TenantID    *string
+	RequestIp   string
+	CreatedAt   time.Time
+}
+
 type User struct {
 	ID           string
 	TenantID     string

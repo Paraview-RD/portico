@@ -61,6 +61,11 @@ type Handler struct {
 	saml *samlp.Providers
 	// cas is the third, and the last.
 	cas *casp.Server
+	// Self-service trials, on a demonstration deployment only. Nil where
+	// PORTICO_TRIAL_SIGNUP is off, and the routes are not registered there
+	// either — see internal/service/trial.go for why this one is different
+	// from everything above it.
+	trials *service.TrialService
 }
 
 // New returns a Handler backed by the given services.
@@ -89,6 +94,7 @@ func New(
 	oidc *oidcp.Providers,
 	samlProviders *samlp.Providers,
 	casServer *casp.Server,
+	trials *service.TrialService,
 ) *Handler {
 	return &Handler{
 		users: users, orgs: orgs, audit: audit,
@@ -101,5 +107,6 @@ func New(
 		webhooks: webhooks, externalIDP: externalIDP, groups: groups, logos: logos,
 		attributes: attributes, fields: fields, fieldMappings: fieldMappings,
 		oidc: oidc, saml: samlProviders, cas: casServer,
+		trials: trials,
 	}
 }

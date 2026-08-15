@@ -260,6 +260,51 @@ Somebody refused for an unconfirmed address is told so at sign-in and can ask
 for another message from that screen — they have to type the address rather
 than the username, because that is where it goes.
 
+## Self-service trials — a demonstration only
+
+`PORTICO_TRIAL_SIGNUP=true` adds three endpoints and a form that let somebody
+with no account anywhere create a tenant by proving an email address.
+
+**Off by default, and it has to stay off anywhere holding real staff.** Every
+other write in this API is authorized inside a tenant by somebody who already
+signed in. These are the only ones a stranger can reach, and the only ones that
+create a tenant — which the rest of Portico deliberately leaves to the command
+line, on the grounds that no cross-tenant role exists for an API to authorize.
+Turning this on is declaring the deployment a demonstration.
+
+The routes are registered only when it is on, so on an ordinary installation
+they answer 404 the way any other absent path does. There is nothing to
+discover.
+
+It needs SMTP. The address is the whole of the identity check, so a server with
+no relay refuses the request rather than accepting one it cannot finish.
+
+What a visitor goes through:
+
+1. **Sign-in offers it** — "No tenant of your own? Try Portico" — only where
+   the deployment says yes.
+2. **They fill in** an address, an organization name, a tenant code, and which
+   seeded world they want. The code is checked for collisions immediately: it
+   is the one thing they can fix, and hearing about it after checking their
+   email is the worst moment.
+3. **A link arrives**, good for two hours. Nothing has been created yet.
+4. **Clicking it** creates the tenant and an `admin` account with a generated
+   password, shows both once, and mails a copy. The password is not forced to
+   change on the way in — they did not choose it and have nowhere to look it
+   up.
+
+| Bound | Default | Why |
+|---|---|---|
+| Tenants at once | `PORTICO_TRIAL_MAX_TENANTS`, 50 | A shared demonstration database. Reached, the form says so rather than queueing |
+| Per address | one tenant | Enforced by a unique index, not only checked |
+| Per client address | 5 requests a day | The per-minute throttle cannot see fifty requests spread across an afternoon |
+| Link lifetime | 2 hours | It holds a reserved tenant code, so an abandoned request costs somebody else a name |
+
+**A trial tenant starts empty** — one administrator, no organizations, no
+accounts, no applications. The industry packs that fill it are the next piece
+of work, which is why the form offers one general-purpose option rather than
+naming worlds that have no data behind them.
+
 ## Roles
 
 The MVP has exactly two roles and no way to define more (requirements §3.3).

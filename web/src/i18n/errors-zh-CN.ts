@@ -225,6 +225,20 @@ export const errorsZhCN: Record<keyof typeof errorsEnUS, string> = {
   INVALID_DELIVERY_FILTER: "这不是该列表支持的筛选方式。",
   UNSUPPORTED_MEDIA_TYPE: "该接口不接受这种格式的请求。",
   TOO_MANY_ATTEMPTS: "该地址的尝试次数过多，请稍候再试。",
+  // 自助试用，只在演示环境上。这几条每一条都是访客自己能处理的事，所以没有一条
+  // 是干巴巴的拒绝——一个进不来的陌生人没有任何客服可问。
+  TRIAL_SIGNUP_CLOSED: "本部署不提供自助试用。",
+  TRIAL_MAIL_UNAVAILABLE:
+    "试用需要邮件，而本部署没有配置邮件中继。请告知运维。",
+  TRIAL_QUOTA_REACHED: "演示环境已满。请稍后再试，或者自己部署一套 Portico。",
+  TRIAL_CODE_TAKEN: "该租户编码已被占用，请换一个。",
+  TRIAL_EMAIL_USED: "该邮箱已经有一个试用租户了，直接用它登录即可。",
+  TRIAL_TOO_MANY: "今天从这个地址申请的试用次数过多。",
+  TRIAL_LINK_INVALID: "这个链接无效。请重新申请试用。",
+  TRIAL_LINK_EXPIRED: "这个链接已过期。请重新申请试用。",
+  TRIAL_LINK_SPENT: "这个链接已经用过了。请用它发给你的凭据登录。",
+  COMPANY_REQUIRED: "请填写组织名称。",
+  INVALID_INDUSTRY: "请从提供的行业里选一个。",
   INVALID_PATH_PARAMETER: "地址不合法。",
   ROUTE_NOT_FOUND: "接口不存在。",
   METHOD_NOT_ALLOWED: "该接口不支持此方法。",

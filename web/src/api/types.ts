@@ -871,3 +871,19 @@ export type ExternalSignInResult = Session | ExternalIdentity;
 export function isSession(result: ExternalSignInResult): result is Session {
   return "token" in result;
 }
+
+/** What the sign-in screen asks before offering a trial at all. */
+export interface TrialStatus {
+  enabled: boolean;
+  /** Only worlds that have seeded data behind them. */
+  industries: string[];
+}
+
+/** What a confirmed trial link hands back. The password is shown once. */
+export interface TrialTenant {
+  tenantCode: string;
+  tenantName: string;
+  adminUsername: string;
+  adminPassword: string;
+  signInUrl: string;
+}

@@ -85,6 +85,28 @@ type Config struct {
 	InitialAdminUsername string
 	InitialAdminPassword string
 
+	// TrialSignup registers the self-service trial routes, which let somebody
+	// with no account at all create a tenant by proving an email address.
+	//
+	// Off, and it has to stay off anywhere holding real staff. Every other
+	// write in this API is authorized inside a tenant by somebody who already
+	// signed in; these three are the only ones reachable by a stranger, and
+	// the only ones that create a tenant — which the rest of this system
+	// deliberately leaves to the command line, on the grounds that no
+	// cross-tenant role exists for an API to authorize. Enabling this is
+	// declaring the deployment a demonstration.
+	//
+	// It also needs SMTP: the address is the only thing being proven, so a
+	// server that cannot send mail cannot run this, and says so at startup
+	// rather than accepting requests it will not finish.
+	TrialSignup bool
+
+	// TrialMaxTenants caps how many trial tenants may exist at once. Reached,
+	// the signup form says so rather than queueing. A demonstration database
+	// is small and shared, and the failure without a cap is not a bill — it
+	// is the demonstration becoming unusably slow for everybody.
+	TrialMaxTenants int
+
 	// TrustProxyHeaders makes the server believe X-Forwarded-For and
 	// X-Real-Ip. Enable it only when a proxy you control sits in front and
 	// rewrites those headers; otherwise callers can forge their own audit
@@ -168,6 +190,7 @@ func Load() (*Config, error) {
 		InitialAdminUsername: envString("PORTICO_INITIAL_ADMIN_USERNAME", "admin"),
 		InitialAdminPassword: os.Getenv("PORTICO_INITIAL_ADMIN_PASSWORD"),
 		TrustProxyHeaders:    os.Getenv("PORTICO_TRUST_PROXY_HEADERS") == "true",
+		TrialSignup:          os.Getenv("PORTICO_TRIAL_SIGNUP") == "true",
 	}
 
 	rateLimit, err := envInt("PORTICO_AUTH_RATE_LIMIT", 60)
@@ -179,6 +202,12 @@ func Load() (*Config, error) {
 		return nil, err
 	}
 	cfg.AuthRateLimit, cfg.AuthRateLimitBurst = rateLimit, rateLimitBurst
+
+	trialMax, err := envInt("PORTICO_TRIAL_MAX_TENANTS", 50)
+	if err != nil {
+		return nil, err
+	}
+	cfg.TrialMaxTenants = trialMax
 
 	cfg.PublicURL = envString("PORTICO_PUBLIC_URL", "http://localhost:8410")
 

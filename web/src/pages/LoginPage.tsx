@@ -1,7 +1,7 @@
 import { useEffect, useState } from "react";
 
 import { ApiError, tenantStore } from "../api/client";
-import { authApi } from "../api/endpoints";
+import { authApi, trialApi } from "../api/endpoints";
 import type { ExternalSignInOption } from "../api/types";
 import { AuthLink, AuthShell } from "../components/AuthShell";
 import { Alert, Button, Field, Input } from "../components/ui";
@@ -57,6 +57,10 @@ export function LoginPage() {
   const [error, setError] = useState("");
   const [submitting, setSubmitting] = useState(false);
   const [registrationOpen, setRegistrationOpen] = useState(false);
+  // Whether this deployment hands out tenants. Asked once rather than per
+  // tenant, because unlike registration it is a property of the installation:
+  // there is no tenant yet to have an opinion about it.
+  const [trialsOpen, setTrialsOpen] = useState(false);
   // Set when the server says the password is right but may not be kept. The
   // form then asks for a replacement rather than leaving somebody staring
   // at an error with no way forward — which is what an expiry policy
@@ -80,6 +84,18 @@ export function LoginPage() {
   const mustReplacePassword = replaceReason !== "";
   const [newPassword, setNewPassword] = useState("");
   const [systemName, setSystemName] = useState("Portico");
+
+  // A 404 is the answer on every ordinary installation, and it means "no"
+  // rather than "something went wrong" — the routes are not registered unless
+  // the deployment asked for them. So the failure path is silent.
+  useEffect(() => {
+    const controller = new AbortController();
+    trialApi
+      .trialStatus(controller.signal)
+      .then((status) => setTrialsOpen(status.enabled))
+      .catch(() => setTrialsOpen(false));
+    return () => controller.abort();
+  }, []);
 
   // The sign-in screen only offers registration when the server says it is
   // open, so a closed instance does not advertise a dead end. Both that and
@@ -368,6 +384,25 @@ export function LoginPage() {
           {t("login.noAccount")}{" "}
           <AuthLink onClick={() => navigate("/register")}>
             {t("login.register")}
+          </AuthLink>
+        </p>
+      )}
+
+      {/* A different offer from registration, and the border only appears
+          once: registering joins the tenant being signed in to, while this
+          creates one. Both at once is a demonstration, which is the only
+          place this is on. */}
+      {trialsOpen && (
+        <p
+          className={`text-center text-[length:var(--font-size-sm)] text-[var(--color-fg-muted)] ${
+            registrationOpen
+              ? "mt-2"
+              : "mt-5 border-t border-[var(--color-border)] pt-4"
+          }`}
+        >
+          {t("login.noTenant")}{" "}
+          <AuthLink onClick={() => navigate("/trial")}>
+            {t("login.tryIt")}
           </AuthLink>
         </p>
       )}

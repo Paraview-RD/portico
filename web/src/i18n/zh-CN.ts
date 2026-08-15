@@ -726,6 +726,47 @@ export const zhCN: Record<keyof typeof enUS, string> = {
   "verify.subtitle": "完成你刚才的注册。",
   "verify.working": "确认中…",
   "verify.done": "地址已确认，现在可以登录了。",
+  // 自助试用，只在演示环境上。来到这里的访客在任何地方都没有账号，也没有客服可
+  // 问，所以每一句话都得让他自己就能处理。
+  "login.noTenant": "还没有自己的租户？",
+  "login.tryIt": "试用 Portico",
+  "trial.title": "试用 Portico",
+  "trial.subtitle":
+    "一分钟左右，拿到一个属于你自己的租户，附带一个管理员账号。",
+  "trial.email": "邮箱地址",
+  "trial.emailHint":
+    "确认链接和你的密码都发到这里。这一栏写错，是本页面唯一无法挽回的错误。",
+  "trial.company": "组织名称",
+  "trial.tenantCode": "租户编码",
+  "trial.tenantCodeHint":
+    "你和你租户里的所有人登录时都要填它。小写，而且创建之后不能再改。",
+  "trial.industry": "预置数据",
+  "trial.industryHint": "你的租户初始带什么数据。更多行业正在准备。",
+  "trial.industry.generic": "一个通用型组织",
+  "trial.notReal":
+    "这是演示环境。请不要放任何真实数据——这里的数据不具备私密性，而且随时可能被重置。",
+  "trial.submit": "把链接发给我",
+  "trial.submitting": "发送中……",
+  "trial.backToSignIn": "返回登录",
+  "trial.sentTitle": "去查收邮件",
+  "trial.sentBody":
+    "链接两小时内有效。现在还什么都没创建——点开它，才会生成你的租户。",
+  "trial.sentTo": "已发往 {0}",
+  "trialConfirm.workingTitle": "正在准备你的租户",
+  "trialConfirm.working": "稍等一下。",
+  "trialConfirm.failedTitle": "没有成功",
+  "trialConfirm.startAgain": "重新申请试用",
+  "trialConfirm.noToken": "这个地址需要邮件里的那个链接，当前地址里没有令牌。",
+  "trialConfirm.readyTitle": "你的租户已就绪",
+  "trialConfirm.ready": "{0} 已经建好，下面是进去的钥匙。",
+  "trialConfirm.tenant": "租户编码",
+  "trialConfirm.username": "用户名",
+  "trialConfirm.password": "密码",
+  "trialConfirm.onlyTime":
+    "密码只在这里显示这一次。邮件里也有一份；系统不会以任何可读形式保存它。",
+  "trialConfirm.notReal": "这是演示环境，不是正式部署。请不要放任何真实数据。",
+  "trialConfirm.signInHint": "登录时，租户那一栏填",
+  "trialConfirm.signIn": "去登录",
   "verify.noToken":
     "这个地址缺少确认码。请直接打开邮件里的链接，不要手动输入网址。",
   "verify.resendAddress": "重新发送到",
