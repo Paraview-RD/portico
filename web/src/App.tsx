@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useState } from "react";
 
+import { landingApi } from "./api/endpoints";
 import { Layout } from "./components/Layout";
 import { useT } from "./i18n";
 import { ApplicationsPage } from "./pages/ApplicationsPage";
@@ -10,6 +11,7 @@ import {
   externalCallback,
 } from "./pages/ExternalCallbackPage";
 import { ForgotPasswordPage } from "./pages/ForgotPasswordPage";
+import { LandingPage } from "./pages/LandingPage";
 import { LoginPage } from "./pages/LoginPage";
 import { GroupsPage } from "./pages/GroupsPage";
 import { IdentityProvidersPage } from "./pages/IdentityProvidersPage";
@@ -27,6 +29,7 @@ import { UserAttributesPage } from "./pages/UserAttributesPage";
 import { UsersPage } from "./pages/UsersPage";
 import { WebhooksPage } from "./pages/WebhooksPage";
 import { useRouter } from "./router";
+import { redirectFor } from "./routing";
 import { useSession } from "./session";
 
 export function App() {
@@ -68,11 +71,34 @@ export function App() {
     if (casLogout && user) void signOut();
   }, [casLogout, user, signOut]);
 
+  // Whether this deployment gives the root address a page of its own.
+  //
+  // Undefined until the answer arrives, and the routing below waits for it
+  // rather than guessing. Guessing either way flickers: guess off and a
+  // deployment with a landing page shows the sign-in form first, guess on and
+  // every ordinary deployment shows a blank landing page before redirecting.
+  // The wait is folded into the same loading state the session already has,
+  // so it costs no extra screen.
+  const [landing, setLanding] = useState<boolean | undefined>(undefined);
+
+  useEffect(() => {
+    const cancel = new AbortController();
+    void landingApi
+      .landingStatus(cancel.signal)
+      // A deployment that cannot answer has no landing page, which is also
+      // what every deployment built before this endpoint existed answers.
+      .then((status) => setLanding(status.enabled))
+      .catch(() => setLanding(false));
+    return () => cancel.abort();
+  }, []);
+
   // Signed-out visitors may only reach sign-in and registration; everyone
   // else lands on sign-in. This mirrors the server's rules so the UI never
   // renders a screen whose data it cannot fetch.
   useEffect(() => {
     if (loading) return;
+    // Nor before the deployment has said what its root address does.
+    if (landing === undefined) return;
     // Except while an authorization request is in flight. Sending an
     // already-signed-in administrator on to /users would drop the query
     // parameter, and the application that started the sign-in would wait
@@ -86,40 +112,19 @@ export function App() {
     // sign-in that was seconds from working would be one nobody can retry.
     if (returning) return;
 
-    const publicRoutes = [
-      "/login",
-      "/register",
-      "/forgot-password",
-      "/reset-password",
-      // Reached from a link in an email, by somebody who by definition
-      // cannot sign in yet.
-      "/verify",
-      // The same, and more so: a trial applicant has no account anywhere.
-      // Left out of this list, both of these bounced to the sign-in screen —
-      // which meant the confirmation link mailed to every applicant asked
-      // them to sign in to the account it was about to create. The switch
-      // below has always rendered them; being rendered is no use while
-      // something navigates away first.
-      "/trial",
-      "/trial/confirm",
-    ];
-    if (!user && !publicRoutes.includes(route)) {
-      navigate("/login");
-    } else if (user && publicRoutes.includes(route)) {
-      navigate("/");
-    } else if (
-      user &&
-      user.role !== "SUPER_ADMIN" &&
-      route !== "/" &&
-      route !== "/profile"
-    ) {
-      // An ordinary user who typed an administrative URL is shown the home
-      // screen, and the address bar is corrected to say so. Rendering one
-      // screen while the address names another means a reload, a bookmark,
-      // and a copied link all disagree with what the person is looking at.
-      navigate("/");
+    const next = redirectFor({
+      route,
+      signedIn: Boolean(user),
+      isAdmin: user?.role === "SUPER_ADMIN",
+      landing,
+    });
+    if (next !== null && next !== route) {
+      navigate(next);
     }
-  }, [user, loading, route, navigate, pending, casLogout, returning]);
+    // landing is in the list because it starts undefined and arrives a moment
+    // later. Without it the effect runs once, returns at the guard above, and
+    // never runs again — leaving every redirect in this file dead.
+  }, [user, loading, route, navigate, pending, casLogout, returning, landing]);
 
   if (pending) {
     return <AuthorizePage request={pending} />;
@@ -138,7 +143,7 @@ export function App() {
     );
   }
 
-  if (loading) {
+  if (loading || landing === undefined) {
     return (
       <div className="flex min-h-dvh items-center justify-center text-[var(--color-fg-muted)]">
         {t("common.loading")}
@@ -164,6 +169,11 @@ export function App() {
         return <TrialPage />;
       case "/trial/confirm":
         return <TrialConfirmPage />;
+      // Only where the deployment asked for one; otherwise the guard above
+      // has already sent this visitor to /login and this case is unreachable.
+      case "/":
+        if (landing) return <LandingPage />;
+        return <LoginPage />;
       default:
         return <LoginPage />;
     }
