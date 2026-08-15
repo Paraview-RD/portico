@@ -350,10 +350,11 @@ What a visitor goes through:
 
 1. **Sign-in offers it** — "No tenant of your own? Try Portico" — only where
    the deployment says yes.
-2. **They fill in** an address, an organization name, a tenant code, and which
-   seeded world they want. The code is checked for collisions immediately: it
-   is the one thing they can fix, and hearing about it after checking their
-   email is the worst moment.
+2. **They fill in** an address and a tenant code, and pick which seeded world
+   they want. The code is checked for collisions immediately: it is the one
+   thing they can fix, and hearing about it after checking their email is the
+   worst moment. The form asks for nothing else — the tenant is named after
+   its code, and renamed in Settings by anybody who cares to.
 3. **A link arrives**, good for two hours. Nothing has been created yet.
 4. **Clicking it** creates the tenant, an `admin` account with a generated
    password, and the industry pack they chose. Both passwords are shown once
