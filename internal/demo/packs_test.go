@@ -75,18 +75,23 @@ func TestTheFourIndustriesAreActuallyDifferent(t *testing.T) {
 		}
 	}
 
-	// And the trees are not one tree renamed. Comparing depth and breadth
-	// rather than node count: two packs may happen to have the same number of
-	// organizations and still be shaped differently, but if all four agree on
-	// both numbers they are the same tree.
-	shapes := map[string]bool{}
-	for _, p := range packs {
-		shapes[fmt.Sprintf("%d-%d-%d", depthOf(p), rootsOf(p), len(p.Orgs))] = true
+	// And the trees are not one tree renamed. Every industry must differ from
+	// every other, which is stricter than it was: counting distinct shapes
+	// across all five let two industries be identical as long as the other
+	// three made up the count, and the description of one of them drifted out
+	// of step with its data behind exactly that gap.
+	shapes := map[string][]string{}
+	for _, p := range industries {
+		shape := fmt.Sprintf("depth %d, %d root(s), %d nodes",
+			depthOf(p), rootsOf(p), len(p.Orgs))
+		shapes[shape] = append(shapes[shape], p.Key)
 	}
-	if len(shapes) < 4 {
-		t.Errorf("the five packs have only %d distinct organization shapes "+
-			"(depth, roots, size). They are meant to show different organizations, "+
-			"not one organization with different names.", len(shapes))
+	for shape, keys := range shapes {
+		if len(keys) > 1 {
+			t.Errorf("%v have the same organization shape (%s). They are meant to "+
+				"show different organizations, not one organization with different "+
+				"names.", keys, shape)
+		}
 	}
 }
 
