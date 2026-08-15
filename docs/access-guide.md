@@ -326,7 +326,7 @@ What a visitor goes through:
 | Tenants at once | `PORTICO_TRIAL_MAX_TENANTS`, 50 | A shared demonstration database. Reached, the form says so rather than queueing |
 | Per address | one tenant | Enforced by a unique index, not only checked |
 | Per client address | 5 requests a day | The per-minute throttle cannot see fifty requests spread across an afternoon |
-| Link lifetime | 2 hours | It holds a reserved tenant code, so an abandoned request costs somebody else a name |
+| Link lifetime | 2 hours | It holds a reserved tenant code from the moment it is requested. Expired and unconfirmed, it is deleted by the hourly sweep and the name goes back into circulation |
 
 ### What a trial tenant is filled with
 

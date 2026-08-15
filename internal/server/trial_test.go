@@ -450,6 +450,131 @@ func firstUsernameOtherThan(t *testing.T, data json.RawMessage, exclude string) 
 	return ""
 }
 
+// TestAnAbandonedRequestStopsHoldingItsTenantCode is about the one row in
+// this feature that outlives its own usefulness.
+//
+// A tenant code is reserved the moment somebody asks, before any link has
+// been clicked, and the index enforcing that covers every row rather than
+// only the confirmed ones — deliberately, because two people asking for the
+// same code an instant apart must not both be told yes. The cost of that
+// choice is that an abandoned request keeps a name nobody can have.
+//
+// Which is fine only if something takes it back. On a public demonstration
+// the first names typed are `demo`, `test`, and the visitor's own company,
+// and most of those people never open the email. Without a sweep those codes
+// are refused forever, against tenants that do not exist — a refusal nobody
+// can explain by looking at the tenant list, because there is nothing in it.
+func TestAnAbandonedRequestStopsHoldingItsTenantCode(t *testing.T) {
+	api, mailer := newTrialTest(t, true)
+
+	before := len(mailer.sent())
+	first := api.do(http.MethodPost, "/api/v1/trial", "", map[string]string{
+		"email":       "abandons@example.test",
+		"companyName": "Abandoned Ltd",
+		"tenantCode":  "abandoned-code",
+	})
+	if first.Status != http.StatusOK {
+		t.Fatalf("first request: %d %s %s", first.Status, first.Code, first.Message)
+	}
+	mailer.waitFor(t, before+1)
+
+	// Never confirmed, and the link has run out. Aged rather than waited for:
+	// the alternative is a two-hour test.
+	api.execSQL(t, `UPDATE trial_requests SET expires_at = now() - interval '1 hour'
+		WHERE tenant_code = $1`, "abandoned-code")
+
+	// Still taken, which is correct until the sweep runs and is the whole
+	// reason the sweep has to.
+	taken := api.do(http.MethodPost, "/api/v1/trial", "", map[string]string{
+		"email":       "wants-it@example.test",
+		"companyName": "Wants It",
+		"tenantCode":  "abandoned-code",
+	})
+	if taken.Code != "TRIAL_CODE_TAKEN" {
+		t.Fatalf("before the sweep the code answered %s, want TRIAL_CODE_TAKEN — "+
+			"this test is not exercising what it thinks", taken.Code)
+	}
+
+	if err := api.srv.SweepExpired(context.Background()); err != nil {
+		t.Fatalf("sweep: %v", err)
+	}
+
+	// And now somebody else may have it. Asserted through the API rather than
+	// by counting rows: what matters is not that a row went but that the name
+	// is available again.
+	after := len(mailer.sent())
+	freed := api.do(http.MethodPost, "/api/v1/trial", "", map[string]string{
+		"email":       "wants-it@example.test",
+		"companyName": "Wants It",
+		"tenantCode":  "abandoned-code",
+	})
+	if freed.Status != http.StatusOK {
+		t.Fatalf("after the sweep the code is still refused: %d %s %s. An expired "+
+			"request that nobody confirmed is holding a name against a tenant that "+
+			"does not exist.", freed.Status, freed.Code, freed.Message)
+	}
+	mailer.waitFor(t, after+1)
+}
+
+// TestTheSweepLeavesLiveAndConfirmedRequestsAlone is the other half.
+//
+// A sweep that took too much would be worse than one that took nothing: a
+// live link deleted is a visitor who followed the instructions and was told
+// their link is invalid, and a confirmed row deleted takes the record that
+// their address already has a tenant with it.
+func TestTheSweepLeavesLiveAndConfirmedRequestsAlone(t *testing.T) {
+	api, mailer := newTrialTest(t, true)
+
+	// One that has been confirmed.
+	before := len(mailer.sent())
+	api.do(http.MethodPost, "/api/v1/trial", "", map[string]string{
+		"email":       "keeper@example.test",
+		"companyName": "Keeper",
+		"tenantCode":  "keeper-code",
+	})
+	token := tokenFromLink(t, mailer.waitFor(t, before+1).Body)
+	if got := api.do(http.MethodPost, "/api/v1/trial/confirm", "",
+		map[string]string{"token": token}); got.Status != http.StatusOK {
+		t.Fatalf("confirm: %d %s", got.Status, got.Code)
+	}
+
+	// And one that is still live, whose link has not been followed yet.
+	pendingBefore := len(mailer.sent())
+	api.do(http.MethodPost, "/api/v1/trial", "", map[string]string{
+		"email":       "pending@example.test",
+		"companyName": "Pending",
+		"tenantCode":  "pending-code",
+	})
+	liveToken := tokenFromLink(t, mailer.waitFor(t, pendingBefore+1).Body)
+
+	// Confirmed rows are expired by now too — the row keeps the expiry it was
+	// issued with — so a sweep that only looked at the clock would take it.
+	api.execSQL(t, `UPDATE trial_requests SET expires_at = now() - interval '1 hour'
+		WHERE tenant_code = $1`, "keeper-code")
+
+	if err := api.srv.SweepExpired(context.Background()); err != nil {
+		t.Fatalf("sweep: %v", err)
+	}
+
+	// The live link still works.
+	if got := api.do(http.MethodPost, "/api/v1/trial/confirm", "",
+		map[string]string{"token": liveToken}); got.Status != http.StatusOK {
+		t.Errorf("a link that had not expired stopped working after a sweep: %d %s",
+			got.Status, got.Code)
+	}
+
+	// And the confirmed address is still known to have had its tenant.
+	again := api.do(http.MethodPost, "/api/v1/trial", "", map[string]string{
+		"email":       "keeper@example.test",
+		"companyName": "Keeper Again",
+		"tenantCode":  "keeper-second",
+	})
+	if again.Code != "TRIAL_EMAIL_USED" {
+		t.Errorf("after the sweep the address answered %s, want TRIAL_EMAIL_USED — "+
+			"the row recording that it already has a tenant was deleted", again.Code)
+	}
+}
+
 func TestTheStatusEndpointOnlyOffersWorldsThatExist(t *testing.T) {
 	api, _ := newTrialTest(t, true)
 
