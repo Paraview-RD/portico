@@ -822,13 +822,16 @@ export const enUS = {
     "The link is good for two hours. Nothing has been created yet — clicking it is what makes your tenant.",
   "trial.sentTo": "Sent to {0}",
   "trialConfirm.workingTitle": "Setting up your tenant",
-  "trialConfirm.working": "This takes a moment.",
+  "trialConfirm.working":
+    "Creating your tenant and filling it with example data. This takes a few seconds — leave the page open.",
   "trialConfirm.failedTitle": "That did not work",
   "trialConfirm.startAgain": "Request a new trial",
   "trialConfirm.noToken":
     "This address needs the link from your email; there is no token in it.",
   "trialConfirm.readyTitle": "Your tenant is ready",
   "trialConfirm.ready": "{0} is set up, and these are the keys to it.",
+  "trialConfirm.adminSection": "Your way in",
+  "trialConfirm.demoSection": "Example accounts",
   "trialConfirm.tenant": "Tenant code",
   "trialConfirm.username": "Username",
   "trialConfirm.password": "Password",
