@@ -41,6 +41,15 @@ services:
     healthCheckPath: /api/v1/health
 
     envVars:
+      # Which port Render routes to. The image listens on 8410 — deploy/
+      # Dockerfile sets PORTICO_ADDR and EXPOSEs it — and Portico does not
+      # read PORT, so this is not what makes the server bind: it is what
+      # stops Render having to guess. Left out, a service whose port is not
+      # detected sits at "no open ports detected" with a build that
+      # succeeded, which reads as a broken image rather than a missing line.
+      - key: PORT
+        value: "8410"
+
       - key: PORTICO_DB_DSN
         fromDatabase:
           name: portico-demo-db
@@ -73,10 +82,50 @@ services:
       - key: PORTICO_LOG_LEVEL
         value: info
 
-# Free Postgres: 1GB, and deleted after 90 days. One seeded tenant set is
-# comfortably inside that; a self-service trial handing out a tenant per
-# visitor is not, which is the sizing question to answer before that feature
-# is switched on.
+      # Self-service trials: a visitor proves an email address and is given a
+      # tenant of their own, filled with one of five industry worlds.
+      #
+      # Off here, and switched on in the dashboard once — not because the
+      # feature is unfinished but because it has a hard prerequisite this
+      # Blueprint cannot supply. The address is the whole of the identity
+      # check, so without a relay every request is refused with
+      # TRIAL_MAIL_UNAVAILABLE. Turning this on first produces a button that
+      # always fails, which is worse than no button.
+      #
+      # To switch it on, add these in the dashboard and set this to true:
+      #
+      #   PORTICO_SMTP_HOST        the relay
+      #   PORTICO_SMTP_PORT        587 for starttls, 465 for implicit tls
+      #   PORTICO_SMTP_USERNAME    if the relay wants one
+      #   PORTICO_SMTP_PASSWORD    likewise
+      #   PORTICO_SMTP_FROM        the sender, which most relays insist on
+      #   PORTICO_SMTP_ENCRYPTION  starttls | tls | none
+      #
+      # A relay that lets anything through is a relay that will be used to
+      # send something else: this one sends to addresses strangers type in.
+      # Pick a provider with a sending quota and watch it.
+      - key: PORTICO_TRIAL_SIGNUP
+        value: "false"
+
+      # How many trial tenants may exist at once. Reached, the form says so
+      # rather than queueing.
+      #
+      # Fifty is bounded by attention rather than by disk — see the note on
+      # the database below.
+      - key: PORTICO_TRIAL_MAX_TENANTS
+        value: "50"
+
+# Free Postgres: 1GB, and deleted after 90 days.
+#
+# Disk is not the constraint, which is worth writing down because this file
+# used to guess that it was. Measured on a development database holding the
+# full development seed — two tenants, fifty-five accounts, ninety days of
+# audit trail, sessions and webhook deliveries — plus four trial tenants: the
+# whole thing is 11MB. A trial tenant is fifteen accounts, eight or nine
+# organizations and about forty audit entries, which is a rounding error
+# beside the seed. Fifty of them do not approach 1GB.
+#
+# The ninety-day deletion at the top of this file is the limit that matters.
 databases:
   - name: portico-demo-db
     plan: free
