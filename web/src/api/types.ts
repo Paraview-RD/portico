@@ -886,4 +886,12 @@ export interface TrialTenant {
   adminUsername: string;
   adminPassword: string;
   signInUrl: string;
+  /**
+   * What the seeded accounts sign in with, and the industry they belong to.
+   * Both empty when the tenant could not be filled — which is the one case
+   * where the visitor gets a working tenant with nothing in it, so the screen
+   * reads these rather than assuming the fill happened.
+   */
+  demoPassword: string;
+  industry: string;
 }

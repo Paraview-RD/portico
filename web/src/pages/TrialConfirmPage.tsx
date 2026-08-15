@@ -96,7 +96,24 @@ export function TrialConfirmPage() {
           label={t("trialConfirm.password")}
           value={tenant.adminPassword}
         />
+        {/* A second password, for the accounts the pack created. Absent when
+            the fill failed, which is the one case where a working tenant is
+            handed over empty — see the note below it. */}
+        {tenant.demoPassword && (
+          <CopyField
+            label={t("trialConfirm.demoPassword")}
+            value={tenant.demoPassword}
+          />
+        )}
       </div>
+
+      {tenant.demoPassword ? (
+        <p className="text-[length:var(--font-size-sm)] text-[var(--color-fg-muted)]">
+          {t("trialConfirm.demoAccounts")}
+        </p>
+      ) : (
+        <Alert tone="warning">{t("trialConfirm.emptyTenant")}</Alert>
+      )}
 
       <Alert tone="warning">{t("trialConfirm.onlyTime")}</Alert>
 

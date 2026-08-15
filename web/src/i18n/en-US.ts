@@ -790,8 +790,14 @@ export const enUS = {
     "What you and everybody in your tenant will type at sign-in. Lowercase, and it cannot be changed afterwards.",
   "trial.industry": "Seeded data",
   "trial.industryHint":
-    "What your tenant starts with. More industries are on the way.",
-  "trial.industry.generic": "A general-purpose organization",
+    "Which example world your tenant starts with: the organization tree, the people, the custom fields and the applications all follow from this. Change any of it afterwards.",
+  "trial.industry.generic": "General business",
+  "trial.industry.manufacturing": "Manufacturing: plants, lines, shifts",
+  "trial.industry.banking":
+    "Banking: head office, branches, authorisation tiers",
+  "trial.industry.hospital": "Hospital: departments, licences, clinical roles",
+  "trial.industry.university":
+    "University: faculties, registry, staff and students",
   "trial.notReal":
     "This is a demonstration. Do not put anything real in it — the data is not private and may be reset at any time.",
   "trial.submit": "Send me the link",
@@ -812,6 +818,11 @@ export const enUS = {
   "trialConfirm.tenant": "Tenant code",
   "trialConfirm.username": "Username",
   "trialConfirm.password": "Password",
+  "trialConfirm.demoPassword": "Example accounts",
+  "trialConfirm.demoAccounts":
+    "The tenant comes filled with example people and applications. Every one of those accounts is an ordinary user and they all share the password above — sign in as one to see what somebody who is not an administrator sees.",
+  "trialConfirm.emptyTenant":
+    "The example data could not be created this time, so the tenant is empty. It works either way; build your own organizations and accounts in it.",
   "trialConfirm.onlyTime":
     "This is the only time the password is shown here. It is also in your email; nothing stores it in readable form.",
   "trialConfirm.notReal":

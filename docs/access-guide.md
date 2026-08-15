@@ -291,10 +291,10 @@ What a visitor goes through:
    is the one thing they can fix, and hearing about it after checking their
    email is the worst moment.
 3. **A link arrives**, good for two hours. Nothing has been created yet.
-4. **Clicking it** creates the tenant and an `admin` account with a generated
-   password, shows both once, and mails a copy. The password is not forced to
-   change on the way in — they did not choose it and have nowhere to look it
-   up.
+4. **Clicking it** creates the tenant, an `admin` account with a generated
+   password, and the industry pack they chose. Both passwords are shown once
+   and mailed. The administrator's password is not forced to change on the way
+   in — they did not choose it and have nowhere to look it up.
 
 | Bound | Default | Why |
 |---|---|---|
@@ -303,10 +303,41 @@ What a visitor goes through:
 | Per client address | 5 requests a day | The per-minute throttle cannot see fifty requests spread across an afternoon |
 | Link lifetime | 2 hours | It holds a reserved tenant code, so an abandoned request costs somebody else a name |
 
-**A trial tenant starts empty** — one administrator, no organizations, no
-accounts, no applications. The industry packs that fill it are the next piece
-of work, which is why the form offers one general-purpose option rather than
-naming worlds that have no data behind them.
+### What a trial tenant is filled with
+
+Five packs, one of which is chosen on the form. Each is an organization tree of
+five to nine nodes including one disabled, twelve to sixteen accounts, three
+custom attributes, three or four applications across at least two protocols,
+and the groups to go with them.
+
+| Pack | The shape it has | What it records about people |
+|---|---|---|
+| General business | Two levels, two roots | Badge number, work mode, joined on |
+| Manufacturing | Group, plants, workshops | Employee number, shift, safety certificate expiry |
+| Banking | Four deep: head office, line, branch, sub-branch | Teller id, authorisation tier, authorised until |
+| Hospital | One site, eight departments side by side | Licence number, clinical role, next review |
+| University | Two roots: faculties and administration | Campus id, member type, enrolled on |
+
+They differ in shape and not only in vocabulary, which a test asserts rather
+than this table promising: no two packs may define the same attribute key, and
+the five organization trees may not all have the same depth and breadth.
+
+Every account in a pack is an ordinary user — never a second administrator —
+and they all share one generated password, given out alongside the
+administrator's. That is what lets a visitor sign in as somebody ordinary and
+see the portal, and it is why the shared password is generated per tenant
+rather than published: these accounts would otherwise belong to whoever
+guesses a tenant code.
+
+What a pack does **not** contain: audit history, LDAP directories, webhooks and
+identity providers. The first would have to be written straight to the database
+with chosen timestamps, and the rest need an external system to point at or an
+encryption key to seal a credential with.
+
+If the fill fails, the tenant is still handed over — working, and empty. The
+screen says so, and the reason is in the server log. The alternative would be
+withholding credentials for a tenant that already exists from somebody standing
+in front of the page.
 
 ## Roles
 

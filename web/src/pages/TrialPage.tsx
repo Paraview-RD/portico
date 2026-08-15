@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 
 import { trialApi } from "../api/endpoints";
 import { AuthShell } from "../components/AuthShell";
@@ -21,6 +21,33 @@ import { useRouter } from "../router";
  * recovered from here. And the tenant code cannot be changed afterwards,
  * because it is what everybody in that tenant signs in with.
  */
+/**
+ * The message key for each world the server can seed.
+ *
+ * Written out rather than built as `trial.industry.${key}`, which does not
+ * type-check: message keys are a union, and a template string is not a member
+ * of it. That is the point rather than an obstacle — the server decides which
+ * industries exist and this file decides what they are called, and the two are
+ * connected by nothing the compiler can see. Spelled out here, adding a pack
+ * without translating it is caught twice: by internal/demo's locale test, and
+ * by the fallback below being visible in the picker.
+ */
+const industryKeys = {
+  generic: "trial.industry.generic",
+  manufacturing: "trial.industry.manufacturing",
+  banking: "trial.industry.banking",
+  hospital: "trial.industry.hospital",
+  university: "trial.industry.university",
+} as const;
+
+function industryLabel(t: ReturnType<typeof useT>, industry: string) {
+  const key = industryKeys[industry as keyof typeof industryKeys];
+  // An untranslated industry shows its own key, which is ugly and honest. The
+  // alternative — hiding it — would leave a pack the server offers missing
+  // from the form with nothing to explain why.
+  return key ? t(key) : industry;
+}
+
 export function TrialPage() {
   const t = useT();
   const describeError = useErrorMessage();
@@ -34,6 +61,25 @@ export function TrialPage() {
   const [submitting, setSubmitting] = useState(false);
   const [sent, setSent] = useState(false);
   const [error, setError] = useState("");
+
+  // The worlds on offer, asked for rather than listed here.
+  //
+  // Starts as the generic one so the picker is never empty, including on the
+  // deployment where this endpoint answers 404. A failure is deliberately
+  // silent: it costs the visitor four choices they may not have wanted, and
+  // the alternative — an error above a form that still works — is worse.
+  const [industries, setIndustries] = useState<string[]>(["generic"]);
+
+  useEffect(() => {
+    const cancel = new AbortController();
+    void trialApi
+      .trialStatus(cancel.signal)
+      .then((status) => {
+        if (status.industries.length > 0) setIndustries(status.industries);
+      })
+      .catch(() => {});
+    return () => cancel.abort();
+  }, []);
 
   async function submit(event: React.FormEvent) {
     event.preventDefault();
@@ -105,7 +151,11 @@ export function TrialPage() {
             value={industry}
             onChange={(e) => setIndustry(e.target.value)}
           >
-            <option value="generic">{t("trial.industry.generic")}</option>
+            {industries.map((key) => (
+              <option key={key} value={key}>
+                {industryLabel(t, key)}
+              </option>
+            ))}
           </Select>
         </Field>
 

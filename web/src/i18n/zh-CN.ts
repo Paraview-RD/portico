@@ -741,8 +741,13 @@ export const zhCN: Record<keyof typeof enUS, string> = {
   "trial.tenantCodeHint":
     "你和你租户里的所有人登录时都要填它。小写，而且创建之后不能再改。",
   "trial.industry": "预置数据",
-  "trial.industryHint": "你的租户初始带什么数据。更多行业正在准备。",
-  "trial.industry.generic": "一个通用型组织",
+  "trial.industryHint":
+    "决定租户初始灌入哪一套示例数据：组织架构、人员、自定义字段和应用都按这个行业来。创建后可以自行改动。",
+  "trial.industry.generic": "通用组织",
+  "trial.industry.manufacturing": "制造业：厂区、车间、班次",
+  "trial.industry.banking": "银行：总行、分行、支行、授权额度",
+  "trial.industry.hospital": "医院：科室、执业证、医护类别",
+  "trial.industry.university": "高校：学院、教务处、师生身份",
   "trial.notReal":
     "这是演示环境。请不要放任何真实数据——这里的数据不具备私密性，而且随时可能被重置。",
   "trial.submit": "把链接发给我",
@@ -762,6 +767,11 @@ export const zhCN: Record<keyof typeof enUS, string> = {
   "trialConfirm.tenant": "租户编码",
   "trialConfirm.username": "用户名",
   "trialConfirm.password": "密码",
+  "trialConfirm.demoPassword": "示例账号密码",
+  "trialConfirm.demoAccounts":
+    "租户里已经预置了一批示例人员和应用。那些账号都是普通用户，共用上面这个密码——用其中任何一个登录，可以看到非管理员眼中的门户。",
+  "trialConfirm.emptyTenant":
+    "示例数据这次没有灌进去，租户是空的。它照样可以用，你可以自己建组织和账号。",
   "trialConfirm.onlyTime":
     "密码只在这里显示这一次。邮件里也有一份；系统不会以任何可读形式保存它。",
   "trialConfirm.notReal": "这是演示环境，不是正式部署。请不要放任何真实数据。",
