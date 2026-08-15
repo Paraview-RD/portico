@@ -2,6 +2,7 @@ package demo
 
 import (
 	"fmt"
+	"net/url"
 	"strings"
 	"testing"
 	"time"
@@ -313,6 +314,99 @@ func TestEveryReferenceInsideAPackResolves(t *testing.T) {
 	}
 }
 
+// TestEveryNameInAPackBelongsToNobody is about what a public demonstration
+// points at.
+//
+// These packs run on an address strangers can reach, and a visitor is the
+// administrator of their own tenant. Two things follow. They can read any
+// seeded address off the user list and ask for a password reset, which sends
+// mail from the demonstration's relay to whoever owns that domain. And the
+// portal renders launch addresses as links, so clicking one lands on whatever
+// is parked there.
+//
+// So every name here has to be one nobody can register: the reserved domains
+// from RFC 2606 and RFC 6761, which is what internal/seed has always used.
+// `example-hosp.com` reads as obviously fake and is obviously for sale.
+func TestEveryNameInAPackBelongsToNobody(t *testing.T) {
+	// The three second-level names RFC 2606 reserves, and the top-level ones it
+	// and RFC 6761 do. A subdomain of any of them is reserved too, which is how
+	// four packs tell themselves apart without leaving the reservation.
+	reserved := []string{"example.com", "example.org", "example.net"}
+	reservedTLDs := []string{".example", ".test", ".invalid", ".localhost"}
+	ok := func(host string) bool {
+		host = strings.ToLower(host)
+		for _, name := range reserved {
+			if host == name || strings.HasSuffix(host, "."+name) {
+				return true
+			}
+		}
+		for _, tld := range reservedTLDs {
+			if strings.HasSuffix(host, tld) {
+				return true
+			}
+		}
+		return false
+	}
+
+	hostOf := func(t *testing.T, raw string) string {
+		t.Helper()
+		parsed, err := url.Parse(raw)
+		if err != nil {
+			t.Errorf("cannot parse %q: %v", raw, err)
+			return ""
+		}
+		// A native client's redirect is a custom scheme or a loopback address,
+		// neither of which names a domain anybody could own.
+		if parsed.Scheme != "http" && parsed.Scheme != "https" {
+			return ""
+		}
+		host := parsed.Hostname()
+		if host == "127.0.0.1" || host == "::1" || host == "localhost" {
+			return ""
+		}
+		return host
+	}
+
+	for _, p := range packs {
+		t.Run(p.Key, func(t *testing.T) {
+			for _, person := range p.People {
+				if person.Email == "" {
+					continue
+				}
+				domain := person.Email[strings.LastIndex(person.Email, "@")+1:]
+				if !ok(domain) {
+					t.Errorf("account %s has the address %s. A visitor can ask this "+
+						"demonstration to send a password reset there, and %s is a domain "+
+						"somebody can register.", person.Username, person.Email, domain)
+				}
+			}
+
+			var addresses []string
+			for _, c := range p.OAuth {
+				addresses = append(addresses, c.Launch)
+				addresses = append(addresses, c.Redirect...)
+			}
+			for _, sp := range p.SAML {
+				addresses = append(addresses, sp.Launch, sp.EntityID, "https://"+sp.Host)
+			}
+			for _, c := range p.CAS {
+				addresses = append(addresses, c.Launch, c.Prefix)
+			}
+
+			for _, raw := range addresses {
+				if raw == "" {
+					continue
+				}
+				host := hostOf(t, raw)
+				if host != "" && !ok(host) {
+					t.Errorf("%s points at %s, which is a domain somebody can register. "+
+						"The portal renders this as a link.", raw, host)
+				}
+			}
+		})
+	}
+}
+
 // TestIndustriesAnswersWithEveryPack holds the list the console reads to the
 // list the filler can actually create. They are the same slice today; this is
 // what notices if one of them grows a filter.
@@ -331,6 +425,19 @@ func TestIndustriesAnswersWithEveryPack(t *testing.T) {
 	}
 	if packByKey("no-such-industry") != nil {
 		t.Error("packByKey found an industry that does not exist")
+	}
+
+	// And the name the service falls back to is one of them.
+	//
+	// Two packages spell "generic": this one names a pack, and the trial
+	// service substitutes it for a request that asked for no industry. Nothing
+	// connects them. Renaming the pack alone would leave every request that
+	// named no industry being refused as invalid — by the validator, for
+	// naming an industry the caller never chose.
+	if packByKey(service.TrialIndustryGeneric) == nil {
+		t.Errorf("the trial service defaults to industry %q and no pack has that key; "+
+			"a request naming no industry would be refused as invalid",
+			service.TrialIndustryGeneric)
 	}
 }
 
