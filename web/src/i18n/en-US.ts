@@ -793,18 +793,24 @@ export const enUS = {
   "landing.source": "Source on GitHub",
 
   "trial.title": "Try Portico",
-  "trial.subtitle":
-    "Get a tenant of your own, with an administrator account, in about a minute.",
+  "trial.subtitle": "A tenant of your own, with an administrator account.",
+  "trial.step.fill":
+    "Fill this in, and we send a confirmation link to your address",
+  "trial.step.confirm":
+    "Open the link, good for two hours — nothing is created until you do",
+  "trial.step.ready":
+    "Your tenant and its password, shown here and mailed to you",
   "trial.email": "Email address",
-  "trial.emailHint":
-    "Where the confirmation link and your password are sent. A typo here is the one mistake that cannot be undone from this page.",
-  "trial.company": "Organization name",
+  "trial.emailHint": "A typo here is the one mistake this page cannot undo.",
+  "trial.company": "Organization name (optional)",
+  "trial.companyHint":
+    "Defaults to the tenant code. Changeable later in Settings.",
   "trial.tenantCode": "Tenant code",
   "trial.tenantCodeHint":
-    "What you and everybody in your tenant will type at sign-in. Lowercase, and it cannot be changed afterwards.",
+    "What everybody types at sign-in. Lowercase, and fixed once created.",
   "trial.industry": "Seeded data",
   "trial.industryHint":
-    "Which example world your tenant starts with: the organization tree, the people, the custom fields and the applications all follow from this. Change any of it afterwards.",
+    "The organization tree, people, custom fields and applications all follow from this. Change any of it afterwards.",
   "trial.industry.generic": "General business",
   "trial.industry.manufacturing": "Manufacturing: plants, lines, shifts",
   "trial.industry.banking":
@@ -813,8 +819,8 @@ export const enUS = {
   "trial.industry.university":
     "University: faculties, registry, staff and students",
   "trial.notReal":
-    "This is a demonstration. Do not put anything real in it — the data is not private and may be reset at any time.",
-  "trial.submit": "Send me the link",
+    "A demonstration: the data is not private and may be reset at any time. Put nothing real in it.",
+  "trial.submit": "Send the confirmation email",
   "trial.submitting": "Sending…",
   "trial.backToSignIn": "Back to sign-in",
   "trial.sentTitle": "Check your email",

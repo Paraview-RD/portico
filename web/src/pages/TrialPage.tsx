@@ -111,6 +111,29 @@ export function TrialPage() {
 
   return (
     <AuthShell title={t("trial.title")} subtitle={t("trial.subtitle")}>
+      {/* What is about to happen, before asking for anything.
+
+          Three steps because there are three, and the middle one is the
+          surprise: nothing is created when this form is submitted. Somebody
+          who does not know that reads the confirmation email as an
+          afterthought, closes it, and never finds out why the tenant they
+          asked for does not exist. */}
+      <ol className="mb-5 flex flex-col gap-2">
+        {(["fill", "confirm", "ready"] as const).map((step, index) => (
+          <li key={step} className="flex items-start gap-3">
+            <span
+              aria-hidden="true"
+              className="mt-px flex size-5 shrink-0 items-center justify-center rounded-full bg-[var(--color-primary-soft)] text-[length:var(--font-size-xs)] font-[weight:var(--font-weight-bold)] text-[var(--color-primary)]"
+            >
+              {index + 1}
+            </span>
+            <span className="text-[length:var(--font-size-sm)] text-[var(--color-fg-muted)]">
+              {t(`trial.step.${step}` as "trial.step.fill")}
+            </span>
+          </li>
+        ))}
+      </ol>
+
       <form className="flex flex-col gap-4" onSubmit={(e) => void submit(e)}>
         {error && <Alert tone="danger">{error}</Alert>}
 
@@ -121,14 +144,6 @@ export function TrialPage() {
             required
             autoComplete="email"
             onChange={(e) => setEmail(e.target.value)}
-          />
-        </Field>
-
-        <Field label={t("trial.company")} required>
-          <Input
-            value={companyName}
-            required
-            onChange={(e) => setCompanyName(e.target.value)}
           />
         </Field>
 
@@ -143,6 +158,18 @@ export function TrialPage() {
             // Lower-cased as it is typed rather than silently on the server,
             // so what somebody sees here is what they will type at sign-in.
             onChange={(e) => setTenantCode(e.target.value.toLowerCase())}
+          />
+        </Field>
+
+        {/* Optional, and after the code it defaults to. It was required, and
+            it was the one field here asking for something the product does
+            not need: a tenant works with its code as its name, and somebody
+            trying a demonstration has not decided what to call it. */}
+        <Field label={t("trial.company")} hint={t("trial.companyHint")}>
+          <Input
+            value={companyName}
+            placeholder={tenantCode}
+            onChange={(e) => setCompanyName(e.target.value)}
           />
         </Field>
 

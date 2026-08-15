@@ -745,26 +745,27 @@ export const zhCN: Record<keyof typeof enUS, string> = {
   "landing.source": "GitHub 源码",
 
   "trial.title": "试用 Portico",
-  "trial.subtitle":
-    "一分钟左右，拿到一个属于你自己的租户，附带一个管理员账号。",
+  "trial.subtitle": "一个属于你自己的租户，附带一个管理员账号。",
+  "trial.step.fill": "填下面几项，我们把确认链接发到你的邮箱",
+  "trial.step.confirm": "点开链接（两小时内有效）—— 在这之前什么都还没创建",
+  "trial.step.ready": "租户和管理员密码当场给你，同时也发一份到邮箱",
   "trial.email": "邮箱地址",
-  "trial.emailHint":
-    "确认链接和你的密码都发到这里。这一栏写错，是本页面唯一无法挽回的错误。",
-  "trial.company": "组织名称",
+  "trial.emailHint": "写错就收不到链接，这是本页唯一无法挽回的错误。",
+  "trial.company": "组织名称（选填）",
+  "trial.companyHint": "不填就用租户编码，之后可在系统设置里改。",
   "trial.tenantCode": "租户编码",
-  "trial.tenantCodeHint":
-    "你和你租户里的所有人登录时都要填它。小写，而且创建之后不能再改。",
+  "trial.tenantCodeHint": "登录时填的就是它。小写，创建后不能改。",
   "trial.industry": "预置数据",
   "trial.industryHint":
-    "决定租户初始灌入哪一套示例数据：组织架构、人员、自定义字段和应用都按这个行业来。创建后可以自行改动。",
+    "组织架构、人员、自定义字段和应用都按这个行业预置。创建后可自行改动。",
   "trial.industry.generic": "通用组织",
   "trial.industry.manufacturing": "制造业：厂区、车间、班次",
   "trial.industry.banking": "银行：总行、分行、支行、授权额度",
   "trial.industry.hospital": "医院：科室、执业证、医护类别",
   "trial.industry.university": "高校：学院、教务处、师生身份",
   "trial.notReal":
-    "这是演示环境。请不要放任何真实数据——这里的数据不具备私密性，而且随时可能被重置。",
-  "trial.submit": "把链接发给我",
+    "演示环境，数据不具备私密性且随时可能被重置。请勿放入真实数据。",
+  "trial.submit": "发送确认邮件",
   "trial.submitting": "发送中……",
   "trial.backToSignIn": "返回登录",
   "trial.sentTitle": "去查收邮件",
