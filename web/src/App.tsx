@@ -94,6 +94,14 @@ export function App() {
       // Reached from a link in an email, by somebody who by definition
       // cannot sign in yet.
       "/verify",
+      // The same, and more so: a trial applicant has no account anywhere.
+      // Left out of this list, both of these bounced to the sign-in screen —
+      // which meant the confirmation link mailed to every applicant asked
+      // them to sign in to the account it was about to create. The switch
+      // below has always rendered them; being rendered is no use while
+      // something navigates away first.
+      "/trial",
+      "/trial/confirm",
     ];
     if (!user && !publicRoutes.includes(route)) {
       navigate("/login");
