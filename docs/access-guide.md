@@ -209,6 +209,31 @@ see [what a trial tenant is filled with](#what-a-trial-tenant-is-filled-with).
 default and is bounded by attention rather than by disk, since fifty trial
 tenants are a few megabytes against a 1GB database.
 
+### Looking after what the trials created
+
+On the command line, for the same reason tenant provisioning is: no account
+can act outside its own tenant, so there is nobody the API could authorize to
+list or delete one.
+
+```bash
+portico trial list                              # every tenant a trial made,
+                                                # and the address that asked
+portico trial prune                             # release codes held by links
+                                                # nobody opened
+portico trial delete --code acme-trial --yes    # the tenant and everything
+                                                # in it, irreversibly
+```
+
+`delete` refuses any tenant no trial created, so the default tenant and
+anything provisioned by hand are out of reach of a typo. It removes accounts,
+organizations, applications and the audit trail in one transaction — a failure
+part-way leaves the tenant whole rather than half-emptied — and frees both the
+tenant code and the address, so that person can try again.
+
+`prune` is the same collection a running server already does every hour. It is
+here for when there is no server running, or when the names are wanted back
+now rather than within the hour.
+
 ## First run
 
 1. Start the server. `./portico` needs `PORTICO_DB_DSN`; compose needs
