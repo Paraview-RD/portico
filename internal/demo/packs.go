@@ -414,9 +414,14 @@ var bankingPack = Pack{
 	OrgAdmin: Assignment{Org: "shanghai", Username: "qiaoshan", Scope: model.OrgScopeSubtree},
 }
 
-// A hospital. Wide and flat: a dozen departments reporting to one site, with
-// nothing between them — which is the shape most clinical organizations
-// actually have, and the one where groups do the work a tree cannot.
+// A hospital. Wide and flat: seven departments reporting to one site with
+// nothing between them, which is the shape most clinical organizations
+// actually have and the one where groups do the work a tree cannot.
+//
+// The second site is a root of its own rather than a child of the first. A
+// hospital that opens a new campus does not put it under the old one, and a
+// tree that said otherwise would be inventing a reporting line to make the
+// picture tidier.
 var hospitalPack = Pack{
 	Key: "hospital", Label: "Hospital",
 	Orgs: []Org{

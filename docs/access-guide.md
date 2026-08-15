@@ -315,7 +315,7 @@ and the groups to go with them.
 | General business | Two levels, two roots | Badge number, work mode, joined on |
 | Manufacturing | Group, plants, workshops | Employee number, shift, safety certificate expiry |
 | Banking | Four deep: head office, line, branch, sub-branch | Teller id, authorisation tier, authorised until |
-| Hospital | One site, eight departments side by side | Licence number, clinical role, next review |
+| Hospital | Seven departments side by side, plus a second site that is a root of its own | Licence number, clinical role, next review |
 | University | Two roots: faculties and administration | Campus id, member type, enrolled on |
 
 They differ in shape and not only in vocabulary, which a test asserts rather
