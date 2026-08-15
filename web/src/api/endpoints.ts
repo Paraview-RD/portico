@@ -2,14 +2,26 @@
 
 import { download, request, upload } from "./client";
 import type {
-  AdministeredOrganization,
   AdminScope,
+  AdministeredOrganization,
   AuditLog,
   Authorization,
+  BulkResult,
   CASService,
+  CatalogueField,
+  CreatedWebhookSubscription,
+  DeliveryFilter,
+  ExternalIdentity,
+  ExternalIdentityProvider,
+  ExternalIdentityProviderInput,
+  ExternalSignInOption,
+  ExternalSignInResult,
+  FieldMapping,
+  Group,
+  GroupMember,
+  GroupRef,
   ImportResult,
   IntegrationEndpoints,
-  BulkResult,
   IssuedSCIMCredential,
   LDAPSource,
   LDAPSourceInput,
@@ -20,37 +32,27 @@ import type {
   OrganizationAdministrator,
   PageResult,
   PortalApplication,
+  RecipientKind,
   RecoveryChannel,
   RegisteredClient,
   RegistrationStatus,
-  UserProfile,
-  UserAttributeDefinition,
-  UserAttributeInput,
   Role,
-  CreatedWebhookSubscription,
-  Group,
-  GroupMember,
-  GroupRef,
   SAMLServiceProvider,
   SCIMCredential,
   Session,
   Settings,
   Status,
+  TrialStatus,
+  TrialTenant,
   User,
+  UserAttributeDefinition,
+  UserAttributeInput,
+  UserProfile,
   UserSession,
   WebhookDeliveryDetail,
   WebhookDeliveryPage,
-  DeliveryFilter,
   WebhookSnapshot,
   WebhookSubscription,
-  CatalogueField,
-  FieldMapping,
-  RecipientKind,
-  ExternalIdentity,
-  ExternalIdentityProvider,
-  ExternalIdentityProviderInput,
-  ExternalSignInOption,
-  ExternalSignInResult,
 } from "./types";
 
 /** Builds a query string, omitting empty values. */
@@ -224,6 +226,52 @@ export const authApi = {
       "/auth/password-recovery/confirm",
       { method: "POST", body: { token, newPassword }, anonymous: true },
     ),
+};
+
+/**
+ * Self-service trials, on a demonstration deployment.
+ *
+ * Its own object rather than part of authApi: these are not sign-in, and the
+ * routes are not under /auth/ either — they are the only endpoints here that
+ * create a tenant, and on most deployments they do not exist at all.
+ */
+export const trialApi = {
+  /**
+   * Whether this deployment offers self-service trials, and which seeded
+   * worlds it can produce. Answers on a deployment that has them turned off
+   * too — with a 404, which the caller treats as "no".
+   */
+  trialStatus: (signal?: AbortSignal) =>
+    request<TrialStatus>("/trial/status", { anonymous: true, signal }),
+
+  /**
+   * Asks for a trial. Nothing comes back but an acknowledgement: the next
+   * thing that happens is an email, and echoing the address would let this
+   * endpoint be used to check whether one was really sent.
+   */
+  requestTrial: (body: {
+    email: string;
+    companyName: string;
+    tenantCode: string;
+    industry: string;
+  }) =>
+    request<{ sent: boolean }>("/trial", {
+      method: "POST",
+      body,
+      anonymous: true,
+    }),
+
+  /**
+   * Spends the link from that email. The credentials come back here as well
+   * as by mail, because the person is standing in front of the page that just
+   * created the tenant.
+   */
+  confirmTrial: (token: string) =>
+    request<TrialTenant>("/trial/confirm", {
+      method: "POST",
+      body: { token },
+      anonymous: true,
+    }),
 };
 
 /**
