@@ -746,15 +746,15 @@ export const zhCN: Record<keyof typeof enUS, string> = {
 
   "trial.title": "试用 Portico",
   "trial.subtitle": "一个属于你自己的租户，附带一个管理员账号。",
-  "trial.step.fill": "填下面几项，我们把确认链接发到你的邮箱",
-  "trial.step.confirm": "点开链接（两小时内有效）—— 在这之前什么都还没创建",
-  "trial.step.ready": "租户和管理员密码当场给你，同时也发一份到邮箱",
+  "trial.step.fill": "填两项，提交",
+  "trial.step.confirm": "点邮件里的链接",
+  "trial.step.ready": "拿到租户和密码",
+  "trial.stepNote": "链接两小时内有效；点开之前，什么都还没创建。",
   "trial.email": "邮箱地址",
   "trial.emailHint": "写错就收不到链接，这是本页唯一无法挽回的错误。",
-  "trial.company": "组织名称（选填）",
-  "trial.companyHint": "不填就用租户编码，之后可在系统设置里改。",
   "trial.tenantCode": "租户编码",
   "trial.tenantCodeHint": "登录时填的就是它。小写，创建后不能改。",
+  "trial.tenantCodeInvalid": "只能用小写字母、数字、连字符和下划线。",
   "trial.industry": "预置数据",
   "trial.industryHint":
     "组织架构、人员、自定义字段和应用都按这个行业预置。创建后可自行改动。",
@@ -772,6 +772,7 @@ export const zhCN: Record<keyof typeof enUS, string> = {
   "trial.sentBody":
     "链接两小时内有效。现在还什么都没创建——点开它，才会生成你的租户。",
   "trial.sentTo": "已发往 {0}",
+  "trial.sentEdit": "邮箱写错了？回去改",
   "trialConfirm.workingTitle": "正在准备你的租户",
   "trialConfirm.working":
     "正在创建你的租户，并写入示例数据。这一步要几秒钟，先别关掉页面。",

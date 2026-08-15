@@ -265,7 +265,13 @@ export const trialApi = {
    */
   requestTrial: (body: {
     email: string;
-    companyName: string;
+    /**
+     * The tenant's display name. Optional: left out, the tenant is named
+     * after its code. The form does not ask for it — somebody trying a
+     * demonstration has not decided what to call it — and the field stays
+     * here for the callers that have one.
+     */
+    companyName?: string;
     tenantCode: string;
     industry: string;
   }) =>

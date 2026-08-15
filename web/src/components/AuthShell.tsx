@@ -16,31 +16,52 @@ import { useT } from "../i18n";
  * English string. So the signed-out screens said "IDENTITY PLATFORM" while
  * the sidebar three clicks later said 身份平台, and the component whose whole
  * purpose is to stop that kind of drift was where it had happened.
+ *
+ * The lockup sits in the page's top-left corner rather than above the card,
+ * which is where the signed-in shell puts it too: a brand mark is a fixture of
+ * the page, and one centred over a form reads as part of the form. Changed
+ * here rather than on the one screen that prompted it, for the reason this
+ * component exists — a per-screen logo position is precisely the drift.
  */
 export function AuthShell({
   title,
   subtitle,
   children,
   footer,
+  wide = false,
 }: {
   title: string;
   subtitle?: string;
   children: ReactNode;
   footer?: ReactNode;
+  /**
+   * Room for more than a column of fields. Off by default: sign-in and the
+   * password screens are two or three controls each, and a wide box around
+   * them only lengthens the distance the eye travels between a label and what
+   * it labels.
+   */
+  wide?: boolean;
 }) {
   const t = useT();
 
   return (
-    <div className="flex min-h-dvh flex-col items-center justify-center bg-[var(--color-bg-soft)] p-4">
-      <div className="w-full max-w-sm">
-        <div className="mb-5">
-          <BrandLockup
-            name="Portico"
-            descriptor={t("brand.descriptor")}
-            size={40}
-          />
-        </div>
+    <div className="flex min-h-dvh flex-col bg-[var(--color-bg-soft)] p-4">
+      <header className="shrink-0">
+        <BrandLockup
+          name="Portico"
+          descriptor={t("brand.descriptor")}
+          size={40}
+        />
+      </header>
 
+      {/* Centred in what is left. min-h-dvh rather than h-dvh above, so the
+          container grows with its content instead of centring something taller
+          than the viewport and putting its top out of reach. */}
+      <main
+        className={`mx-auto flex w-full flex-1 flex-col justify-center py-8 ${
+          wide ? "max-w-lg" : "max-w-sm"
+        }`}
+      >
         <div className="rounded-[var(--radius-lg)] border border-[var(--color-border)] bg-[var(--color-bg)] p-6 shadow-[var(--shadow-sm)]">
           <h1 className="text-[length:var(--font-size-lg)] font-[weight:var(--font-weight-bold)] text-[var(--color-fg)]">
             {title}
@@ -56,7 +77,7 @@ export function AuthShell({
             {footer}
           </div>
         )}
-      </div>
+      </main>
     </div>
   );
 }

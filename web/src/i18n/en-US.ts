@@ -794,20 +794,18 @@ export const enUS = {
 
   "trial.title": "Try Portico",
   "trial.subtitle": "A tenant of your own, with an administrator account.",
-  "trial.step.fill":
-    "Fill this in, and we send a confirmation link to your address",
-  "trial.step.confirm":
-    "Open the link, good for two hours — nothing is created until you do",
-  "trial.step.ready":
-    "Your tenant and its password, shown here and mailed to you",
+  "trial.step.fill": "Fill this in",
+  "trial.step.confirm": "Open the link",
+  "trial.step.ready": "Get your tenant",
+  "trial.stepNote":
+    "The emailed link is good for two hours. Nothing is created until you open it.",
   "trial.email": "Email address",
   "trial.emailHint": "A typo here is the one mistake this page cannot undo.",
-  "trial.company": "Organization name (optional)",
-  "trial.companyHint":
-    "Defaults to the tenant code. Changeable later in Settings.",
   "trial.tenantCode": "Tenant code",
   "trial.tenantCodeHint":
     "What everybody types at sign-in. Lowercase, and fixed once created.",
+  "trial.tenantCodeInvalid":
+    "Lowercase letters, digits, hyphens and underscores only.",
   "trial.industry": "Seeded data",
   "trial.industryHint":
     "The organization tree, people, custom fields and applications all follow from this. Change any of it afterwards.",
@@ -827,6 +825,7 @@ export const enUS = {
   "trial.sentBody":
     "The link is good for two hours. Nothing has been created yet — clicking it is what makes your tenant.",
   "trial.sentTo": "Sent to {0}",
+  "trial.sentEdit": "Wrong address? Go back and change it",
   "trialConfirm.workingTitle": "Setting up your tenant",
   "trialConfirm.working":
     "Creating your tenant and filling it with example data. This takes a few seconds — leave the page open.",
