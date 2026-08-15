@@ -150,7 +150,17 @@ func sortedList(ops map[operation]bool, keep func(operation) bool) []string {
 }
 
 func TestOpenAPIDescribesEveryRoute(t *testing.T) {
-	api := newAPITest(t)
+	// With trials on, because the document describes them and two of their
+	// three endpoints are only routed where a deployment asked for them.
+	//
+	// The alternative was a list of exceptions here, which would have to be
+	// kept in step with the routing by hand and would quietly grow. Turning
+	// the feature on instead makes the comparison exact in both directions,
+	// and adds a check nothing else makes: that all three are actually served
+	// when they are supposed to be.
+	cfg := testConfig(t)
+	cfg.TrialSignup = true
+	api := newAPITestWithConfig(t, cfg)
 
 	routed := routedOperations(t, api.srv.Handler())
 	described := describedOperations(t)

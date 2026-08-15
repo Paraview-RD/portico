@@ -127,6 +127,13 @@ func New(cfg *config.Config, opts ...Option) (*Server, error) {
 	verification := service.NewVerificationService(
 		st, users, settings, audit, deps.mailer, deps.sms, cfg.PublicURL)
 
+	// Self-service trials. Constructed whether or not they are enabled — the
+	// service refuses every call when they are not, and the routes are not
+	// registered either, so this is a backstop rather than the gate.
+	trials := service.NewTrialService(
+		st, tenants, users, deps.mailer, audit,
+		cfg.TrialSignup, cfg.TrialMaxTenants, cfg.PublicURL)
+
 	clients := service.NewOAuthClientService(st, audit)
 	keys := service.NewSigningKeyService(st)
 	// Built here rather than beside the other application services below,
@@ -189,7 +196,7 @@ func New(cfg *config.Config, opts ...Option) (*Server, error) {
 		handler: handler.New(users, orgs, audit, settings, tenants, recovery, verification, sessions,
 			clients, serviceProviders, samlKeys, casServices, scimCredentials,
 			directories, webhooks, externalIDP, groups, logos, attributes, fields, fieldMappings,
-			providers, samlProviders, casServer),
+			providers, samlProviders, casServer, trials),
 		middleware:    auth.NewMiddleware(tokens, users, sessions),
 		metrics:       registry,
 		scim:          scimHandler,

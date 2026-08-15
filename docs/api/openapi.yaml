@@ -253,6 +253,97 @@ paths:
         "404":
           $ref: "#/components/responses/TenantNotFound"
 
+  /api/v1/trial/status:
+    get:
+      tags: [Trials]
+      operationId: trialStatus
+      summary: Whether this deployment hands out tenants.
+      description: |
+        Always available, and answering `false` on almost every deployment.
+        The sign-in screen reads it on every load to decide whether to offer a
+        trial, which is why it is routed even where trials are off — a missing
+        route would leave a console error on every page load.
+
+        The two endpoints below are *not* routed unless
+        `PORTICO_TRIAL_SIGNUP=true`, and answer 404 otherwise.
+      security: []
+      responses:
+        "200":
+          description: Whether trials are offered, and which seeded worlds exist.
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/TrialStatusEnvelope" }
+
+  /api/v1/trial:
+    post:
+      tags: [Trials]
+      operationId: requestTrial
+      summary: Ask for a tenant, proving an email address.
+      description: |
+        Records the request and mails a confirmation link, good for two hours.
+        Nothing is created until the link is followed.
+
+        Only routed where `PORTICO_TRIAL_SIGNUP=true`. This is one of two
+        writes in this API reachable without signing in, and the tenant code is
+        reserved here rather than at confirmation — a collision is the one
+        failure the caller can fix, and hearing it after checking their mail is
+        the worst moment.
+      security: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/TrialRequest" }
+      responses:
+        "200":
+          description: The link has been sent. Nothing is echoed back.
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Envelope" }
+        "400":
+          description: The address, name, code or industry is not usable.
+        "409":
+          description: |
+            The code is taken, the address already has a trial, or the
+            demonstration is full.
+        "429":
+          description: Too many requests from this address today.
+
+  /api/v1/trial/confirm:
+    post:
+      tags: [Trials]
+      operationId: confirmTrial
+      summary: Spend a trial link and receive the credentials.
+      description: |
+        Creates the tenant and its administrator, and answers with the
+        password — the only time it exists in readable form, since nothing
+        stores it unhashed. A copy is mailed as well.
+
+        The link works once. A second use answers 409 rather than creating a
+        second tenant.
+
+        Only routed where `PORTICO_TRIAL_SIGNUP=true`.
+      security: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [token]
+              properties:
+                token: { type: string }
+      responses:
+        "200":
+          description: The tenant, and how to sign in to it.
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/TrialTenantEnvelope" }
+        "400":
+          description: The link is not valid, or has expired.
+        "409":
+          description: The link has already been used.
+
   /api/v1/auth/recovery-channels:
     get:
       tags: [Authentication]
@@ -4626,6 +4717,50 @@ components:
         tenant: { type: string }
         tenantName: { type: string }
 
+    TrialStatus:
+      type: object
+      properties:
+        enabled: { type: boolean }
+        industries:
+          type: array
+          description: |
+            The seeded worlds this deployment can produce. Only names with data
+            behind them appear: offering one without would hand somebody an
+            empty tenant and a wrong expectation.
+          items: { type: string }
+
+    TrialRequest:
+      type: object
+      required: [email, companyName, tenantCode]
+      properties:
+        email:
+          type: string
+          description: Where the link and, later, the password are sent.
+        companyName:
+          type: string
+          description: Becomes the tenant's display name.
+        tenantCode:
+          type: string
+          description: |
+            What everybody in the tenant types at sign-in. Lower-cased, and
+            fixed once the tenant exists.
+        industry:
+          type: string
+          description: One of the names from `/api/v1/trial/status`.
+
+    TrialTenant:
+      type: object
+      properties:
+        tenantCode: { type: string }
+        tenantName: { type: string }
+        adminUsername: { type: string }
+        adminPassword:
+          type: string
+          description: |
+            Generated, and returned once. Not stored in readable form
+            anywhere; the mailed copy is the only other one.
+        signInUrl: { type: string }
+
     Authorization:
       type: object
       description: |
@@ -5392,6 +5527,20 @@ components:
         - type: object
           properties:
             data: { $ref: "#/components/schemas/RegistrationStatus" }
+
+    TrialStatusEnvelope:
+      allOf:
+        - $ref: "#/components/schemas/Envelope"
+        - type: object
+          properties:
+            data: { $ref: "#/components/schemas/TrialStatus" }
+
+    TrialTenantEnvelope:
+      allOf:
+        - $ref: "#/components/schemas/Envelope"
+        - type: object
+          properties:
+            data: { $ref: "#/components/schemas/TrialTenant" }
 
     AuthorizationEnvelope:
       allOf:
