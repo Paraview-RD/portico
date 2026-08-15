@@ -321,6 +321,11 @@ What a visitor goes through:
    and mailed. The administrator's password is not forced to change on the way
    in — they did not choose it and have nowhere to look it up.
 
+   The address they proved goes onto that administrator account, so "forgot
+   password" works for it. That is the whole reason to bother verifying an
+   address: without it on the account, the one person who can administer the
+   tenant has no way back into it.
+
 | Bound | Default | Why |
 |---|---|---|
 | Tenants at once | `PORTICO_TRIAL_MAX_TENANTS`, 50 | A shared demonstration database. Reached, the form says so rather than queueing |

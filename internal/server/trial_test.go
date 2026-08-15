@@ -450,6 +450,78 @@ func firstUsernameOtherThan(t *testing.T, data json.RawMessage, exclude string) 
 	return ""
 }
 
+// TestTheAdministratorKeepsTheAddressThatProvedItself is about an account
+// that had no way back in.
+//
+// The address on the form is the one thing this whole flow establishes: a
+// tenant exists because somebody opened a link sent to it. And until now that
+// address was used for the link, used for the credentials, and then thrown
+// away — the administrator it created had no email and no phone, so the
+// person who had just proved an address could not use it to recover the
+// account, and the portal told them so on every visit.
+func TestTheAdministratorKeepsTheAddressThatProvedItself(t *testing.T) {
+	api, mailer := newTrialTest(t, true)
+
+	const address = "founder@example.test"
+	before := len(mailer.sent())
+	api.do(http.MethodPost, "/api/v1/trial", "", map[string]string{
+		"email":       address,
+		"companyName": "Founder Ltd",
+		"tenantCode":  "founder-ltd",
+	})
+	token := tokenFromLink(t, mailer.waitFor(t, before+1).Body)
+
+	confirmed := api.do(http.MethodPost, "/api/v1/trial/confirm", "",
+		map[string]string{"token": token})
+	if confirmed.Status != http.StatusOK {
+		t.Fatalf("confirm: %d %s %s", confirmed.Status, confirmed.Code, confirmed.Message)
+	}
+	var out struct {
+		TenantCode    string `json:"tenantCode"`
+		AdminUsername string `json:"adminUsername"`
+		AdminPassword string `json:"adminPassword"`
+	}
+	confirmed.into(t, &out)
+
+	token = api.loginTo(out.TenantCode, out.AdminUsername, out.AdminPassword)
+	me := api.do(http.MethodGet, "/api/v1/users/me", token, nil)
+	if me.Status != http.StatusOK {
+		t.Fatalf("read the administrator: %d %s", me.Status, me.Code)
+	}
+	var admin struct {
+		Email string `json:"email"`
+	}
+	me.into(t, &admin)
+
+	if admin.Email != address {
+		t.Errorf("the administrator's address is %q, want %q. It is the address "+
+			"this tenant exists because of, and without it on the account the one "+
+			"person who can administer the tenant cannot recover it.",
+			admin.Email, address)
+	}
+
+	// The point of the address, asserted where it is spent rather than by
+	// reading the column: recovery has to actually reach it.
+	//
+	// Recovery is asked by destination rather than by username — the address
+	// is what finds the account — which makes this the exact question worth
+	// asking here: can somebody who knows only the address they signed up
+	// with get back into the tenant it created.
+	recoveryBefore := len(mailer.sent())
+	asked := api.do(http.MethodPost, "/api/v1/auth/password-recovery", "", map[string]string{
+		"tenant":      out.TenantCode,
+		"channel":     "EMAIL",
+		"destination": address,
+	})
+	if asked.Status != http.StatusOK {
+		t.Fatalf("ask for recovery: %d %s %s", asked.Status, asked.Code, asked.Message)
+	}
+	sent := mailer.waitFor(t, recoveryBefore+1)
+	if sent.To != address {
+		t.Errorf("the recovery link went to %q, want %q", sent.To, address)
+	}
+}
+
 // TestAnAbandonedRequestStopsHoldingItsTenantCode is about the one row in
 // this feature that outlives its own usefulness.
 //
