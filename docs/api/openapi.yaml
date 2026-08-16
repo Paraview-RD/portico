@@ -1661,6 +1661,74 @@ paths:
         "403":
           $ref: "#/components/responses/Forbidden"
 
+  /api/v1/tenants:
+    get:
+      tags: [Tenants]
+      operationId: listTenants
+      summary: Every tenant on this deployment, with a count of what is in it.
+      description: |
+        The one endpoint in this API that sees past the caller's own tenant,
+        and the narrowest crossing that answers the question: sizes, never
+        contents.
+
+        It exists only where the deployment set `PORTICO_TENANT_CONSOLE`, and
+        then only for an administrator of the `default` tenant. Everybody else
+        — including an administrator of another tenant — is answered `404`,
+        which is deliberately the same answer a deployment without the feature
+        gives: a `403` would confirm that the console exists and that somebody
+        else has it.
+      responses:
+        "200":
+          description: The tenants.
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/TenantOverviewListEnvelope" }
+        "404":
+          $ref: "#/components/responses/NotFound"
+
+  /api/v1/tenants/{code}/status:
+    put:
+      tags: [Tenants]
+      operationId: setTenantStatus
+      summary: Disable a tenant, or turn one back on.
+      description: |
+        Disabling refuses every sign-in to that tenant and ends the sessions it
+        already had. Nothing is deleted and enabling restores it.
+
+        `confirm` must equal the tenant's own code. The check is here rather
+        than only in a dialog, because a caller that draws no dialog would
+        otherwise be one request away from signing out everybody in a tenant.
+
+        The `default` tenant cannot be disabled through this endpoint: it is
+        what serves the console, and there would be no way back from a browser.
+      parameters:
+        - name: code
+          in: path
+          required: true
+          schema: { type: string }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [status, confirm]
+              properties:
+                status:
+                  type: string
+                  enum: [ACTIVE, DISABLED]
+                confirm:
+                  type: string
+                  description: The tenant's own code, typed back.
+      responses:
+        "200":
+          description: The tenant, as it now is.
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/TenantEnvelope" }
+        "404":
+          $ref: "#/components/responses/NotFound"
+
   /api/v1/groups:
     get:
       tags: [Groups]
@@ -4784,6 +4852,33 @@ components:
           type: string
           description: One of the names from `/api/v1/trial/status`.
 
+    TenantOverview:
+      type: object
+      description: |
+        A tenant and how much is inside it. Counts and nothing else: an
+        operator may learn a tenant's size and never its contents, so there is
+        no name, address, or identifier here belonging to anybody in it.
+      properties:
+        id: { type: string }
+        code: { type: string }
+        name: { type: string }
+        status: { type: string, enum: [ACTIVE, DISABLED] }
+        createdAt: { type: string, format: date-time }
+        users: { type: integer }
+        activeUsers: { type: integer }
+        organizations: { type: integer }
+        applications:
+          type: integer
+          description: OAuth clients, SAML service providers and CAS services together.
+        lastActivity:
+          type: string
+          format: date-time
+          nullable: true
+          description: |
+            When anything was last recorded in that tenant's audit trail. Null
+            for a tenant nothing has ever happened in, which is usually the row
+            worth looking at.
+
     TrialTenant:
       type: object
       properties:
@@ -5593,6 +5688,15 @@ components:
         - type: object
           properties:
             data: { $ref: "#/components/schemas/TrialStatus" }
+
+    TenantOverviewListEnvelope:
+      allOf:
+        - $ref: "#/components/schemas/Envelope"
+        - type: object
+          properties:
+            data:
+              type: array
+              items: { $ref: "#/components/schemas/TenantOverview" }
 
     TrialTenantEnvelope:
       allOf:

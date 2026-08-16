@@ -227,6 +227,10 @@ export const errorsZhCN: Record<keyof typeof errorsEnUS, string> = {
   TOO_MANY_ATTEMPTS: "该地址的尝试次数过多，请稍候再试。",
   // 自助试用，只在演示环境上。这几条每一条都是访客自己能处理的事，所以没有一条
   // 是干巴巴的拒绝——一个进不来的陌生人没有任何客服可问。
+  NOT_FOUND: "没有找到。",
+  TENANT_CONFIRM_MISMATCH: "请一字不差地输入租户编码以确认。",
+  TENANT_CANNOT_DISABLE_DEFAULT:
+    "默认租户不能在这里停用 —— 这个控制台就是它提供的。请用命令行。",
   TRIAL_SIGNUP_CLOSED: "本部署不提供自助试用。",
   TRIAL_MAIL_UNAVAILABLE:
     "试用需要邮件，而本部署没有配置邮件中继。请告知运维。",

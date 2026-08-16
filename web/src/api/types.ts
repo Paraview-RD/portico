@@ -58,6 +58,42 @@ export interface User {
    * means "never" rather than "unknown".
    */
   passwordExpiresAt?: string;
+
+  /**
+   * Whether this person may open the operator console. Present only on
+   * `/users/me`, and false on every deployment that did not ask for the
+   * feature — which is the default.
+   *
+   * Answered by the server rather than worked out here: it depends on a
+   * deployment setting and on which tenant is the default one, and the
+   * console knows neither.
+   */
+  mayManageTenants?: boolean;
+}
+
+/**
+ * A tenant and how much is inside it.
+ *
+ * Counts and nothing else, deliberately: this is the only shape in the API
+ * that crosses the tenant boundary, and an operator may learn a tenant's size
+ * and never its contents. See internal/handler/tenant_console.go.
+ */
+export interface Tenant {
+  id: string;
+  code: string;
+  name: string;
+  status: Status;
+  createdAt: string;
+  updatedAt?: string;
+}
+
+export interface TenantOverview extends Tenant {
+  users: number;
+  activeUsers: number;
+  organizations: number;
+  applications: number;
+  /** Null for a tenant nothing has ever happened in. */
+  lastActivity: string | null;
 }
 
 /** An organization named without carrying the whole of it. */

@@ -88,6 +88,39 @@ via a link that carries it:
 http://<host>:8410/login?tenant=acme
 ```
 
+### Seeing them in the console
+
+`PORTICO_TENANT_CONSOLE=true` adds one screen to the existing console:
+**Tenants**, listing every tenant with a count of what is inside it and a
+switch that disables one. No second service, no second address — the same
+process and the same session.
+
+**Off by default, and the default is the important half.** A single-tenant
+deployment never has to know tenants exist, which means `default` is very
+often one real customer's tenant. Turning this on there would let that
+customer's administrator enumerate every other customer. So it is not a
+permission granted from inside the product: it is a statement by whoever runs
+the deployment that `default` is theirs rather than somebody's.
+
+Three boundaries, and they are separate on purpose:
+
+| | |
+|---|---|
+| The flag is off | The routes are not registered. `/api/v1/tenants` answers 404, exactly as it did before this feature existed |
+| The flag is on | Only an administrator of the `default` tenant is admitted. Anybody else gets 404 as well — a 403 would confirm the console exists and that somebody else has it |
+| Either way | What crosses is **counts, never contents**: how many accounts, organizations and applications a tenant holds, and when anything last happened in it. No name, no address, no way through to a row |
+
+Disabling asks for the tenant's own code to be typed, in the screen and again
+at the API, because it signs everybody in that tenant out at once and they
+hear it from a sign-in screen rather than from anybody. It is reversible and
+deletes nothing.
+
+**Creating and deleting stay on the command line.** A tenant created in a
+browser needs an administrator and a password shown once; a tenant deleted
+there is a hundred rows across thirty tables that no screen can put back.
+`portico tenant create` and `portico trial delete` already do both, on the
+machine, where the person doing it meant to be.
+
 ## Credentials
 
 Portico stores its own accounts. It can also accept somebody else's word for

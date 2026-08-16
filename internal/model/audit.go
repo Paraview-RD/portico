@@ -118,6 +118,19 @@ const (
 	// than before one.
 	ActionUserExport = "USER_EXPORT"
 
+	// Switching another tenant off, and back on, from the operator console.
+	//
+	// The only administrative act in this system whose target is outside the
+	// tenant it is recorded in, and the reason it is audited at this weight:
+	// disabling a tenant signs every account in it out and refuses every
+	// sign-in afterwards, from one click by somebody none of those people
+	// have ever heard of. The entry is written in the operator's own tenant,
+	// because that is where the actor exists and where the trail can be read
+	// — the affected tenant's own log would be a record its administrators
+	// could not act on and, if they were the ones disabled, could not reach.
+	ActionTenantEnable  = "TENANT_ENABLE"
+	ActionTenantDisable = "TENANT_DISABLE"
+
 	// Application registration, one set of verbs per protocol.
 	//
 	// These are the most privileged administrative acts in the system, and

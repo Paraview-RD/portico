@@ -5,6 +5,7 @@ import (
 	"errors"
 	"fmt"
 	"strings"
+	"time"
 
 	"github.com/google/uuid"
 
@@ -34,17 +35,43 @@ var (
 //
 // Unlike every other service it works through the unscoped store, because
 // tenants are the root of the isolation hierarchy and have nothing above
-// them to be scoped by. Nothing here is reachable over HTTP: provisioning is
-// a command-line operation performed by whoever runs the deployment, which
-// is what lets V0.1 have no cross-tenant administrator at all.
+// them to be scoped by. Provisioning is a command-line operation performed by
+// whoever runs the deployment, which is what lets this have no cross-tenant
+// administrator at all.
+//
+// One method is reachable over HTTP, and only where a deployment asked:
+// Overview, behind PORTICO_TENANT_CONSOLE. It returns counts and never
+// contents — see internal/handler/tenant_console.go for what stands in front
+// of it and why.
 type TenantService struct {
 	store *store.Store
+
+	// operatorConsole is whether this deployment asked for the screens that
+	// see across tenants. False is what the type's comment above describes,
+	// and what every deployment gets unless it says otherwise.
+	operatorConsole bool
 }
 
 // NewTenantService wires a TenantService.
 func NewTenantService(st *store.Store) *TenantService {
 	return &TenantService{store: st}
 }
+
+// WithOperatorConsole records whether this deployment asked for the screens
+// that see across tenants.
+//
+// Held here rather than read from configuration at the point of use, for the
+// same reason TrialService holds its own switch: the routes are the real
+// gate, and this is what lets everything downstream of them — including the
+// console, which has to decide whether to draw a menu entry — ask one place
+// whether the feature exists.
+func (s *TenantService) WithOperatorConsole(on bool) *TenantService {
+	s.operatorConsole = on
+	return s
+}
+
+// OperatorConsole reports whether the cross-tenant screens are enabled.
+func (s *TenantService) OperatorConsole() bool { return s.operatorConsole }
 
 // Resolve looks up a tenant by code for sign-in, registration, and anything
 // else that has to establish a tenant before it has a principal.
@@ -97,6 +124,46 @@ func (s *TenantService) List(ctx context.Context) ([]model.Tenant, error) {
 		tenants = append(tenants, toTenant(row))
 	}
 	return tenants, nil
+}
+
+// Overview returns every tenant with a count of what is inside it.
+//
+// The one read in this system that crosses the tenant boundary, and the
+// narrowest crossing that answers the question: how many, never who. What
+// stands in front of it is not this method — it is the route, which is not
+// registered unless the deployment asked for an operator console and which
+// then admits only an administrator of the default tenant.
+func (s *TenantService) Overview(ctx context.Context) ([]model.TenantOverview, error) {
+	rows, err := s.store.Queries.TenantOverview(ctx)
+	if err != nil {
+		return nil, fmt.Errorf("tenant overview: %w", err)
+	}
+
+	out := make([]model.TenantOverview, 0, len(rows))
+	for _, row := range rows {
+		overview := model.TenantOverview{
+			Tenant: model.Tenant{
+				ID:        row.ID,
+				Code:      row.Code,
+				Name:      row.Name,
+				Status:    model.Status(row.Status),
+				CreatedAt: row.CreatedAt,
+			},
+			Users:         row.UserCount,
+			ActiveUsers:   row.ActiveUserCount,
+			Organizations: row.OrganizationCount,
+			Applications:  row.ApplicationCount,
+		}
+		// max() over an empty set is NULL, which sqlc surfaces as an untyped
+		// any rather than a sql.NullTime. A tenant with no audit trail at all
+		// is a real and interesting row — one created and never used — so
+		// this is a missing value to carry, not one to invent.
+		if at, ok := row.LastActivity.(time.Time); ok {
+			overview.LastActivity = &at
+		}
+		out = append(out, overview)
+	}
+	return out, nil
 }
 
 // Create adds a tenant.

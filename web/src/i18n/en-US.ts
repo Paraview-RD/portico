@@ -59,6 +59,7 @@ export const enUS = {
   // is, and these are asked.
   "nav.identityProviders": "Identity providers",
   "nav.settings": "Settings",
+  "nav.tenants": "Tenants",
   "nav.profile": "My profile",
   "nav.signOut": "Sign out",
 
@@ -791,6 +792,28 @@ export const enUS = {
   "landing.signIn": "Sign in",
   "landing.docs": "Documentation",
   "landing.source": "Source on GitHub",
+
+  "tenants.title": "Tenants",
+  "tenants.subtitle": "Every tenant on this deployment, and how much is in it.",
+  "tenants.scopeNote":
+    "Sizes only: this screen can count what is in another tenant and cannot open any of it. Creating and deleting tenants stay on the command line.",
+  "tenants.colCode": "Code",
+  "tenants.colName": "Name",
+  "tenants.colStatus": "Status",
+  "tenants.colUsers": "Accounts (active / total)",
+  "tenants.colOrganizations": "Organizations",
+  "tenants.colApplications": "Applications",
+  "tenants.colLastActivity": "Last activity",
+  "tenants.neverUsed": "Never used",
+  "tenants.thisConsole": "This console",
+  "tenants.disableTitle": "Disable {0}",
+  "tenants.enableTitle": "Enable {0}",
+  "tenants.disableWarning":
+    "Everybody in this tenant is signed out immediately, and {0} active accounts stop being able to sign in. They will hear it from a sign-in screen rather than from you. Nothing is deleted, and enabling it again restores everything.",
+  "tenants.enableBody": "Sign-in starts working again for this tenant.",
+  "tenants.confirmLabel": "Type the tenant code to confirm",
+  "tenants.confirmHint":
+    "Its own code, exactly. The server checks this too, so a script cannot skip it.",
 
   "trial.title": "Try Portico",
   "trial.subtitle": "A tenant of your own, with an administrator account.",

@@ -76,6 +76,7 @@ var bodies = map[string]any{
 	"createSCIMCredential":            createSCIMCredentialRequest{},
 	"createWebhook":                   webhookRequest{},
 	"updateSettings":                  updateSettingsRequest{},
+	"setTenantStatus":                 tenantStatusRequest{},
 	"authorizeOAuth":                  authorizeRequest{},
 	"authorizeSAML":                   samlAuthenticateRequest{},
 	"authorizeCAS":                    casAuthorizeRequest{},

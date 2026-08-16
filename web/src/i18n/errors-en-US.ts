@@ -278,6 +278,10 @@ export const errorsEnUS = {
   // Self-service trials, on a demonstration deployment. Every one of these is
   // something the visitor can act on, which is why none of them is a bare
   // refusal: a stranger who cannot get in has no support channel to ask.
+  NOT_FOUND: "Not found.",
+  TENANT_CONFIRM_MISMATCH: "Type the tenant code exactly to confirm.",
+  TENANT_CANNOT_DISABLE_DEFAULT:
+    "The default tenant cannot be disabled here — it is where this console is served from. Use the command line.",
   TRIAL_SIGNUP_CLOSED: "This deployment does not offer self-service trials.",
   TRIAL_MAIL_UNAVAILABLE:
     "Trials need email, and this deployment has no relay configured. Tell whoever runs it.",

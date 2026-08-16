@@ -397,6 +397,27 @@ func (s *Server) routes() http.Handler {
 				r.Post("/{id}/disable", h.DisableSCIMCredential)
 				r.Delete("/{id}", h.DeleteSCIMCredential)
 			})
+
+			// The operator console, and the only routes in this API that see
+			// past the caller's own tenant.
+			//
+			// Registered only where the deployment asked for them, which is
+			// the outer gate: on every other deployment these addresses do
+			// not exist, and answer exactly as they did before this feature
+			// was written. The inner gate — an administrator of the default
+			// tenant, and counts rather than contents — is in
+			// internal/handler/tenant_console.go, along with why it is not a
+			// role somebody can be granted from inside the product.
+			if s.cfg.TenantConsole {
+				r.Route("/tenants", func(r chi.Router) {
+					r.Get("/", h.ListTenants)
+					// Enable and disable, as one statement of intent rather
+					// than two verbs: a screen that reads a status and writes
+					// the opposite one cannot disable a tenant somebody else
+					// re-enabled in between.
+					r.Put("/{code}/status", h.SetTenantStatus)
+				})
+			}
 		})
 	})
 

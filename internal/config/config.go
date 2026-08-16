@@ -121,6 +121,21 @@ type Config struct {
 	// is the demonstration becoming unusably slow for everybody.
 	TrialMaxTenants int
 
+	// TenantConsole registers the operator screens: a list of every tenant
+	// with a count of what is inside it, and the switch that disables one.
+	//
+	// Off by default, and the default is the important half. On a deployment
+	// where `default` is one customer among several — which is the ordinary
+	// multi-tenant shape — turning this on would let that customer's
+	// administrator enumerate every other customer. So this is not a
+	// permission an administrator can be granted from inside the product; it
+	// is a statement by whoever runs the deployment that the default tenant
+	// is theirs rather than somebody's.
+	//
+	// With it off the routes do not exist at all, which is what every
+	// deployment before this flag had.
+	TenantConsole bool
+
 	// TrialBlockedEmailDomains are mailbox providers this deployment refuses
 	// for a trial signup, added to the throwaway-address list the service
 	// ships with.
@@ -216,6 +231,7 @@ func Load() (*Config, error) {
 		TrustProxyHeaders:    os.Getenv("PORTICO_TRUST_PROXY_HEADERS") == "true",
 		LandingPage:          os.Getenv("PORTICO_LANDING_PAGE") == "true",
 		TrialSignup:          os.Getenv("PORTICO_TRIAL_SIGNUP") == "true",
+		TenantConsole:        os.Getenv("PORTICO_TENANT_CONSOLE") == "true",
 	}
 
 	rateLimit, err := envInt("PORTICO_AUTH_RATE_LIMIT", 60)

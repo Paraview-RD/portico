@@ -17,6 +17,7 @@ import {
   SettingsIcon,
   SignOutIcon,
   UsersIcon,
+  TenantIcon,
   WebhooksIcon,
 } from "./icons";
 import { request } from "../api/client";
@@ -34,6 +35,16 @@ interface NavItem {
   icon: (props: { size?: number }) => ReactNode;
   /** Administrator-only entries are hidden from normal users (§3.5). */
   adminOnly: boolean;
+  /**
+   * Entries that also need a capability the server grants, rather than only a
+   * role this console can read off the session.
+   *
+   * There is one: the operator console exists only where the deployment asked
+   * for it and only for the default tenant's administrator, and neither of
+   * those is a fact the browser holds. So the server answers it on
+   * /users/me and this is where the answer is spent.
+   */
+  needs?: "mayManageTenants";
 }
 
 interface NavGroup {
@@ -162,6 +173,16 @@ const navGroups: NavGroup[] = [
         icon: AttributesIcon,
         adminOnly: true,
       },
+      {
+        // Last in the group that holds the knobs, and absent on nearly every
+        // deployment. It is the only entry here that leads outside the
+        // reader's own tenant.
+        route: "/tenants",
+        labelKey: "nav.tenants",
+        icon: TenantIcon,
+        adminOnly: true,
+        needs: "mayManageTenants",
+      },
     ],
   },
   {
@@ -191,7 +212,15 @@ export function Layout({ children }: { children: ReactNode }) {
   const groups = navGroups
     .map((group) => ({
       ...group,
-      items: group.items.filter((item) => !item.adminOnly || isAdmin),
+      items: group.items.filter(
+        (item) =>
+          (!item.adminOnly || isAdmin) &&
+          // A capability the server decides. Absent from the session — an
+          // older token, or a deployment without the feature — means no,
+          // which is the safe direction: the route refuses anyway, and an
+          // entry that leads to a refusal is worse than no entry.
+          (!item.needs || user?.[item.needs] === true),
+      ),
     }))
     .filter((group) => group.items.length > 0);
 

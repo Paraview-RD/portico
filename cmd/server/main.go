@@ -133,6 +133,11 @@ Configuration is entirely environment variables:
                                    (default false). For a public address a
                                    stranger reaches with no idea what they
                                    have opened
+  PORTICO_TENANT_CONSOLE           show every tenant, with counts, to an
+                                   administrator of the default tenant
+                                   (default false). Only where that tenant is
+                                   the operator's own: it is the one screen
+                                   that sees past a tenant boundary
   PORTICO_TRIAL_SIGNUP             let strangers create a tenant by proving an
                                    email address (default false). For a public
                                    demonstration only: these are the only

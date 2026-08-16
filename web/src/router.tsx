@@ -35,6 +35,7 @@ export type Route =
   | "/audit-logs"
   | "/settings"
   | "/user-attributes"
+  | "/tenants"
   | "/profile";
 
 const routes: Route[] = [
@@ -56,6 +57,7 @@ const routes: Route[] = [
   "/audit-logs",
   "/settings",
   "/user-attributes",
+  "/tenants",
   "/profile",
 ];
 

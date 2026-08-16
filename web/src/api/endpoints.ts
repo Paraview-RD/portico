@@ -43,6 +43,8 @@ import type {
   Settings,
   Status,
   LandingStatus,
+  Tenant,
+  TenantOverview,
   TrialStatus,
   TrialTenant,
   User,
@@ -247,6 +249,29 @@ export const authApi = {
 export const landingApi = {
   landingStatus: (signal?: AbortSignal) =>
     request<LandingStatus>("/landing", { anonymous: true, signal }),
+};
+
+/**
+ * The operator console. Reachable only where the deployment turned it on, and
+ * only for an administrator of the default tenant — everybody else gets a 404,
+ * which is deliberately the same answer a deployment without the feature
+ * gives. `user.mayManageTenants` on /users/me is what says which one you are;
+ * nothing here should be called speculatively.
+ */
+export const tenantsApi = {
+  list: (signal?: AbortSignal) =>
+    request<TenantOverview[]>("/tenants", { signal }),
+
+  /**
+   * Switches a tenant off, or back on. `confirm` is that tenant's own code,
+   * typed by the person doing it — the server refuses when the two disagree,
+   * so this cannot be a mis-click even from a caller that draws no dialog.
+   */
+  setStatus: (code: string, status: Status, confirm: string) =>
+    request<Tenant>(`/tenants/${encodeURIComponent(code)}/status`, {
+      method: "PUT",
+      body: { status, confirm },
+    }),
 };
 
 export const trialApi = {

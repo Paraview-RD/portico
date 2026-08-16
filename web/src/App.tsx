@@ -25,6 +25,7 @@ import { TrialConfirmPage } from "./pages/TrialConfirmPage";
 import { TrialPage } from "./pages/TrialPage";
 import { VerifyPage } from "./pages/VerifyPage";
 import { SettingsPage } from "./pages/SettingsPage";
+import { TenantsPage } from "./pages/TenantsPage";
 import { UserAttributesPage } from "./pages/UserAttributesPage";
 import { UsersPage } from "./pages/UsersPage";
 import { WebhooksPage } from "./pages/WebhooksPage";
@@ -224,6 +225,8 @@ function AuthenticatedRoute({
       return <SettingsPage />;
     case "/user-attributes":
       return <UserAttributesPage />;
+    case "/tenants":
+      return <TenantsPage />;
     case "/profile":
       return <ProfilePage />;
     default:

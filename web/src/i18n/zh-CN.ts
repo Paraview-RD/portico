@@ -52,6 +52,7 @@ export const zhCN: Record<keyof typeof enUS, string> = {
   // 去问别人。
   "nav.identityProviders": "身份提供方",
   "nav.settings": "系统设置",
+  "nav.tenants": "租户管理",
   "nav.profile": "个人中心",
   "nav.signOut": "退出登录",
 
@@ -743,6 +744,28 @@ export const zhCN: Record<keyof typeof enUS, string> = {
   "landing.signIn": "登录",
   "landing.docs": "查看文档",
   "landing.source": "GitHub 源码",
+
+  "tenants.title": "租户管理",
+  "tenants.subtitle": "本部署上的全部租户，以及各自的规模。",
+  "tenants.scopeNote":
+    "只看得到规模：这个页面能数出别的租户里有多少东西，但打不开其中任何一项。创建和删除租户仍在命令行。",
+  "tenants.colCode": "租户编码",
+  "tenants.colName": "名称",
+  "tenants.colStatus": "状态",
+  "tenants.colUsers": "账号（正常 / 总数）",
+  "tenants.colOrganizations": "组织数",
+  "tenants.colApplications": "应用数",
+  "tenants.colLastActivity": "最近活动",
+  "tenants.neverUsed": "从未使用",
+  "tenants.thisConsole": "本控制台所在",
+  "tenants.disableTitle": "停用 {0}",
+  "tenants.enableTitle": "启用 {0}",
+  "tenants.disableWarning":
+    "该租户下所有人会被立即登出，{0} 个正常账号将无法再登录。他们是从登录页面知道这件事的，不是从你这里。不会删除任何数据，重新启用即可全部恢复。",
+  "tenants.enableBody": "该租户将恢复登录。",
+  "tenants.confirmLabel": "输入租户编码以确认",
+  "tenants.confirmHint":
+    "一字不差地输入它自己的编码。服务端也会校验，脚本绕不过去。",
 
   "trial.title": "试用 Portico",
   "trial.subtitle": "一个属于你自己的租户，附带一个管理员账号。",

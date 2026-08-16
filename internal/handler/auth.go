@@ -265,6 +265,13 @@ type meResponse struct {
 	// the policy is administrator-only, and somebody does not need to be
 	// told the rules to be told their own deadline.
 	PasswordExpiresAt *time.Time `json:"passwordExpiresAt,omitempty"`
+	// MayManageTenants is whether this caller may open the operator console.
+	//
+	// Answered here rather than left for the console to discover by calling
+	// /tenants and reading the refusal: a menu drawn from a failed request is
+	// a menu that flickers, and a 404 is deliberately indistinguishable from
+	// a deployment that has no such feature.
+	MayManageTenants bool `json:"mayManageTenants"`
 }
 
 // Me returns the caller's own profile.
@@ -285,7 +292,11 @@ func (h *Handler) Me(w http.ResponseWriter, r *http.Request) {
 		expiresAt = nil
 	}
 
-	httpx.OK(w, meResponse{User: user, PasswordExpiresAt: expiresAt})
+	httpx.OK(w, meResponse{
+		User:              user,
+		PasswordExpiresAt: expiresAt,
+		MayManageTenants:  h.mayManageTenants(r, principal),
+	})
 }
 
 type updateProfileRequest struct {

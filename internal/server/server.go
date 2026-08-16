@@ -107,7 +107,7 @@ func New(cfg *config.Config, opts ...Option) (*Server, error) {
 	settings.WithDefaultLocale(cfg.DefaultLocale)
 	users := service.NewUserService(st, audit, settings, tokens, registry)
 	orgs := service.NewOrganizationService(st, audit)
-	tenants := service.NewTenantService(st)
+	tenants := service.NewTenantService(st).WithOperatorConsole(cfg.TenantConsole)
 
 	mailer, err := notify.NewMailer(cfg.Mail)
 	if err != nil {
