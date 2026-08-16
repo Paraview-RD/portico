@@ -103,6 +103,16 @@ composite foreign key on `(tenant_id, organization_id)` against
 another tenant's organization even if application code tried. That is what
 the otherwise-redundant `UNIQUE (tenant_id, id)` on `organizations` is for.
 
+Every child reference in the schema is shaped that way — there is no longer
+an exception. `user_attribute_values` was one until migration 00025: it
+stored `tenant_id` and referenced `users (id)` alone, so a row could claim
+one tenant while holding another's account and the database would accept it.
+Nothing wrote such a row, because the query layer supplies both from the same
+scope. That is the point: it was the single place where this rule held only
+because the code happened to be right, and a wrong row there would have
+looked exactly like a correct one. `TestAttributeValuesCannotCrossTenants`
+now asks the database directly.
+
 **Indexes lead with `tenant_id`**, since every query filters on it.
 
 **A partial unique index is how "optional but unique" is expressed.**

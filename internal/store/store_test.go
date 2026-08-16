@@ -3,6 +3,7 @@ package store_test
 import (
 	"context"
 	"database/sql"
+	"encoding/json"
 	"errors"
 	"testing"
 	"time"
@@ -334,3 +335,76 @@ func TestNowIsUTC(t *testing.T) {
 type errSentinel struct{}
 
 func (errSentinel) Error() string { return "sentinel" }
+
+// A row cannot say it belongs to one tenant while pointing at another's.
+//
+// docs/database-conventions.md states the rule this asserts: a child row
+// carries tenant_id and references its parent by (tenant_id, id), so the
+// database refuses a link that crosses a tenant rather than leaving that to
+// whichever query happens to be written next. Twenty-four foreign keys in
+// this schema are shaped that way.
+//
+// user_attribute_values was the one that was not. Its user_id and
+// definition_id referenced users (id) and user_attribute_definitions (id)
+// alone, so nothing in the schema connected the tenant_id it stored to the
+// tenant those rows actually belong to. Nothing exploited it — every write
+// takes tenant_id from the bound scope and the user id from a path already
+// resolved inside that tenant — but it was the single place where the
+// invariant rested on the query layer with no structural backstop, which is
+// exactly the shape of mistake nobody sees in a diff.
+//
+// Written as two inserts because that is the whole claim: the same row is
+// accepted with a consistent tenant and refused with a crossed one.
+func TestAttributeValuesCannotCrossTenants(t *testing.T) {
+	s := newTestStore(t)
+	ctx := context.Background()
+	now := store.Now()
+
+	acme := newTestTenant(t, s, "acme")
+	other := newTestTenant(t, s, "other")
+
+	user := func(q *store.Scoped, id, username string) {
+		t.Helper()
+		if err := q.CreateUser(ctx, sqlcgen.CreateUserParams{
+			ID: id, Username: username, DisplayName: username,
+			PasswordHash: "hash", Role: "USER", Status: "ACTIVE",
+			TokenVersion: 1, Source: "ADMIN", CreatedAt: now, UpdatedAt: now,
+		}); err != nil {
+			t.Fatalf("create user %s: %v", id, err)
+		}
+	}
+	user(acme, "user-acme", "alice")
+	user(other, "user-other", "bob")
+
+	if err := acme.CreateUserAttributeDefinition(ctx, sqlcgen.CreateUserAttributeDefinitionParams{
+		ID: "attr-acme", Key: "badge_number", Label: "Badge",
+		Kind: "TEXT", AllowedValues: json.RawMessage("[]"), Status: "ACTIVE",
+		CreatedAt: now, UpdatedAt: now,
+	}); err != nil {
+		t.Fatalf("define the attribute: %v", err)
+	}
+
+	// Consistent: acme's tenant, acme's user, acme's definition.
+	if err := acme.SetUserAttributeValue(ctx, sqlcgen.SetUserAttributeValueParams{
+		UserID: "user-acme", DefinitionID: "attr-acme", Value: "1", UpdatedAt: now,
+	}); err != nil {
+		t.Fatalf("a consistent value was refused: %v", err)
+	}
+
+	// Crossed: acme's tenant, somebody else's user. The scoped layer will not
+	// produce this, which is why it is written here through the same
+	// statement with the id of a user in another tenant — the question is
+	// what the database does when something manages to ask.
+	err := acme.SetUserAttributeValue(ctx, sqlcgen.SetUserAttributeValueParams{
+		UserID: "user-other", DefinitionID: "attr-acme", Value: "2", UpdatedAt: now,
+	})
+	if err == nil {
+		t.Fatal("a value was stored against a user in another tenant. " +
+			"The schema does not connect this row's tenant_id to the tenant " +
+			"its user belongs to, so the only thing standing between an " +
+			"attribute value and the wrong tenant is the query that writes it.")
+	}
+	if !store.IsForeignKeyViolation(err) {
+		t.Errorf("refused, but not as a foreign key violation: %v", err)
+	}
+}
