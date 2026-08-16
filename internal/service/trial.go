@@ -81,16 +81,47 @@ type TenantFiller interface {
 
 // TrialTokenTTL is how long a confirmation link stays usable.
 //
-// Shorter than a registration verification, which is a day: that one is a
-// person finishing a signup on their own account, and coming back tomorrow is
-// reasonable. This one holds a reserved tenant code, so an abandoned request
-// costs a name somebody else might want.
-const TrialTokenTTL = 2 * time.Hour
+// A day, the same as a registration verification. It was two hours, on the
+// argument that an abandoned request holds a reserved tenant code and a
+// shorter hold returns the name sooner. That is true and it was the wrong
+// trade: somebody who asks for a trial in the evening and reads their mail
+// the next morning is the ordinary case, not the abusive one, and the failure
+// they met was a dead link with no way back to what they had typed.
+//
+// What the hold costs is bounded by the limits below rather than by the
+// clock. A code held for a day is only worth holding if a request can be made
+// cheaply, and between the per-mailbox, per-client and whole-deployment caps,
+// it cannot.
+const TrialTokenTTL = 24 * time.Hour
 
 // trialsPerAddressPerDay bounds one client address over a day, which the
 // per-minute rate limiter cannot see: fifty requests spread across an
 // afternoon are inside every limit and are still one machine filling the quota.
 const trialsPerAddressPerDay = 5
+
+// trialsPerMailboxPerDay bounds how much mail one address can be made to
+// receive.
+//
+// This is the only limit here that protects somebody who is not using the
+// product. Every other check defends the demonstration; this one defends a
+// stranger whose address was typed into the form by someone else, and who
+// gets a "confirm your Portico trial" message for a trial they never asked
+// for. The unique index cannot see it, because it is partial on confirmed
+// rows and an unconfirmed request has already sent the message.
+//
+// Three rather than one, because a legitimate visitor asks again: the first
+// message went to spam, or they deleted it, or the link expired. One would
+// turn a support case into a refusal.
+const trialsPerMailboxPerDay = 3
+
+// trialsPerHour bounds the whole deployment.
+//
+// The caps above are per-something, and anything per-something is defeated by
+// having more of that thing. This one is not: a sending quota and a sender
+// reputation are shared by every message that leaves, and losing either takes
+// down password recovery for the tenants that already exist — which is a much
+// worse outcome than a stranger waiting an hour for a demonstration.
+const trialsPerHour = 30
 
 var (
 	// ErrTrialSignupClosed is what every method answers when the deployment
@@ -119,6 +150,28 @@ var (
 	ErrTrialTooManyFromAddress = httpx.TooManyRequests("TRIAL_TOO_MANY",
 		"Too many trials requested from this address today.")
 
+	// ErrTrialTooManyForMailbox is the same address having been mailed enough
+	// times today.
+	//
+	// Worded for the person most likely to see it, who is somebody legitimate
+	// asking a fourth time — not the attacker it exists to stop.
+	ErrTrialTooManyForMailbox = httpx.TooManyRequests("TRIAL_TOO_MANY_FOR_EMAIL",
+		"That address has already been sent several links today. Check your inbox and spam folder, or try again tomorrow.")
+
+	// ErrTrialBusy is the whole demonstration having sent as much as it may
+	// this hour.
+	ErrTrialBusy = httpx.TooManyRequests("TRIAL_BUSY",
+		"This demonstration is handing out trials faster than it may. Try again in an hour.")
+
+	// ErrTrialEmailDomainBlocked is a throwaway mailbox.
+	//
+	// The address is the whole of the identity check, and what makes that
+	// thin claim worth anything is that somebody could be reached at it
+	// afterwards. A mailbox that expires in ten minutes is not that, and a
+	// tenant traceable to one is traceable to nobody.
+	ErrTrialEmailDomainBlocked = httpx.UnprocessableEntity("TRIAL_EMAIL_DOMAIN_BLOCKED",
+		"That email provider is not accepted here. Use an address you can be reached at.")
+
 	// ErrTrialMailFailed is the relay refusing the message.
 	//
 	// 503 rather than 500: the request was well formed, this server is
@@ -132,8 +185,8 @@ var (
 	ErrTrialLinkInvalid = httpx.BadRequest("TRIAL_LINK_INVALID",
 		"That link is not valid. Request a new trial.")
 
-	// ErrTrialLinkExpired is a link that outlived its two hours, and with it
-	// the tenant code it was holding.
+	// ErrTrialLinkExpired is a link that outlived its day, and with it the
+	// tenant code it was holding.
 	ErrTrialLinkExpired = httpx.BadRequest("TRIAL_LINK_EXPIRED",
 		"That link has expired. Request a new trial.")
 
@@ -159,6 +212,10 @@ type TrialService struct {
 	// looking at. Optional: without one a trial still produces a working
 	// tenant, and the only industry on offer is the generic name.
 	filler TenantFiller
+
+	// blockedDomains are the mailbox providers this deployment will not
+	// accept. Built once at construction rather than per request.
+	blockedDomains map[string]bool
 
 	// now is replaceable so a test can expire a link without waiting two
 	// hours for it.
@@ -209,8 +266,21 @@ func NewTrialService(
 	return &TrialService{
 		store: st, tenants: tenants, users: users, mailer: mailer, audit: audit,
 		enabled: enabled, maxTenants: maxTenants, publicURL: publicURL,
-		now: time.Now,
+		blockedDomains: blockedEmailDomains(nil),
+		now:            time.Now,
 	}
+}
+
+// WithBlockedEmailDomains adds to the built-in list of throwaway mailbox
+// providers.
+//
+// Additive rather than a replacement: an operator adding the provider that
+// their own visitors abuse should not have to restate the defaults, and one
+// who pastes a short list into the environment would otherwise silently turn
+// off everything else.
+func (s *TrialService) WithBlockedEmailDomains(extra []string) *TrialService {
+	s.blockedDomains = blockedEmailDomains(extra)
+	return s
 }
 
 // Enabled reports whether this deployment offers trials, which is what the
@@ -267,6 +337,12 @@ func (s *TrialService) Request(ctx context.Context, in TrialRequestInput, ip str
 	if email == "" || !strings.Contains(email, "@") {
 		return httpx.BadRequest("INVALID_EMAIL", "Enter an email address.")
 	}
+	if domainIsBlocked(s.blockedDomains, email) {
+		return ErrTrialEmailDomainBlocked
+	}
+	// The mailbox this reaches, which is what every per-address rule below
+	// counts. See mailboxKey: the address as typed is still what gets mailed.
+	mailbox := mailboxKey(email)
 	code := strings.ToLower(strings.TrimSpace(in.TenantCode))
 	if err := validateTenantCode(code); err != nil {
 		return err
@@ -302,6 +378,19 @@ func (s *TrialService) Request(ctx context.Context, in TrialRequestInput, ip str
 		return ErrTrialQuotaReached
 	}
 
+	// What the whole deployment has sent this hour. First of the three
+	// counts, because it is the one that protects something shared: a
+	// sending quota and a sender reputation are spent by every message, and
+	// losing either takes password recovery down for the tenants that
+	// already exist.
+	burst, err := s.store.Queries.CountRecentTrialRequests(ctx, s.now().Add(-time.Hour))
+	if err != nil {
+		return fmt.Errorf("count recent trials: %w", err)
+	}
+	if burst >= trialsPerHour {
+		return ErrTrialBusy
+	}
+
 	if ip != "" {
 		since := s.now().Add(-24 * time.Hour)
 		recent, err := s.store.Queries.CountRecentTrialRequestsFromIP(ctx, sqlcgen.CountRecentTrialRequestsFromIPParams{
@@ -316,11 +405,29 @@ func (s *TrialService) Request(ctx context.Context, in TrialRequestInput, ip str
 		}
 	}
 
+	// How much mail this mailbox has been sent today, whoever asked for it.
+	//
+	// The only check here that protects somebody who is not using this
+	// product: without it, an address nobody controls can be sent a fresh
+	// confirmation message as often as anybody likes, each with a different
+	// tenant code so that nothing else collides. Counts pending requests as
+	// well as confirmed ones, because the pending ones are the messages.
+	sent, err := s.store.Queries.CountRecentTrialRequestsForEmail(ctx, sqlcgen.CountRecentTrialRequestsForEmailParams{
+		EmailKey:  mailbox,
+		CreatedAt: s.now().Add(-24 * time.Hour),
+	})
+	if err != nil {
+		return fmt.Errorf("count recent trials for address: %w", err)
+	}
+	if sent >= trialsPerMailboxPerDay {
+		return ErrTrialTooManyForMailbox
+	}
+
 	// Already has one. The partial index enforces this on confirmed rows, but
 	// it cannot see a second pending request for the same address — so without
 	// this read the visitor gets a link, clicks it, and is refused at the point
 	// where they expected credentials.
-	used, err := s.store.Queries.CountConfirmedTrialsForEmail(ctx, email)
+	used, err := s.store.Queries.CountConfirmedTrialsForEmail(ctx, mailbox)
 	if err != nil {
 		return fmt.Errorf("count trials for address: %w", err)
 	}
@@ -352,6 +459,7 @@ func (s *TrialService) Request(ctx context.Context, in TrialRequestInput, ip str
 	_, err = s.store.Queries.CreateTrialRequest(ctx, sqlcgen.CreateTrialRequestParams{
 		ID:          id,
 		Email:       email,
+		EmailKey:    mailbox,
 		CompanyName: company,
 		TenantCode:  code,
 		Industry:    industry,
@@ -549,15 +657,18 @@ func (s *TrialService) sendLink(ctx context.Context, email, company, token strin
 	err := s.mailer.Send(ctx, notify.Message{
 		To:      email,
 		Subject: "Confirm your Portico trial",
+		// Hours counted from the constant rather than the constant printed.
+		// A time.Duration renders as "24h0m0s", which is not a sentence —
+		// and this message said "within 2h0m0s" for as long as it existed.
 		Body: fmt.Sprintf(
 			"Somebody asked for a Portico trial for %s using this address.\n\n"+
-				"Confirm it here, within %s:\n\n    %s\n\n"+
+				"Confirm it here, within %d hours:\n\n    %s\n\n"+
 				"If that was not you, ignore this. Nothing was created.\n",
-			company, TrialTokenTTL, link),
+			company, int(TrialTokenTTL.Hours()), link),
 	})
 	if err != nil {
 		// Reverse the reservation. Keeping the row would hold the code and the
-		// address for two hours, so the visitor who was just told the mail
+		// address for a day, so the visitor who was just told the mail
 		// failed cannot retry with the same details — the retry would collide
 		// with their own abandoned request and report the code as taken. An
 		// unsent link reserves nothing.

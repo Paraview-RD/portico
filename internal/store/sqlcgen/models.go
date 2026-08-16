@@ -418,6 +418,8 @@ type TrialRequest struct {
 	TenantID    *string
 	RequestIp   string
 	CreatedAt   time.Time
+	// The mailbox `email` reaches: lower-cased and with any +sub-address removed. What "one tenant per address" is counted on. Never used for delivery.
+	EmailKey string
 }
 
 type User struct {

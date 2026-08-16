@@ -121,6 +121,16 @@ type Config struct {
 	// is the demonstration becoming unusably slow for everybody.
 	TrialMaxTenants int
 
+	// TrialBlockedEmailDomains are mailbox providers this deployment refuses
+	// for a trial signup, added to the throwaway-address list the service
+	// ships with.
+	//
+	// Added rather than replacing: an operator blocking the one provider
+	// their own visitors abuse should not have to restate the defaults, and
+	// one who pastes a short list here would otherwise turn the rest off
+	// without noticing.
+	TrialBlockedEmailDomains []string
+
 	// TrustProxyHeaders makes the server believe X-Forwarded-For and
 	// X-Real-Ip. Enable it only when a proxy you control sits in front and
 	// rewrites those headers; otherwise callers can forge their own audit
@@ -223,6 +233,15 @@ func Load() (*Config, error) {
 		return nil, err
 	}
 	cfg.TrialMaxTenants = trialMax
+
+	// Comma-separated, and forgiving about how it is written: a list of
+	// domains typed into an environment variable arrives with spaces, and one
+	// pasted from somewhere else arrives with @ signs.
+	for _, domain := range strings.Split(os.Getenv("PORTICO_TRIAL_BLOCKED_EMAIL_DOMAINS"), ",") {
+		if domain = strings.TrimSpace(domain); domain != "" {
+			cfg.TrialBlockedEmailDomains = append(cfg.TrialBlockedEmailDomains, domain)
+		}
+	}
 
 	cfg.PublicURL = envString("PORTICO_PUBLIC_URL", "http://localhost:8410")
 

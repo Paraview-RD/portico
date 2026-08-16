@@ -140,6 +140,10 @@ Configuration is entirely environment variables:
                                    and needs SMTP configured
   PORTICO_TRIAL_MAX_TENANTS        how many trial tenants may exist at once
                                    (default 50)
+  PORTICO_TRIAL_BLOCKED_EMAIL_DOMAINS
+                                   comma-separated mailbox providers refused
+                                   for a trial, added to the throwaway list
+                                   the server already carries
   PORTICO_PUBLIC_URL               where people reach this deployment. Used for
                                    password-recovery links and as the OpenID
                                    Connect issuer identifier

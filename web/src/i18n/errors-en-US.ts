@@ -292,6 +292,12 @@ export const errorsEnUS = {
   TRIAL_EMAIL_USED:
     "That address already has a trial. Sign in with it instead.",
   TRIAL_TOO_MANY: "Too many trials requested from this address today.",
+  TRIAL_TOO_MANY_FOR_EMAIL:
+    "That address has already been sent several links today. Check your inbox and spam folder, or try again tomorrow.",
+  TRIAL_BUSY:
+    "This demonstration is handing out trials faster than it may. Try again in an hour.",
+  TRIAL_EMAIL_DOMAIN_BLOCKED:
+    "That email provider is not accepted here. Use an address you can be reached at.",
   TRIAL_LINK_INVALID: "That link is not valid. Request a new trial.",
   TRIAL_LINK_EXPIRED: "That link has expired. Request a new trial.",
   TRIAL_LINK_SPENT:

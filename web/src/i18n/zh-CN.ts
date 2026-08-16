@@ -749,7 +749,7 @@ export const zhCN: Record<keyof typeof enUS, string> = {
   "trial.step.fill": "填两项，提交",
   "trial.step.confirm": "点邮件里的链接",
   "trial.step.ready": "拿到租户和密码",
-  "trial.stepNote": "链接两小时内有效；点开之前，什么都还没创建。",
+  "trial.stepNote": "链接 24 小时内有效；点开之前，什么都还没创建。",
   "trial.email": "邮箱地址",
   "trial.emailHint": "写错就收不到链接，这是本页唯一无法挽回的错误。",
   "trial.tenantCode": "租户编码",
@@ -770,7 +770,7 @@ export const zhCN: Record<keyof typeof enUS, string> = {
   "trial.backToSignIn": "返回登录",
   "trial.sentTitle": "去查收邮件",
   "trial.sentBody":
-    "链接两小时内有效。现在还什么都没创建——点开它，才会生成你的租户。",
+    "链接 24 小时内有效。现在还什么都没创建——点开它，才会生成你的租户。",
   "trial.sentTo": "已发往 {0}",
   "trial.sentEdit": "邮箱写错了？回去改",
   "trialConfirm.workingTitle": "正在准备你的租户",

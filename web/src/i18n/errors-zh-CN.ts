@@ -237,6 +237,11 @@ export const errorsZhCN: Record<keyof typeof errorsEnUS, string> = {
   TRIAL_CODE_TAKEN: "该租户编码已被占用，请换一个。",
   TRIAL_EMAIL_USED: "该邮箱已经有一个试用租户了，直接用它登录即可。",
   TRIAL_TOO_MANY: "今天从这个地址申请的试用次数过多。",
+  TRIAL_TOO_MANY_FOR_EMAIL:
+    "今天已经往这个邮箱发过几封链接了。先看看收件箱和垃圾邮件，或者明天再来。",
+  TRIAL_BUSY: "演示环境这一小时发放的试用已经到上限，请一小时后再试。",
+  TRIAL_EMAIL_DOMAIN_BLOCKED:
+    "这里不接受该邮箱服务商。请用一个能联系到你的地址。",
   TRIAL_LINK_INVALID: "这个链接无效。请重新申请试用。",
   TRIAL_LINK_EXPIRED: "这个链接已过期。请重新申请试用。",
   TRIAL_LINK_SPENT: "这个链接已经用过了。请用它发给你的凭据登录。",

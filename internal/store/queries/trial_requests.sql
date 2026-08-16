@@ -7,9 +7,9 @@
 -- rather than by a prior read, because two clicks arriving together would
 -- both pass a read.
 INSERT INTO trial_requests (
-    id, email, company_name, tenant_code, industry,
+    id, email, email_key, company_name, tenant_code, industry,
     token_hash, expires_at, request_ip
-) VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
+) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)
 RETURNING *;
 
 -- name: GetTrialRequestByToken :one
@@ -52,7 +52,10 @@ WHERE confirmed_at IS NULL AND expires_at < now();
 DELETE FROM trial_requests WHERE token_hash = $1 AND confirmed_at IS NULL;
 
 -- name: CountConfirmedTrialsForEmail :one
--- Whether this address already has a tenant.
+-- Whether this mailbox already has a tenant.
+--
+-- On email_key rather than email, so that a plus-sub-address is the same
+-- mailbox it actually is. See migrations/00024.
 --
 -- Checked at request time as well as enforced by the index, because the index
 -- is partial on confirmed rows: a second *pending* request for the same
@@ -60,7 +63,29 @@ DELETE FROM trial_requests WHERE token_hash = $1 AND confirmed_at IS NULL;
 -- to check their email and only discovers the refusal after clicking — with a
 -- tenant already created for their first request.
 SELECT count(*) FROM trial_requests
-WHERE email = $1 AND confirmed_at IS NOT NULL;
+WHERE email_key = $1 AND confirmed_at IS NOT NULL;
+
+-- name: CountRecentTrialRequestsForEmail :one
+-- How much mail this server has been asked to send one mailbox lately.
+--
+-- The unique index above sees confirmed rows only, which leaves the case that
+-- costs somebody else something: a request that is never confirmed has still
+-- put a message in their inbox. Without this, an address nobody controls can
+-- be sent a fresh "confirm your Portico trial" as often as anyone likes, each
+-- with a different tenant code so nothing else collides.
+--
+-- Counts pending and confirmed alike: both were an email.
+SELECT count(*) FROM trial_requests
+WHERE email_key = $1 AND created_at > $2;
+
+-- name: CountRecentTrialRequests :one
+-- The same question asked of the whole deployment: how many trial messages
+-- have been sent in the window, from anywhere, to anyone.
+--
+-- What this bounds is not abuse of one address but the total a demonstration
+-- can be made to send — a sending quota, and a sender reputation, are shared
+-- by every message that leaves.
+SELECT count(*) FROM trial_requests WHERE created_at > $1;
 
 -- The confirmed trials and the tenants they produced, for the command line.
 --

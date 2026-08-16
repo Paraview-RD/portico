@@ -24,18 +24,64 @@ func (q *Queries) CountConfirmedTrials(ctx context.Context) (int64, error) {
 
 const countConfirmedTrialsForEmail = `-- name: CountConfirmedTrialsForEmail :one
 SELECT count(*) FROM trial_requests
-WHERE email = $1 AND confirmed_at IS NOT NULL
+WHERE email_key = $1 AND confirmed_at IS NOT NULL
 `
 
-// Whether this address already has a tenant.
+// Whether this mailbox already has a tenant.
+//
+// On email_key rather than email, so that a plus-sub-address is the same
+// mailbox it actually is. See migrations/00024.
 //
 // Checked at request time as well as enforced by the index, because the index
 // is partial on confirmed rows: a second *pending* request for the same
 // address does not collide with it, so without this read the visitor is told
 // to check their email and only discovers the refusal after clicking — with a
 // tenant already created for their first request.
-func (q *Queries) CountConfirmedTrialsForEmail(ctx context.Context, email string) (int64, error) {
-	row := q.db.QueryRowContext(ctx, countConfirmedTrialsForEmail, email)
+func (q *Queries) CountConfirmedTrialsForEmail(ctx context.Context, emailKey string) (int64, error) {
+	row := q.db.QueryRowContext(ctx, countConfirmedTrialsForEmail, emailKey)
+	var count int64
+	err := row.Scan(&count)
+	return count, err
+}
+
+const countRecentTrialRequests = `-- name: CountRecentTrialRequests :one
+SELECT count(*) FROM trial_requests WHERE created_at > $1
+`
+
+// The same question asked of the whole deployment: how many trial messages
+// have been sent in the window, from anywhere, to anyone.
+//
+// What this bounds is not abuse of one address but the total a demonstration
+// can be made to send — a sending quota, and a sender reputation, are shared
+// by every message that leaves.
+func (q *Queries) CountRecentTrialRequests(ctx context.Context, createdAt time.Time) (int64, error) {
+	row := q.db.QueryRowContext(ctx, countRecentTrialRequests, createdAt)
+	var count int64
+	err := row.Scan(&count)
+	return count, err
+}
+
+const countRecentTrialRequestsForEmail = `-- name: CountRecentTrialRequestsForEmail :one
+SELECT count(*) FROM trial_requests
+WHERE email_key = $1 AND created_at > $2
+`
+
+type CountRecentTrialRequestsForEmailParams struct {
+	EmailKey  string
+	CreatedAt time.Time
+}
+
+// How much mail this server has been asked to send one mailbox lately.
+//
+// The unique index above sees confirmed rows only, which leaves the case that
+// costs somebody else something: a request that is never confirmed has still
+// put a message in their inbox. Without this, an address nobody controls can
+// be sent a fresh "confirm your Portico trial" as often as anyone likes, each
+// with a different tenant code so nothing else collides.
+//
+// Counts pending and confirmed alike: both were an email.
+func (q *Queries) CountRecentTrialRequestsForEmail(ctx context.Context, arg CountRecentTrialRequestsForEmailParams) (int64, error) {
+	row := q.db.QueryRowContext(ctx, countRecentTrialRequestsForEmail, arg.EmailKey, arg.CreatedAt)
 	var count int64
 	err := row.Scan(&count)
 	return count, err
@@ -63,15 +109,16 @@ func (q *Queries) CountRecentTrialRequestsFromIP(ctx context.Context, arg CountR
 const createTrialRequest = `-- name: CreateTrialRequest :one
 
 INSERT INTO trial_requests (
-    id, email, company_name, tenant_code, industry,
+    id, email, email_key, company_name, tenant_code, industry,
     token_hash, expires_at, request_ip
-) VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
-RETURNING id, email, company_name, tenant_code, industry, token_hash, expires_at, confirmed_at, tenant_id, request_ip, created_at
+) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)
+RETURNING id, email, company_name, tenant_code, industry, token_hash, expires_at, confirmed_at, tenant_id, request_ip, created_at, email_key
 `
 
 type CreateTrialRequestParams struct {
 	ID          string
 	Email       string
+	EmailKey    string
 	CompanyName string
 	TenantCode  string
 	Industry    string
@@ -90,6 +137,7 @@ func (q *Queries) CreateTrialRequest(ctx context.Context, arg CreateTrialRequest
 	row := q.db.QueryRowContext(ctx, createTrialRequest,
 		arg.ID,
 		arg.Email,
+		arg.EmailKey,
 		arg.CompanyName,
 		arg.TenantCode,
 		arg.Industry,
@@ -110,6 +158,7 @@ func (q *Queries) CreateTrialRequest(ctx context.Context, arg CreateTrialRequest
 		&i.TenantID,
 		&i.RequestIp,
 		&i.CreatedAt,
+		&i.EmailKey,
 	)
 	return i, err
 }
@@ -189,7 +238,7 @@ func (q *Queries) GetConfirmedTrialByTenantCode(ctx context.Context, code string
 }
 
 const getTrialRequestByToken = `-- name: GetTrialRequestByToken :one
-SELECT id, email, company_name, tenant_code, industry, token_hash, expires_at, confirmed_at, tenant_id, request_ip, created_at FROM trial_requests WHERE token_hash = $1
+SELECT id, email, company_name, tenant_code, industry, token_hash, expires_at, confirmed_at, tenant_id, request_ip, created_at, email_key FROM trial_requests WHERE token_hash = $1
 `
 
 // What a followed link resolves to. Returns the row whatever its state: an
@@ -210,6 +259,7 @@ func (q *Queries) GetTrialRequestByToken(ctx context.Context, tokenHash string) 
 		&i.TenantID,
 		&i.RequestIp,
 		&i.CreatedAt,
+		&i.EmailKey,
 	)
 	return i, err
 }
@@ -279,7 +329,7 @@ const markTrialRequestConfirmed = `-- name: MarkTrialRequestConfirmed :one
 UPDATE trial_requests
 SET confirmed_at = now(), tenant_id = $2
 WHERE id = $1 AND confirmed_at IS NULL
-RETURNING id, email, company_name, tenant_code, industry, token_hash, expires_at, confirmed_at, tenant_id, request_ip, created_at
+RETURNING id, email, company_name, tenant_code, industry, token_hash, expires_at, confirmed_at, tenant_id, request_ip, created_at, email_key
 `
 
 type MarkTrialRequestConfirmedParams struct {
@@ -307,6 +357,7 @@ func (q *Queries) MarkTrialRequestConfirmed(ctx context.Context, arg MarkTrialRe
 		&i.TenantID,
 		&i.RequestIp,
 		&i.CreatedAt,
+		&i.EmailKey,
 	)
 	return i, err
 }

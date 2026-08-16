@@ -364,7 +364,7 @@ What a visitor goes through:
    thing they can fix, and hearing about it after checking their email is the
    worst moment. The form asks for nothing else — the tenant is named after
    its code, and renamed in Settings by anybody who cares to.
-3. **A link arrives**, good for two hours. Nothing has been created yet.
+3. **A link arrives**, good for 24 hours. Nothing has been created yet.
 4. **Clicking it** creates the tenant, an `admin` account with a generated
    password, and the industry pack they chose. Both passwords are shown once
    and mailed. The administrator's password is not forced to change on the way
@@ -378,9 +378,12 @@ What a visitor goes through:
 | Bound | Default | Why |
 |---|---|---|
 | Tenants at once | `PORTICO_TRIAL_MAX_TENANTS`, 50 | A shared demonstration database. Reached, the form says so rather than queueing |
-| Per address | one tenant | Enforced by a unique index, not only checked |
+| Per mailbox | one tenant | Enforced by a unique index, not only checked. Counted on the mailbox rather than the spelling: `me+one@` and `me+two@` are one inbox, and without that the rule is one tenant per plus-sign |
+| Per mailbox | 3 links a day | The only limit here that protects somebody who is *not* using this — an address typed into the form by a stranger. Three rather than one, so that losing the first message is not a refusal |
 | Per client address | 5 requests a day | The per-minute throttle cannot see fifty requests spread across an afternoon |
-| Link lifetime | 2 hours | It holds a reserved tenant code from the moment it is requested. Expired and unconfirmed, it is deleted by the hourly sweep and the name goes back into circulation |
+| Whole deployment | 30 requests an hour | Every other limit is per-something, and per-something is defeated by having more of them. A sending quota and a sender reputation are shared by every message, and losing either takes password recovery down for the tenants that already exist |
+| Mailbox provider | throwaway addresses refused | A built-in list, extended with `PORTICO_TRIAL_BLOCKED_EMAIL_DOMAINS`. Short and never complete; it raises the price of the cheapest attack rather than being a wall |
+| Link lifetime | 24 hours | It holds a reserved tenant code from the moment it is requested, which the limits above are what make affordable. Expired and unconfirmed, it is deleted by the hourly sweep and the name goes back into circulation |
 
 ### What a trial tenant is filled with
 

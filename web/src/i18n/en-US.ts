@@ -798,7 +798,7 @@ export const enUS = {
   "trial.step.confirm": "Open the link",
   "trial.step.ready": "Get your tenant",
   "trial.stepNote":
-    "The emailed link is good for two hours. Nothing is created until you open it.",
+    "The emailed link is good for 24 hours. Nothing is created until you open it.",
   "trial.email": "Email address",
   "trial.emailHint": "A typo here is the one mistake this page cannot undo.",
   "trial.tenantCode": "Tenant code",
@@ -823,7 +823,7 @@ export const enUS = {
   "trial.backToSignIn": "Back to sign-in",
   "trial.sentTitle": "Check your email",
   "trial.sentBody":
-    "The link is good for two hours. Nothing has been created yet — clicking it is what makes your tenant.",
+    "The link is good for 24 hours. Nothing has been created yet — clicking it is what makes your tenant.",
   "trial.sentTo": "Sent to {0}",
   "trial.sentEdit": "Wrong address? Go back and change it",
   "trialConfirm.workingTitle": "Setting up your tenant",

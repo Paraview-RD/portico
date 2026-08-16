@@ -1115,3 +1115,207 @@ func TestTheStatusEndpointOnlyOffersWorldsThatExist(t *testing.T) {
 		}
 	}
 }
+
+// The four checks that stand between a demonstration and somebody abusing it.
+//
+// Each of these is here because the rule it tests is invisible from the
+// outside until it fails, and each failure lands on a different party: the
+// first two on the demonstration itself, the third on a stranger who never
+// asked for anything, and the fourth on every tenant that already exists.
+
+func TestAPlusAddressIsNotASecondPerson(t *testing.T) {
+	// "One tenant per address" was one tenant per spelling, and sub-addressing
+	// turns one mailbox into an unlimited supply of spellings. A single inbox
+	// could take the whole quota one plus-sign at a time, with every check in
+	// front reporting the address as new — because as far as they could see,
+	// it was.
+	api, mailer := newTrialTest(t, true)
+
+	before := len(mailer.sent())
+	api.do(http.MethodPost, "/api/v1/trial", "", map[string]string{
+		"email":      "plus@example.test",
+		"tenantCode": "plus-first",
+	})
+	token := tokenFromLink(t, mailer.waitFor(t, before+1).Body)
+	if got := api.do(http.MethodPost, "/api/v1/trial/confirm", "",
+		map[string]string{"token": token}); got.Status != http.StatusOK {
+		t.Fatalf("first trial: %d %s %s", got.Status, got.Code, got.Message)
+	}
+
+	again := api.do(http.MethodPost, "/api/v1/trial", "", map[string]string{
+		"email":      "plus+another@example.test",
+		"tenantCode": "plus-second",
+	})
+	if again.Status != http.StatusConflict || again.Code != "TRIAL_EMAIL_USED" {
+		t.Errorf("a +sub-address of an address that already has a tenant answered "+
+			"%d %s, want 409 TRIAL_EMAIL_USED", again.Status, again.Code)
+	}
+}
+
+func TestOneMailboxCannotBeMadeToReceiveEndlessLinks(t *testing.T) {
+	// The one rule here that protects somebody who is not using this product.
+	//
+	// Nothing stops a stranger's address being typed into the form, and the
+	// unique index cannot help: it is partial on confirmed rows, and an
+	// unconfirmed request has already put a message in their inbox. Given a
+	// different tenant code each time, nothing else collides either.
+	api, mailer := newTrialTest(t, true)
+
+	before := len(mailer.sent())
+	for i := range 3 {
+		got := api.do(http.MethodPost, "/api/v1/trial", "", map[string]string{
+			"email":      "victim@example.test",
+			"tenantCode": fmt.Sprintf("bomb-%d", i),
+		})
+		if got.Status != http.StatusOK {
+			t.Fatalf("request %d answered %d %s; the cap is meant to allow a few "+
+				"so that somebody who lost the first message can ask again",
+				i+1, got.Status, got.Code)
+		}
+	}
+	mailer.waitFor(t, before+3)
+
+	stopped := api.do(http.MethodPost, "/api/v1/trial", "", map[string]string{
+		"email":      "victim@example.test",
+		"tenantCode": "bomb-4",
+	})
+	if stopped.Status != http.StatusTooManyRequests || stopped.Code != "TRIAL_TOO_MANY_FOR_EMAIL" {
+		t.Errorf("the fourth message to one address answered %d %s, want 429 "+
+			"TRIAL_TOO_MANY_FOR_EMAIL", stopped.Status, stopped.Code)
+	}
+	// And it sent nothing, which is the half the status code does not cover.
+	if sent := len(mailer.sent()); sent != before+3 {
+		t.Errorf("%d messages sent, want %d — the refusal mailed the address anyway",
+			sent, before+3)
+	}
+
+	// Counted by mailbox, not by spelling: the same address with a tag on it
+	// is the same inbox being filled.
+	tagged := api.do(http.MethodPost, "/api/v1/trial", "", map[string]string{
+		"email":      "victim+evade@example.test",
+		"tenantCode": "bomb-5",
+	})
+	if tagged.Code != "TRIAL_TOO_MANY_FOR_EMAIL" {
+		t.Errorf("a +sub-address answered %s, so the cap counts spellings and "+
+			"the inbox can still be filled", tagged.Code)
+	}
+}
+
+func TestAThrowawayMailboxIsRefused(t *testing.T) {
+	// The address is the whole of the identity check, and what makes that
+	// thin claim worth anything is that somebody could be reached at it
+	// afterwards. A ten-minute mailbox satisfies the form and none of the
+	// intent.
+	api, mailer := newTrialTest(t, true)
+
+	before := len(mailer.sent())
+	for _, address := range []string{
+		"someone@mailinator.com",
+		// Subdomains too: several of these services hand addresses out at
+		// arbitrary ones, so matching the exact name would match the one
+		// spelling nobody has to use.
+		"someone@mail.guerrillamail.com",
+	} {
+		got := api.do(http.MethodPost, "/api/v1/trial", "", map[string]string{
+			"email":      address,
+			"tenantCode": "throwaway",
+		})
+		if got.Status != http.StatusUnprocessableEntity || got.Code != "TRIAL_EMAIL_DOMAIN_BLOCKED" {
+			t.Errorf("%s answered %d %s, want 422 TRIAL_EMAIL_DOMAIN_BLOCKED",
+				address, got.Status, got.Code)
+		}
+	}
+	if sent := len(mailer.sent()); sent != before {
+		t.Errorf("%d messages sent for refused addresses, want none", sent-before)
+	}
+
+	// And the code they asked for is still free, since nothing was reserved.
+	ok := api.do(http.MethodPost, "/api/v1/trial", "", map[string]string{
+		"email":      "real@example.test",
+		"tenantCode": "throwaway",
+	})
+	if ok.Status != http.StatusOK {
+		t.Errorf("a refused request reserved the code anyway: %d %s", ok.Status, ok.Code)
+	}
+}
+
+func TestTheWholeDemonstrationHasAnHourlyCeiling(t *testing.T) {
+	// Every other limit here is per-something, and anything per-something is
+	// defeated by having more of that thing — more addresses, more clients.
+	// This one is not, and what it protects is not the demonstration: a
+	// sending quota and a sender reputation are spent by every message that
+	// leaves, and losing either takes password recovery down for the tenants
+	// that already exist.
+	api, mailer := newTrialTest(t, true)
+
+	// Aged into place rather than requested thirty times over: the per-client
+	// cap would refuse the sixth, and what is under test is the ceiling above
+	// all of them. These rows are what the last hour looked like.
+	api.execSQL(t, `
+		INSERT INTO trial_requests
+			(id, email, email_key, company_name, tenant_code, industry,
+			 token_hash, expires_at, request_ip, created_at)
+		SELECT
+			'busy-' || i, 'b' || i || '@example.test', 'b' || i || '@example.test',
+			'Busy', 'busy-' || i, 'generic', 'hash-' || i,
+			now() + interval '1 day', '10.0.0.' || i, now() - interval '5 minutes'
+		FROM generate_series(1, 30) AS i`)
+
+	before := len(mailer.sent())
+	full := api.do(http.MethodPost, "/api/v1/trial", "", map[string]string{
+		"email":      "unlucky@example.test",
+		"tenantCode": "one-too-many",
+	})
+	if full.Status != http.StatusTooManyRequests || full.Code != "TRIAL_BUSY" {
+		t.Errorf("answered %d %s, want 429 TRIAL_BUSY", full.Status, full.Code)
+	}
+	if sent := len(mailer.sent()); sent != before {
+		t.Errorf("the refusal sent %d messages, want none", sent-before)
+	}
+
+	// An hour later the ceiling has moved with the window, rather than being
+	// a total the demonstration can exhaust once and never recover from.
+	api.execSQL(t, `UPDATE trial_requests SET created_at = created_at - interval '2 hours'
+		WHERE id LIKE 'busy-%'`)
+	recovered := api.do(http.MethodPost, "/api/v1/trial", "", map[string]string{
+		"email":      "unlucky@example.test",
+		"tenantCode": "one-too-many",
+	})
+	if recovered.Status != http.StatusOK {
+		t.Errorf("after the window passed the answer is still %d %s; the ceiling "+
+			"is a total rather than a rate", recovered.Status, recovered.Code)
+	}
+}
+
+func TestALinkLastsADayRatherThanAnAfternoon(t *testing.T) {
+	// The TTL is the constant, and this is the assertion that it reaches the
+	// row. A link that outlives its stated life is worse than one that dies
+	// early: the visitor is told a day and finds out otherwise at the moment
+	// they act on it.
+	api, mailer := newTrialTest(t, true)
+
+	before := len(mailer.sent())
+	api.do(http.MethodPost, "/api/v1/trial", "", map[string]string{
+		"email":      "patient@example.test",
+		"tenantCode": "patient",
+	})
+	message := mailer.waitFor(t, before+1)
+	token := tokenFromLink(t, message.Body)
+
+	// Still good with an hour to spare, which two hours would not have been.
+	api.execSQL(t, `UPDATE trial_requests SET created_at = created_at - interval '23 hours',
+		expires_at = expires_at - interval '23 hours' WHERE tenant_code = $1`, "patient")
+	if got := api.do(http.MethodPost, "/api/v1/trial/confirm", "",
+		map[string]string{"token": token}); got.Status != http.StatusOK {
+		t.Fatalf("a link 23 hours old answered %d %s %s, want 200",
+			got.Status, got.Code, got.Message)
+	}
+
+	// And the message says the number the constant says, rather than a second
+	// copy of it that drifts. It printed "within 2h0m0s" for as long as it
+	// existed, which is not a sentence anybody wrote on purpose.
+	if !strings.Contains(message.Body, "within 24 hours") {
+		t.Errorf("the message does not state the life of the link in words:\n%s",
+			message.Body)
+	}
+}
