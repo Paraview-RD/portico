@@ -4852,32 +4852,43 @@ components:
           type: string
           description: One of the names from `/api/v1/trial/status`.
 
-    TenantOverview:
+    Tenant:
       type: object
+      description: An isolated slice of the system. Everything else belongs to one.
+      properties:
+        id: { type: string }
+        code:
+          type: string
+          description: What everybody in this tenant types at sign-in.
+        name: { type: string }
+        status: { type: string, enum: [ACTIVE, DISABLED] }
+        createdAt: { type: string, format: date-time }
+        updatedAt: { type: string, format: date-time }
+
+    TenantOverview:
       description: |
         A tenant and how much is inside it. Counts and nothing else: an
         operator may learn a tenant's size and never its contents, so there is
         no name, address, or identifier here belonging to anybody in it.
-      properties:
-        id: { type: string }
-        code: { type: string }
-        name: { type: string }
-        status: { type: string, enum: [ACTIVE, DISABLED] }
-        createdAt: { type: string, format: date-time }
-        users: { type: integer }
-        activeUsers: { type: integer }
-        organizations: { type: integer }
-        applications:
-          type: integer
-          description: OAuth clients, SAML service providers and CAS services together.
-        lastActivity:
-          type: string
-          format: date-time
-          nullable: true
-          description: |
-            When anything was last recorded in that tenant's audit trail. Null
-            for a tenant nothing has ever happened in, which is usually the row
-            worth looking at.
+      allOf:
+        - $ref: "#/components/schemas/Tenant"
+        - type: object
+          properties:
+            users: { type: integer }
+            activeUsers: { type: integer }
+            organizations: { type: integer }
+            applications:
+              type: integer
+              description: OAuth clients, SAML service providers and CAS services together.
+            lastActivity:
+              # A union rather than `nullable: true`, which is 3.0 syntax and
+              # is not a keyword in the 3.1 this document declares.
+              type: [string, "null"]
+              format: date-time
+              description: |
+                When anything was last recorded in that tenant's audit trail.
+                Null for a tenant nothing has ever happened in, which is
+                usually the row worth looking at.
 
     TrialTenant:
       type: object
@@ -5688,6 +5699,13 @@ components:
         - type: object
           properties:
             data: { $ref: "#/components/schemas/TrialStatus" }
+
+    TenantEnvelope:
+      allOf:
+        - $ref: "#/components/schemas/Envelope"
+        - type: object
+          properties:
+            data: { $ref: "#/components/schemas/Tenant" }
 
     TenantOverviewListEnvelope:
       allOf:
