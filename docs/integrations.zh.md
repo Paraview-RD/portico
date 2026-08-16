@@ -125,13 +125,23 @@ Amazon SES、Postmark、Resend，或者一个本地 Postfix。
 | 环境变量 | `PORTICO_DB_DSN`（取自数据库）、`PORTICO_JWT_SECRET`（自动生成），以及需要手填的 `PORTICO_ENCRYPTION_KEY` / `PORTICO_PUBLIC_URL` —— 见 `render.yaml` 里的注释 |
 
 **免费的 web 服务在 15 分钟无流量后会休眠。**
-`.github/workflows/demo-keepalive.yml` 每十分钟问它一次
-`/api/v1/health` —— 这有帮助，但**不是解决**：GitHub 的调度是尽力而为的，负载高
-时会迟到，所以那个 15 分钟的窗口仍然会偶尔走完，于是某个访客替所有人付了冷启动的
-时间。Render 的 $7/月 档位能把这个问题整个消掉。
+`.github/workflows/demo-keepalive.yml` 每十分钟问它一次 `/api/v1/health`，
+**但只在 UTC 00:03–10:53 之间** —— 也就是 +08 的 09:00 到 19:00，前面多留了一小时
+预热：如果第一次戳落在 09:00，第一个访客付的正好是它想避免的那次冷启动。
 
-**免费的 Postgres 在 90 天后会被删除。** 这一条没有任何绕法。演示环境连里面的东
-西一起消失，只能重新应用一次 Blueprint。
+**限定时段不是为了省 Actions 时长**（那是免费的），是为了省 Render 的：免费
+workspace 每个日历月有 750 实例小时，而**一个 24 小时不睡的服务要花掉约 730 小时**
+—— 能用，但把额度用得一点不剩，再开第二个免费服务、或者赶上一个有重新部署的月份就
+不够了。每天十一小时约合 340 小时。
+
+它有帮助，但**不是解决**：GitHub 的调度是尽力而为的，负载高时会迟到，所以那 15 分钟
+的窗口仍然会偶尔走完，于是某个访客替所有人付了冷启动的时间。Render 的 $7/月 档位能
+把这个问题整个消掉。
+
+`DEMO_KEEPALIVE=off` 可以停掉这个定时任务；**手动触发该工作流仍然会去检查。**
+
+**免费的 Postgres 30 天后过期，另有 14 天宽限期。** 这一条没有任何绕法。演示环境连
+里面的东西一起消失，只能重新应用一次 Blueprint。
 
 ### GitHub Actions —— Render 免费层跑不了的那两个定时任务
 
@@ -148,6 +158,7 @@ Amazon SES、Postmark、Resend，或者一个本地 Postfix。
 | `DEMO_SEED_PASSWORD`（secret） | 所有种子账号的登录密码。刻意不用那个公开的：**地址是公开的，进门的方式不是** |
 | `DEMO_ENCRYPTION_KEY`、`DEMO_JWT_SECRET`（secret） | 与服务端相同的值，这样种子写进去的凭据服务端才打得开 |
 | `DEMO_URL`（变量，不是 secret） | 那个公开地址。设成 secret 会被从日志里涂掉，而日志是这两个任务唯一的产出 |
+| `DEMO_KEEPALIVE`（变量，可选） | 设成 `off` 即停掉保活的定时任务，删掉即恢复。**手动触发那个工作流仍然会去检查** —— 保活关着的时候，正好只剩这件事值得做 |
 
 ## 别的没有了
 

@@ -8,11 +8,15 @@
 # around here because they cannot be:
 #
 #   - The web service spins down after 15 minutes without inbound traffic.
-#     .github/workflows/demo-keepalive.yml pokes it, which helps and does not
-#     fix it: GitHub's scheduler runs late under load, so the service will
-#     still be asleep sometimes and the first visitor then waits out a cold
-#     start. Paid is $7/month and removes the whole problem.
-#   - **A free Postgres is deleted after 90 days.** Nothing prevents that.
+#     .github/workflows/demo-keepalive.yml pokes it during the working day,
+#     which helps and does not fix it: outside that window it sleeps on
+#     purpose — a free workspace has 750 instance hours a month and staying
+#     awake around the clock spends nearly all of them — and inside it,
+#     GitHub's scheduler runs late under load. So the first visitor sometimes
+#     waits out a cold start either way. Paid is $7/month and removes the
+#     whole problem.
+#   - **A free Postgres expires after 30 days, plus a 14-day grace
+#     period.** Nothing prevents that.
 #     Every trial tenant and everything in them goes with it, and the
 #     Blueprint has to be applied again to get a new one. Put a reminder
 #     somewhere that is not this file.
@@ -125,7 +129,7 @@ services:
       - key: PORTICO_TRIAL_MAX_TENANTS
         value: "50"
 
-# Free Postgres: 1GB, and deleted after 90 days.
+# Free Postgres: 1GB, expiring after 30 days plus a 14-day grace period.
 #
 # Disk is not the constraint, which is worth writing down because this file
 # used to guess that it was. Measured on a development database holding the
@@ -135,7 +139,7 @@ services:
 # organizations and about forty audit entries, which is a rounding error
 # beside the seed. Fifty of them do not approach 1GB.
 #
-# The ninety-day deletion at the top of this file is the limit that matters.
+# The expiry at the top of this file is the limit that matters.
 databases:
   - name: portico-demo-db
     plan: free

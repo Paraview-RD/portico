@@ -185,7 +185,7 @@ Blueprint: one web service built from `deploy/Dockerfile`, one Postgres.
 
 Read the free-tier consequences in
 [integrations.md](integrations.md#render--the-public-demo-free-tier) before
-starting — the service sleeps, and the database is deleted after ninety days.
+starting — the service sleeps, and the database expires after thirty days.
 
 1. **Apply the Blueprint.** Render → New → Blueprint, pointed at the fork you
    want to publish. Change `region` first if Singapore is not the nearest one:

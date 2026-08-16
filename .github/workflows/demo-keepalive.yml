@@ -13,13 +13,36 @@
 #
 # Free for this repository: Actions minutes are unmetered on public
 # repositories, so the only cost is the noise in the run list.
+#
+# It runs during the working day only, and that is not a saving of Actions
+# minutes — those are free — but of Render's. A free workspace gets 750
+# instance hours a calendar month and a service kept awake around the clock
+# spends about 730 of them: it works, and it works by consuming very nearly
+# the whole allowance, leaving nothing for a second free service and no margin
+# for a month with a redeploy in it. Eleven hours a day is roughly 340, which
+# is the same demonstration for less than half the budget.
+#
+# Turning it off: set the repository variable DEMO_KEEPALIVE to `off`. The
+# schedule then does nothing until it is removed. Running it by hand still
+# works — checking whether the demo is up is the one thing you want while the
+# keepalive is off. Disabling the workflow in the Actions tab stops both.
 name: Demo keepalive
 
 on:
   schedule:
-    # Every 10 minutes, offset off the hour. Scheduled jobs across GitHub
-    # pile onto :00, which is exactly when the scheduler is slowest.
-    - cron: "3,13,23,33,43,53 * * * *"
+    # 00:03–10:53 UTC, every ten minutes, offset off the hour because
+    # scheduled jobs across GitHub pile onto :00 and that is exactly when the
+    # scheduler is slowest.
+    #
+    # GitHub cron is UTC and says so nowhere in a run's output, which makes a
+    # window like this the easiest thing in the file to get quietly wrong. In
+    # +08 this is 08:03–18:53, for a demonstration meant to be awake from 09
+    # to 19. Somewhere else, move the hours; the minutes can stay.
+    #
+    # It starts an hour early on purpose. A first poke at 09:03 would leave
+    # whoever arrives at 09:00 waiting out precisely the cold start this
+    # exists to prevent, so the warming happens before the day does.
+    - cron: "3,13,23,33,43,53 0-10 * * *"
   # For checking by hand whether the address is up at all.
   workflow_dispatch:
 
@@ -45,7 +68,28 @@ jobs:
       - name: Ask the demo for its health
         env:
           DEMO_URL: ${{ vars.DEMO_URL }}
+          DEMO_KEEPALIVE: ${{ vars.DEMO_KEEPALIVE }}
+          # Whether this run was asked for by a person. The switch below is
+          # for the schedule; somebody who came here and pressed the button
+          # wants an answer, and "the keepalive is off" is not one.
+          BY_HAND: ${{ github.event_name == 'workflow_dispatch' }}
         run: |
+          # The off switch. Unset means on, so a repository that never heard
+          # of this variable behaves as it always did — and `on` means on too,
+          # since somebody setting it that way meant the obvious thing.
+          case "$(printf %s "$DEMO_KEEPALIVE" | tr '[:upper:]' '[:lower:]')" in
+            off | false | 0 | no)
+              if [ "$BY_HAND" != "true" ]; then
+                echo "DEMO_KEEPALIVE=$DEMO_KEEPALIVE — the schedule is off."
+                echo "Remove the variable to turn it back on. Running this"
+                echo "workflow by hand still checks the demo."
+                exit 0
+              fi
+              echo "DEMO_KEEPALIVE=$DEMO_KEEPALIVE, but this run was asked"
+              echo "for by hand — checking anyway."
+              ;;
+          esac
+
           # Not an error. This runs every ten minutes on every fork of this
           # repository, and most of them publish no demo — failing there would
           # be a red cross every ten minutes for something nobody asked for,

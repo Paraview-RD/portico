@@ -158,8 +158,8 @@ Codespace 只属于你一个人 —— 它转发的端口认的是你自己的 G
 Blueprint：一个由 `deploy/Dockerfile` 构建的 web 服务，加一个 Postgres。
 
 **开始之前先读免费层的两条代价**，见
-[集成文档](integrations.md#render--公开演示环境免费层) —— 服务会休眠，数据库 90
-天后会被删除。
+[集成文档](integrations.md#render--公开演示环境免费层) —— 服务会休眠，数据库 30
+天后过期（另有 14 天宽限期）。
 
 1. **应用这份 Blueprint。** Render → New → Blueprint，指向你要发布的那个仓库。如
    果新加坡不是离你最近的区域，**先改 `region`** —— 服务建好之后不能迁移。

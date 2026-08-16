@@ -153,12 +153,26 @@ attached to and who can reach the database.
 
 **A free web service sleeps after 15 minutes without traffic.**
 `.github/workflows/demo-keepalive.yml` asks it for `/api/v1/health` every ten
-minutes, which helps and is not a fix: GitHub's scheduler is best-effort and
-runs late under load, so the window sometimes elapses anyway and a visitor
-pays for the cold start. Render's $7/month tier removes the problem outright.
+minutes **between 00:03 and 10:53 UTC** — 09:00 to 19:00 in +08, with an
+hour's warming before it, since a first poke at 09:00 would leave the first
+visitor paying exactly the cold start this is meant to prevent.
 
-**A free Postgres is deleted after 90 days.** Nothing works around that. The
-demo and everything in it goes, and the Blueprint has to be applied again.
+The window is not about Actions minutes, which are free. It is Render's 750
+free instance hours a calendar month: kept awake around the clock a service
+spends about 730 of them, which works and leaves nothing over for a second
+free service or for a month with a redeploy in it. Eleven hours a day is
+roughly 340.
+
+It helps and it is not a fix. GitHub's scheduler is best-effort and runs late
+under load, so the fifteen minutes sometimes elapses anyway and a visitor pays
+for the cold start. Render's $7/month tier removes the problem outright.
+
+`DEMO_KEEPALIVE=off` stops the schedule; running the workflow by hand still
+checks the demo.
+
+**A free Postgres expires after 30 days, with a 14-day grace period.** Nothing
+works around that. The demo and everything in it goes, and the Blueprint has
+to be applied again.
 
 ### GitHub Actions — the two jobs Render's free tier cannot run
 
@@ -177,6 +191,7 @@ string.
 | `DEMO_SEED_PASSWORD` (secret) | What every seeded account signs in with. Deliberately not the published one: the address is public and the way in is not |
 | `DEMO_ENCRYPTION_KEY`, `DEMO_JWT_SECRET` (secrets) | The same values the service has, so the seed writes credentials the service can open |
 | `DEMO_URL` (variable, not secret) | The public address. A secret would be redacted out of the only logs these jobs produce |
+| `DEMO_KEEPALIVE` (variable, optional) | Set it to `off` to stop the keepalive schedule; remove it to resume. Running that workflow by hand still checks the demo, which is the one thing worth doing while it is off |
 
 ## Nothing else
 
