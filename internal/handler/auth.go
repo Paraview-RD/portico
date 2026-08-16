@@ -265,6 +265,23 @@ type meResponse struct {
 	// the policy is administrator-only, and somebody does not need to be
 	// told the rules to be told their own deadline.
 	PasswordExpiresAt *time.Time `json:"passwordExpiresAt,omitempty"`
+	// TenantCode and TenantName are the tenant this session belongs to.
+	//
+	// Here because after sign-in the tenant lives in the token and nowhere
+	// else — deliberately, since honouring a tenant named in a URL or a
+	// header on an authenticated request is exactly how one tenant's
+	// administrator would reach another's data. That is the right rule and it
+	// left the console unable to say which tenant it was showing, which
+	// stopped being a detail once a person could own several: sign out, sign
+	// back in with a remembered tenant code, and nothing on screen disagrees
+	// with what they assumed.
+	//
+	// Sent for every tenant, including the default one. What to do with it is
+	// the console's decision, and a deployment with one tenant should still be
+	// able to ask an API which tenant that is.
+	TenantCode string `json:"tenantCode"`
+	TenantName string `json:"tenantName"`
+
 	// MayManageTenants is whether this caller may open the operator console.
 	//
 	// Answered here rather than left for the console to discover by calling
@@ -292,9 +309,19 @@ func (h *Handler) Me(w http.ResponseWriter, r *http.Request) {
 		expiresAt = nil
 	}
 
+	// Best effort, on the same terms as the expiry above: failing to name the
+	// tenant is not a reason to refuse somebody their own profile, and the
+	// console treats an absent name as "do not draw it".
+	var code, name string
+	if tenant, err := h.tenants.Get(r.Context(), principal.TenantID); err == nil {
+		code, name = tenant.Code, tenant.Name
+	}
+
 	httpx.OK(w, meResponse{
 		User:              user,
 		PasswordExpiresAt: expiresAt,
+		TenantCode:        code,
+		TenantName:        name,
 		MayManageTenants:  h.mayManageTenants(r, principal),
 	})
 }

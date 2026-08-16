@@ -60,6 +60,7 @@ export const enUS = {
   "nav.identityProviders": "Identity providers",
   "nav.settings": "Settings",
   "nav.tenants": "Tenants",
+  "layout.tenantIs": "Signed in to the {0} tenant",
   "nav.profile": "My profile",
   "nav.signOut": "Sign out",
 

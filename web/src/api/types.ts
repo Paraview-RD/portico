@@ -69,7 +69,28 @@ export interface User {
    * console knows neither.
    */
   mayManageTenants?: boolean;
+
+  /**
+   * The tenant this session belongs to. Present only on `/users/me`.
+   *
+   * Sent because after sign-in the tenant is in the token and nowhere a
+   * person can see it — the address bar deliberately does not carry it, since
+   * honouring a tenant named there would let one tenant's administrator reach
+   * another's data.
+   */
+  tenantCode?: string;
+  tenantName?: string;
 }
+
+/**
+ * The tenant every deployment starts with, and the one a sign-in that names
+ * none resolves to.
+ *
+ * Mirrors model.DefaultTenantCode. The console uses it to stay quiet about
+ * tenants where there is only ever one: a deployment that never made a second
+ * tenant should not have the concept put in front of it.
+ */
+export const DEFAULT_TENANT_CODE = "default";
 
 /**
  * A tenant and how much is inside it.

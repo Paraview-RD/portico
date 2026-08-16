@@ -5265,6 +5265,29 @@ components:
                 not expire in this tenant. The instant, not the policy: the
                 policy is administrator-only, and somebody does not need to
                 be told the rules to be told their own deadline.
+            tenantCode:
+              type: string
+              description: |
+                The tenant this session belongs to. Reported here because
+                after sign-in the tenant lives in the token and nowhere the
+                caller can see: a tenant named in a URL or a header on an
+                authenticated request is deliberately ignored, since honouring
+                it is how one tenant's administrator would reach another's
+                data. This field is the session's own tenant, never the
+                caller's claim.
+            tenantName:
+              type: string
+              description: What that tenant calls itself.
+            mayManageTenants:
+              type: boolean
+              description: |
+                Whether this caller may use the operator console at
+                `/api/v1/tenants`. False on every deployment that did not set
+                `PORTICO_TENANT_CONSOLE`, and for anybody who is not an
+                administrator of the default tenant. Answered here so a client
+                need not discover it by calling that endpoint and reading a
+                404 — which is deliberately indistinguishable from a
+                deployment that has no such feature.
 
     MeEnvelope:
       allOf:

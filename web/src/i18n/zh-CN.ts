@@ -53,6 +53,7 @@ export const zhCN: Record<keyof typeof enUS, string> = {
   "nav.identityProviders": "身份提供方",
   "nav.settings": "系统设置",
   "nav.tenants": "租户管理",
+  "layout.tenantIs": "当前登录的租户：{0}",
   "nav.profile": "个人中心",
   "nav.signOut": "退出登录",
 

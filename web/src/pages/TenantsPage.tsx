@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useState } from "react";
 
 import { tenantsApi } from "../api/endpoints";
+import { DEFAULT_TENANT_CODE } from "../api/types";
 import type { TenantOverview } from "../api/types";
 import {
   Alert,
@@ -39,14 +40,6 @@ import { useErrorMessage, useT } from "../i18n";
  * tenant deleted by a mis-click is a hundred rows across thirty tables that
  * no screen can put back.
  */
-/**
- * The tenant a deployment gets on first start, and the one this console is
- * served from. Mirrors model.DefaultTenantCode; the server refuses to disable
- * it whatever this file believes, so the worst a drift here can do is offer a
- * button that is then refused.
- */
-const defaultTenant = "default";
-
 export function TenantsPage() {
   const t = useT();
   const describeError = useErrorMessage();
@@ -151,7 +144,7 @@ export function TenantsPage() {
                       browser — and offering an action that always fails is
                       worse than offering none: it reads as a permission
                       problem rather than as a rule. */}
-                  {tenant.code === defaultTenant &&
+                  {tenant.code === DEFAULT_TENANT_CODE &&
                   tenant.status === "ACTIVE" ? (
                     <span className="text-[length:var(--font-size-sm)] text-[var(--color-fg-muted)]">
                       {t("tenants.thisConsole")}

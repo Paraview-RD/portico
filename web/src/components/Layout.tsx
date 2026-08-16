@@ -23,6 +23,7 @@ import {
 import { request } from "../api/client";
 import { useLanguage, useT, languageNames } from "../i18n";
 import type { Language } from "../i18n";
+import { DEFAULT_TENANT_CODE } from "../api/types";
 import type { Route } from "../router";
 import { useRouter } from "../router";
 import { useSession } from "../session";
@@ -365,11 +366,49 @@ function TopBar({ locationKey }: { locationKey?: LabelKey }) {
       </div>
 
       <div className="flex shrink-0 items-center gap-1">
+        <TenantBadge />
         <LanguageMenu />
         <div className="mx-1 h-5 w-px bg-[var(--color-border)]" />
         <AccountMenu />
       </div>
     </header>
+  );
+}
+
+/**
+ * Which tenant this window is signed in to.
+ *
+ * Absent on the default tenant, which is the whole point: a deployment that
+ * never made a second tenant should not have the concept put in front of it,
+ * and most never do. It appears exactly when it starts mattering.
+ *
+ * It matters because the tenant is in the session token and nowhere a person
+ * can see it. That is deliberate — a tenant named in the address bar and
+ * honoured by the server is how one tenant's administrator would reach
+ * another's data — but it left the console unable to say which tenant it was
+ * showing. With self-service trials one person can own several, the sign-in
+ * form pre-fills the last one used, and signing out does not clear it: so
+ * "sign out, sign back in, end up somewhere else" is a thing that happens,
+ * and until now nothing on the screen disagreed with what they assumed.
+ *
+ * Not a link. There is nowhere for it to go: changing tenant means a
+ * different session, which means signing in again.
+ */
+function TenantBadge() {
+  const { user } = useSession();
+  const t = useT();
+
+  const code = user?.tenantCode;
+  if (!code || code === DEFAULT_TENANT_CODE) return null;
+
+  return (
+    <span
+      className="mr-1 flex min-w-0 items-center gap-1.5 rounded-[var(--radius-sm)] bg-[var(--color-bg-soft)] px-2 py-1 text-[length:var(--font-size-sm)] text-[var(--color-fg-muted)]"
+      title={t("layout.tenantIs", user?.tenantName || code)}
+    >
+      <TenantIcon size={14} />
+      <span className="truncate">{user?.tenantName || code}</span>
+    </span>
   );
 }
 

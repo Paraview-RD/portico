@@ -350,3 +350,53 @@ func TestATenantNobodyEverUsedIsStillListed(t *testing.T) {
 	t.Error("a tenant with nothing in it was left out of the list, which is " +
 		"the row an operator is most often looking for")
 }
+
+// Somebody signed in can find out which tenant they are in.
+//
+// After sign-in the tenant is in the token and nowhere else: the address bar
+// does not carry it, and the server ignores a tenant named in a header on an
+// authenticated request — TestAuthenticatedRequestsIgnoreTenantHeader holds
+// that shut, and it is the rule that keeps one tenant's administrator out of
+// another's data.
+//
+// The cost of that rule is that the console had nothing to display. It did
+// not matter while a deployment had one tenant. It does now: a person can own
+// several, the sign-in form pre-fills the last tenant code used, and signing
+// out does not clear it — so signing back in can land somewhere other than
+// where they think, with nothing on screen to disagree.
+func TestYourOwnProfileSaysWhichTenantYouAreIn(t *testing.T) {
+	api := newConsoleTest(t, false)
+	token := api.login(adminUsername, adminPassword)
+
+	var me struct {
+		TenantCode string `json:"tenantCode"`
+		TenantName string `json:"tenantName"`
+	}
+	api.do(http.MethodGet, "/api/v1/users/me", token, nil).into(t, &me)
+
+	if me.TenantCode != "default" {
+		t.Errorf("tenantCode is %q, want the tenant this session belongs to", me.TenantCode)
+	}
+	if me.TenantName == "" {
+		t.Error("tenantName is empty; the console has nothing to draw")
+	}
+
+	// And it is the caller's own tenant rather than whichever one they name.
+	// The same request with another tenant's code in the header must answer
+	// the same way — this is the header rule, asked of the field that would
+	// be the most convenient place to break it.
+	api.execSQL(t, `INSERT INTO tenants (id, code, name, status, created_at, updated_at)
+		VALUES ('t-elsewhere', 'elsewhere', 'Elsewhere', 'ACTIVE', now(), now())`)
+
+	var claimed struct {
+		TenantCode string `json:"tenantCode"`
+	}
+	api.doWithHeaders(http.MethodGet, "/api/v1/users/me", token, nil,
+		map[string]string{"X-Portico-Tenant": "elsewhere"}).into(t, &claimed)
+
+	if claimed.TenantCode != "default" {
+		t.Errorf("naming a tenant in a header changed the answer to %q; this "+
+			"field must report the session's tenant, not the caller's claim",
+			claimed.TenantCode)
+	}
+}
