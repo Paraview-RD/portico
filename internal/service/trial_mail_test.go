@@ -25,7 +25,7 @@ func TestTheConfirmationMailCarriesItsLinkInBothParts(t *testing.T) {
 	const link = "https://demo.example.com/trial/confirm?token=abc123"
 
 	for _, locale := range []string{"en-US", "zh-CN"} {
-		msg, err := trialMailer(locale).confirmMail("Acme Ltd", link)
+		msg, err := trialMailer(locale).confirmMail("Acme Ltd", link, locale)
 		if err != nil {
 			t.Fatalf("%s: %v", locale, err)
 		}
@@ -64,7 +64,7 @@ func TestTheCredentialsMailCarriesEveryCredentialInBothParts(t *testing.T) {
 	}
 
 	for _, locale := range []string{"en-US", "zh-CN"} {
-		msg, err := trialMailer(locale).readyMail(out)
+		msg, err := trialMailer(locale).readyMail(out, locale)
 		if err != nil {
 			t.Fatalf("%s: %v", locale, err)
 		}
@@ -99,7 +99,7 @@ func TestNoExampleAccountsMeansNoSectionAboutThem(t *testing.T) {
 		TenantCode: "empty", TenantName: "Empty", AdminUsername: "admin",
 		AdminPassword: "x", SignInURL: "https://demo.example.com/login?tenant=empty",
 	}
-	msg, err := trialMailer("en-US").readyMail(out)
+	msg, err := trialMailer("en-US").readyMail(out, "en-US")
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -116,7 +116,7 @@ func TestNoExampleAccountsMeansNoSectionAboutThem(t *testing.T) {
 // An unknown locale is English rather than an error or an empty message.
 func TestAnUnsetLocaleIsEnglish(t *testing.T) {
 	for _, locale := range []string{"", "kl-GL"} {
-		msg, err := trialMailer(locale).confirmMail("Acme", "https://demo.example.com/x")
+		msg, err := trialMailer(locale).confirmMail("Acme", "https://demo.example.com/x", locale)
 		if err != nil {
 			t.Fatalf("%q: %v", locale, err)
 		}
@@ -124,4 +124,61 @@ func TestAnUnsetLocaleIsEnglish(t *testing.T) {
 			t.Errorf("%q: subject is %q", locale, msg.Subject)
 		}
 	}
+}
+
+// The language the visitor was reading, not the one the deployment prefers.
+//
+// This is the bug this parameter exists for: the demonstration runs with
+// PORTICO_DEFAULT_LOCALE=en-US, somebody filled in the Chinese form, and the
+// confirmation arrived in English. There was no signal to resolve a language
+// from — a trial applicant has no account and no tenant — except the one
+// nobody was reading: they had the page in Chinese in front of them.
+func TestTheApplicantsOwnLanguageBeatsTheDeploymentDefault(t *testing.T) {
+	// A deployment whose own default is English.
+	service := trialMailer("en-US")
+
+	msg, err := service.confirmMail("Acme", "https://demo.example.com/x", "zh-CN")
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	want, err := i18n.MustLoad().Render(mustParse(t, "zh-CN"),
+		i18n.KeyTrialConfirmTitle, i18n.TrialData{Tenant: "Acme"})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !strings.Contains(msg.Body, want) {
+		t.Errorf("an applicant reading zh-CN got:\n%s", msg.Body)
+	}
+}
+
+// And a tag this build does not have falls back rather than rendering nothing.
+//
+// It arrives in a request body, so it is a claim: anybody can post
+// `"locale": "kl-GL"`, or a browser can report a language with no catalogue
+// here. Neither may produce an empty message.
+func TestAnUnknownLanguageFallsBackToTheDeployment(t *testing.T) {
+	for _, requested := range []string{"", "kl-GL", "../../etc/passwd"} {
+		msg, err := trialMailer("zh-CN").confirmMail("Acme", "https://demo.example.com/x", requested)
+		if err != nil {
+			t.Fatalf("%q: %v", requested, err)
+		}
+		want, err := i18n.MustLoad().Render(mustParse(t, "zh-CN"),
+			i18n.KeyTrialConfirmTitle, i18n.TrialData{Tenant: "Acme"})
+		if err != nil {
+			t.Fatal(err)
+		}
+		if !strings.Contains(msg.Body, want) {
+			t.Errorf("%q did not fall back to the deployment's zh-CN:\n%s", requested, msg.Body)
+		}
+	}
+}
+
+func mustParse(t *testing.T, tag string) i18n.Locale {
+	t.Helper()
+	locale, ok := i18n.Parse(tag)
+	if !ok {
+		t.Fatalf("%q is not a locale this build has", tag)
+	}
+	return locale
 }

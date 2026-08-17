@@ -4,7 +4,7 @@ import type { TrialTenant } from "../api/types";
 import { trialApi } from "../api/endpoints";
 import { AuthShell } from "../components/AuthShell";
 import { Alert, Button, Code, CopyField } from "../components/ui";
-import { useErrorMessage, useT } from "../i18n";
+import { useErrorMessage, useLanguage, useT } from "../i18n";
 import { useRouter } from "../router";
 
 /**
@@ -27,6 +27,7 @@ import { useRouter } from "../router";
  */
 export function TrialConfirmPage() {
   const t = useT();
+  const { language } = useLanguage();
   const describeError = useErrorMessage();
   const { navigate } = useRouter();
 
@@ -49,7 +50,7 @@ export function TrialConfirmPage() {
 
     void (async () => {
       try {
-        setTenant(await trialApi.confirmTrial(token));
+        setTenant(await trialApi.confirmTrial(token, language));
         setState("done");
       } catch (err) {
         setError(describeError(err));

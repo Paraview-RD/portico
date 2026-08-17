@@ -9,7 +9,7 @@ import {
 } from "../components/icons";
 import { LanguageMenu } from "../components/menu";
 import { Button } from "../components/ui";
-import { useT } from "../i18n";
+import { useLanguage, useT } from "../i18n";
 import { useRouter } from "../router";
 
 /**
@@ -53,8 +53,36 @@ const SPEAKS = [
   { key: "events", names: ["Webhooks"] },
 ] as const;
 
+/**
+ * The chapter each card leads to, so a summary is a way in rather than the
+ * end of the road.
+ *
+ * A page of three sentences can say what something does and cannot say how.
+ * Somebody who reads one of these and wants the rest has, until now, had a
+ * single "Documentation" link at the bottom of the page and a manual with
+ * thirteen chapters to guess among.
+ */
+const CARDS = [
+  { key: "signIn", icon: IdentityProvidersIcon, doc: "federation" },
+  { key: "directory", icon: UsersIcon, doc: "organizations" },
+  { key: "applications", icon: ApplicationsIcon, doc: "capabilities" },
+] as const;
+
+/**
+ * docsBase returns the manual's root for the language being read.
+ *
+ * The manual is built in both languages and embedded in the binary, English
+ * at /docs/ and Chinese under /docs/zh/. Linking a Chinese page into the
+ * English manual is the kind of detail that reads as carelessness — the
+ * translation exists, it just was not asked for.
+ */
+function docsBase(language: string): string {
+  return language === "zh-CN" ? "/docs/zh/" : "/docs/";
+}
+
 export function LandingPage() {
   const t = useT();
+  const { language } = useLanguage();
   const { navigate } = useRouter();
   const [trialsOpen, setTrialsOpen] = useState(false);
 
@@ -117,14 +145,39 @@ export function LandingPage() {
           page whose whole audience arrived without an account, so nothing has
           told the server what language they read. Until now the only one was
           inside the signed-in shell, which is a strange place for it — the
-          people who most need to change it are the ones who cannot reach it. */}
-      <header className="flex shrink-0 items-start justify-between gap-4">
+          people who most need to change it are the ones who cannot reach it.
+
+          The manual and the source sit here too, rather than in a footer.
+          They were at the very bottom, below four bands of content, which is
+          where a link goes when nobody is expected to follow it — and they
+          are the two an evaluator wants first. Up here they also leave the
+          page with no near-empty band under its last card.
+
+          Ordinary links, not buttons: both leave the application and one
+          leaves the site. */}
+      <header className="flex shrink-0 items-center justify-between gap-4">
         <BrandLockup
           name="Portico"
           descriptor={t("brand.descriptor")}
           size={40}
         />
-        <LanguageMenu />
+        <div className="flex items-center gap-1">
+          <a
+            className="rounded-[var(--radius-sm)] px-2.5 py-1.5 text-[length:var(--font-size-sm)] text-[var(--color-fg-muted)] transition-colors hover:bg-[var(--color-bg-hover)] hover:text-[var(--color-fg)]"
+            href={docsBase(language)}
+          >
+            {t("landing.docs")}
+          </a>
+          <a
+            className="rounded-[var(--radius-sm)] px-2.5 py-1.5 text-[length:var(--font-size-sm)] text-[var(--color-fg-muted)] transition-colors hover:bg-[var(--color-bg-hover)] hover:text-[var(--color-fg)]"
+            href="https://github.com/Paraview-RD/portico"
+            rel="noreferrer"
+            target="_blank"
+          >
+            {t("landing.source")}
+          </a>
+          <LanguageMenu />
+        </div>
       </header>
 
       <main className="mx-auto flex w-full max-w-5xl flex-1 flex-col gap-16 py-16">
@@ -186,13 +239,7 @@ export function LandingPage() {
         {/* --- What does it do --------------------------------------- */}
         <section>
           <ul className="grid gap-4 sm:grid-cols-3">
-            {(
-              [
-                ["signIn", IdentityProvidersIcon],
-                ["directory", UsersIcon],
-                ["applications", ApplicationsIcon],
-              ] as const
-            ).map(([key, Icon]) => (
+            {CARDS.map(({ key, icon: Icon, doc }) => (
               <li
                 key={key}
                 className="flex flex-col gap-3 rounded-[var(--radius-lg)] border border-[var(--color-border)] bg-[var(--color-bg)] p-5 shadow-[var(--shadow-sm)]"
@@ -206,6 +253,15 @@ export function LandingPage() {
                 <p className="leading-[var(--leading-normal)] text-[var(--color-fg-muted)]">
                   {t(`landing.point.${key}` as "landing.point.signIn")}
                 </p>
+                {/* mt-auto so the link sits on the card's floor whatever the
+                    sentence above it wrapped to. Three cards of different text
+                    lengths otherwise put their links at three heights. */}
+                <a
+                  className="mt-auto pt-1 text-[length:var(--font-size-sm)] text-[var(--color-primary)] hover:underline"
+                  href={docsBase(language) + doc + "/"}
+                >
+                  {t("landing.learnMore")}
+                </a>
               </li>
             ))}
           </ul>
@@ -261,23 +317,6 @@ export function LandingPage() {
           </section>
         )}
       </main>
-
-      {/* Ordinary links rather than buttons: they leave the application, and
-          one of them leaves the site. */}
-      <footer className="shrink-0 py-4 text-center text-[length:var(--font-size-sm)] text-[var(--color-fg-muted)]">
-        <a className="underline hover:no-underline" href="/docs/">
-          {t("landing.docs")}
-        </a>
-        {" · "}
-        <a
-          className="underline hover:no-underline"
-          href="https://github.com/Paraview-RD/portico"
-          rel="noreferrer"
-          target="_blank"
-        >
-          {t("landing.source")}
-        </a>
-      </footer>
     </div>
   );
 }

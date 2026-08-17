@@ -311,6 +311,10 @@ type TrialRequestInput struct {
 	CompanyName string
 	TenantCode  string
 	Industry    string
+	// Locale is the language to write to them in, as a tag the visitor's own
+	// interface was set to. Unrecognized or empty falls back to the
+	// deployment default — see trialLocale.
+	Locale string
 }
 
 // TrialTenant is what a confirmed link produced. The password is here once,
@@ -498,7 +502,7 @@ func (s *TrialService) Request(ctx context.Context, in TrialRequestInput, ip str
 		return fmt.Errorf("create trial request: %w", err)
 	}
 
-	return s.sendLink(ctx, email, company, token)
+	return s.sendLink(ctx, email, company, token, in.Locale)
 }
 
 // Confirm spends a link, creates the tenant and its administrator, and mails
@@ -507,7 +511,7 @@ func (s *TrialService) Request(ctx context.Context, in TrialRequestInput, ip str
 // No client address, unlike Request. There is nothing here to attribute it to:
 // the audit trail is per tenant and this runs before one exists, and the
 // address that mattered — the one that asked — is already on the row.
-func (s *TrialService) Confirm(ctx context.Context, token string) (TrialTenant, error) {
+func (s *TrialService) Confirm(ctx context.Context, token, locale string) (TrialTenant, error) {
 	if !s.enabled {
 		return TrialTenant{}, ErrTrialSignupClosed
 	}
@@ -629,7 +633,7 @@ func (s *TrialService) Confirm(ctx context.Context, token string) (TrialTenant, 
 	// undo a tenant somebody can already sign in to — the response carries
 	// the same credentials, which is why this is not the only copy.
 	if s.mailer != nil {
-		msg, err := s.readyMail(out)
+		msg, err := s.readyMail(out, locale)
 		if err != nil {
 			slog.ErrorContext(ctx, "could not compose the trial credentials mail",
 				"tenant", tenant.Code, "error", err)
@@ -648,9 +652,9 @@ func (s *TrialService) SweepExpired(ctx context.Context) (int64, error) {
 	return s.store.Queries.DeleteExpiredTrialRequests(ctx)
 }
 
-func (s *TrialService) sendLink(ctx context.Context, email, company, token string) error {
+func (s *TrialService) sendLink(ctx context.Context, email, company, token, locale string) error {
 	link := s.confirmLink(token)
-	msg, err := s.confirmMail(company, link)
+	msg, err := s.confirmMail(company, link, locale)
 	if err != nil {
 		return fmt.Errorf("compose trial link mail: %w", err)
 	}

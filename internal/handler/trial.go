@@ -24,10 +24,25 @@ type trialRequest struct {
 	CompanyName string `json:"companyName"`
 	TenantCode  string `json:"tenantCode"`
 	Industry    string `json:"industry"`
+	// Locale is the language the visitor was reading when they asked.
+	//
+	// Every other message in this system resolves a language from the account
+	// it is about and the tenant it belongs to. A trial applicant has neither
+	// — that is what they are asking for — so the deployment default was used
+	// instead, and somebody who filled in a Chinese form got an English
+	// email. They did tell us: they read the page in one language and typed
+	// into it. Ignored if it is not a language this build has.
+	Locale string `json:"locale"`
 }
 
 type trialConfirmRequest struct {
 	Token string `json:"token"`
+	// Locale, again, and sent again rather than remembered: the credentials
+	// message is composed here, at confirm time, and the person is standing
+	// in front of the page that is spending the link. Storing what they asked
+	// in would need a column and would be the staler answer of the two — this
+	// one is their preference now.
+	Locale string `json:"locale"`
 }
 
 // TrialStatus tells the sign-in screen whether to offer a trial at all, and
@@ -57,6 +72,7 @@ func (h *Handler) RequestTrial(w http.ResponseWriter, r *http.Request) {
 		CompanyName: req.CompanyName,
 		TenantCode:  req.TenantCode,
 		Industry:    req.Industry,
+		Locale:      req.Locale,
 	}, httpx.ClientIP(r))
 	if err != nil {
 		httpx.Fail(w, r, err)
@@ -82,7 +98,7 @@ func (h *Handler) ConfirmTrial(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	tenant, err := h.trials.Confirm(r.Context(), req.Token)
+	tenant, err := h.trials.Confirm(r.Context(), req.Token, req.Locale)
 	if err != nil {
 		httpx.Fail(w, r, err)
 		return

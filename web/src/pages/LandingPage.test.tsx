@@ -1,6 +1,7 @@
 import { screen, waitFor } from "@testing-library/react";
 import { beforeEach, expect, it, vi } from "vitest";
 
+import { enUS } from "../i18n/en-US";
 import { renderWithLanguage } from "../test/render";
 
 /**
@@ -39,14 +40,18 @@ it("says what this is before asking for anything", async () => {
   trialStatus.mockResolvedValue({ enabled: false });
   renderWithLanguage(<LandingPage />);
 
+  // Asserted through the catalogue rather than against a copied string. The
+  // rule is "the page leads with its headline and offers a way in", and a
+  // rewrite of the headline is not a regression in that rule — the first
+  // version of this test spelled the sentence out and went red the day the
+  // copy was made less colloquial, which is a test reporting on its own
+  // staleness.
   expect(
-    screen.getByRole("heading", {
-      level: 1,
-      name: /Sign your people in, once, to everything/,
-    }),
+    screen.getByRole("heading", { level: 1, name: enUS["landing.title"] }),
   ).toBeVisible();
-  // The way in is a button, not a line of small print.
-  expect(screen.getByRole("button", { name: "Sign in" })).toBeVisible();
+  expect(
+    screen.getByRole("button", { name: enUS["landing.signIn"] }),
+  ).toBeVisible();
 });
 
 // The language menu used to live only inside the signed-in shell, which put it
@@ -65,7 +70,7 @@ it("offers a trial only where trials are on", async () => {
 
   await waitFor(() => {
     expect(
-      screen.getByRole("button", { name: "Get a tenant to try" }),
+      screen.getByRole("button", { name: enUS["landing.tryIt"] }),
     ).toBeVisible();
   });
 });
@@ -75,7 +80,7 @@ it("warns that this is a demonstration, where it is one", async () => {
   renderWithLanguage(<LandingPage />);
 
   await waitFor(() => {
-    expect(screen.getByText(/public demonstration/)).toBeVisible();
+    expect(screen.getByText(enUS["landing.demoNotice"])).toBeVisible();
   });
 });
 
@@ -87,9 +92,13 @@ it("says nothing about being a demonstration where it is not one", async () => {
   // so "not there yet" is the state this page starts in and would pass a
   // synchronous check no matter what the answer turned out to be.
   await waitFor(() => {
-    expect(screen.getByRole("button", { name: "Sign in" })).toBeVisible();
+    expect(
+      screen.getByRole("button", { name: enUS["landing.signIn"] }),
+    ).toBeVisible();
   });
-  expect(screen.queryByText(/public demonstration/)).not.toBeInTheDocument();
+  expect(
+    screen.queryByText(enUS["landing.demoNotice"]),
+  ).not.toBeInTheDocument();
 });
 
 // A deployment where the status call fails is not a deployment with trials on.
@@ -100,9 +109,11 @@ it("offers no trial when it cannot tell", async () => {
   renderWithLanguage(<LandingPage />);
 
   await waitFor(() => {
-    expect(screen.getByRole("button", { name: "Sign in" })).toBeVisible();
+    expect(
+      screen.getByRole("button", { name: enUS["landing.signIn"] }),
+    ).toBeVisible();
   });
   expect(
-    screen.queryByRole("button", { name: "Get a tenant to try" }),
+    screen.queryByRole("button", { name: enUS["landing.tryIt"] }),
   ).not.toBeInTheDocument();
 });

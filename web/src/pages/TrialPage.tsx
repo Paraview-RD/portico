@@ -3,7 +3,7 @@ import { useEffect, useState } from "react";
 import { trialApi } from "../api/endpoints";
 import { AuthShell } from "../components/AuthShell";
 import { Alert, Button, Field, Input, Select } from "../components/ui";
-import { useErrorMessage, useT } from "../i18n";
+import { useErrorMessage, useLanguage, useT } from "../i18n";
 import { useRouter } from "../router";
 
 /**
@@ -64,6 +64,7 @@ function industryLabel(t: ReturnType<typeof useT>, industry: string) {
 
 export function TrialPage() {
   const t = useT();
+  const { language } = useLanguage();
   const describeError = useErrorMessage();
   const { navigate } = useRouter();
 
@@ -114,7 +115,12 @@ export function TrialPage() {
       // No organization name. The field is gone from this form and the server
       // names the tenant after its code when none arrives, so sending an empty
       // string would be describing a decision that was already made.
-      await trialApi.requestTrial({ email, tenantCode, industry });
+      await trialApi.requestTrial({
+        email,
+        tenantCode,
+        industry,
+        locale: language,
+      });
       setSent(true);
     } catch (err) {
       setError(describeError(err));

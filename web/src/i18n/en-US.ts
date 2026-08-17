@@ -780,38 +780,40 @@ export const enUS = {
   // actionable on its own.
   "login.noTenant": "No tenant of your own?",
   "login.tryIt": "Try Portico",
-  "landing.title": "Sign your people in, once, to everything.",
+  "landing.title": "One sign-in for every system your people use",
   "landing.subtitle":
-    "Portico is an open-source identity provider: one directory of accounts, one sign-in, and the applications that trust it.",
-  "landing.heading.signIn": "One sign-in",
+    "Portico is an open-source identity platform: one directory of accounts and organizations, and single sign-on for every application connected to it.",
+  "landing.heading.signIn": "Single sign-on",
   "landing.point.signIn":
-    "Somebody proves who they are once, in one place, and arrives at everything else already known.",
+    "A user authenticates once, at one entry point, and reaches every connected application without signing in again.",
   "landing.heading.directory": "One directory",
   "landing.point.directory":
-    "Accounts, organizations and groups — kept by hand, imported, or synchronized from LDAP or SCIM.",
-  "landing.heading.applications": "Applications you register",
+    "Accounts, organizations and groups in one place — maintained by hand, imported in bulk, or synchronized from LDAP or SCIM.",
+  "landing.heading.applications": "Application onboarding",
   "landing.point.applications":
-    "Register an application in a form, and hand its developers one address.",
-  "landing.tryIt": "Get a tenant to try",
+    "Register an application in the console and hand its developers a single address to integrate against.",
+  "landing.tryIt": "Request a trial tenant",
   "landing.signIn": "Sign in",
-  "landing.speaks.title": "It speaks what you already run",
+  "landing.speaks.title":
+    "Works with the applications and directories you have",
   "landing.speaks.subtitle":
-    "Nothing here asks an application to be rewritten. If it can already talk to an identity provider, it can talk to this one.",
+    "No application has to be rewritten. Anything that supports a standard identity protocol can connect as it is.",
   "landing.speaks.sso": "Single sign-on",
   "landing.speaks.directory": "Directories",
   "landing.speaks.events": "Events",
-  "landing.trial.title": "What a trial gives you",
+  "landing.trial.title": "A trial tenant includes",
   "landing.trial.own":
-    "A tenant of your own, with its administrator password in your inbox and nobody else in it.",
+    "A tenant of your own, with the administrator credentials sent to your inbox and nobody else able to reach it.",
   "landing.trial.filled":
-    "Filled with example people, organizations and groups, so every screen has something in it to look at.",
+    "Example people, organizations and groups already in place, so every screen has real data to look at rather than being empty.",
   "landing.trial.apps":
-    "Register an application against it and run a real sign-in, end to end, from your own code.",
+    "Register your own application against it and verify a complete single sign-on flow end to end.",
   // Said before somebody types their own address into a form, not after.
   "landing.demoNotice":
-    "This is a public demonstration. A tenant is yours to break — sign in, change anything, invite nobody real: the whole deployment is reset periodically and everything in it goes.",
+    "This is a public demonstration. Sign in and change anything you like, but do not enter real people or real data — the deployment is reset periodically and everything in it is removed.",
+  "landing.learnMore": "Read the chapter",
   "landing.docs": "Documentation",
-  "landing.source": "Source on GitHub",
+  "landing.source": "Source repository",
 
   "tenants.title": "Tenants",
   "tenants.subtitle": "Every tenant on this deployment, and how much is in it.",

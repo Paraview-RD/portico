@@ -732,38 +732,38 @@ export const zhCN: Record<keyof typeof enUS, string> = {
   // 问，所以每一句话都得让他自己就能处理。
   "login.noTenant": "还没有自己的租户？",
   "login.tryIt": "试用 Portico",
-  "landing.title": "让你的人只登录一次，通向全部系统。",
+  "landing.title": "一次登录，通行全部业务系统",
   "landing.subtitle":
-    "Portico 是一个开源的身份提供方：一份账号目录、一次登录，以及信任它的那些应用。",
-  "landing.heading.signIn": "一次登录",
+    "Portico 是开源的统一身份认证平台：集中管理账号与组织，为所有已接入的应用提供单点登录。",
+  "landing.heading.signIn": "单点登录",
   "landing.point.signIn":
-    "一个人只在一个地方证明一次自己是谁，到别处就已经是被认识的了。",
-  "landing.heading.directory": "一份目录",
+    "用户在统一入口完成一次身份认证，即可访问所有已接入的应用，无需重复登录。",
+  "landing.heading.directory": "统一目录",
   "landing.point.directory":
-    "账号、组织与用户组 —— 手工维护、批量导入，或者从 LDAP、SCIM 同步过来。",
-  "landing.heading.applications": "自己注册应用",
+    "集中维护账号、组织架构与用户组，支持手工管理、批量导入，以及从 LDAP 或 SCIM 同步。",
+  "landing.heading.applications": "应用接入",
   "landing.point.applications":
-    "在表单里注册一个应用，然后把一个地址交给它的开发者。",
-  "landing.tryIt": "申请一个租户来试",
+    "在控制台注册应用并获取接入地址，交给应用开发者即可完成对接。",
+  "landing.tryIt": "申请试用租户",
   "landing.signIn": "登录",
-  "landing.speaks.title": "你现在跑着的那些，它都会说",
+  "landing.speaks.title": "兼容你现有的应用与目录",
   "landing.speaks.subtitle":
-    "不需要为它重写任何应用。只要那个应用本来就能对接身份提供方，它就能对接这一个。",
+    "无需改造现有应用。凡是支持标准身份协议的系统，均可直接接入。",
   "landing.speaks.sso": "单点登录",
   "landing.speaks.directory": "目录对接",
   "landing.speaks.events": "事件订阅",
-  "landing.trial.title": "试用能拿到什么",
+  "landing.trial.title": "试用租户包含",
   "landing.trial.own":
-    "一个属于你自己的租户，管理员密码发到你的邮箱，里面没有别人。",
+    "一个独立的租户，管理员凭据发送至你的邮箱，其他人无法访问。",
   "landing.trial.filled":
-    "里面预置了示例人员、组织和用户组，所以每一屏都有东西可看，而不是一片空白。",
-  "landing.trial.apps":
-    "拿你自己的代码注册一个应用，把一次真实的登录从头走到尾。",
+    "预置示例人员、组织架构与用户组，每个界面都有可查看的数据，而非空白环境。",
+  "landing.trial.apps": "可注册你自己的应用，完整验证一次真实的单点登录流程。",
   // 在有人把自己的邮箱填进表单之前说，而不是之后。
   "landing.demoNotice":
-    "这是一个公开演示环境。租户就是给你随便折腾的 —— 登录、改任何东西都没关系，但别把真实的人和数据放进来：整个环境会定期重置，里面的一切都会没有。",
-  "landing.docs": "查看文档",
-  "landing.source": "GitHub 源码",
+    "这是公开演示环境。你可以自由登录并修改任意配置，但请勿录入真实的人员或业务数据 —— 环境会定期重置，其中的全部内容都将被清除。",
+  "landing.learnMore": "查看相关文档",
+  "landing.docs": "使用文档",
+  "landing.source": "源码仓库",
 
   "tenants.title": "租户管理",
   "tenants.subtitle": "本部署上的全部租户，以及各自的规模。",
@@ -866,7 +866,7 @@ export const zhCN: Record<keyof typeof enUS, string> = {
   "reset.done": "密码已更新，请用新密码登录。",
   "reset.missingToken": "链接不完整，请打开邮件中的原始链接，或重新申请一个。",
   "reset.requestAnother": "重新申请链接",
-  "brand.descriptor": "身份平台",
+  "brand.descriptor": "统一身份认证平台",
   "nav.language": "语言",
   "nav.group.directory": "目录",
   "nav.group.integration": "接入",

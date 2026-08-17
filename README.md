@@ -13,6 +13,19 @@ web UI compiled in, backed by PostgreSQL.
 > deliberately absent from both. There are no published binaries yet; build
 > from source with either recipe under [Running it](#running-it).
 
+## See it running
+
+<https://demo.portico-dental.com> — a public demonstration, where anybody can
+ask for a tenant of their own: give an address, open the link, and a tenant
+arrives filled with an industry's worth of example people, organizations and
+applications.
+
+Two things about it are worth knowing before you judge it. It runs on a free
+instance that sleeps after fifteen minutes of quiet, so the first request
+after a while waits out a cold start of around fifty seconds — that is the
+host, not the software. And it is a demonstration: the deployment is reset
+periodically and everything in it goes, so do not put anything real there.
+
 ## Try it with Docker
 
 PostgreSQL and the server, with nothing else to install:

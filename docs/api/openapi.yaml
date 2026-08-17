@@ -358,6 +358,13 @@ paths:
               required: [token]
               properties:
                 token: { type: string }
+                locale:
+                  type: string
+                  description: |
+                    The language to write the credentials email in. Sent again
+                    rather than remembered from the request: this message is
+                    composed here, and the person is in front of the page
+                    spending the link.
       responses:
         "200":
           description: The tenant, and how to sign in to it.
@@ -4851,6 +4858,16 @@ components:
         industry:
           type: string
           description: One of the names from `/api/v1/trial/status`.
+        locale:
+          type: string
+          description: |
+            The language to write the two emails in, as a tag the visitor's own
+            interface was set to — `en-US`, `zh-CN`. A trial applicant has no
+            account and no tenant to resolve a language from, so without this
+            both messages fall back to the deployment default and somebody who
+            filled in a translated form receives an untranslated email.
+
+            Ignored unless this build has the language.
 
     Tenant:
       type: object

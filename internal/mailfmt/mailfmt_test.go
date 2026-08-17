@@ -218,3 +218,63 @@ func TestThePartsAreAllOptional(t *testing.T) {
 		t.Errorf("html: %s", html)
 	}
 }
+
+// The notice is marked in both renderings, and in the text part that means a
+// character in the margin.
+//
+// HTML can tint a box; plain text cannot, so the only way to say "this line is
+// not like the others" there is to put something in front of it. Without that,
+// the sentence a credentials email most needs read is another paragraph — and
+// the text part is what a screen reader and a terminal client get.
+func TestANoticeIsMarkedInBothParts(t *testing.T) {
+	const warning = "This message is the only copy of that password."
+	doc := Document{
+		Title: "Your tenant is ready",
+		Sections: []Section{{
+			Heading: "Sign in",
+			Facts:   []Fact{{Label: "Password", Value: "s3cret", Code: true}},
+			Notice:  warning,
+		}},
+	}
+
+	text := doc.Text()
+	if !strings.Contains(text, warning) {
+		t.Fatalf("the text part lost the notice:\n%s", text)
+	}
+	for _, line := range strings.Split(text, "\n") {
+		if strings.Contains(line, warning) && !strings.Contains(line, "!") {
+			t.Errorf("the notice is not marked in the text part: %q", line)
+		}
+	}
+
+	html, err := doc.HTML()
+	if err != nil {
+		t.Fatalf("render html: %v", err)
+	}
+	if !strings.Contains(html, warning) {
+		t.Fatal("the html part lost the notice")
+	}
+	// And it is set apart rather than being one more paragraph. The left rule
+	// is what carries that, so it is what this checks — a tint alone survives
+	// fewer clients.
+	at := strings.Index(html, warning)
+	block := html[strings.LastIndex(html[:at], "<p"):at]
+	if !strings.Contains(block, "border-left") {
+		t.Errorf("the notice reads as an ordinary paragraph:\n%s", block)
+	}
+}
+
+// A section with nothing but a notice still renders it.
+func TestANoticeSurvivesWithoutFactsOrAnAction(t *testing.T) {
+	doc := Document{Sections: []Section{{Notice: "Careful."}}}
+	if !strings.Contains(doc.Text(), "Careful.") {
+		t.Errorf("text: %q", doc.Text())
+	}
+	html, err := doc.HTML()
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !strings.Contains(html, "Careful.") {
+		t.Error("html lost a notice that was the whole section")
+	}
+}

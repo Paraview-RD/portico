@@ -56,6 +56,15 @@ type Section struct {
 	Body    []string
 	Facts   []Fact
 	Action  *Action
+	// Notice is the one thing in this section somebody has to be told rather
+	// than shown — that a password has no second copy, that a link is
+	// single-use.
+	//
+	// Beside the values it is about, not in the footer with the small print.
+	// A warning about the password reads as a warning where the password is
+	// and as boilerplate four paragraphs below it, and boilerplate is what
+	// gets skipped.
+	Notice string
 }
 
 // Fact is one labelled value.
@@ -126,12 +135,21 @@ func (d Document) Text() string {
 				b.WriteString("  " + fact.Label + ": " + fact.Value + "\n")
 			}
 		}
+		if section.Notice != "" {
+			// Marked rather than merely present. Plain text has no tinted box,
+			// so the only way to say "this line is not like the others" is a
+			// character in the margin — and something has to, or the sentence
+			// that matters most reads as another paragraph.
+			b.WriteString("\n  ! " + section.Notice + "\n")
+		}
+
 		if section.Action != nil {
 			// Only when something in this section came first. A section that
 			// is nothing but an action already has the blank line the loop
 			// opened with, and a second one leaves a gap wide enough to read
 			// as the end of the message.
-			if section.Heading != "" || len(section.Body) > 0 || len(section.Facts) > 0 {
+			if section.Heading != "" || len(section.Body) > 0 ||
+				len(section.Facts) > 0 || section.Notice != "" {
 				b.WriteString("\n")
 			}
 			if section.Action.Fallback != "" {
@@ -200,16 +218,20 @@ var htmlTemplate = template.Must(template.New("mail").Parse(`<!doctype html>
 {{range .Body}}<p style="margin:0 0 12px;">{{.}}</p>{{end}}
 {{if .Facts}}<table cellpadding="0" cellspacing="0" border="0" style="width:100%;border-collapse:collapse;">
 {{range .Facts}}<tr>
-<td style="padding:5px 14px 5px 0;color:#6b7484;white-space:nowrap;vertical-align:top;">{{.Label}}</td>
+<td style="padding:6px 14px 6px 0;color:#4b5563;font-weight:600;white-space:nowrap;vertical-align:top;">{{.Label}}</td>
 <!-- The monospace font and the grey box are on the same span, but only one
      of them is load-bearing. Outlook's Word engine drops border-radius and
      is unreliable about padded inline-blocks; the font is what makes a
      generated password readable, and it survives. The box on the span
      rather than on the cell is also what stops three consecutive values
      from merging into one grey slab the width of the card. -->
-<td style="padding:5px 0;vertical-align:top;">{{if .Code}}<span style="display:inline-block;padding:3px 9px;background:#f4f6fa;border-radius:6px;font-family:ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;font-size:14px;color:#111826;max-width:100%;word-break:break-all;">{{.Value}}</span>{{else}}{{.Value}}{{end}}</td>
+<td style="padding:6px 0;vertical-align:top;">{{if .Code}}<span style="display:inline-block;padding:4px 10px;background:#f4f6fa;border:1px solid #e3e8f2;border-radius:6px;font-family:ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;font-size:14px;color:#111826;max-width:100%;word-break:break-all;">{{.Value}}</span>{{else}}{{.Value}}{{end}}</td>
 </tr>{{end}}
 </table>{{end}}
+<!-- The callout. A left rule and a tint rather than a colour on the text:
+     status colour on a sentence reads as an error, and this is not one — it
+     is the sentence in the message that must not be skimmed. -->
+{{if .Notice}}<p style="margin:16px 0 0;padding:10px 14px;background:#fbf7ec;border-left:3px solid #d9a441;border-radius:0 6px 6px 0;font-size:14px;line-height:1.6;color:#4a3a1c;">{{.Notice}}</p>{{end}}
 {{with .Action}}<p style="margin:18px 0 0;">
 <a href="{{.URL}}" style="display:inline-block;padding:11px 22px;background:#2563eb;color:#ffffff;text-decoration:none;border-radius:8px;font-weight:600;">{{.Label}}</a>
 </p>

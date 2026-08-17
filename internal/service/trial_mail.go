@@ -15,21 +15,30 @@ import (
 
 // trialLocale is the language a trial message is written in.
 //
-// The deployment's default, because there is nobody to ask. Every other
-// message in this system resolves a locale from the account it is about and
-// the tenant it belongs to; a trial applicant has neither — that is what they
-// are asking for. Left unset it is English, which is i18n.Default.
-func (s *TrialService) trialLocale() i18n.Locale {
-	locale, ok := i18n.Parse(s.locale)
-	if !ok {
-		return i18n.Default
+// Asked of the visitor first, and the deployment second. Every other message
+// in this system resolves a locale from the account it is about and the tenant
+// it belongs to; a trial applicant has neither — that is what they are asking
+// for — so this used to go straight to the deployment default, and somebody
+// who filled in a Chinese form received an English email.
+//
+// They had told us, though, in the only way available to them: they read the
+// page in a language and typed into it. So `requested` is that language, as
+// the interface reported it, and it is believed only if this build has it —
+// it arrives in a request body, which makes it a claim rather than a fact,
+// and an unknown tag must not produce an empty message.
+func (s *TrialService) trialLocale(requested string) i18n.Locale {
+	if locale, ok := i18n.Parse(requested); ok {
+		return locale
 	}
-	return locale
+	if locale, ok := i18n.Parse(s.locale); ok {
+		return locale
+	}
+	return i18n.Default
 }
 
 // confirmMail is the message carrying the link that creates the tenant.
-func (s *TrialService) confirmMail(tenantName, link string) (notify.Message, error) {
-	locale := s.trialLocale()
+func (s *TrialService) confirmMail(tenantName, link, requested string) (notify.Message, error) {
+	locale := s.trialLocale(requested)
 	data := i18n.TrialData{Tenant: tenantName, Hours: int(TrialTokenTTL.Hours())}
 
 	text := func(key string) string {
@@ -65,8 +74,8 @@ func (s *TrialService) confirmMail(tenantName, link string) (notify.Message, err
 // rather than appearing with nothing in it: offering credentials for accounts
 // that were never created reads as a bug in the product rather than as a fill
 // that did not happen.
-func (s *TrialService) readyMail(out TrialTenant) (notify.Message, error) {
-	locale := s.trialLocale()
+func (s *TrialService) readyMail(out TrialTenant, requested string) (notify.Message, error) {
+	locale := s.trialLocale(requested)
 	data := i18n.TrialData{Tenant: out.TenantName}
 
 	text := func(key string) string {
@@ -84,6 +93,11 @@ func (s *TrialService) readyMail(out TrialTenant) (notify.Message, error) {
 			{Label: text(i18n.KeyTrialReadyLabelUsername), Value: out.AdminUsername, Code: true},
 			{Label: text(i18n.KeyTrialReadyLabelPassword), Value: out.AdminPassword, Code: true},
 		},
+		// Beside the password rather than in the footer, which is where it
+		// was. "This message is the only copy" is the one sentence in this
+		// email somebody has to act on before closing it, and four paragraphs
+		// below the value it is about, it reads as small print.
+		Notice: text(i18n.KeyTrialReadyRecovery),
 		Action: &mailfmt.Action{
 			Label:    text(i18n.KeyTrialReadyAction),
 			URL:      out.SignInURL,
@@ -96,10 +110,7 @@ func (s *TrialService) readyMail(out TrialTenant) (notify.Message, error) {
 		Title:    text(i18n.KeyTrialReadyTitle),
 		Intro:    []string{text(i18n.KeyTrialReadyIntro)},
 		Sections: []mailfmt.Section{signIn},
-		Footer: []string{
-			text(i18n.KeyTrialReadyRecovery),
-			text(i18n.KeyTrialReadyFooter),
-		},
+		Footer:   []string{text(i18n.KeyTrialReadyFooter)},
 	}
 
 	if out.DemoPassword != "" {

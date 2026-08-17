@@ -299,6 +299,13 @@ export const trialApi = {
     companyName?: string;
     tenantCode: string;
     industry: string;
+    /**
+     * The language to write the two emails in. A trial applicant has no
+     * account and no tenant for the server to resolve one from, so without
+     * this both messages come back in the deployment's default language —
+     * which is how a Chinese form produced an English email.
+     */
+    locale: string;
   }) =>
     request<{ sent: boolean }>("/trial", {
       method: "POST",
@@ -311,10 +318,10 @@ export const trialApi = {
    * as by mail, because the person is standing in front of the page that just
    * created the tenant.
    */
-  confirmTrial: (token: string) =>
+  confirmTrial: (token: string, locale: string) =>
     request<TrialTenant>("/trial/confirm", {
       method: "POST",
-      body: { token },
+      body: { token, locale },
       anonymous: true,
     }),
 };

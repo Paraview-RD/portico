@@ -21,7 +21,7 @@ func TestPreviewTrialMail(t *testing.T) {
 		AdminPassword: "P0T5zLoMbaVwccd8XKb8H7my",
 		SignInURL:     "https://demo.example.com/login?tenant=mytrial",
 		DemoPassword:  "j9N-VRFFri0M2rR2xkySiWUo",
-	})
+	}, locale)
 	if err != nil {
 		t.Fatal(err)
 	}
