@@ -18,6 +18,7 @@ import (
 
 	"github.com/Paraview-RD/portico/internal/auth"
 	"github.com/Paraview-RD/portico/internal/httpx"
+	"github.com/Paraview-RD/portico/internal/i18n"
 	"github.com/Paraview-RD/portico/internal/model"
 	"github.com/Paraview-RD/portico/internal/notify"
 	"github.com/Paraview-RD/portico/internal/store"
@@ -217,6 +218,13 @@ type TrialService struct {
 	// accept. Built once at construction rather than per request.
 	blockedDomains map[string]bool
 
+	// messages renders the two mails this service sends, and locale is the
+	// language it writes them in. The deployment's default, because a trial
+	// applicant has no account and no tenant to take a preference from —
+	// having neither is what they are asking to change.
+	messages *i18n.Catalog
+	locale   string
+
 	// now is replaceable so a test can expire a link without waiting two
 	// hours for it.
 	now func() time.Time
@@ -267,8 +275,18 @@ func NewTrialService(
 		store: st, tenants: tenants, users: users, mailer: mailer, audit: audit,
 		enabled: enabled, maxTenants: maxTenants, publicURL: publicURL,
 		blockedDomains: blockedEmailDomains(nil),
+		messages:       i18n.MustLoad(),
 		now:            time.Now,
 	}
+}
+
+// WithLocale sets the language the trial messages are written in.
+//
+// The deployment default, for the reason given on the field: there is nobody
+// to ask. Unset leaves English.
+func (s *TrialService) WithLocale(locale string) *TrialService {
+	s.locale = locale
+	return s
 }
 
 // WithBlockedEmailDomains adds to the built-in list of throwaway mailbox
@@ -611,36 +629,14 @@ func (s *TrialService) Confirm(ctx context.Context, token string) (TrialTenant, 
 	// undo a tenant somebody can already sign in to — the response carries
 	// the same credentials, which is why this is not the only copy.
 	if s.mailer != nil {
-		// The second password is mentioned only when there is one. A line
-		// offering credentials for accounts that were never created is worse
-		// than no line: it reads as a bug in the product rather than as a fill
-		// that failed.
-		var extra string
-		if out.DemoPassword != "" {
-			extra = fmt.Sprintf(
-				"\nThe tenant is filled with example people and applications. Every one of\n"+
-					"those accounts is an ordinary user and they all sign in with:\n\n"+
-					"    Password:  %s\n\n"+
-					"Use one of them to see what somebody who is not an administrator sees.\n",
-				out.DemoPassword)
+		msg, err := s.readyMail(out)
+		if err != nil {
+			slog.ErrorContext(ctx, "could not compose the trial credentials mail",
+				"tenant", tenant.Code, "error", err)
+		} else {
+			msg.To = row.Email
+			_ = s.mailer.Send(ctx, msg)
 		}
-		_ = s.mailer.Send(ctx, notify.Message{
-			To:      row.Email,
-			Subject: fmt.Sprintf("Your Portico trial: %s", tenant.Name),
-			Body: fmt.Sprintf(
-				"Your trial tenant is ready.\n\n"+
-					"    Address:   %s\n"+
-					"    Tenant:    %s\n"+
-					"    Username:  %s\n"+
-					"    Password:  %s\n\n"+
-					// Said because it is not obvious and it is the difference
-					// between losing the password and losing the tenant.
-					"This address is on the administrator account, so \"forgot password\"\n"+
-					"on the sign-in screen will reach you here.\n"+
-					"%s\n"+
-					"This is a demonstration. Do not put anything real in it.\n",
-				out.SignInURL, out.TenantCode, out.AdminUsername, out.AdminPassword, extra),
-		})
 	}
 
 	return out, nil
@@ -654,18 +650,12 @@ func (s *TrialService) SweepExpired(ctx context.Context) (int64, error) {
 
 func (s *TrialService) sendLink(ctx context.Context, email, company, token string) error {
 	link := s.confirmLink(token)
-	err := s.mailer.Send(ctx, notify.Message{
-		To:      email,
-		Subject: "Confirm your Portico trial",
-		// Hours counted from the constant rather than the constant printed.
-		// A time.Duration renders as "24h0m0s", which is not a sentence —
-		// and this message said "within 2h0m0s" for as long as it existed.
-		Body: fmt.Sprintf(
-			"Somebody asked for a Portico trial for %s using this address.\n\n"+
-				"Confirm it here, within %d hours:\n\n    %s\n\n"+
-				"If that was not you, ignore this. Nothing was created.\n",
-			company, int(TrialTokenTTL.Hours()), link),
-	})
+	msg, err := s.confirmMail(company, link)
+	if err != nil {
+		return fmt.Errorf("compose trial link mail: %w", err)
+	}
+	msg.To = email
+	err = s.mailer.Send(ctx, msg)
 	if err != nil {
 		// Reverse the reservation. Keeping the row would hold the code and the
 		// address for a day, so the visitor who was just told the mail

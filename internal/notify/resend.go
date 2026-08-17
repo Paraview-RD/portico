@@ -80,14 +80,17 @@ type resendMailer struct {
 
 // resendRequest is the documented body of POST /emails.
 //
-// Text rather than html, matching what Message carries and what this product
-// sends: short transactional messages, which an HTML part would mostly help
-// to get classified as marketing.
+// Both parts when there are both. Resend takes them as separate fields and
+// assembles the multipart itself, which is the one thing it does differently
+// from the SMTP transport beside it.
 type resendRequest struct {
 	From    string   `json:"from"`
 	To      []string `json:"to"`
 	Subject string   `json:"subject"`
 	Text    string   `json:"text"`
+	// Omitted when there is none, rather than sent empty: a message with an
+	// empty html part is a message some clients render as a blank page.
+	HTML string `json:"html,omitempty"`
 }
 
 func (m *resendMailer) Send(ctx context.Context, msg Message) error {
@@ -96,6 +99,7 @@ func (m *resendMailer) Send(ctx context.Context, msg Message) error {
 		To:      []string{msg.To},
 		Subject: msg.Subject,
 		Text:    msg.Body,
+		HTML:    msg.HTML,
 	})
 	if err != nil {
 		return fmt.Errorf("notify: encode mail: %w", err)

@@ -18,6 +18,7 @@ internal/
   config/          environment parsing; no dependencies
   model/           domain types shared across layers; no dependencies
   i18n/            the message catalogues; no dependencies
+  mailfmt/         one email described once, rendered twice; no dependencies
   httpx/           HTTP plumbing: envelope, errors, middleware
   metrics/         Prometheus counters, depending on nothing they measure
   store/           database access; sqlcgen/ is generated

@@ -31,6 +31,8 @@ func sampleFor(key string) any {
 			Tenant: "Acme", Name: "Sam", Username: "sam",
 			Link: "https://portico.example/verify?token=x", Hours: 24,
 		}
+	case strings.HasPrefix(key, "trial."):
+		return i18n.TrialData{Tenant: "Acme", Hours: 24}
 	default:
 		return nil
 	}
@@ -121,9 +123,17 @@ func TestEveryMessageRendersWithTheDataItIsGiven(t *testing.T) {
 	}
 }
 
-// The link is the entire purpose of both messages. A translation that drops
-// it delivers a polite note about a password reset with no way to reset one,
-// and every other assertion here would still pass.
+// The link is the entire purpose of the messages that carry one inside a
+// sentence. A translation that drops it delivers a polite note about a
+// password reset with no way to reset one, and every other assertion here
+// would still pass.
+//
+// Only the `.body` keys, and that is the shape of the rule rather than a
+// list: a body is one string holding a whole message, so the link is in it or
+// it is nowhere. The trial messages are assembled from parts by
+// internal/mailfmt, which places the address itself — as a button and as
+// readable text — so no string of theirs contains one, and requiring it would
+// mean a label reading "Tenant" had to have a URL in it.
 func TestEveryMessageKeepsTheLink(t *testing.T) {
 	catalog, err := i18n.Load()
 	if err != nil {
@@ -132,7 +142,7 @@ func TestEveryMessageKeepsTheLink(t *testing.T) {
 
 	for _, locale := range i18n.Supported() {
 		for _, key := range catalog.Keys(locale) {
-			if strings.HasSuffix(key, ".subject") {
+			if !strings.HasSuffix(key, ".body") && !strings.HasSuffix(key, ".sms") {
 				continue
 			}
 			out, err := catalog.Render(locale, key, sampleFor(key))

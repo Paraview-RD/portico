@@ -5,5 +5,25 @@
 
   "verification.email.subject": "确认你的 {{.Tenant}} 账号",
   "verification.email.body": "{{.Name}} 你好，\n\n有人用这个地址在 {{.Tenant}} 注册了账号（{{.Username}}）。打开下面的链接确认\n地址，注册即可完成：\n\n{{.Link}}\n\n链接只能使用一次，{{.Hours}} 小时后失效。如果不是你注册的，不需要做任何事\n——在有人打开那个链接之前，这个账号无法使用。\n",
-  "verification.sms": "确认你的 {{.Tenant}} 账号：{{.Link}}（{{.Hours}} 小时内有效）"
+  "verification.sms": "确认你的 {{.Tenant}} 账号：{{.Link}}（{{.Hours}} 小时内有效）",
+
+  "trial.confirm.subject": "确认你的 Portico 试用",
+  "trial.confirm.title": "确认你的试用",
+  "trial.confirm.intro": "有人用这个地址申请了 {{.Tenant}} 的 Portico 试用。现在还什么都没有创建 —— 点开下面的链接才会创建。",
+  "trial.confirm.action": "创建我的租户",
+  "trial.confirm.expiry": "链接只能使用一次，{{.Hours}} 小时内有效。",
+  "trial.confirm.ignore": "如果不是你本人操作，忽略这封信即可。什么都没有被创建，也不会被创建。",
+
+  "trial.ready.subject": "你的 Portico 试用租户：{{.Tenant}}",
+  "trial.ready.title": "你的试用租户已就绪。",
+  "trial.ready.signIn": "登录",
+  "trial.ready.action": "打开控制台",
+  "trial.ready.labelTenant": "租户编码",
+  "trial.ready.labelUsername": "用户名",
+  "trial.ready.labelPassword": "密码",
+  "trial.ready.recovery": "这个密码不会以任何可读回的形式保存，所以这封信是唯一的一份。不过你的邮箱已经写在这个管理员账号上，登录页的「忘记密码」能找到你。",
+  "trial.ready.demoHeading": "示例账号",
+  "trial.ready.demoBody": "租户里已经预置了一批示例人员和应用。那些账号都是普通用户，共用同一个密码 —— 用其中任何一个登录，就能看到非管理员眼中的样子。",
+  "trial.ready.demoLabel": "共用密码",
+  "trial.ready.footer": "这是演示环境，请不要放入任何真实数据。"
 }

@@ -307,6 +307,7 @@ internal/
   httpx/           响应封装、它承载的错误类型，以及请求日志和安全响应头
   secrets/         AES-GCM，给那一个必须能读回来、而不只是能校验的凭据用
   i18n/            消息目录，英文和中文
+  mailfmt/         一封邮件描述一次，渲染成纯文本和 HTML 两份
   casp/            CAS 协议，直接实现
   oidcp/           把 Portico 适配到 OpenID Provider 接口
   oidcrp/          反过来的方向：经由别人的 OpenID Provider 登录

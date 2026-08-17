@@ -30,10 +30,21 @@ var ErrNotConfigured = errors.New("notify: no provider is configured for this ch
 type Message struct {
 	To      string
 	Subject string
-	// Body is plain text. Portico sends no HTML mail: an identity server's
-	// messages are short and transactional, and an HTML part is mostly a way
-	// to be classified as marketing.
+	// Body is the plain-text form, and is never optional. It is what a
+	// screen reader, a terminal client, and a spam filter read, and what
+	// arrives when a client or a gateway strips the markup.
 	Body string
+	// HTML is the same message marked up, sent alongside Body as the
+	// alternative a client may prefer. Empty sends text alone.
+	//
+	// This used to say Portico sends no HTML mail, on the grounds that an
+	// HTML part is mostly a way to be classified as marketing. What changed
+	// the argument is not appearance: text/plain carries no formatting, so a
+	// client renders a generated password in whatever font it likes, and in
+	// a proportional one 0 and O — l and 1 — are the same few pixels in
+	// something somebody has to type. See internal/mailfmt, which builds
+	// both forms from one description so they cannot drift.
+	HTML string
 }
 
 // Mailer sends email.

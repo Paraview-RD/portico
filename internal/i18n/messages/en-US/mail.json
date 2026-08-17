@@ -5,5 +5,25 @@
 
   "verification.email.subject": "Confirm your {{.Tenant}} account",
   "verification.email.body": "Hello {{.Name}},\n\nAn account ({{.Username}}) was registered with this address on {{.Tenant}}.\nOpen this link to confirm the address and finish signing up:\n\n{{.Link}}\n\nThe link works once and expires in {{.Hours}} hours. If you did not\nregister, no action is needed — the account cannot be used until somebody\nopens that link.\n",
-  "verification.sms": "Confirm your {{.Tenant}} account: {{.Link}} (expires in {{.Hours}} hours)"
+  "verification.sms": "Confirm your {{.Tenant}} account: {{.Link}} (expires in {{.Hours}} hours)",
+
+  "trial.confirm.subject": "Confirm your Portico trial",
+  "trial.confirm.title": "Confirm your trial",
+  "trial.confirm.intro": "Somebody asked for a Portico trial for {{.Tenant}} using this address. Nothing has been created yet — opening the link below is what creates it.",
+  "trial.confirm.action": "Create my tenant",
+  "trial.confirm.expiry": "The link works once, and is good for {{.Hours}} hours.",
+  "trial.confirm.ignore": "If that was not you, ignore this message. Nothing was created, and nothing will be.",
+
+  "trial.ready.subject": "Your Portico trial: {{.Tenant}}",
+  "trial.ready.title": "Your trial tenant is ready.",
+  "trial.ready.signIn": "Sign in",
+  "trial.ready.action": "Open the console",
+  "trial.ready.labelTenant": "Tenant",
+  "trial.ready.labelUsername": "Username",
+  "trial.ready.labelPassword": "Password",
+  "trial.ready.recovery": "This password is not stored anywhere it can be read back, so this message is the only copy. Your address is on the administrator account, though, so \"forgot password\" on the sign-in screen will reach you here.",
+  "trial.ready.demoHeading": "Example accounts",
+  "trial.ready.demoBody": "The tenant is filled with example people and applications. Every one of those accounts is an ordinary user and they all share one password — sign in as one to see what somebody who is not an administrator sees.",
+  "trial.ready.demoLabel": "Shared password",
+  "trial.ready.footer": "This is a demonstration. Do not put anything real in it."
 }

@@ -362,6 +362,7 @@ internal/
   secrets/         AES-GCM, for the one credential that has to be readable
                    back rather than merely checkable
   i18n/            the message catalogues, English and Chinese
+  mailfmt/         one email described once, rendered as text and as HTML
   casp/            the CAS protocol, implemented directly
   oidcp/           adapts Portico to the OpenID Provider interface
   oidcrp/          the other direction: signing in through somebody else's

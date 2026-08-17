@@ -16,6 +16,7 @@ import (
 	"github.com/Paraview-RD/portico/internal/notify"
 	"github.com/Paraview-RD/portico/internal/provision"
 	"github.com/Paraview-RD/portico/internal/server"
+	"github.com/Paraview-RD/portico/internal/service"
 	"github.com/Paraview-RD/portico/internal/testdb"
 )
 
@@ -1314,8 +1315,14 @@ func TestALinkLastsADayRatherThanAnAfternoon(t *testing.T) {
 	// And the message says the number the constant says, rather than a second
 	// copy of it that drifts. It printed "within 2h0m0s" for as long as it
 	// existed, which is not a sentence anybody wrote on purpose.
-	if !strings.Contains(message.Body, "within 24 hours") {
-		t.Errorf("the message does not state the life of the link in words:\n%s",
-			message.Body)
+	//
+	// The number rather than the sentence: the wording is translated copy and
+	// belongs to whoever writes it, while the figure in it has to come from
+	// TrialTokenTTL or the message is telling somebody a deadline the server
+	// does not keep.
+	hours := fmt.Sprintf("%d hours", int(service.TrialTokenTTL.Hours()))
+	if !strings.Contains(message.Body, hours) {
+		t.Errorf("the message does not state the life of the link in words (%q):\n%s",
+			hours, message.Body)
 	}
 }

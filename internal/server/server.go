@@ -138,7 +138,8 @@ func New(cfg *config.Config, opts ...Option) (*Server, error) {
 	trials := service.NewTrialService(
 		st, tenants, users, deps.mailer, audit,
 		cfg.TrialSignup, cfg.TrialMaxTenants, cfg.PublicURL).
-		WithBlockedEmailDomains(cfg.TrialBlockedEmailDomains)
+		WithBlockedEmailDomains(cfg.TrialBlockedEmailDomains).
+		WithLocale(cfg.DefaultLocale)
 
 	clients := service.NewOAuthClientService(st, audit)
 	keys := service.NewSigningKeyService(st)

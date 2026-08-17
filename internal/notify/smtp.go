@@ -102,6 +102,12 @@ func (m *smtpMailer) Send(ctx context.Context, msg Message) error {
 	}
 	message.Subject(msg.Subject)
 	message.SetBodyString(mail.TypeTextPlain, msg.Body)
+	if msg.HTML != "" {
+		// Added after the text, which is the order multipart/alternative
+		// takes as preference: a client shows the last part it understands.
+		// Reversed, every client that understands HTML would show the text.
+		message.AddAlternativeString(mail.TypeTextHTML, msg.HTML)
+	}
 
 	if err := m.client.DialAndSendWithContext(ctx, message); err != nil {
 		return fmt.Errorf("notify: send mail: %w", err)

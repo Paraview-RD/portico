@@ -111,6 +111,30 @@ const (
 	KeyVerificationEmailSubject = "verification.email.subject"
 	KeyVerificationEmailBody    = "verification.email.body"
 	KeyVerificationSMS          = "verification.sms"
+
+	// The two messages a self-service trial sends. Written as parts rather
+	// than as one body each, because they are rendered twice — as text and
+	// as HTML — from one description, and a paragraph that has to appear in
+	// both cannot be a paragraph of markup. See internal/mailfmt.
+	KeyTrialConfirmSubject = "trial.confirm.subject"
+	KeyTrialConfirmTitle   = "trial.confirm.title"
+	KeyTrialConfirmIntro   = "trial.confirm.intro"
+	KeyTrialConfirmAction  = "trial.confirm.action"
+	KeyTrialConfirmExpiry  = "trial.confirm.expiry"
+	KeyTrialConfirmIgnore  = "trial.confirm.ignore"
+
+	KeyTrialReadySubject       = "trial.ready.subject"
+	KeyTrialReadyTitle         = "trial.ready.title"
+	KeyTrialReadySignIn        = "trial.ready.signIn"
+	KeyTrialReadyAction        = "trial.ready.action"
+	KeyTrialReadyLabelTenant   = "trial.ready.labelTenant"
+	KeyTrialReadyLabelUsername = "trial.ready.labelUsername"
+	KeyTrialReadyLabelPassword = "trial.ready.labelPassword"
+	KeyTrialReadyRecovery      = "trial.ready.recovery"
+	KeyTrialReadyDemoHeading   = "trial.ready.demoHeading"
+	KeyTrialReadyDemoBody      = "trial.ready.demoBody"
+	KeyTrialReadyDemoLabel     = "trial.ready.demoLabel"
+	KeyTrialReadyFooter        = "trial.ready.footer"
 )
 
 // RecoveryData is what the password-recovery messages are rendered with.
@@ -135,6 +159,19 @@ type VerificationData struct {
 	Username string
 	Link     string
 	Hours    int
+}
+
+// TrialData is what the self-service trial messages are rendered with.
+//
+// No Link field, unlike the two above: the address in these messages is a
+// button and a line of readable text, both built by internal/mailfmt from
+// one value. A link pasted into a translated sentence can be dropped by a
+// translator; one the layout places cannot.
+type TrialData struct {
+	// Tenant is what the visitor called it, which is a string a stranger
+	// typed. Nothing here escapes it — mailfmt does, for both renderings.
+	Tenant string
+	Hours  int
 }
 
 //go:embed all:messages
