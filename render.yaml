@@ -72,6 +72,25 @@ services:
       - key: PORTICO_ENCRYPTION_KEY
         sync: false
 
+      # The password the `admin` account is created with, on the first start
+      # against an empty database.
+      #
+      # Asked for at apply time, and that timing is the whole point. Left
+      # unset, the account is created with the default that is written down in
+      # docs/access-guide.md — and sign-in refuses it until it is replaced,
+      # which protects an instance on somebody's laptop and does nothing for
+      # one on a public address: the first stranger to read the manual is
+      # offered the replacement prompt, and whoever answers it chooses a
+      # password the owner does not know, on an account with no address to
+      # recover through.
+      #
+      # There is no window to fix this in afterwards. The service is reachable
+      # from the moment it deploys, and the account exists from the moment it
+      # first starts. Which is why this is a prompt rather than a note in a
+      # document about what to change later.
+      - key: PORTICO_INITIAL_ADMIN_PASSWORD
+        sync: false
+
       # The address this deployment answers on, which only exists after the
       # first deploy — so it is filled in afterwards, and the service
       # redeployed. It is not cosmetic: OpenID Connect redirects and SAML
