@@ -422,6 +422,13 @@ func (s *Scoped) UpdateOAuthClientSecret(ctx context.Context, clientID string, s
 	})
 }
 
+// ClearRecoveryQuota gives an account its daily recovery allowance back by
+// moving where the count starts.
+func (s *Scoped) ClearRecoveryQuota(ctx context.Context, userID string, at time.Time) error {
+	return s.q.ClearRecoveryQuota(ctx,
+		sqlcgen.ClearRecoveryQuotaParams{TenantID: s.tenantID, ID: userID, RecoveryQuotaClearedAt: &at})
+}
+
 // CountRecentPasswordResets reports how many reset messages an account has
 // been sent since the given time.
 func (s *Scoped) CountRecentPasswordResets(ctx context.Context, userID string, since time.Time) (int64, error) {

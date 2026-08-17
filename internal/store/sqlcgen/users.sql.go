@@ -52,6 +52,29 @@ func (q *Queries) ClearLoginFailures(ctx context.Context, arg ClearLoginFailures
 	return err
 }
 
+const clearRecoveryQuota = `-- name: ClearRecoveryQuota :exec
+UPDATE users
+SET recovery_quota_cleared_at = $3, updated_at = $3
+WHERE tenant_id = $1 AND id = $2
+`
+
+type ClearRecoveryQuotaParams struct {
+	TenantID               string
+	ID                     string
+	RecoveryQuotaClearedAt *time.Time
+}
+
+// Gives an account its daily password-recovery allowance back.
+//
+// Moves where counting starts rather than deleting what was counted. See the
+// column comment in migration 00027: password_resets is the record of what
+// was sent, kept for thirty days so it can be consulted, and an allowance
+// being restored is not a reason to lose it.
+func (q *Queries) ClearRecoveryQuota(ctx context.Context, arg ClearRecoveryQuotaParams) error {
+	_, err := q.db.ExecContext(ctx, clearRecoveryQuota, arg.TenantID, arg.ID, arg.RecoveryQuotaClearedAt)
+	return err
+}
+
 const closeUserAccount = `-- name: CloseUserAccount :exec
 UPDATE users
 SET status = 'DISABLED',
@@ -274,7 +297,7 @@ func (q *Queries) CreateUser(ctx context.Context, arg CreateUserParams) error {
 }
 
 const getUserByEmail = `-- name: GetUserByEmail :one
-SELECT id, tenant_id, username, display_name, password_hash, phone, email, role, status, organization_id, token_version, source, external_id, failed_login_attempts, last_failed_login_at, locked_until, password_changed_at, created_at, updated_at, ldap_source_id, closed_at, verified_at, name_formatted, family_name, given_name, middle_name, honorific_prefix, honorific_suffix, nick_name, profile_url, photo_url, title, user_type, preferred_language, locale, timezone, address_formatted, street_address, locality, region, postal_code, country, employee_number, cost_center, department, manager_id, must_change_password FROM users WHERE tenant_id = $1 AND email <> '' AND email = $2 LIMIT 1
+SELECT id, tenant_id, username, display_name, password_hash, phone, email, role, status, organization_id, token_version, source, external_id, failed_login_attempts, last_failed_login_at, locked_until, password_changed_at, created_at, updated_at, ldap_source_id, closed_at, verified_at, name_formatted, family_name, given_name, middle_name, honorific_prefix, honorific_suffix, nick_name, profile_url, photo_url, title, user_type, preferred_language, locale, timezone, address_formatted, street_address, locality, region, postal_code, country, employee_number, cost_center, department, manager_id, must_change_password, recovery_quota_cleared_at FROM users WHERE tenant_id = $1 AND email <> '' AND email = $2 LIMIT 1
 `
 
 type GetUserByEmailParams struct {
@@ -336,12 +359,13 @@ func (q *Queries) GetUserByEmail(ctx context.Context, arg GetUserByEmailParams) 
 		&i.Department,
 		&i.ManagerID,
 		&i.MustChangePassword,
+		&i.RecoveryQuotaClearedAt,
 	)
 	return i, err
 }
 
 const getUserByID = `-- name: GetUserByID :one
-SELECT id, tenant_id, username, display_name, password_hash, phone, email, role, status, organization_id, token_version, source, external_id, failed_login_attempts, last_failed_login_at, locked_until, password_changed_at, created_at, updated_at, ldap_source_id, closed_at, verified_at, name_formatted, family_name, given_name, middle_name, honorific_prefix, honorific_suffix, nick_name, profile_url, photo_url, title, user_type, preferred_language, locale, timezone, address_formatted, street_address, locality, region, postal_code, country, employee_number, cost_center, department, manager_id, must_change_password FROM users WHERE tenant_id = $1 AND id = $2 LIMIT 1
+SELECT id, tenant_id, username, display_name, password_hash, phone, email, role, status, organization_id, token_version, source, external_id, failed_login_attempts, last_failed_login_at, locked_until, password_changed_at, created_at, updated_at, ldap_source_id, closed_at, verified_at, name_formatted, family_name, given_name, middle_name, honorific_prefix, honorific_suffix, nick_name, profile_url, photo_url, title, user_type, preferred_language, locale, timezone, address_formatted, street_address, locality, region, postal_code, country, employee_number, cost_center, department, manager_id, must_change_password, recovery_quota_cleared_at FROM users WHERE tenant_id = $1 AND id = $2 LIMIT 1
 `
 
 type GetUserByIDParams struct {
@@ -400,12 +424,13 @@ func (q *Queries) GetUserByID(ctx context.Context, arg GetUserByIDParams) (User,
 		&i.Department,
 		&i.ManagerID,
 		&i.MustChangePassword,
+		&i.RecoveryQuotaClearedAt,
 	)
 	return i, err
 }
 
 const getUserByIdentifier = `-- name: GetUserByIdentifier :one
-SELECT id, tenant_id, username, display_name, password_hash, phone, email, role, status, organization_id, token_version, source, external_id, failed_login_attempts, last_failed_login_at, locked_until, password_changed_at, created_at, updated_at, ldap_source_id, closed_at, verified_at, name_formatted, family_name, given_name, middle_name, honorific_prefix, honorific_suffix, nick_name, profile_url, photo_url, title, user_type, preferred_language, locale, timezone, address_formatted, street_address, locality, region, postal_code, country, employee_number, cost_center, department, manager_id, must_change_password FROM users
+SELECT id, tenant_id, username, display_name, password_hash, phone, email, role, status, organization_id, token_version, source, external_id, failed_login_attempts, last_failed_login_at, locked_until, password_changed_at, created_at, updated_at, ldap_source_id, closed_at, verified_at, name_formatted, family_name, given_name, middle_name, honorific_prefix, honorific_suffix, nick_name, profile_url, photo_url, title, user_type, preferred_language, locale, timezone, address_formatted, street_address, locality, region, postal_code, country, employee_number, cost_center, department, manager_id, must_change_password, recovery_quota_cleared_at FROM users
 WHERE tenant_id = $1
   AND (username = $2
        OR (email <> '' AND email = $2)
@@ -488,12 +513,13 @@ func (q *Queries) GetUserByIdentifier(ctx context.Context, arg GetUserByIdentifi
 		&i.Department,
 		&i.ManagerID,
 		&i.MustChangePassword,
+		&i.RecoveryQuotaClearedAt,
 	)
 	return i, err
 }
 
 const getUserByPhone = `-- name: GetUserByPhone :one
-SELECT id, tenant_id, username, display_name, password_hash, phone, email, role, status, organization_id, token_version, source, external_id, failed_login_attempts, last_failed_login_at, locked_until, password_changed_at, created_at, updated_at, ldap_source_id, closed_at, verified_at, name_formatted, family_name, given_name, middle_name, honorific_prefix, honorific_suffix, nick_name, profile_url, photo_url, title, user_type, preferred_language, locale, timezone, address_formatted, street_address, locality, region, postal_code, country, employee_number, cost_center, department, manager_id, must_change_password FROM users WHERE tenant_id = $1 AND phone <> '' AND phone = $2 LIMIT 1
+SELECT id, tenant_id, username, display_name, password_hash, phone, email, role, status, organization_id, token_version, source, external_id, failed_login_attempts, last_failed_login_at, locked_until, password_changed_at, created_at, updated_at, ldap_source_id, closed_at, verified_at, name_formatted, family_name, given_name, middle_name, honorific_prefix, honorific_suffix, nick_name, profile_url, photo_url, title, user_type, preferred_language, locale, timezone, address_formatted, street_address, locality, region, postal_code, country, employee_number, cost_center, department, manager_id, must_change_password, recovery_quota_cleared_at FROM users WHERE tenant_id = $1 AND phone <> '' AND phone = $2 LIMIT 1
 `
 
 type GetUserByPhoneParams struct {
@@ -553,12 +579,13 @@ func (q *Queries) GetUserByPhone(ctx context.Context, arg GetUserByPhoneParams) 
 		&i.Department,
 		&i.ManagerID,
 		&i.MustChangePassword,
+		&i.RecoveryQuotaClearedAt,
 	)
 	return i, err
 }
 
 const getUserByUsername = `-- name: GetUserByUsername :one
-SELECT id, tenant_id, username, display_name, password_hash, phone, email, role, status, organization_id, token_version, source, external_id, failed_login_attempts, last_failed_login_at, locked_until, password_changed_at, created_at, updated_at, ldap_source_id, closed_at, verified_at, name_formatted, family_name, given_name, middle_name, honorific_prefix, honorific_suffix, nick_name, profile_url, photo_url, title, user_type, preferred_language, locale, timezone, address_formatted, street_address, locality, region, postal_code, country, employee_number, cost_center, department, manager_id, must_change_password FROM users WHERE tenant_id = $1 AND username = $2 LIMIT 1
+SELECT id, tenant_id, username, display_name, password_hash, phone, email, role, status, organization_id, token_version, source, external_id, failed_login_attempts, last_failed_login_at, locked_until, password_changed_at, created_at, updated_at, ldap_source_id, closed_at, verified_at, name_formatted, family_name, given_name, middle_name, honorific_prefix, honorific_suffix, nick_name, profile_url, photo_url, title, user_type, preferred_language, locale, timezone, address_formatted, street_address, locality, region, postal_code, country, employee_number, cost_center, department, manager_id, must_change_password, recovery_quota_cleared_at FROM users WHERE tenant_id = $1 AND username = $2 LIMIT 1
 `
 
 type GetUserByUsernameParams struct {
@@ -617,12 +644,13 @@ func (q *Queries) GetUserByUsername(ctx context.Context, arg GetUserByUsernamePa
 		&i.Department,
 		&i.ManagerID,
 		&i.MustChangePassword,
+		&i.RecoveryQuotaClearedAt,
 	)
 	return i, err
 }
 
 const listUsersByIDs = `-- name: ListUsersByIDs :many
-SELECT id, tenant_id, username, display_name, password_hash, phone, email, role, status, organization_id, token_version, source, external_id, failed_login_attempts, last_failed_login_at, locked_until, password_changed_at, created_at, updated_at, ldap_source_id, closed_at, verified_at, name_formatted, family_name, given_name, middle_name, honorific_prefix, honorific_suffix, nick_name, profile_url, photo_url, title, user_type, preferred_language, locale, timezone, address_formatted, street_address, locality, region, postal_code, country, employee_number, cost_center, department, manager_id, must_change_password FROM users WHERE tenant_id = $1 AND id = ANY($2::text[])
+SELECT id, tenant_id, username, display_name, password_hash, phone, email, role, status, organization_id, token_version, source, external_id, failed_login_attempts, last_failed_login_at, locked_until, password_changed_at, created_at, updated_at, ldap_source_id, closed_at, verified_at, name_formatted, family_name, given_name, middle_name, honorific_prefix, honorific_suffix, nick_name, profile_url, photo_url, title, user_type, preferred_language, locale, timezone, address_formatted, street_address, locality, region, postal_code, country, employee_number, cost_center, department, manager_id, must_change_password, recovery_quota_cleared_at FROM users WHERE tenant_id = $1 AND id = ANY($2::text[])
 `
 
 type ListUsersByIDsParams struct {
@@ -687,6 +715,7 @@ func (q *Queries) ListUsersByIDs(ctx context.Context, arg ListUsersByIDsParams) 
 			&i.Department,
 			&i.ManagerID,
 			&i.MustChangePassword,
+			&i.RecoveryQuotaClearedAt,
 		); err != nil {
 			return nil, err
 		}

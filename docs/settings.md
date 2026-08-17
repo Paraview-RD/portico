@@ -52,8 +52,14 @@ and shared by every tenant on the deployment, and losing either takes
 recovery down for all of them. A setting here would put the decision with
 the party that does not pay for it. Reaching the cap is silent to whoever
 asked — saying "too many" out loud would confirm that the address has an
-account here — and recorded in the audit trail, which is where to look when
-somebody reports that no reset message arrives.
+account here.
+
+Silent is not the same as permanent. When somebody reports that no reset
+message arrives, open **Reset password** on their account: if the cap is why,
+the dialog says so and offers to start sending again, which is the lighter of
+the two things you could do there. Setting a password by hand also works and
+is the wrong shape — it means reading a password down a telephone to somebody
+who never lost theirs.
 
 The lock is checked *after* the password is compared, so a wrong guess never
 learns that an account is locked. It does not extend on further attempts,

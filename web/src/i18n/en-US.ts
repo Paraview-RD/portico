@@ -188,6 +188,9 @@ export const enUS = {
   "users.resetPassword": "Reset password",
   "users.unlock": "Unlock",
   "users.lockedUntil": "Locked until {0}",
+  "users.recoveryLimitReached":
+    "This account has been sent its limit of {0} password-reset messages today, so no further ones are going out. That may be why they are not receiving them.",
+  "users.clearRecoveryLimit": "Send them again",
   "users.noOrganization": "—",
   "users.createTitle": "New user",
   "users.editTitle": "Edit user",

@@ -170,6 +170,9 @@ export const zhCN: Record<keyof typeof enUS, string> = {
   "users.resetPassword": "重置密码",
   "users.unlock": "解锁",
   "users.lockedUntil": "锁定至 {0}",
+  "users.recoveryLimitReached":
+    "这个账号今天已经收到上限的 {0} 封重置邮件，之后的都没有发出。对方收不到，可能就是因为这个。",
+  "users.clearRecoveryLimit": "恢复发送",
   "users.noOrganization": "—",
   "users.createTitle": "新建用户",
   "users.editTitle": "编辑用户",

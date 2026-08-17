@@ -89,7 +89,12 @@ const (
 	ActionUserDisable = "USER_DISABLE"
 	ActionUserImport  = "USER_IMPORT"
 	ActionUserUnlock  = "USER_UNLOCK"
-	ActionUserSelfReg = "USER_SELF_REGISTER"
+	// ActionUserRecoveryLimitClear is an administrator handing back the daily
+	// password-recovery allowance. Its own action rather than an unlock,
+	// because the two answer different reports: "I cannot sign in" and "no
+	// reset message ever arrives".
+	ActionUserRecoveryLimitClear = "USER_RECOVERY_LIMIT_CLEAR"
+	ActionUserSelfReg            = "USER_SELF_REGISTER"
 	// A self-registered account proving the address it gave. Two verbs
 	// rather than one: a burst of sends with no confirmations is a
 	// deliverability problem, and the two counts side by side are what make

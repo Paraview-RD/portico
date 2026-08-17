@@ -60,6 +60,28 @@ func (h *Handler) GetUser(w http.ResponseWriter, r *http.Request) {
 		user.Attachments = attachments
 	}
 
+	// How much recovery mail this account has been sent, on the same terms.
+	// It is the only way to tell "our messages are not reaching them" from
+	// "we stopped sending", and the second is silent everywhere else by
+	// design — the caller of the recovery endpoint must not learn it.
+	if sent, err := h.recovery.RecoverySentToday(r.Context(), principal.TenantID, user.ID); err == nil {
+		limit := service.RecoveryPerAccountPerDay
+		user.RecoverySentToday, user.RecoveryLimit = &sent, &limit
+	}
+
+	httpx.OK(w, user)
+}
+
+// ClearUserRecoveryLimit hands back an account's daily password-recovery
+// allowance, leaving the password and any lockout alone.
+func (h *Handler) ClearUserRecoveryLimit(w http.ResponseWriter, r *http.Request) {
+	principal := auth.MustPrincipal(r.Context())
+
+	user, err := h.users.ClearRecoveryLimit(r.Context(), principal, chi.URLParam(r, "id"))
+	if err != nil {
+		httpx.Fail(w, r, err)
+		return
+	}
 	httpx.OK(w, user)
 }
 

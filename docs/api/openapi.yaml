@@ -1529,6 +1529,36 @@ paths:
         "404":
           $ref: "#/components/responses/NotFound"
 
+  /api/v1/users/{id}/clear-recovery-limit:
+    post:
+      tags: [Users]
+      operationId: clearUserRecoveryLimit
+      summary: Hand back the daily password-recovery allowance.
+      description: |
+        An account may be sent only so many password-reset messages a day,
+        because every message spends a sending quota and a sender reputation
+        shared by every tenant on the deployment. Reaching that limit is
+        silent to whoever asked — saying "too many" out loud would confirm
+        that the submitted address has an account here — so this is the only
+        way back that does not involve an administrator choosing somebody's
+        password for them.
+
+        Leaves the password and any lockout alone. Clearing an allowance that
+        was never spent does nothing, which is why no confirmation is asked
+        for.
+      parameters:
+        - $ref: "#/components/parameters/ID"
+      responses:
+        "200":
+          description: The allowance was restored.
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/UserEnvelope" }
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+
   /api/v1/users/{id}/administered-organizations:
     get:
       tags: [Users]
@@ -4630,6 +4660,27 @@ components:
               id: { type: string }
               name: { type: string }
               code: { type: string }
+        recoverySentToday:
+          type: integer
+          description: |
+            How many password-reset messages this account has been sent inside
+            its current daily window. Present on a single account, absent from
+            a page of them, on the same terms as `attachments`.
+
+            It is the only place the daily recovery limit is visible. Reaching
+            it is silent to whoever asked — being told "too many" would
+            confirm that the submitted address has an account here — so
+            without this an administrator cannot tell "our messages are not
+            reaching them" from "we stopped sending". Compare it against the
+            limit, and hand the allowance back with
+            `POST /api/v1/users/{id}/clear-recovery-limit`.
+        recoveryLimit:
+          type: integer
+          description: |
+            What `recoverySentToday` is counted against, sent beside it
+            because a count with no ceiling cannot be read. Deployment-wide
+            and not configurable: the budget it protects is shared by every
+            tenant, so it is not one tenant's to raise.
         createdAt: { type: string, format: date-time }
         updatedAt: { type: string, format: date-time }
 

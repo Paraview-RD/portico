@@ -211,6 +211,13 @@ func (s *Server) routes() http.Handler {
 				// Clearing a lockout without touching the password: the
 				// person mistyped, they did not lose the password.
 				r.Post("/{id}/unlock", h.UnlockUser)
+				// And the other silent stop: the account asked for a reset
+				// link more times than a day allows, so Portico stopped
+				// sending. Nobody was told, because telling the caller would
+				// confirm the address has an account here — which leaves this
+				// as the only way back that is not an administrator choosing
+				// somebody's password for them.
+				r.Post("/{id}/clear-recovery-limit", h.ClearUserRecoveryLimit)
 
 				// What is signed in as this person, and ending one of them.
 				r.Get("/{id}/administered-organizations", h.ListAdministeredOrganizations)

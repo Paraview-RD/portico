@@ -158,6 +158,29 @@ type User struct {
 	// users does not pay for them.
 	Attachments []OrganizationRef `json:"attachments,omitempty"`
 
+	// RecoverySentToday is how many password-reset messages this account has
+	// been sent inside its current daily window, and is set only when one
+	// account is fetched — the account list does not carry it, for the same
+	// reason it does not carry Attachments: it costs a query, and the
+	// question is asked while looking at one person.
+	//
+	// A pointer so that "not asked for" and "none sent" are different values
+	// on the wire. A console that showed nothing for the first and "0 of 5"
+	// for the second would be reading a list row as though it were a fetched
+	// account, and would tell an administrator that a person who is at their
+	// limit has sent nothing.
+	RecoverySentToday *int `json:"recoverySentToday,omitempty"`
+
+	// RecoveryLimit is the figure RecoverySentToday is counted against, sent
+	// alongside it rather than left for the console to know.
+	//
+	// A count with no limit beside it cannot be read: "four messages today"
+	// means nothing until you know whether the ceiling is three or fifty. The
+	// alternative is the console holding its own copy of the number, which is
+	// the kind of duplicate that is right on the day it is written and wrong
+	// the first time somebody changes the constant.
+	RecoveryLimit *int `json:"recoveryLimit,omitempty"`
+
 	// OrganizationID is empty when the user belongs to no organization,
 	// which is the default for self-registered accounts (§3.4.2).
 	OrganizationID string `json:"organizationId"`

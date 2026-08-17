@@ -437,6 +437,14 @@ export const userApi = {
   unlock: (id: string) =>
     request<User>(`/users/${id}/unlock`, { method: "POST" }),
 
+  /**
+   * Hands back the daily password-recovery allowance, leaving the password
+   * and any lockout alone. The lighter of the two answers to "no reset
+   * message ever arrives" — the other is choosing their password for them.
+   */
+  clearRecoveryLimit: (id: string) =>
+    request<User>(`/users/${id}/clear-recovery-limit`, { method: "POST" }),
+
   resetPassword: (id: string, newPassword: string) =>
     request<null>(`/users/${id}/password`, {
       method: "POST",

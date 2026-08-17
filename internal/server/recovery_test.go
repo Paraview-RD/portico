@@ -675,3 +675,75 @@ func TestRecoveryDoesNotCountRequestsForAnUnknownAddress(t *testing.T) {
 	}
 	mailer.waitFor(t, 1)
 }
+
+// An administrator can give the allowance back, and mail resumes.
+//
+// This closes the one gap the cap opened. Every other control here can be
+// waited out or undone: a lockout has an unlock button, a rate limiter
+// refills, a trial link expires. The daily recovery cap was silent to the
+// person who hit it and invisible to everybody else, so an account holder
+// reporting "no reset message arrives" left an administrator with exactly
+// one move — setting the password by hand, which is the heavier thing that
+// Unlock exists to avoid being the only answer to a lockout.
+func TestClearingTheRecoveryLimitLetsMailResume(t *testing.T) {
+	api, mailer := newRecoveryTest(t)
+	admin := api.adminToken()
+
+	res := api.do(http.MethodPost, "/api/v1/users", admin, map[string]string{
+		"username": "otto", "displayName": "Otto", "password": "otto-old-pass-1",
+		"email": "otto@example.com",
+	})
+	if res.Status != http.StatusOK {
+		t.Fatalf("create user: %d %s", res.Status, res.Message)
+	}
+	var created struct {
+		ID string `json:"id"`
+	}
+	res.into(t, &created)
+
+	for i := range service.RecoveryPerAccountPerDay {
+		api.requestRecovery("EMAIL", "otto@example.com")
+		mailer.waitFor(t, i+1)
+	}
+
+	// The cap is reached, and an administrator can see that it is — the
+	// person who hit it cannot be told, but whoever is being asked to help
+	// has to be, or the only remaining move is guessing.
+	detail := api.do(http.MethodGet, "/api/v1/users/"+created.ID, admin, nil)
+	if detail.Status != http.StatusOK {
+		t.Fatalf("get user: %d %s", detail.Status, detail.Message)
+	}
+	var before struct {
+		RecoverySentToday *int `json:"recoverySentToday"`
+	}
+	detail.into(t, &before)
+	if before.RecoverySentToday == nil || *before.RecoverySentToday != service.RecoveryPerAccountPerDay {
+		t.Fatalf("recoverySentToday = %v, want %d", before.RecoverySentToday,
+			service.RecoveryPerAccountPerDay)
+	}
+
+	sent := len(mailer.sent())
+	if res := api.do(http.MethodPost,
+		"/api/v1/users/"+created.ID+"/clear-recovery-limit", admin, nil); res.Status != http.StatusOK {
+		t.Fatalf("clear the limit: %d %s %s", res.Status, res.Code, res.Message)
+	}
+
+	if res := api.requestRecovery("EMAIL", "otto@example.com"); res.Status != http.StatusOK {
+		t.Fatalf("request after clearing: %d %s", res.Status, res.Message)
+	}
+	mailer.waitFor(t, sent+1)
+
+	// And the count restarts from the clear rather than from the rows, which
+	// stay where they are — "was a reset link issued for this account" is a
+	// question the operational table is kept to answer, and clearing an
+	// allowance is not a reason to stop being able to answer it.
+	after := api.do(http.MethodGet, "/api/v1/users/"+created.ID, admin, nil)
+	var counted struct {
+		RecoverySentToday *int `json:"recoverySentToday"`
+	}
+	after.into(t, &counted)
+	if counted.RecoverySentToday == nil || *counted.RecoverySentToday != 1 {
+		t.Errorf("recoverySentToday = %v after clearing and one more request, want 1",
+			counted.RecoverySentToday)
+	}
+}

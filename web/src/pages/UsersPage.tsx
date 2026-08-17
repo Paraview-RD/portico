@@ -1301,11 +1301,56 @@ function ResetPasswordDialog({
   const [password, setPassword] = useState("");
   const [error, setError] = useState("");
   const [submitting, setSubmitting] = useState(false);
+  // How much recovery mail this account has been sent, and whether that is
+  // why they are here. Fetched rather than read off the row: it costs a
+  // query, so the account list does not carry it.
+  const [recovery, setRecovery] = useState<{
+    sent: number;
+    limit: number;
+  } | null>(null);
+  const [clearing, setClearing] = useState(false);
 
   useEffect(() => {
     setPassword("");
     setError("");
+    setRecovery(null);
+    if (!user) return;
+    let current = true;
+    userApi
+      .get(user.id)
+      .then((account) => {
+        if (!current) return;
+        if (
+          account.recoverySentToday !== undefined &&
+          account.recoveryLimit !== undefined
+        ) {
+          setRecovery({
+            sent: account.recoverySentToday,
+            limit: account.recoveryLimit,
+          });
+        }
+      })
+      // Silent. This sits beside the field somebody came here to fill in,
+      // and a failed lookup must not stop them resetting a password.
+      .catch(() => {});
+    return () => {
+      current = false;
+    };
   }, [user]);
+
+  async function clearRecoveryLimit() {
+    if (!user) return;
+    setError("");
+    setClearing(true);
+    try {
+      await userApi.clearRecoveryLimit(user.id);
+      setRecovery((current) => (current ? { ...current, sent: 0 } : current));
+    } catch (err) {
+      setError(describeError(err));
+    } finally {
+      setClearing(false);
+    }
+  }
 
   async function handleSubmit(event: React.FormEvent) {
     event.preventDefault();
@@ -1358,6 +1403,30 @@ function ResetPasswordDialog({
         </Field>
         {error && <Alert tone="danger">{error}</Alert>}
       </form>
+
+      {/* The lighter answer, offered beside the heavier one. Somebody who
+          reports that no reset message arrives may not have lost their
+          password at all — they may simply have asked too many times and
+          been stopped without being told. Setting a password for them would
+          work and is the wrong shape: an administrator reading a password
+          down a telephone to somebody who still knows theirs. */}
+      {recovery !== null && recovery.sent >= recovery.limit && (
+        <div className="mt-4">
+          <Alert tone="warning">
+            <div className="flex flex-wrap items-center justify-between gap-3">
+              <span>{t("users.recoveryLimitReached", recovery.limit)}</span>
+              <Button
+                size="sm"
+                variant="secondary"
+                disabled={clearing}
+                onClick={() => void clearRecoveryLimit()}
+              >
+                {t("users.clearRecoveryLimit")}
+              </Button>
+            </div>
+          </Alert>
+        </div>
+      )}
     </Modal>
   );
 }

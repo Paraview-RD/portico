@@ -299,6 +299,7 @@ func (s *UserService) List(ctx context.Context, tenantID string, q UserQuery, pa
 		`SELECT id, tenant_id, username, display_name, password_hash, phone, email, role, status,
 		        organization_id, token_version, source,
 		        failed_login_attempts, last_failed_login_at, locked_until,
+		        recovery_quota_cleared_at,
 		        password_changed_at, must_change_password,
 		        external_id, ldap_source_id, closed_at, verified_at,
 		        name_formatted, family_name, given_name, middle_name,
@@ -322,6 +323,7 @@ func (s *UserService) List(ctx context.Context, tenantID string, q UserQuery, pa
 			&u.ID, &u.TenantID, &u.Username, &u.DisplayName, &u.PasswordHash, &u.Phone, &u.Email,
 			&u.Role, &u.Status, &u.OrganizationID, &u.TokenVersion, &u.Source,
 			&u.FailedLoginAttempts, &u.LastFailedLoginAt, &u.LockedUntil,
+			&u.RecoveryQuotaClearedAt,
 			&u.PasswordChangedAt, &u.MustChangePassword,
 			&u.ExternalID, &u.LdapSourceID, &u.ClosedAt, &u.VerifiedAt,
 			&u.NameFormatted, &u.FamilyName, &u.GivenName, &u.MiddleName,
@@ -587,6 +589,39 @@ func (s *UserService) Unlock(ctx context.Context, actor auth.Principal, userID s
 	}
 	s.publish(ctx, actor.TenantID, webhook.EventUserUnlocked, unlocked)
 	return unlocked, nil
+}
+
+// ClearRecoveryLimit gives an account its daily password-recovery allowance
+// back, without changing the password and without touching the lockout.
+//
+// It is the third of a set, and the distinction between them is the whole
+// reason there are three. Unlock answers "they mistyped their password".
+// ResetPassword answers "they have lost it". This answers "they asked for a
+// reset link too many times and we quietly stopped sending" — which, before
+// this existed, only ResetPassword could answer, and answering it that way
+// means an administrator reading a password down a telephone to somebody who
+// had not actually lost theirs.
+//
+// No confirmation is asked for in the console, on the same grounds as
+// extending a tenant: it takes nothing away. The worst outcome of clearing an
+// allowance nobody had spent is that nothing happens.
+func (s *UserService) ClearRecoveryLimit(ctx context.Context, actor auth.Principal, userID string) (model.User, error) {
+	target, err := s.Get(ctx, actor.TenantID, userID)
+	if err != nil {
+		return model.User{}, err
+	}
+
+	if err := s.store.ForTenant(actor.TenantID).ClearRecoveryQuota(ctx, userID, store.Now()); err != nil {
+		return model.User{}, fmt.Errorf("clear recovery limit: %w", err)
+	}
+
+	s.audit.Log(ctx, actor.TenantID, AuditEntry{
+		Kind: model.LogOperation, Action: model.ActionUserRecoveryLimitClear,
+		ActorID: actor.UserID, ActorName: actor.Username,
+		TargetType: "USER", TargetID: target.ID, TargetName: target.Username,
+	})
+
+	return s.Get(ctx, actor.TenantID, userID)
 }
 
 // SetStatus enables or disables an account. Disabling also revokes any live

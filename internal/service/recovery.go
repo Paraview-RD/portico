@@ -59,6 +59,47 @@ const RecoveryTokenTTL = 30 * time.Minute
 // for the opposite reason: it spends nothing outside the tenant.
 const RecoveryPerAccountPerDay = 5
 
+// recoveryWindowStart is where counting begins for one account: a day ago,
+// or the moment an administrator last handed the allowance back, whichever
+// is later.
+//
+// Taking the later of the two is what makes clearing mean anything. Counting
+// from a fixed day-ago would return the same number the instant after the
+// allowance was restored, and the button would appear to do nothing; counting
+// from the clear alone would mean an account cleared a week ago has had no
+// cap since.
+//
+// Its own function because it is the whole of the rule, it is easy to write
+// backwards, and a test can state it without a database.
+func recoveryWindowStart(now time.Time, clearedAt *time.Time) time.Time {
+	start := now.Add(-24 * time.Hour)
+	if clearedAt != nil && clearedAt.After(start) {
+		return *clearedAt
+	}
+	return start
+}
+
+// RecoverySentToday reports how many reset messages an account has been sent
+// inside its current window, which is what an administrator needs in order to
+// tell "they are not receiving our mail" from "we stopped sending it".
+//
+// Not on the account list. It costs a query per account, and the question is
+// asked while looking at one person — the same reasoning that keeps
+// organization attachments off the list.
+func (s *RecoveryService) RecoverySentToday(ctx context.Context, tenantID, userID string) (int, error) {
+	q := s.store.ForTenant(tenantID)
+	row, err := q.GetUserByID(ctx, userID)
+	if err != nil {
+		return 0, fmt.Errorf("read account: %w", err)
+	}
+	sent, err := q.CountRecentPasswordResets(ctx, userID,
+		recoveryWindowStart(store.Now(), row.RecoveryQuotaClearedAt))
+	if err != nil {
+		return 0, fmt.Errorf("count recent password resets: %w", err)
+	}
+	return int(sent), nil
+}
+
 // Errors from password recovery.
 var (
 	ErrRecoveryUnavailable = httpx.NewError(503, "RECOVERY_UNAVAILABLE",
@@ -220,7 +261,8 @@ func (s *RecoveryService) completeRequest(ctx context.Context, tenant model.Tena
 	// about this address" — a new oracle in place of the one just closed.
 	// A request for an unknown address therefore leaves nothing behind and
 	// exhausts nobody's allowance.
-	sent, err := q.CountRecentPasswordResets(ctx, row.ID, store.Now().Add(-24*time.Hour))
+	sent, err := q.CountRecentPasswordResets(ctx, row.ID,
+		recoveryWindowStart(store.Now(), row.RecoveryQuotaClearedAt))
 	if err != nil {
 		slog.ErrorContext(ctx, "failed to count recent password resets",
 			"tenant", tenant.Code, "error", err)

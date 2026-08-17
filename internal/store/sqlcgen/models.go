@@ -485,6 +485,8 @@ type User struct {
 	ManagerID *string
 	// Sign-in refuses this account until the password is replaced. Set for a bootstrap administrator that took the documented default password; cleared by any path that sets a new one.
 	MustChangePassword bool
+	// When an administrator last cleared this account's daily password-recovery allowance. The per-day count is taken from the later of this value and twenty-four hours ago, so clearing moves the start of the window without deleting the password_resets rows that record what was sent. NULL means never cleared.
+	RecoveryQuotaClearedAt *time.Time
 }
 
 // Tenant-defined user attributes. The fixed, specification-derived ones are columns on users; see migration 00007.

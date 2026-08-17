@@ -53,6 +53,19 @@ export interface User {
   lockedUntil?: string;
 
   /**
+   * How many password-reset messages this account has been sent inside its
+   * current daily window, and the ceiling that is counted against. Both are
+   * present on a single fetched account and absent from a page of them, like
+   * `attachments`.
+   *
+   * The limit arrives from the server rather than being written here. It is
+   * one number in one place, and a copy of it in this file would be right
+   * until somebody changed the constant.
+   */
+  recoverySentToday?: number;
+  recoveryLimit?: number;
+
+  /**
    * When this password stops working. Present only on `/users/me`, and only
    * when the tenant expires passwords at all — most do not, and absence
    * means "never" rather than "unknown".

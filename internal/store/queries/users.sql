@@ -134,6 +134,17 @@ WHERE tenant_id = $1 AND role = $2 AND status = $3 AND id <> $4;
 -- name: ListUsersByIDs :many
 SELECT * FROM users WHERE tenant_id = $1 AND id = ANY($2::text[]);
 
+-- name: ClearRecoveryQuota :exec
+-- Gives an account its daily password-recovery allowance back.
+--
+-- Moves where counting starts rather than deleting what was counted. See the
+-- column comment in migration 00027: password_resets is the record of what
+-- was sent, kept for thirty days so it can be consulted, and an allowance
+-- being restored is not a reason to lose it.
+UPDATE users
+SET recovery_quota_cleared_at = $3, updated_at = $3
+WHERE tenant_id = $1 AND id = $2;
+
 -- name: RecordFailedLogin :one
 -- Counts a failed sign-in and locks the account when the threshold is met.
 --
