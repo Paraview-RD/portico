@@ -130,6 +130,7 @@ plugins:
             Integrations: 外部依赖
             Settings and audit: 系统设置与审计
             Running in production: 在生产环境里跑
+            Publishing a demo: 发布公开 demo
             Backup and restore: 备份与恢复
 
 extra:
@@ -154,6 +155,7 @@ nav:
   - Integrations: integrations.md
   - Settings and audit: settings.md
   - Running in production: deployment.md
+  - Publishing a demo: public-demo.md
   - Backup and restore: backup-and-restore.md
 
 # Dead links fail the build under --strict, which is the point of building

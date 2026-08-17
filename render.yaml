@@ -86,6 +86,29 @@ services:
       - key: PORTICO_LOG_LEVEL
         value: info
 
+      # What a stranger finds at the root address. Off, "/" is the sign-in
+      # form — right where everybody arriving already has an account, and
+      # wrong on a public address, where the form asks for something the
+      # visitor does not have.
+      #
+      # Listed here at its default rather than left to the dashboard, which
+      # is where it was: a switch that exists only in somebody's memory of
+      # having flipped it has to be remembered again every time this
+      # Blueprint is applied — and it is applied again every time the free
+      # database expires.
+      - key: PORTICO_LANDING_PAGE
+        value: "false"
+
+      # The tenant console: one screen listing every tenant on the
+      # deployment and how much is in each, visible only to an administrator
+      # of the default tenant. Sizes only — it can count what is inside
+      # another tenant and cannot open any of it.
+      #
+      # Worth turning on wherever trials are on, for the same reason: they
+      # are what creates tenants you did not create by hand.
+      - key: PORTICO_TENANT_CONSOLE
+        value: "false"
+
       # Self-service trials: a visitor proves an email address and is given a
       # tenant of their own, filled with one of five industry worlds.
       #

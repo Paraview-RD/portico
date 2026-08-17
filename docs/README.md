@@ -37,6 +37,10 @@
 - **[deployment.md](deployment.md)** — running it in production: which probe
   points at which endpoint, whether you may run more than one instance, what
   an upgrade does, and the Kubernetes manifests in `deploy/k8s/`.
+- **[public-demo.md](public-demo.md)** — putting a demonstration where
+  strangers can use it: a domain, mail that reaches other people's inboxes,
+  self-service trials, and the four steps whose failure mode is a deployment
+  that looks healthy.
 - **[integrations.md](integrations.md)** — external services Portico depends
   on at runtime (there are none, deliberately) and what that implies.
 - **[api/openapi.yaml](api/openapi.yaml)** — the management and self-service
