@@ -112,7 +112,7 @@ jobs:
         if: github.event_name != 'pull_request'
         run: go test -race -timeout 25m ./...
 
-      - uses: golangci/golangci-lint-action@v8
+      - uses: golangci/golangci-lint-action@v9
         with:
           version: v2.12.2
 
