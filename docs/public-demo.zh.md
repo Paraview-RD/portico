@@ -76,7 +76,10 @@ Render → New → Blueprint，指向你的 fork，`render.yaml` 在仓库根。
 
 **先别开试用。** 它有个前提在第 6 步之前不成立，提前打开会得到一个必然失败的按钮。
 
-`PORTICO_PUBLIC_URL` 先填 Render 给的 `onrender.com` 地址，第 5 步再换成真的。
+Render 会问三个值。`PORTICO_ENCRYPTION_KEY` 是 32 字节十六进制，`openssl rand
+-hex 32` 生成。`PORTICO_INITIAL_ADMIN_PASSWORD` 是等不了的那个 —— 地址从部署那
+一刻起就是公开的，而不填就意味着 `admin` 账号是用手册里公开写着的那个密码创建
+的。`PORTICO_PUBLIC_URL` 先填 Render 给的 `onrender.com` 地址，第 5 步再换成真的。
 
 ### 4. 把域名指向服务
 

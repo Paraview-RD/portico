@@ -190,8 +190,14 @@ starting — the service sleeps, and the database expires after thirty days.
 1. **Apply the Blueprint.** Render → New → Blueprint, pointed at the fork you
    want to publish. Change `region` first if Singapore is not the nearest one:
    a service cannot be moved afterwards.
-2. **Fill the two values it cannot know.** `PORTICO_ENCRYPTION_KEY` — 32 bytes
-   as hex, from `openssl rand -hex 32`. And `PORTICO_PUBLIC_URL`, which does
+2. **Fill the three values it cannot know.** `PORTICO_ENCRYPTION_KEY` — 32
+   bytes as hex, from `openssl rand -hex 32`.
+   `PORTICO_INITIAL_ADMIN_PASSWORD` — the password `admin` is created with,
+   and asked for here because there is no later: the service is reachable from
+   the moment it deploys and the account exists from the moment it first
+   starts. Left unset, the account gets the default written down in this file,
+   and on a public address the first stranger who read it is handed the
+   replacement prompt. And `PORTICO_PUBLIC_URL`, which does
    not exist until the first deploy has given the service its address, so set
    it afterwards and redeploy. It is not cosmetic: OpenID Connect redirects
    and SAML metadata are built from it, so a wrong value gives a console that

@@ -163,9 +163,13 @@ Blueprint：一个由 `deploy/Dockerfile` 构建的 web 服务，加一个 Postg
 
 1. **应用这份 Blueprint。** Render → New → Blueprint，指向你要发布的那个仓库。如
    果新加坡不是离你最近的区域，**先改 `region`** —— 服务建好之后不能迁移。
-2. **填两个它不可能知道的值。** `PORTICO_ENCRYPTION_KEY` —— 32 字节的十六进制，
-   用 `openssl rand -hex 32` 生成。以及 `PORTICO_PUBLIC_URL`，它在第一次部署给出
-   地址之前根本不存在，所以是**部署之后回填再重新部署**。它不是装饰：OpenID
+2. **填三个它不可能知道的值。** `PORTICO_ENCRYPTION_KEY` —— 32 字节的十六进制，
+   用 `openssl rand -hex 32` 生成。`PORTICO_INITIAL_ADMIN_PASSWORD` —— `admin`
+   账号被创建时用的密码，在这里问是因为**没有「之后」**：服务从部署那一刻起就可以
+   访问，账号从第一次启动那一刻起就存在。不填的话，账号拿到的是本文里写着的那个默
+   认密码，而在公网地址上，第一个读到它的陌生人会拿到那个改密提示。以及
+   `PORTICO_PUBLIC_URL`，它在第一次部署给出地址之前根本不存在，所以是**部署之后回
+   填再重新部署**。它不是装饰：OpenID
    Connect 的回跳和 SAML 元数据都由它拼出来，填错会得到一个用起来完全正常的控制
    台，和每一次都把浏览器送去打不开的地方的单点登录。
 3. **定下进门的方式，并且守住它。** 地址是公开的，密码不该是。生成一个，**绝不要

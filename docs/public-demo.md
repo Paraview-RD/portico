@@ -102,8 +102,12 @@ service cannot be moved afterwards.
 Leave the trial signup off. It has a prerequisite that is not in place until
 step 6, and turning it on early produces a button that always fails.
 
-For `PORTICO_PUBLIC_URL`, put in the `onrender.com` address for now. Step 5
-is where it becomes the real one.
+Render asks for three values. `PORTICO_ENCRYPTION_KEY` is 32 bytes as hex,
+from `openssl rand -hex 32`. `PORTICO_INITIAL_ADMIN_PASSWORD` is the one that
+cannot wait — the address is public from the moment it deploys, and an unset
+value means the `admin` account is created with the password published in the
+manual. For `PORTICO_PUBLIC_URL`, put in the `onrender.com` address for now.
+Step 5 is where it becomes the real one.
 
 ### 4. Point the domain at the service
 
