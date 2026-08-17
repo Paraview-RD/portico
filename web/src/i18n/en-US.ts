@@ -783,14 +783,20 @@ export const enUS = {
   "landing.title": "Sign your people in, once, to everything.",
   "landing.subtitle":
     "Portico is an open-source identity provider: one directory of accounts, one sign-in, and the applications that trust it.",
+  "landing.heading.signIn": "One sign-in",
   "landing.point.signIn":
     "One sign-in for every application, over OAuth 2.1 / OIDC, SAML 2.0 or CAS.",
+  "landing.heading.directory": "One directory",
   "landing.point.directory":
     "Accounts, organizations and groups — kept by hand, imported, or synchronized from LDAP or SCIM.",
+  "landing.heading.applications": "Applications you register",
   "landing.point.applications":
     "Register an application in a form, and hand its developers one address.",
   "landing.tryIt": "Get a tenant to try",
   "landing.signIn": "Sign in",
+  // Said before somebody types their own address into a form, not after.
+  "landing.demoNotice":
+    "This is a public demonstration. A tenant is yours to break — sign in, change anything, invite nobody real: the whole deployment is reset periodically and everything in it goes.",
   "landing.docs": "Documentation",
   "landing.source": "Source on GitHub",
 

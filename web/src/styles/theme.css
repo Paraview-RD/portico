@@ -69,6 +69,22 @@
   --font-size-base: 0.875rem;
   --font-size-lg: 1.0625rem;
   --font-size-xl: 1.25rem;
+  /* One step outside the scale above, and only for the landing page.
+     Everything else here is sized for an administrative console, where
+     density is the point: --font-size-xl, the largest, is 20px, which is a
+     page heading beside a table. Applied to the one screen a stranger reads
+     before deciding whether to continue, that scale produces a page with no
+     hierarchy in it — every line the same weight as every other, which reads
+     as a document that was never designed rather than as one kept plain.
+
+     Fluid rather than two fixed sizes with a breakpoint: the landing page is
+     one column of text, so the heading should track the width it has instead
+     of stepping at an arbitrary point. clamp() holds it between a size that
+     fits a narrow phone and one that does not become a banner on a desktop. */
+  --font-size-display: clamp(1.75rem, 1.25rem + 2.2vw, 2.5rem);
+  --font-size-lead: 1.0625rem;
+  --leading-display: 1.25;
+
   --font-weight-normal: 400;
   --font-weight-medium: 500;
   --font-weight-bold: 600;

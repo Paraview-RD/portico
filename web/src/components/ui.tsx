@@ -44,7 +44,16 @@ function cx(...classes: (string | false | undefined | null)[]): string {
 
 type ButtonVariant =
   "primary" | "secondary" | "ghost" | "ghost-danger" | "danger";
-type ButtonSize = "sm" | "md";
+// lg exists for exactly one situation: the primary action on a page a
+// stranger has just opened, where the button is the point of the page rather
+// than one control among twenty. Everywhere inside the console, md — a
+// console's buttons are sized for a row of them, and one enlarged among its
+// neighbours reads as a different kind of thing.
+//
+// A size here rather than a className on the landing page, because that is
+// how a one-off becomes two: the next page that wants a large button copies
+// the utilities and picks a slightly different height.
+type ButtonSize = "sm" | "md" | "lg";
 
 const buttonVariants: Record<ButtonVariant, string> = {
   primary:
@@ -69,6 +78,7 @@ const buttonVariants: Record<ButtonVariant, string> = {
 const buttonSizes: Record<ButtonSize, string> = {
   sm: "h-8 px-3 text-[length:var(--font-size-sm)]",
   md: "h-9 px-4 text-[length:var(--font-size-base)]",
+  lg: "h-11 px-6 text-[length:var(--font-size-lead)] rounded-[var(--radius-md)]",
 };
 
 interface ButtonProps extends ButtonHTMLAttributes<HTMLButtonElement> {
