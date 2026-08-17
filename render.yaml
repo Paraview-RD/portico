@@ -21,8 +21,10 @@
 #     Blueprint has to be applied again to get a new one. Put a reminder
 #     somewhere that is not this file.
 #
-# Two values are not set here and must be filled in the dashboard after the
-# first deploy — see docs/access-guide.md, "Publishing a demonstration".
+# Six values are not written here. Render asks for each of them at apply time
+# — see docs/public-demo.md for what to put in them, and
+# deploy/demo-values.example.env for the list to keep, since a rebuild asks
+# again.
 services:
   - type: web
     name: portico-demo
@@ -127,18 +129,32 @@ services:
       - key: PORTICO_LOG_LEVEL
         value: info
 
+      # The three switches below are prompts rather than values, and the
+      # difference is which side wins.
+      #
+      # A key declared here with a literal `value` makes this file the
+      # authority: set it in the dashboard and the next sync puts it back to
+      # what is written here. These three are exactly the ones a deployment
+      # decides for itself — a private console wants all three off, a public
+      # demonstration wants all three on — so a file that overrules the
+      # dashboard would silently close the trial signup and the landing page
+      # on the next unrelated commit, with nothing to say so.
+      #
+      # `sync: false` inverts that: Render asks once per apply and then leaves
+      # the dashboard alone. Still listed rather than left out entirely,
+      # because a switch that exists only in somebody's memory of having
+      # flipped it has to be remembered again every rebuild — and the free
+      # database makes that monthly.
+
       # What a stranger finds at the root address. Off, "/" is the sign-in
       # form — right where everybody arriving already has an account, and
       # wrong on a public address, where the form asks for something the
       # visitor does not have.
       #
-      # Listed here at its default rather than left to the dashboard, which
-      # is where it was: a switch that exists only in somebody's memory of
-      # having flipped it has to be remembered again every time this
-      # Blueprint is applied — and it is applied again every time the free
-      # database expires.
+      # A public address wants this on; a company's own console wants it
+      # off. Hence the prompt above rather than a value here.
       - key: PORTICO_LANDING_PAGE
-        value: "false"
+        sync: false
 
       # The tenant console: one screen listing every tenant on the
       # deployment and how much is in each, visible only to an administrator
@@ -148,17 +164,16 @@ services:
       # Worth turning on wherever trials are on, for the same reason: they
       # are what creates tenants you did not create by hand.
       - key: PORTICO_TENANT_CONSOLE
-        value: "false"
+        sync: false
 
       # Self-service trials: a visitor proves an email address and is given a
       # tenant of their own, filled with one of five industry worlds.
       #
-      # Off here, and switched on in the dashboard once — not because the
-      # feature is unfinished but because it has a hard prerequisite this
-      # Blueprint cannot supply. The address is the whole of the identity
-      # check, so without a relay every request is refused with
-      # TRIAL_MAIL_UNAVAILABLE. Turning this on first produces a button that
-      # always fails, which is worse than no button.
+      # Answer this one last, and not because the feature is unfinished: it
+      # has a prerequisite this Blueprint cannot supply. The email address is
+      # the whole of the identity check, so without a relay every request is
+      # refused with TRIAL_MAIL_UNAVAILABLE — on before the relay is a button
+      # that always fails, which is worse than no button.
       #
       # On a free instance the relay cannot be SMTP. Render blocks outbound
       # 25, 465 and 587 there, and the symptom is a connection timeout — no
@@ -183,7 +198,7 @@ services:
       # send something else, because this sends to addresses strangers type
       # in. Pick a provider with a sending quota and watch it.
       - key: PORTICO_TRIAL_SIGNUP
-        value: "false"
+        sync: false
 
       # How many trial tenants may exist at once. Reached, the form says so
       # rather than queueing.
