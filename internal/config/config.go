@@ -172,6 +172,20 @@ type Config struct {
 	AuthRateLimit      int
 	AuthRateLimitBurst int
 
+	// TrialRateLimit and TrialRateLimitBurst are the same thing for the two
+	// self-service trial endpoints, and they are separate numbers because the
+	// two endpoints are not the same kind of thing as signing in.
+	//
+	// Both budgets used to be one. Sixty a minute is right for sign-in — a
+	// mistyped password, several devices, an office behind one address — and
+	// far too generous for an endpoint whose job is to create a tenant and
+	// send mail to a stranger. A person submits that form once. A script
+	// submitting it sixty times a minute is not a person having trouble, and
+	// every one of those attempts costs several counting queries even when it
+	// is refused.
+	TrialRateLimit      int
+	TrialRateLimitBurst int
+
 	// PublicURL is where people reach this deployment, used to build the
 	// links in password-recovery messages.
 	//
@@ -243,6 +257,19 @@ func Load() (*Config, error) {
 		return nil, err
 	}
 	cfg.AuthRateLimit, cfg.AuthRateLimitBurst = rateLimit, rateLimitBurst
+
+	// Deliberately a fraction of the sign-in budget. Five a minute leaves room
+	// for somebody who mistyped an address and tried again, and no room for a
+	// loop.
+	trialRate, err := envInt("PORTICO_TRIAL_RATE_LIMIT", 5)
+	if err != nil {
+		return nil, err
+	}
+	trialBurst, err := envInt("PORTICO_TRIAL_RATE_LIMIT_BURST", 3)
+	if err != nil {
+		return nil, err
+	}
+	cfg.TrialRateLimit, cfg.TrialRateLimitBurst = trialRate, trialBurst
 
 	trialMax, err := envInt("PORTICO_TRIAL_MAX_TENANTS", 50)
 	if err != nil {

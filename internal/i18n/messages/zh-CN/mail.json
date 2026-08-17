@@ -27,6 +27,7 @@
   "trial.ready.subject": "你的 Portico 试用租户：{{.Tenant}}",
   "trial.ready.title": "你的试用租户已就绪",
   "trial.ready.intro": "{{.Tenant}} 已经创建好了。下面是第一次登录需要的全部信息。",
+  "trial.ready.expiry": "这个租户的有效期是 {{.Days}} 天。到期后会被停用而不是删除，所以在失效之前提出，可以延长。",
   "trial.ready.signIn": "登录",
   "trial.ready.action": "打开控制台",
   "trial.ready.labelTenant": "租户编码",

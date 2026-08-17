@@ -27,6 +27,7 @@
   "trial.ready.subject": "Your Portico trial: {{.Tenant}}",
   "trial.ready.title": "Your trial tenant is ready",
   "trial.ready.intro": "{{.Tenant}} has been created and is waiting for you. Here is everything you need to sign in for the first time.",
+  "trial.ready.expiry": "The tenant stays open for {{.Days}} days. After that it is disabled rather than deleted, so ask before it lapses and it can be extended.",
   "trial.ready.signIn": "Sign in",
   "trial.ready.action": "Open the console",
   "trial.ready.labelTenant": "Tenant",

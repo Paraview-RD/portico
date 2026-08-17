@@ -89,7 +89,8 @@ type NewTenant struct {
 // signed into and cannot be given one through the API, so creating it alone
 // would produce something inert that looks like it should work.
 func (p *Provisioner) CreateTenant(ctx context.Context, code, name, adminUsername, adminPassword string) (NewTenant, error) {
-	tenant, err := p.tenants.Create(ctx, code, name)
+	// No deadline. A tenant somebody provisions by hand is not on trial.
+	tenant, err := p.tenants.Create(ctx, code, name, nil)
 	if err != nil {
 		return NewTenant{}, err
 	}

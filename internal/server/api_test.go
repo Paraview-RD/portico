@@ -76,6 +76,12 @@ func testConfig(t *testing.T) *config.Config {
 	// it present and out of the way.
 	cfg.AuthRateLimit = 100000
 	cfg.AuthRateLimitBurst = 100000
+	// The trial endpoints have their own, much tighter budget — five a minute,
+	// because a person submits that form once. A test submits it a dozen times
+	// in a millisecond, so it is held out of the way here for the same reason
+	// as the pair above.
+	cfg.TrialRateLimit = 100000
+	cfg.TrialRateLimitBurst = 100000
 	// No relay, and no transport but the default: the tests that want mail
 	// substitute a recorder, and the ones that want none are asserting
 	// exactly this. Both halves are reset, so a developer with

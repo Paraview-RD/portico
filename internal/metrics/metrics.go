@@ -35,6 +35,9 @@ type Registry struct {
 	signIns  *prometheus.CounterVec
 	lockouts prometheus.Counter
 	tokens   *prometheus.CounterVec
+
+	trialTenants prometheus.Gauge
+	trialQuota   prometheus.Gauge
 }
 
 // New builds a registry with the process and Go collectors plus this
@@ -82,6 +85,24 @@ func New() *Registry {
 			Name: "portico_tokens_issued_total",
 			Help: "Tokens issued, by kind.",
 		}, []string{"kind"}),
+
+		// Two gauges rather than one ratio, so an alert can be written on
+		// either the headroom or the ceiling without the other having to be
+		// guessed. Zero on a deployment with no trials, which is most of them.
+		//
+		// This exists because a demonstration can close itself silently. The
+		// quota counts confirmed trial requests; when it is reached, every new
+		// visitor is refused, and nothing about that is an error — no log line
+		// worth reading, nothing on any screen. It is the one failure here
+		// that looks exactly like nobody being interested.
+		trialTenants: prometheus.NewGauge(prometheus.GaugeOpts{
+			Name: "portico_trial_tenants",
+			Help: "Trial tenants that currently exist.",
+		}),
+		trialQuota: prometheus.NewGauge(prometheus.GaugeOpts{
+			Name: "portico_trial_tenants_max",
+			Help: "How many trial tenants may exist at once. Zero when self-service trials are off.",
+		}),
 	}
 
 	reg.MustRegister(
@@ -89,6 +110,7 @@ func New() *Registry {
 		collectors.NewProcessCollector(collectors.ProcessCollectorOpts{}),
 		m.requests, m.requestDuration, m.inFlight,
 		m.signIns, m.lockouts, m.tokens,
+		m.trialTenants, m.trialQuota,
 	)
 
 	// Registered with zero rather than created on first use. A counter that
@@ -104,6 +126,19 @@ func New() *Registry {
 	m.lockouts.Add(0)
 
 	return m
+}
+
+// ObserveTrialQuota records how much of the trial allowance is used.
+//
+// Called from the sweep rather than on every request: the number changes when
+// a tenant is created or reclaimed, and reading it costs a count over
+// trial_requests, which is not worth doing on a page load.
+func (m *Registry) ObserveTrialQuota(existing, allowed int) {
+	if m == nil {
+		return
+	}
+	m.trialTenants.Set(float64(existing))
+	m.trialQuota.Set(float64(allowed))
 }
 
 // Sign-in outcomes. Deliberately coarser than the reasons the code

@@ -271,6 +271,28 @@ see [what a trial tenant is filled with](#what-a-trial-tenant-is-filled-with).
 default and is bounded by attention rather than by disk, since fifty trial
 tenants are a few megabytes against a 1GB database.
 
+### They expire on their own
+
+A tenant a trial created carries a deadline: a fortnight, after which it is
+**disabled rather than deleted**, and a week after that it is deleted along
+with the `trial_requests` row that reserved its code, its slot in the quota,
+and the applicant's address.
+
+That is not tidiness. The quota counts confirmed requests and nothing used to
+decrement it, so the fiftieth ordinary visitor closed the signup —
+permanently, with no error to read and nothing on any screen to say why. Slow
+accumulation, not a flood, is how a public demonstration fails.
+
+Both halves matter in the order they happen. Disabling is reversible, which is
+what makes a deadline a prompt rather than a cliff: the tenant console shows
+the date and how many days are left, and **Extend** gives it another fortnight
+from now — press it twice for four weeks. Deletion is the irreversible half
+and the only half that gives anything back.
+
+A tenant with no deadline is never touched, which is every tenant except one a
+trial created. The default tenant is skipped explicitly as well, because a bug
+that gave it a date would otherwise take the deployment offline on a timer.
+
 ### Looking after what the trials created
 
 On the command line, for the same reason tenant provisioning is: no account

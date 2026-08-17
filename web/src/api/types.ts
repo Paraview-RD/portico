@@ -104,6 +104,14 @@ export interface Tenant {
   code: string;
   name: string;
   status: Status;
+  /**
+   * When sign-in stops being allowed, or absent for never — which is every
+   * tenant except one a self-service trial created.
+   *
+   * Reaching it disables the tenant rather than deleting it, so it is
+   * reversible; deletion happens after a further grace period.
+   */
+  expiresAt?: string | null;
   createdAt: string;
   updatedAt?: string;
 }

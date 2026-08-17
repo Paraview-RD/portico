@@ -1,6 +1,7 @@
 package server_test
 
 import (
+	"fmt"
 	"net/http"
 	"testing"
 )
@@ -104,5 +105,60 @@ func TestOrdinarySignInIsNotThrottledAtTheDefault(t *testing.T) {
 	if res.Status != http.StatusOK {
 		t.Errorf("signing in after three mistyped passwords answered %d %s, want 200",
 			res.Status, res.Code)
+	}
+}
+
+// The trial endpoints spend their own budget, not sign-in's.
+//
+// They shared one at first, which meant sixty tenant-creation attempts a
+// minute from one address — right for a password somebody keeps mistyping and
+// far too generous for an endpoint that creates a tenant and mails a stranger.
+//
+// This is the only test that can catch a return to the shared budget. Every
+// trial fixture raises both limits out of the way in order to submit the form
+// a dozen times in a millisecond, so a routes.go that read AuthRateLimit again
+// would pass all of them: here the two numbers are deliberately far apart, and
+// only the trial one is small.
+func TestTheTrialEndpointsHaveTheirOwnBudget(t *testing.T) {
+	silenceLogs(t)
+
+	cfg := testConfig(t)
+	cfg.TrialSignup = true
+	cfg.TrialMaxTenants = 50
+	// Generous for sign-in, and tight for trials. If the trial route is wired
+	// to the wrong pair, nothing below is refused.
+	cfg.AuthRateLimit, cfg.AuthRateLimitBurst = 100000, 100000
+	cfg.TrialRateLimit, cfg.TrialRateLimitBurst = 1, 2
+	api := newAPITestWithConfig(t, cfg)
+
+	body := func(n int) map[string]string {
+		return map[string]string{
+			"email":      fmt.Sprintf("burst%d@example.test", n),
+			"tenantCode": fmt.Sprintf("burst%d", n),
+			"industry":   "generic",
+		}
+	}
+
+	for i := 1; i <= 2; i++ {
+		res := api.do(http.MethodPost, "/api/v1/trial", "", body(i))
+		if res.Status == http.StatusTooManyRequests {
+			t.Fatalf("request %d of a burst of 2 was throttled", i)
+		}
+	}
+
+	res := api.do(http.MethodPost, "/api/v1/trial", "", body(3))
+	if res.Status != http.StatusTooManyRequests {
+		t.Fatalf("the third trial request got %d %s, want 429 — the trial "+
+			"endpoints are spending sign-in's budget rather than their own",
+			res.Status, res.Code)
+	}
+
+	// And sign-in is untouched by it: one limiter per group, not one shared
+	// bucket that either endpoint can empty for the other.
+	signIn := api.do(http.MethodPost, "/api/v1/auth/login", "",
+		map[string]string{"identifier": "nobody", "password": "wrong"})
+	if signIn.Status == http.StatusTooManyRequests {
+		t.Error("a spent trial budget also refused a sign-in; the two groups " +
+			"share a bucket")
 	}
 }

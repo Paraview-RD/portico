@@ -78,12 +78,17 @@ func (s *Server) routes() http.Handler {
 		//
 		// Their own limiter, because the one installed at the root only
 		// applies to /api/v1/auth/ — and both of these send mail, one of them
-		// creating a tenant. Same budget as sign-in: a person filling in a
-		// form fits comfortably, a script does not.
+		// creating a tenant.
+		//
+		// Their own budget rather than sign-in's, which is what they shared at
+		// first. Sixty a minute is right for a password somebody keeps
+		// mistyping and wrong for an endpoint that creates a tenant and mails
+		// a stranger: a person submits that form once, and every attempt costs
+		// several counting queries even when refused.
 		if s.cfg.TrialSignup {
 			r.Group(func(r chi.Router) {
 				r.Use(httpx.RateLimitWrites(httpx.NewRateLimiter(
-					s.cfg.AuthRateLimit, s.cfg.AuthRateLimitBurst)))
+					s.cfg.TrialRateLimit, s.cfg.TrialRateLimitBurst)))
 				r.Post("/trial", h.RequestTrial)
 				r.Post("/trial/confirm", h.ConfirmTrial)
 			})
@@ -416,6 +421,10 @@ func (s *Server) routes() http.Handler {
 					// the opposite one cannot disable a tenant somebody else
 					// re-enabled in between.
 					r.Put("/{code}/status", h.SetTenantStatus)
+					// A step, not a date: POST because pressing it twice is
+					// meant to move the deadline twice, which is not what PUT
+					// promises.
+					r.Post("/{code}/extend", h.ExtendTenant)
 				})
 			}
 		})

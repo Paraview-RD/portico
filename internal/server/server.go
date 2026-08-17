@@ -139,7 +139,13 @@ func New(cfg *config.Config, opts ...Option) (*Server, error) {
 		st, tenants, users, deps.mailer, audit,
 		cfg.TrialSignup, cfg.TrialMaxTenants, cfg.PublicURL).
 		WithBlockedEmailDomains(cfg.TrialBlockedEmailDomains).
-		WithLocale(cfg.DefaultLocale)
+		WithLocale(cfg.DefaultLocale).
+		WithMetrics(registry).
+		// One at a time. Filling a tenant is the heaviest thing this process
+		// does and the free instance this demonstration runs on has a tenth of
+		// a CPU; several at once is how it gets killed, which loses the fills
+		// in flight along with everything else being served.
+		WithFillLimit(1)
 
 	clients := service.NewOAuthClientService(st, audit)
 	keys := service.NewSigningKeyService(st)
@@ -352,6 +358,13 @@ func (s *Server) SweepExpired(ctx context.Context) error {
 	// mattered: a sweep that covers some of what grows is one everybody
 	// assumes covers the rest, so nothing else was ever going to collect them.
 	if _, err := s.trials.SweepExpired(ctx); err != nil {
+		return err
+	}
+
+	// And the tenants those requests grew into. Uncollected links hold a name;
+	// uncollected tenants hold the quota itself, so leaving these is what
+	// eventually refuses every new visitor — see TrialService.SweepTenants.
+	if _, _, err := s.trials.SweepTenants(ctx); err != nil {
 		return err
 	}
 	return s.sweepCredentialRemnants(ctx)

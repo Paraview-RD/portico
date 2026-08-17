@@ -229,6 +229,8 @@ export const errorsZhCN: Record<keyof typeof errorsEnUS, string> = {
   // 是干巴巴的拒绝——一个进不来的陌生人没有任何客服可问。
   NOT_FOUND: "没有找到。",
   TENANT_CONFIRM_MISMATCH: "请一字不差地输入租户编码以确认。",
+  TENANT_HAS_NO_EXPIRY:
+    "这个租户没有到期日，所以没有可延长的东西。只有自助试用创建的租户才有。",
   TENANT_CANNOT_DISABLE_DEFAULT:
     "默认租户不能在这里停用 —— 这个控制台就是它提供的。请用命令行。",
   TRIAL_SIGNUP_CLOSED: "本部署不提供自助试用。",

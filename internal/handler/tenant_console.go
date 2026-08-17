@@ -145,6 +145,42 @@ func (h *Handler) SetTenantStatus(w http.ResponseWriter, r *http.Request) {
 	httpx.OK(w, tenant)
 }
 
+// ExtendTenant moves a tenant's deadline out by one trial period.
+//
+// One fixed step rather than a date the caller sends. An operator looking at a
+// tenant that lapses on Thursday wants it to not lapse on Thursday; asking for
+// a date invites a typo that either does nothing or hands out a decade, and
+// neither is visible afterwards. Pressing it twice is how you get four weeks.
+//
+// No confirmation field, unlike disabling: this takes nothing away. Somebody
+// who presses it by mistake has given a demonstration tenant another
+// fortnight, and the other button undoes it.
+func (h *Handler) ExtendTenant(w http.ResponseWriter, r *http.Request) {
+	principal, ok := h.operatorOnly(w, r)
+	if !ok {
+		return
+	}
+
+	code := chi.URLParam(r, "code")
+	tenant, err := h.tenants.Extend(r.Context(), code, service.TrialTenantTTL)
+	if err != nil {
+		httpx.Fail(w, r, err)
+		return
+	}
+
+	// In the operator's own tenant, for the same reason enable and disable are:
+	// the affected tenant's log is one its administrators may not be able to
+	// reach, and this is a record of what an operator did.
+	h.audit.Log(r.Context(), principal.TenantID, service.AuditEntry{
+		Kind: model.LogOperation, Action: model.ActionTenantExtend,
+		ActorID: principal.UserID, ActorName: principal.Username,
+		TargetType: "TENANT", TargetID: tenant.ID, TargetName: tenant.Code,
+		IP: httpx.ClientIP(r),
+	})
+
+	httpx.OK(w, tenant)
+}
+
 // mayManageTenants reports whether this caller would be admitted to the
 // operator console, which is what the console asks in order to decide whether
 // to draw the menu entry at all.

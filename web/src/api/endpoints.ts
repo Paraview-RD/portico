@@ -272,6 +272,18 @@ export const tenantsApi = {
       method: "PUT",
       body: { status, confirm },
     }),
+
+  /**
+   * Gives a tenant another trial period, measured from now.
+   *
+   * No confirmation, unlike setStatus: this takes nothing away, and pressing
+   * it twice is how you get twice as long. Refused for a tenant that has no
+   * expiry date at all.
+   */
+  extend: (code: string) =>
+    request<Tenant>(`/tenants/${encodeURIComponent(code)}/extend`, {
+      method: "POST",
+    }),
 };
 
 export const trialApi = {

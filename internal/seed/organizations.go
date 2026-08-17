@@ -31,7 +31,7 @@ func (s *Seeder) seedTenants(ctx context.Context, w *world) error {
 		return fmt.Errorf("ensure default tenant: %w", err)
 	}
 
-	second, err := s.tenants.Create(ctx, TenantSecond, "Acme 分公司")
+	second, err := s.tenants.Create(ctx, TenantSecond, "Acme 分公司", nil)
 	if err != nil {
 		// Already there from an earlier run. Seeding is meant to be
 		// repeatable, and a tenant that exists is the outcome either way.

@@ -140,6 +140,7 @@ const (
 	KeyTrialReadySubject       = "trial.ready.subject"
 	KeyTrialReadyTitle         = "trial.ready.title"
 	KeyTrialReadyIntro         = "trial.ready.intro"
+	KeyTrialReadyExpiry        = "trial.ready.expiry"
 	KeyTrialReadySignIn        = "trial.ready.signIn"
 	KeyTrialReadyAction        = "trial.ready.action"
 	KeyTrialReadyLabelTenant   = "trial.ready.labelTenant"
@@ -187,6 +188,13 @@ type TrialData struct {
 	// typed. Nothing here escapes it — mailfmt does, for both renderings.
 	Tenant string
 	Hours  int
+	// Days is how long the tenant itself lasts, as opposed to the link.
+	//
+	// A number rather than a date, and derived from service.TrialTenantTTL
+	// rather than written into the sentence — the wording belongs to a
+	// translator and the figure does not, which is the same split the link's
+	// Hours already uses.
+	Days int
 }
 
 //go:embed all:messages

@@ -193,6 +193,22 @@ func (q *Queries) DeleteTrialRequestByTenant(ctx context.Context, tenantID *stri
 	return result.RowsAffected()
 }
 
+const deleteTrialRequestByTenantCode = `-- name: DeleteTrialRequestByTenantCode :exec
+DELETE FROM trial_requests WHERE tenant_code = $1
+`
+
+// Releases the code, the quota slot, and the applicant's address together.
+//
+// The row survives confirmation on purpose: it is what the quota counts, what
+// reserves the tenant code, and what holds one-tenant-per-mailbox. So deleting
+// the tenant without deleting this leaves all three held by a tenant that no
+// longer exists — the quota never recovers, and the applicant can never come
+// back.
+func (q *Queries) DeleteTrialRequestByTenantCode(ctx context.Context, tenantCode string) error {
+	_, err := q.db.ExecContext(ctx, deleteTrialRequestByTenantCode, tenantCode)
+	return err
+}
+
 const deleteTrialRequestByToken = `-- name: DeleteTrialRequestByToken :execrows
 DELETE FROM trial_requests WHERE token_hash = $1 AND confirmed_at IS NULL
 `

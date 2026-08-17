@@ -120,3 +120,13 @@ WHERE t.code = $1 AND r.confirmed_at IS NOT NULL;
 -- site: this row is what the foreign key points from.
 -- name: DeleteTrialRequestByTenant :execrows
 DELETE FROM trial_requests WHERE tenant_id = $1;
+
+-- name: DeleteTrialRequestByTenantCode :exec
+-- Releases the code, the quota slot, and the applicant's address together.
+--
+-- The row survives confirmation on purpose: it is what the quota counts, what
+-- reserves the tenant code, and what holds one-tenant-per-mailbox. So deleting
+-- the tenant without deleting this leaves all three held by a tenant that no
+-- longer exists — the quota never recovers, and the applicant can never come
+-- back.
+DELETE FROM trial_requests WHERE tenant_code = $1;

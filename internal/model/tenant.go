@@ -18,6 +18,14 @@ type Tenant struct {
 	// Status of DISABLED refuses sign-in without deleting anything.
 	Status Status `json:"status"`
 
+	// ExpiresAt is when sign-in stops being allowed, or nil for never —
+	// which is every tenant except one a self-service trial created.
+	//
+	// Reaching it disables the tenant rather than deleting it, so it is
+	// reversible: an operator can move the deadline and switch it back on.
+	// Deletion is a separate, later step.
+	ExpiresAt *time.Time `json:"expiresAt,omitempty"`
+
 	CreatedAt time.Time `json:"createdAt"`
 	UpdatedAt time.Time `json:"updatedAt"`
 }

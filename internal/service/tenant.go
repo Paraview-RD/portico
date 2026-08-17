@@ -147,6 +147,7 @@ func (s *TenantService) Overview(ctx context.Context) ([]model.TenantOverview, e
 				Code:      row.Code,
 				Name:      row.Name,
 				Status:    model.Status(row.Status),
+				ExpiresAt: row.ExpiresAt,
 				CreatedAt: row.CreatedAt,
 			},
 			Users:         row.UserCount,
@@ -167,7 +168,15 @@ func (s *TenantService) Overview(ctx context.Context) ([]model.TenantOverview, e
 }
 
 // Create adds a tenant.
-func (s *TenantService) Create(ctx context.Context, code, name string) (model.Tenant, error) {
+// Create makes a tenant.
+//
+// expiresAt is nil for a tenant with no deadline, which is every tenant a
+// person provisions by hand. It is a parameter rather than something the
+// caller sets afterwards so that a tenant is never briefly immortal: a trial
+// that created the tenant and then failed before writing the deadline would
+// leave one nothing ever reclaims, and the quota it counts against never
+// recovers.
+func (s *TenantService) Create(ctx context.Context, code, name string, expiresAt *time.Time) (model.Tenant, error) {
 	code = strings.TrimSpace(code)
 	name = strings.TrimSpace(name)
 
@@ -184,6 +193,7 @@ func (s *TenantService) Create(ctx context.Context, code, name string) (model.Te
 		Code:      code,
 		Name:      name,
 		Status:    model.StatusActive,
+		ExpiresAt: expiresAt,
 		CreatedAt: now,
 		UpdatedAt: now,
 	}
@@ -193,6 +203,7 @@ func (s *TenantService) Create(ctx context.Context, code, name string) (model.Te
 		Code:      tenant.Code,
 		Name:      tenant.Name,
 		Status:    string(tenant.Status),
+		ExpiresAt: expiresAt,
 		CreatedAt: now,
 		UpdatedAt: now,
 	})
@@ -202,6 +213,66 @@ func (s *TenantService) Create(ctx context.Context, code, name string) (model.Te
 		}
 		return model.Tenant{}, fmt.Errorf("create tenant: %w", err)
 	}
+	return tenant, nil
+}
+
+// ErrTenantHasNoExpiry is a tenant nobody put on a clock.
+var ErrTenantHasNoExpiry = httpx.UnprocessableEntity("TENANT_HAS_NO_EXPIRY",
+	"This tenant has no expiry date, so there is nothing to extend.")
+
+// Extend moves a tenant's deadline out by a period, measured from now.
+//
+// From now rather than from the old deadline: a tenant three days past its
+// date and already disabled would otherwise be extended into the past and stay
+// disabled, which reads as the button not working.
+//
+// Refuses a tenant with no deadline. Giving one to a tenant that never had one
+// would be taking something away, which is the opposite of what a caller
+// asking to extend means.
+//
+// Reads the row whatever its status, unlike Resolve — a disabled tenant is
+// exactly the one somebody is extending.
+func (s *TenantService) Extend(ctx context.Context, code string, by time.Duration) (model.Tenant, error) {
+	row, err := s.store.Queries.GetTenantByCode(ctx, code)
+	if err != nil {
+		if store.IsNoRows(err) {
+			return model.Tenant{}, ErrTenantNotFound
+		}
+		return model.Tenant{}, fmt.Errorf("resolve tenant: %w", err)
+	}
+	if row.ExpiresAt == nil {
+		return model.Tenant{}, ErrTenantHasNoExpiry
+	}
+
+	at := store.Now().Add(by)
+	return s.SetExpiry(ctx, code, &at)
+}
+
+// SetExpiry moves a tenant's deadline, or removes it with nil.
+//
+// Returns the tenant as it now stands, so a caller does not have to read it
+// back to show the new date.
+func (s *TenantService) SetExpiry(ctx context.Context, code string, at *time.Time) (model.Tenant, error) {
+	row, err := s.store.Queries.GetTenantByCode(ctx, code)
+	if err != nil {
+		if store.IsNoRows(err) {
+			return model.Tenant{}, ErrTenantNotFound
+		}
+		return model.Tenant{}, fmt.Errorf("resolve tenant: %w", err)
+	}
+
+	now := store.Now()
+	if err := s.store.Queries.SetTenantExpiry(ctx, sqlcgen.SetTenantExpiryParams{
+		ExpiresAt: at,
+		UpdatedAt: now,
+		ID:        row.ID,
+	}); err != nil {
+		return model.Tenant{}, fmt.Errorf("set tenant expiry: %w", err)
+	}
+
+	tenant := toTenant(row)
+	tenant.ExpiresAt = at
+	tenant.UpdatedAt = now
 	return tenant, nil
 }
 
@@ -241,7 +312,8 @@ func (s *TenantService) EnsureDefault(ctx context.Context) (model.Tenant, error)
 	case err == nil:
 		return tenant, nil
 	case isNotFound(err):
-		return s.Create(ctx, model.DefaultTenantCode, "Default")
+		// No deadline: the default tenant is the deployment.
+		return s.Create(ctx, model.DefaultTenantCode, "Default", nil)
 	default:
 		// A disabled default tenant is a deliberate operator choice — a
 		// deployment that has moved on to named tenants — so it is left
@@ -256,6 +328,7 @@ func toTenant(row sqlcgen.Tenant) model.Tenant {
 		Code:      row.Code,
 		Name:      row.Name,
 		Status:    model.Status(row.Status),
+		ExpiresAt: row.ExpiresAt,
 		CreatedAt: row.CreatedAt,
 		UpdatedAt: row.UpdatedAt,
 	}

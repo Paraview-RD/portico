@@ -403,6 +403,8 @@ type Tenant struct {
 	Status    string
 	CreatedAt time.Time
 	UpdatedAt time.Time
+	// When sign-in stops being allowed. NULL means never, which is every tenant not created by a self-service trial. Reaching it disables the tenant rather than deleting it, so an operator can extend and re-enable; deletion happens after a further grace period and is what returns the tenant code, the quota slot, and the applicant's address to circulation.
+	ExpiresAt *time.Time
 }
 
 // Self-service trial signups, for a public demonstration only. The one table with no tenant_id: it is what exists before a tenant does. Unreachable unless PORTICO_TRIAL_SIGNUP is on.

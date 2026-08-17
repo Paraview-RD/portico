@@ -280,6 +280,8 @@ export const errorsEnUS = {
   // refusal: a stranger who cannot get in has no support channel to ask.
   NOT_FOUND: "Not found.",
   TENANT_CONFIRM_MISMATCH: "Type the tenant code exactly to confirm.",
+  TENANT_HAS_NO_EXPIRY:
+    "This tenant has no expiry date, so there is nothing to extend. Only a tenant a self-service trial created has one.",
   TENANT_CANNOT_DISABLE_DEFAULT:
     "The default tenant cannot be disabled here — it is where this console is served from. Use the command line.",
   TRIAL_SIGNUP_CLOSED: "This deployment does not offer self-service trials.",

@@ -130,6 +130,10 @@ const (
 	// could not act on and, if they were the ones disabled, could not reach.
 	ActionTenantEnable  = "TENANT_ENABLE"
 	ActionTenantDisable = "TENANT_DISABLE"
+	// ActionTenantExtend moves a tenant's expiry out. Its own action rather
+	// than an update, because what an operator wants from the trail is "who
+	// kept this trial alive, and how many times".
+	ActionTenantExtend = "TENANT_EXTEND"
 
 	// Application registration, one set of verbs per protocol.
 	//

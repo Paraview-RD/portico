@@ -1736,6 +1736,43 @@ paths:
         "404":
           $ref: "#/components/responses/NotFound"
 
+  /api/v1/tenants/{code}/extend:
+    post:
+      tags: [Tenants]
+      operationId: extendTenant
+      summary: Give a tenant another trial period.
+      description: |
+        Moves the tenant's expiry date out by one trial period, measured from
+        now rather than from the old date — a tenant already past its date and
+        disabled is the one somebody is here to extend, and adding to the old
+        date would leave it in the past.
+
+        A step rather than a date: an operator looking at a tenant that lapses
+        on Thursday wants it to not lapse on Thursday, and a date field invites
+        a typo that either does nothing or hands out a decade. Press it twice
+        for twice as long.
+
+        No `confirm`, unlike disabling: this takes nothing away.
+
+        Refused for a tenant with no expiry date at all, which is every tenant
+        not created by a self-service trial — giving one a deadline here would
+        be taking something away.
+      parameters:
+        - name: code
+          in: path
+          required: true
+          schema: { type: string }
+      responses:
+        "200":
+          description: The tenant, with its new date.
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/TenantEnvelope" }
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "422":
+          description: The tenant has no expiry date, so there is nothing to extend.
+
   /api/v1/groups:
     get:
       tags: [Groups]
@@ -4879,6 +4916,18 @@ components:
           description: What everybody in this tenant types at sign-in.
         name: { type: string }
         status: { type: string, enum: [ACTIVE, DISABLED] }
+        expiresAt:
+          type: [string, "null"]
+          format: date-time
+          description: |
+            When sign-in stops being allowed, or absent for never — which is
+            every tenant except one a self-service trial created.
+
+            Reaching it disables the tenant rather than deleting it, so it is
+            reversible: `POST /api/v1/tenants/{code}/extend` moves it out.
+            Deletion happens after a further grace period and is what returns
+            the tenant code, the trial quota slot and the applicant's address
+            to circulation.
         createdAt: { type: string, format: date-time }
         updatedAt: { type: string, format: date-time }
 

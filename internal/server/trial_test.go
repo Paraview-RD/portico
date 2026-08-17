@@ -41,6 +41,11 @@ func newTrialTest(t *testing.T, enabled bool, quota ...int) (*apiTest, *recordin
 	cfg.InitialAdminPassword = adminPassword
 	cfg.PublicURL = "https://demo.portico.example.com"
 	cfg.AuthRateLimit, cfg.AuthRateLimitBurst = 100000, 100000
+	// The trial endpoints have a budget of their own — five a minute, because a
+	// person submits that form once and a script does not. A test submits it a
+	// dozen times in a millisecond, so it is held out of the way here; the
+	// limiter itself is exercised in rate_limit_test.go.
+	cfg.TrialRateLimit, cfg.TrialRateLimitBurst = 100000, 100000
 	cfg.TrialSignup = enabled
 	cfg.TrialMaxTenants = 50
 	if len(quota) > 0 {
@@ -1005,6 +1010,11 @@ func TestAMailRelayThatFailsIsNotReportedAsAServerFault(t *testing.T) {
 	cfg.InitialAdminUsername = adminUsername
 	cfg.InitialAdminPassword = adminPassword
 	cfg.AuthRateLimit, cfg.AuthRateLimitBurst = 100000, 100000
+	// The trial endpoints have a budget of their own — five a minute, because a
+	// person submits that form once and a script does not. A test submits it a
+	// dozen times in a millisecond, so it is held out of the way here; the
+	// limiter itself is exercised in rate_limit_test.go.
+	cfg.TrialRateLimit, cfg.TrialRateLimitBurst = 100000, 100000
 	cfg.TrialSignup = true
 	cfg.TrialMaxTenants = 50
 

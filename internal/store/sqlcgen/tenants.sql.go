@@ -11,8 +11,8 @@ import (
 )
 
 const createTenant = `-- name: CreateTenant :exec
-INSERT INTO tenants (id, code, name, status, created_at, updated_at)
-VALUES ($1, $2, $3, $4, $5, $6)
+INSERT INTO tenants (id, code, name, status, created_at, updated_at, expires_at)
+VALUES ($1, $2, $3, $4, $5, $6, $7)
 `
 
 type CreateTenantParams struct {
@@ -22,6 +22,7 @@ type CreateTenantParams struct {
 	Status    string
 	CreatedAt time.Time
 	UpdatedAt time.Time
+	ExpiresAt *time.Time
 }
 
 func (q *Queries) CreateTenant(ctx context.Context, arg CreateTenantParams) error {
@@ -32,12 +33,23 @@ func (q *Queries) CreateTenant(ctx context.Context, arg CreateTenantParams) erro
 		arg.Status,
 		arg.CreatedAt,
 		arg.UpdatedAt,
+		arg.ExpiresAt,
 	)
 	return err
 }
 
+const deleteTenant = `-- name: DeleteTenant :exec
+DELETE FROM tenants WHERE id = $1
+`
+
+// Everything scoped to this tenant goes with it, by ON DELETE CASCADE.
+func (q *Queries) DeleteTenant(ctx context.Context, id string) error {
+	_, err := q.db.ExecContext(ctx, deleteTenant, id)
+	return err
+}
+
 const getTenantByCode = `-- name: GetTenantByCode :one
-SELECT id, code, name, status, created_at, updated_at FROM tenants WHERE code = $1 LIMIT 1
+SELECT id, code, name, status, created_at, updated_at, expires_at FROM tenants WHERE code = $1 LIMIT 1
 `
 
 func (q *Queries) GetTenantByCode(ctx context.Context, code string) (Tenant, error) {
@@ -50,13 +62,14 @@ func (q *Queries) GetTenantByCode(ctx context.Context, code string) (Tenant, err
 		&i.Status,
 		&i.CreatedAt,
 		&i.UpdatedAt,
+		&i.ExpiresAt,
 	)
 	return i, err
 }
 
 const getTenantByID = `-- name: GetTenantByID :one
 
-SELECT id, code, name, status, created_at, updated_at FROM tenants WHERE id = $1 LIMIT 1
+SELECT id, code, name, status, created_at, updated_at, expires_at FROM tenants WHERE id = $1 LIMIT 1
 `
 
 // Tenants are the root of the isolation hierarchy, so unlike every other
@@ -80,12 +93,13 @@ func (q *Queries) GetTenantByID(ctx context.Context, id string) (Tenant, error) 
 		&i.Status,
 		&i.CreatedAt,
 		&i.UpdatedAt,
+		&i.ExpiresAt,
 	)
 	return i, err
 }
 
 const listTenants = `-- name: ListTenants :many
-SELECT id, code, name, status, created_at, updated_at FROM tenants ORDER BY code
+SELECT id, code, name, status, created_at, updated_at, expires_at FROM tenants ORDER BY code
 `
 
 func (q *Queries) ListTenants(ctx context.Context) ([]Tenant, error) {
@@ -104,6 +118,7 @@ func (q *Queries) ListTenants(ctx context.Context) ([]Tenant, error) {
 			&i.Status,
 			&i.CreatedAt,
 			&i.UpdatedAt,
+			&i.ExpiresAt,
 		); err != nil {
 			return nil, err
 		}
@@ -118,6 +133,105 @@ func (q *Queries) ListTenants(ctx context.Context) ([]Tenant, error) {
 	return items, nil
 }
 
+const listTenantsToDelete = `-- name: ListTenantsToDelete :many
+SELECT id, code, name, status, created_at, updated_at, expires_at FROM tenants
+WHERE expires_at IS NOT NULL AND expires_at <= $1
+ORDER BY expires_at
+`
+
+// Tenants whose grace period has also passed.
+//
+// Separate from the query above rather than one query with two cases, because
+// these two do very different things: one is reversible and one is not. A
+// caller has to ask for the destructive list by name.
+func (q *Queries) ListTenantsToDelete(ctx context.Context, expiresAt *time.Time) ([]Tenant, error) {
+	rows, err := q.db.QueryContext(ctx, listTenantsToDelete, expiresAt)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	items := []Tenant{}
+	for rows.Next() {
+		var i Tenant
+		if err := rows.Scan(
+			&i.ID,
+			&i.Code,
+			&i.Name,
+			&i.Status,
+			&i.CreatedAt,
+			&i.UpdatedAt,
+			&i.ExpiresAt,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Close(); err != nil {
+		return nil, err
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
+const listTenantsToDisable = `-- name: ListTenantsToDisable :many
+SELECT id, code, name, status, created_at, updated_at, expires_at FROM tenants
+WHERE expires_at IS NOT NULL AND expires_at <= $1 AND status = 'ACTIVE'
+ORDER BY expires_at
+`
+
+// Tenants whose deadline has passed while they are still able to sign in.
+//
+// Status is part of the predicate so the sweep is idempotent: once disabled, a
+// tenant stops appearing here and is not written to on every pass.
+func (q *Queries) ListTenantsToDisable(ctx context.Context, expiresAt *time.Time) ([]Tenant, error) {
+	rows, err := q.db.QueryContext(ctx, listTenantsToDisable, expiresAt)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	items := []Tenant{}
+	for rows.Next() {
+		var i Tenant
+		if err := rows.Scan(
+			&i.ID,
+			&i.Code,
+			&i.Name,
+			&i.Status,
+			&i.CreatedAt,
+			&i.UpdatedAt,
+			&i.ExpiresAt,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Close(); err != nil {
+		return nil, err
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
+const setTenantExpiry = `-- name: SetTenantExpiry :exec
+UPDATE tenants SET expires_at = $1, updated_at = $2 WHERE id = $3
+`
+
+type SetTenantExpiryParams struct {
+	ExpiresAt *time.Time
+	UpdatedAt time.Time
+	ID        string
+}
+
+// Moves a deadline, or removes one with NULL.
+func (q *Queries) SetTenantExpiry(ctx context.Context, arg SetTenantExpiryParams) error {
+	_, err := q.db.ExecContext(ctx, setTenantExpiry, arg.ExpiresAt, arg.UpdatedAt, arg.ID)
+	return err
+}
+
 const tenantOverview = `-- name: TenantOverview :many
 SELECT
     t.id,
@@ -125,6 +239,9 @@ SELECT
     t.name,
     t.status,
     t.created_at,
+    -- The deadline, so the console can show how long a trial tenant has left
+    -- without a second query. NULL for every tenant nobody gave one to.
+    t.expires_at,
     (SELECT count(*) FROM users u
         WHERE u.tenant_id = t.id) AS user_count,
     (SELECT count(*) FROM users u
@@ -152,6 +269,7 @@ type TenantOverviewRow struct {
 	Name              string
 	Status            string
 	CreatedAt         time.Time
+	ExpiresAt         *time.Time
 	UserCount         int64
 	ActiveUserCount   int64
 	OrganizationCount int64
@@ -190,6 +308,7 @@ func (q *Queries) TenantOverview(ctx context.Context) ([]TenantOverviewRow, erro
 			&i.Name,
 			&i.Status,
 			&i.CreatedAt,
+			&i.ExpiresAt,
 			&i.UserCount,
 			&i.ActiveUserCount,
 			&i.OrganizationCount,

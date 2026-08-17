@@ -76,7 +76,10 @@ func (s *TrialService) confirmMail(tenantName, link, requested string) (notify.M
 // that did not happen.
 func (s *TrialService) readyMail(out TrialTenant, requested string) (notify.Message, error) {
 	locale := s.trialLocale(requested)
-	data := i18n.TrialData{Tenant: out.TenantName}
+	data := i18n.TrialData{
+		Tenant: out.TenantName,
+		Days:   int(TrialTenantTTL.Hours() / 24),
+	}
 
 	text := func(key string) string {
 		rendered, err := s.messages.Render(locale, key, data)
@@ -106,9 +109,16 @@ func (s *TrialService) readyMail(out TrialTenant, requested string) (notify.Mess
 	}
 
 	doc := mailfmt.Document{
-		Brand:    mailBrand,
-		Title:    text(i18n.KeyTrialReadyTitle),
-		Intro:    []string{text(i18n.KeyTrialReadyIntro)},
+		Brand: mailBrand,
+		Title: text(i18n.KeyTrialReadyTitle),
+		// The fortnight is said here rather than in the footer. Somebody
+		// reading this is deciding how much to build in the next few minutes,
+		// and "how long do I have" is part of that decision — under the small
+		// print it is read after they have already decided.
+		Intro: []string{
+			text(i18n.KeyTrialReadyIntro),
+			text(i18n.KeyTrialReadyExpiry),
+		},
 		Sections: []mailfmt.Section{signIn},
 		Footer:   []string{text(i18n.KeyTrialReadyFooter)},
 	}

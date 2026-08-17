@@ -1,6 +1,7 @@
 package service
 
 import (
+	"fmt"
 	"strings"
 	"testing"
 
@@ -181,4 +182,27 @@ func mustParse(t *testing.T, tag string) i18n.Locale {
 		t.Fatalf("%q is not a locale this build has", tag)
 	}
 	return locale
+}
+
+// The fortnight in the credentials mail is the fortnight the sweep keeps.
+//
+// The wording is translated copy and belongs to whoever writes it; the number
+// in it has to come from TrialTenantTTL, or the message is telling somebody a
+// deadline the server does not keep. The link's own expiry is held the same way
+// in internal/server/trial_test.go — this is the tenant's.
+func TestTheCredentialsMailStatesTheLifeTheSweepEnforces(t *testing.T) {
+	out := TrialTenant{
+		TenantCode: "mytrial", TenantName: "My Trial", AdminUsername: "admin",
+		AdminPassword: "x", SignInURL: "https://demo.example.com/login?tenant=mytrial",
+	}
+	msg, err := trialMailer("en-US").readyMail(out, "en-US")
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	days := fmt.Sprintf("%d days", int(TrialTenantTTL.Hours()/24))
+	if !strings.Contains(msg.Body, days) {
+		t.Errorf("the message does not state how long the tenant lasts (%q):\n%s",
+			days, msg.Body)
+	}
 }

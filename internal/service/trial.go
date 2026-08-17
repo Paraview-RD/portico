@@ -19,6 +19,7 @@ import (
 	"github.com/Paraview-RD/portico/internal/auth"
 	"github.com/Paraview-RD/portico/internal/httpx"
 	"github.com/Paraview-RD/portico/internal/i18n"
+	"github.com/Paraview-RD/portico/internal/metrics"
 	"github.com/Paraview-RD/portico/internal/model"
 	"github.com/Paraview-RD/portico/internal/notify"
 	"github.com/Paraview-RD/portico/internal/store"
@@ -95,6 +96,28 @@ type TenantFiller interface {
 // it cannot.
 const TrialTokenTTL = 24 * time.Hour
 
+// TrialTenantTTL is how long a trial tenant can be signed in to.
+//
+// Two weeks, and stated as a fortnight rather than as fifteen days because
+// that is a unit somebody holds in their head: an email saying "two weeks"
+// needs no arithmetic, and one saying "15 days" does.
+//
+// What reaching it does is disable the tenant, not delete it. So the deadline
+// is not a threat — an operator can move it, and the person keeps everything
+// they built if they ask.
+const TrialTenantTTL = 14 * 24 * time.Hour
+
+// TrialTenantGrace is how long a disabled trial tenant is kept before it is
+// deleted.
+//
+// The delay exists because deletion is the irreversible half and it releases
+// three things at once: the tenant code, the quota slot, and the one-tenant-
+// per-mailbox hold on the applicant's address. A week is long enough that
+// somebody who let a deadline slip over a holiday still has their work, and
+// short enough that a quota of fifty is not permanently held by tenants
+// nobody has opened in a month.
+const TrialTenantGrace = 7 * 24 * time.Hour
+
 // trialsPerAddressPerDay bounds one client address over a day, which the
 // per-minute rate limiter cannot see: fifty requests spread across an
 // afternoon are inside every limit and are still one machine filling the quota.
@@ -117,12 +140,14 @@ const trialsPerMailboxPerDay = 3
 
 // trialsPerHour bounds the whole deployment.
 //
-// The caps above are per-something, and anything per-something is defeated by
-// having more of that thing. This one is not: a sending quota and a sender
-// reputation are shared by every message that leaves, and losing either takes
-// down password recovery for the tenants that already exist — which is a much
-// worse outcome than a stranger waiting an hour for a demonstration.
-const trialsPerHour = 30
+// Ten, and the number is chosen against the quota rather than against what a
+// server can serve. With a cap of fifty tenants, thirty an hour was not a
+// ceiling at all — seven hundred and twenty a day against a limit of fifty
+// means the per-hour figure could never be the thing that stopped anyone. Ten
+// makes filling the quota take five hours, which is the point: not that it
+// cannot be done, but that it cannot be done between two glances at the
+// dashboard.
+const trialsPerHour = 10
 
 var (
 	// ErrTrialSignupClosed is what every method answers when the deployment
@@ -218,6 +243,25 @@ type TrialService struct {
 	// accept. Built once at construction rather than per request.
 	blockedDomains map[string]bool
 
+	// metrics is where the quota is published, and nil is allowed — the CLI
+	// builds this service too, and a command that runs for a second has
+	// nothing to publish to.
+	metrics *metrics.Registry
+
+	// filling bounds how many tenants are seeded at once.
+	//
+	// A trial's fill is the heaviest thing this process does: fifteen
+	// accounts, an organization tree and several applications, each hashing a
+	// password. On the free instance this demonstration runs on that is 512MB
+	// and a tenth of a CPU, so five people confirming their links in the same
+	// minute is how the server gets killed and restarted — which loses the
+	// tenant that was half-built as well.
+	//
+	// A channel rather than a mutex because it says the number: one slot means
+	// one at a time, and raising it later is one constant. Nil permits
+	// everything, which is what the CLI and the tests get.
+	filling chan struct{}
+
 	// messages renders the two mails this service sends, and locale is the
 	// language it writes them in. The deployment's default, because a trial
 	// applicant has no account and no tenant to take a preference from —
@@ -286,6 +330,24 @@ func NewTrialService(
 // to ask. Unset leaves English.
 func (s *TrialService) WithLocale(locale string) *TrialService {
 	s.locale = locale
+	return s
+}
+
+// WithMetrics publishes the trial quota to an operator.
+//
+// Optional, and separate from the constructor because most callers of this
+// service are not the server: the seeding command and the tests build one too.
+func (s *TrialService) WithMetrics(reg *metrics.Registry) *TrialService {
+	s.metrics = reg
+	return s
+}
+
+// WithFillLimit bounds how many tenants are seeded at once. Zero or less
+// leaves it unbounded.
+func (s *TrialService) WithFillLimit(n int) *TrialService {
+	if n > 0 {
+		s.filling = make(chan struct{}, n)
+	}
 	return s
 }
 
@@ -530,7 +592,11 @@ func (s *TrialService) Confirm(ctx context.Context, token, locale string) (Trial
 		return TrialTenant{}, ErrTrialLinkExpired
 	}
 
-	tenant, err := s.tenants.Create(ctx, row.TenantCode, row.CompanyName)
+	// The deadline is set with the tenant rather than after it. A tenant
+	// created and then left without one is a tenant nothing reclaims, and the
+	// quota slot it holds is never given back.
+	expiresAt := s.now().Add(TrialTenantTTL)
+	tenant, err := s.tenants.Create(ctx, row.TenantCode, row.CompanyName, &expiresAt)
 	if err != nil {
 		return TrialTenant{}, err
 	}
@@ -611,6 +677,25 @@ func (s *TrialService) Confirm(ctx context.Context, token, locale string) (Trial
 	// waiting and it can simply be run again. Here somebody is standing in
 	// front of the page.
 	if s.filler != nil {
+		// One fill at a time, where a limit was asked for. The tenant already
+		// exists and can be signed in to, so waiting here delays the example
+		// data rather than the trial — and the alternative on a 512MB instance
+		// is the process being killed mid-fill, which loses the half-built
+		// tenant as well as everybody else's request.
+		//
+		// The context is honoured while waiting: a visitor who gave up and
+		// closed the tab should not hold a slot until their fill completes.
+		if s.filling != nil {
+			select {
+			case s.filling <- struct{}{}:
+				defer func() { <-s.filling }()
+			case <-ctx.Done():
+				slog.WarnContext(ctx, "gave up waiting to fill a trial tenant; it exists but is empty",
+					"tenant", tenant.Code, "error", ctx.Err())
+				return out, nil
+			}
+		}
+
 		demoPassword, fillErr := newTrialPassword()
 		if fillErr == nil {
 			fillErr = s.filler.Fill(ctx, TenantFill{
@@ -650,6 +735,96 @@ func (s *TrialService) Confirm(ctx context.Context, token, locale string) (Trial
 // is what returns a reserved tenant code to circulation.
 func (s *TrialService) SweepExpired(ctx context.Context) (int64, error) {
 	return s.store.Queries.DeleteExpiredTrialRequests(ctx)
+}
+
+// SweepTenants closes and then clears out trial tenants whose time is up.
+//
+// Two passes, in that order, because they are not the same act. The first
+// disables a tenant whose fortnight has passed: sign-in stops, nothing is
+// lost, and an operator who hears from the person can move the deadline and
+// switch it back on. The second deletes one whose grace period has also
+// passed, and that is the irreversible half — it is also the only half that
+// gives anything back, since the quota, the tenant code and the hold on the
+// applicant's mailbox are all released by removing the trial_requests row
+// beside the tenant.
+//
+// Without this the deployment closes itself. The quota counts confirmed
+// requests, nothing ever decremented it, and so the fiftieth ordinary visitor
+// was the last one — permanently, and with no error anywhere to say why.
+//
+// The default tenant is skipped explicitly. It should never carry a deadline,
+// and a bug that gave it one would otherwise take the whole deployment down
+// on a timer.
+func (s *TrialService) SweepTenants(ctx context.Context) (disabled, deleted int, err error) {
+	now := s.now()
+
+	due, err := s.store.Queries.ListTenantsToDisable(ctx, &now)
+	if err != nil {
+		return 0, 0, fmt.Errorf("list tenants to disable: %w", err)
+	}
+	for _, row := range due {
+		if row.Code == model.DefaultTenantCode {
+			slog.ErrorContext(ctx, "the default tenant has an expiry date, which it should never have; leaving it alone",
+				"tenant", row.Code)
+			continue
+		}
+		if _, err := s.tenants.SetStatus(ctx, row.Code, model.StatusDisabled); err != nil {
+			// One tenant's failure must not stop the others: a sweep that
+			// gives up halfway leaves the rest to accumulate, which is the
+			// condition this exists to prevent.
+			slog.ErrorContext(ctx, "could not disable an expired trial tenant",
+				"tenant", row.Code, "error", err)
+			continue
+		}
+		slog.InfoContext(ctx, "a trial tenant reached its expiry and was disabled",
+			"tenant", row.Code, "expired_at", row.ExpiresAt)
+		disabled++
+	}
+
+	cutoff := now.Add(-TrialTenantGrace)
+	stale, err := s.store.Queries.ListTenantsToDelete(ctx, &cutoff)
+	if err != nil {
+		return disabled, 0, fmt.Errorf("list tenants to delete: %w", err)
+	}
+	for _, row := range stale {
+		if row.Code == model.DefaultTenantCode {
+			continue
+		}
+		// The request row first. Deleting the tenant first and then failing
+		// here would leave the quota slot and the mailbox held by a tenant
+		// that no longer exists, which nothing else would ever clean up;
+		// failing in this order leaves a disabled tenant that the next pass
+		// tries again.
+		if err := s.store.Queries.DeleteTrialRequestByTenantCode(ctx, row.Code); err != nil {
+			slog.ErrorContext(ctx, "could not release an expired trial's reservation",
+				"tenant", row.Code, "error", err)
+			continue
+		}
+		if err := s.store.Queries.DeleteTenant(ctx, row.ID); err != nil {
+			slog.ErrorContext(ctx, "could not delete an expired trial tenant",
+				"tenant", row.Code, "error", err)
+			continue
+		}
+		slog.InfoContext(ctx, "an expired trial tenant and everything in it were deleted",
+			"tenant", row.Code, "expired_at", row.ExpiresAt)
+		deleted++
+	}
+
+	// Published here rather than on a request, because this is the moment the
+	// number can have changed and the count is a query nobody should pay for
+	// on a page load. Reported even when nothing was swept: a gauge that only
+	// appears when something happened cannot be alerted on.
+	if s.metrics != nil {
+		confirmed, err := s.store.Queries.CountConfirmedTrials(ctx)
+		if err != nil {
+			slog.ErrorContext(ctx, "could not read the trial quota to publish it",
+				"error", err)
+		} else {
+			s.metrics.ObserveTrialQuota(int(confirmed), s.maxTenants)
+		}
+	}
+
+	return disabled, deleted, nil
 }
 
 func (s *TrialService) sendLink(ctx context.Context, email, company, token, locale string) error {

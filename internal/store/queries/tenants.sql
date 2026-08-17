@@ -17,14 +17,41 @@ SELECT * FROM tenants WHERE id = $1 LIMIT 1;
 SELECT * FROM tenants WHERE code = $1 LIMIT 1;
 
 -- name: CreateTenant :exec
-INSERT INTO tenants (id, code, name, status, created_at, updated_at)
-VALUES ($1, $2, $3, $4, $5, $6);
+INSERT INTO tenants (id, code, name, status, created_at, updated_at, expires_at)
+VALUES ($1, $2, $3, $4, $5, $6, $7);
 
 -- name: ListTenants :many
 SELECT * FROM tenants ORDER BY code;
 
 -- name: UpdateTenantStatus :exec
 UPDATE tenants SET status = $1, updated_at = $2 WHERE id = $3;
+
+-- name: SetTenantExpiry :exec
+-- Moves a deadline, or removes one with NULL.
+UPDATE tenants SET expires_at = $1, updated_at = $2 WHERE id = $3;
+
+-- name: ListTenantsToDisable :many
+-- Tenants whose deadline has passed while they are still able to sign in.
+--
+-- Status is part of the predicate so the sweep is idempotent: once disabled, a
+-- tenant stops appearing here and is not written to on every pass.
+SELECT * FROM tenants
+WHERE expires_at IS NOT NULL AND expires_at <= $1 AND status = 'ACTIVE'
+ORDER BY expires_at;
+
+-- name: ListTenantsToDelete :many
+-- Tenants whose grace period has also passed.
+--
+-- Separate from the query above rather than one query with two cases, because
+-- these two do very different things: one is reversible and one is not. A
+-- caller has to ask for the destructive list by name.
+SELECT * FROM tenants
+WHERE expires_at IS NOT NULL AND expires_at <= $1
+ORDER BY expires_at;
+
+-- name: DeleteTenant :exec
+-- Everything scoped to this tenant goes with it, by ON DELETE CASCADE.
+DELETE FROM tenants WHERE id = $1;
 
 -- name: TenantOverview :many
 -- Every tenant with a count of what is inside it, for the operator console.
@@ -49,6 +76,9 @@ SELECT
     t.name,
     t.status,
     t.created_at,
+    -- The deadline, so the console can show how long a trial tenant has left
+    -- without a second query. NULL for every tenant nobody gave one to.
+    t.expires_at,
     (SELECT count(*) FROM users u
         WHERE u.tenant_id = t.id) AS user_count,
     (SELECT count(*) FROM users u
