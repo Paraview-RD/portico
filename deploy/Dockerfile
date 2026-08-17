@@ -14,7 +14,7 @@ RUN cd web && npm run build
 # compiles against a directory holding one .gitkeep, so a build with no manual
 # in it succeeds and the image serves "The Portico manual was not included in
 # this build" at /docs — a correct sentence that nobody was meant to read.
-FROM python:3.12-alpine AS manual
+FROM python:3.14-alpine AS manual
 WORKDIR /src
 COPY hack/docs-requirements.txt ./hack/
 RUN pip install --no-cache-dir -r hack/docs-requirements.txt
