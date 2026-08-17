@@ -1,3 +1,5 @@
+import { enUS } from "../src/i18n/en-US";
+import { zhCN } from "../src/i18n/zh-CN";
 import { expect, test } from "./fixtures";
 
 /**
@@ -127,12 +129,19 @@ test("the signed-out screens are in the reader's language", async ({
   await page.evaluate(() => localStorage.setItem("portico.language", "zh-CN"));
   await page.reload();
 
-  await expect(page.getByRole("heading", { name: "登录" })).toBeVisible();
+  // Asserted through the catalogues rather than against copied strings. The
+  // rule is "this screen is in the reader's language", and rewording the
+  // descriptor is not a regression in that rule — the first version spelled
+  // both out and went red the day 身份平台 became 统一身份认证平台, which is a
+  // test reporting on its own staleness rather than on the product.
   await expect(
-    page.getByText("Identity Platform"),
+    page.getByRole("heading", { name: zhCN["login.title"] }),
+  ).toBeVisible();
+  await expect(
+    page.getByText(enUS["brand.descriptor"]),
     "the signed-out shell is still saying it in English",
   ).toHaveCount(0);
-  await expect(page.getByText("身份平台")).toBeVisible();
+  await expect(page.getByText(zhCN["brand.descriptor"])).toBeVisible();
 
   // Put it back, so the language this leaves behind is not a surprise for
   // whatever runs next in the same browser context.
