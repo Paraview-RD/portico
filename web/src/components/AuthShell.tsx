@@ -1,6 +1,7 @@
 import type { ReactNode } from "react";
 
 import { BrandLockup } from "./brand";
+import { LanguageMenu } from "./menu";
 import { useT } from "../i18n";
 
 /**
@@ -46,12 +47,17 @@ export function AuthShell({
 
   return (
     <div className="flex min-h-dvh flex-col bg-[var(--color-bg-soft)] p-4">
-      <header className="shrink-0">
+      {/* Same reasoning as the landing page: everybody on these four screens
+          is signed out, so the language they get is whatever their browser
+          asked for, and the menu that changes it used to be behind the sign-in
+          they are standing in front of. */}
+      <header className="flex shrink-0 items-start justify-between gap-4">
         <BrandLockup
           name="Portico"
           descriptor={t("brand.descriptor")}
           size={40}
         />
+        <LanguageMenu />
       </header>
 
       {/* Centred in what is left. min-h-dvh rather than h-dvh above, so the

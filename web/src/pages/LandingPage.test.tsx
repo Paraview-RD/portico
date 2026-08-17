@@ -49,6 +49,16 @@ it("says what this is before asking for anything", async () => {
   expect(screen.getByRole("button", { name: "Sign in" })).toBeVisible();
 });
 
+// The language menu used to live only inside the signed-in shell, which put it
+// behind the sign-in that this page is asking somebody to go through. Everyone
+// who reads this page is signed out, so this is where it matters most.
+it("lets somebody who has no account change the language", async () => {
+  trialStatus.mockResolvedValue({ enabled: false });
+  renderWithLanguage(<LandingPage />);
+
+  expect(screen.getByRole("button", { name: "Language" })).toBeVisible();
+});
+
 it("offers a trial only where trials are on", async () => {
   trialStatus.mockResolvedValue({ enabled: true });
   renderWithLanguage(<LandingPage />);

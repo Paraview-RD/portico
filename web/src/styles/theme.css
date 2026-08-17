@@ -175,13 +175,17 @@
      centred gradient reads as a spotlight on the heading. These sit off to
      the sides and are what gives the page depth without becoming a subject.
 
-     The grid is the arch's own geometry: a portico is a structure, and a
-     ruled ground is what it stands on. Kept at a low opacity — it should be
-     something you notice second, if at all. */
+     Dots rather than ruled lines. Lines in both directions are a grid, and a
+     grid at this scale is squared paper — it reads as a worksheet the content
+     was written on, and it competes with every card edge on the page for the
+     same reason: they are all straight lines meeting at right angles. Dots
+     carry the same sense of a measured ground and have no edges to compete
+     with. They also fade out down the page, so the texture belongs to the top
+     of it rather than tiling the whole thing uniformly. */
   --landing-wash-1: rgb(37 99 235 / 0.18);
   --landing-wash-2: rgb(124 58 237 / 0.13);
-  --landing-grid: rgb(30 41 59 / 0.07);
-  --landing-grid-size: 56px;
+  --landing-dot: rgb(30 41 59 / 0.16);
+  --landing-dot-gap: 26px;
 }
 
 [data-theme="dark"] {
@@ -198,9 +202,9 @@
 
   /* Stronger, not merely darker. The same alpha over a near-black page is
      invisible, so the washes are raised until they read as the same amount
-     of colour, and the grid is switched from a dark rule to a light one —
-     a dark line on a dark page is not a fainter line, it is no line. */
+     of colour, and the dots are switched from a dark tone to a light one —
+     a dark dot on a dark page is not a fainter dot, it is no dot. */
   --landing-wash-1: rgb(37 99 235 / 0.22);
   --landing-wash-2: rgb(124 58 237 / 0.16);
-  --landing-grid: rgb(148 163 184 / 0.07);
+  --landing-dot: rgb(148 163 184 / 0.18);
 }

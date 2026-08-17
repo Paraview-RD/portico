@@ -7,6 +7,7 @@ import {
   IdentityProvidersIcon,
   UsersIcon,
 } from "../components/icons";
+import { LanguageMenu } from "../components/menu";
 import { Button } from "../components/ui";
 import { useT } from "../i18n";
 import { useRouter } from "../router";
@@ -91,22 +92,39 @@ export function LandingPage() {
         style={{
           backgroundImage: `
             radial-gradient(60rem 40rem at 15% -10%, var(--landing-wash-1), transparent 70%),
-            radial-gradient(50rem 35rem at 90% 5%, var(--landing-wash-2), transparent 70%),
-            linear-gradient(var(--landing-grid) 1px, transparent 1px),
-            linear-gradient(90deg, var(--landing-grid) 1px, transparent 1px)`,
-          backgroundSize: `
-            100% 100%, 100% 100%,
-            var(--landing-grid-size) var(--landing-grid-size),
-            var(--landing-grid-size) var(--landing-grid-size)`,
+            radial-gradient(50rem 35rem at 90% 5%, var(--landing-wash-2), transparent 70%)`,
         }}
-      />
+      >
+        {/* The dots are on their own layer so they can be faded out down the
+            page without taking the washes with them. A mask rather than a
+            gradient overlay: an overlay has to be the page's own colour to
+            hide anything, which makes it one more place the background is
+            written down, and it would sit over the washes too. */}
+        <div
+          className="absolute inset-0"
+          style={{
+            backgroundImage:
+              "radial-gradient(var(--landing-dot) 1px, transparent 1px)",
+            backgroundSize: "var(--landing-dot-gap) var(--landing-dot-gap)",
+            maskImage: "linear-gradient(to bottom, #000 0, transparent 60%)",
+            WebkitMaskImage:
+              "linear-gradient(to bottom, #000 0, transparent 60%)",
+          }}
+        />
+      </div>
 
-      <header className="shrink-0">
+      {/* The language menu belongs here more than anywhere: this is the one
+          page whose whole audience arrived without an account, so nothing has
+          told the server what language they read. Until now the only one was
+          inside the signed-in shell, which is a strange place for it — the
+          people who most need to change it are the ones who cannot reach it. */}
+      <header className="flex shrink-0 items-start justify-between gap-4">
         <BrandLockup
           name="Portico"
           descriptor={t("brand.descriptor")}
           size={40}
         />
+        <LanguageMenu />
       </header>
 
       <main className="mx-auto flex w-full max-w-5xl flex-1 flex-col gap-16 py-16">

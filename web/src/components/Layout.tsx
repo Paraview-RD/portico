@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useState } from "react";
 import type { ReactNode } from "react";
 
 import { BrandLockup } from "./brand";
@@ -7,7 +7,6 @@ import {
   AttributesIcon,
   AuditIcon,
   ChevronDownIcon,
-  GlobeIcon,
   GroupsIcon,
   HomeIcon,
   IdentityProvidersIcon,
@@ -20,9 +19,9 @@ import {
   TenantIcon,
   WebhooksIcon,
 } from "./icons";
+import { LanguageMenu, Menu, MenuItem, useDismissable } from "./menu";
 import { request } from "../api/client";
-import { useLanguage, useT, languageNames } from "../i18n";
-import type { Language } from "../i18n";
+import { useT } from "../i18n";
 import { DEFAULT_TENANT_CODE } from "../api/types";
 import type { Route } from "../router";
 import { useRouter } from "../router";
@@ -412,46 +411,6 @@ function TenantBadge() {
   );
 }
 
-function LanguageMenu() {
-  const { language, setLanguage } = useLanguage();
-  const t = useT();
-  const { open, setOpen, ref } = useDismissable();
-
-  return (
-    <div className="relative" ref={ref}>
-      <button
-        type="button"
-        onClick={() => setOpen(!open)}
-        aria-haspopup="menu"
-        aria-expanded={open}
-        aria-label={t("nav.language")}
-        className="flex items-center gap-1.5 rounded-[var(--radius-sm)] px-2.5 py-1.5 text-[var(--color-fg-muted)] transition-colors hover:bg-[var(--color-bg-hover)] hover:text-[var(--color-fg)]"
-      >
-        <GlobeIcon size={16} />
-        <span className="hidden sm:inline">{languageNames[language]}</span>
-        <ChevronDownIcon size={14} />
-      </button>
-
-      {open && (
-        <Menu>
-          {Object.entries(languageNames).map(([code, name]) => (
-            <MenuItem
-              key={code}
-              selected={code === language}
-              onClick={() => {
-                setLanguage(code as Language);
-                setOpen(false);
-              }}
-            >
-              {name}
-            </MenuItem>
-          ))}
-        </Menu>
-      )}
-    </div>
-  );
-}
-
 function AccountMenu() {
   const t = useT();
   const { user, signOut } = useSession();
@@ -502,73 +461,4 @@ function AccountMenu() {
       )}
     </div>
   );
-}
-
-function Menu({ children }: { children: ReactNode }) {
-  return (
-    <div
-      role="menu"
-      className="absolute right-0 z-30 mt-1 min-w-44 overflow-hidden rounded-[var(--radius-md)] border border-[var(--color-border)] bg-[var(--color-bg)] py-1 shadow-[var(--shadow-md)]"
-    >
-      {children}
-    </div>
-  );
-}
-
-function MenuItem({
-  children,
-  selected,
-  onClick,
-}: {
-  children: ReactNode;
-  selected?: boolean;
-  onClick: () => void;
-}) {
-  return (
-    <button
-      type="button"
-      role="menuitem"
-      onClick={onClick}
-      className={[
-        "block w-full px-3 py-2 text-left transition-colors",
-        selected
-          ? "bg-[var(--color-primary-soft)] text-[var(--color-primary)]"
-          : "text-[var(--color-fg)] hover:bg-[var(--color-bg-hover)]",
-      ].join(" ")}
-    >
-      {children}
-    </button>
-  );
-}
-
-/**
- * useDismissable closes a popover on an outside click or Escape.
- *
- * Both, not one: a mouse user expects clicking away to work and a keyboard
- * user expects Escape to, and a menu that only honours one of them is a menu
- * somebody gets stuck in.
- */
-function useDismissable() {
-  const [open, setOpen] = useState(false);
-  const ref = useRef<HTMLDivElement>(null);
-
-  useEffect(() => {
-    if (!open) return;
-
-    const onPointerDown = (event: MouseEvent) => {
-      if (!ref.current?.contains(event.target as Node)) setOpen(false);
-    };
-    const onKeyDown = (event: KeyboardEvent) => {
-      if (event.key === "Escape") setOpen(false);
-    };
-
-    document.addEventListener("mousedown", onPointerDown);
-    document.addEventListener("keydown", onKeyDown);
-    return () => {
-      document.removeEventListener("mousedown", onPointerDown);
-      document.removeEventListener("keydown", onKeyDown);
-    };
-  }, [open]);
-
-  return { open, setOpen, ref };
 }
