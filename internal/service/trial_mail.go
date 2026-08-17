@@ -1,8 +1,6 @@
 package service
 
 import (
-	"fmt"
-
 	"github.com/Paraview-RD/portico/internal/i18n"
 	"github.com/Paraview-RD/portico/internal/mailfmt"
 	"github.com/Paraview-RD/portico/internal/notify"
@@ -14,13 +12,6 @@ import (
 // what lets a test read what an applicant will actually receive — in both
 // languages and in both renderings — rather than asserting on a fake mailer's
 // record of a string that was already composed.
-
-// mailBrand is the wordmark above the title.
-//
-// Not translated and not configurable: it is the name of the software, and a
-// deployment that renamed it here would be saying one thing in the message and
-// another everywhere the product refers to itself.
-const mailBrand = "Portico"
 
 // trialLocale is the language a trial message is written in.
 //
@@ -53,22 +44,18 @@ func (s *TrialService) confirmMail(tenantName, link string) (notify.Message, err
 		return out
 	}
 
-	doc := mailfmt.Document{
-		Brand: mailBrand,
-		Title: text(i18n.KeyTrialConfirmTitle),
-		Intro: []string{text(i18n.KeyTrialConfirmIntro)},
-		Sections: []mailfmt.Section{{
-			Action: &mailfmt.Action{
-				Label:    text(i18n.KeyTrialConfirmAction),
-				URL:      link,
-				Fallback: text(i18n.KeyTrialLinkFallback),
-			},
-		}},
+	doc := linkMail{
+		Brand:    mailBrand,
+		Title:    text(i18n.KeyTrialConfirmTitle),
+		Intro:    text(i18n.KeyTrialConfirmIntro),
+		Action:   text(i18n.KeyTrialConfirmAction),
+		Link:     link,
+		Fallback: text(i18n.KeyMailLinkFallback),
 		Footer: []string{
 			text(i18n.KeyTrialConfirmExpiry),
 			text(i18n.KeyTrialConfirmIgnore),
 		},
-	}
+	}.document()
 	return message(text(i18n.KeyTrialConfirmSubject), doc)
 }
 
@@ -100,7 +87,7 @@ func (s *TrialService) readyMail(out TrialTenant) (notify.Message, error) {
 		Action: &mailfmt.Action{
 			Label:    text(i18n.KeyTrialReadyAction),
 			URL:      out.SignInURL,
-			Fallback: text(i18n.KeyTrialLinkFallback),
+			Fallback: text(i18n.KeyMailLinkFallback),
 		},
 	}
 
@@ -126,13 +113,4 @@ func (s *TrialService) readyMail(out TrialTenant) (notify.Message, error) {
 	}
 
 	return message(text(i18n.KeyTrialReadySubject), doc)
-}
-
-// message renders a document into both parts of one email.
-func message(subject string, doc mailfmt.Document) (notify.Message, error) {
-	html, err := doc.HTML()
-	if err != nil {
-		return notify.Message{}, fmt.Errorf("render mail: %w", err)
-	}
-	return notify.Message{Subject: subject, Body: doc.Text(), HTML: html}, nil
 }

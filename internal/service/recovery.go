@@ -331,14 +331,12 @@ func (s *RecoveryService) deliver(ctx context.Context, tenant model.Tenant, chan
 	var err error
 	switch channel {
 	case model.RecoveryEmail:
-		subject, body, renderErr := s.render(locale,
-			i18n.KeyRecoveryEmailSubject, i18n.KeyRecoveryEmailBody, data)
-		if renderErr != nil {
-			return renderErr
+		msg, buildErr := s.email(locale, tenant.Name, link, data)
+		if buildErr != nil {
+			return buildErr
 		}
-		err = s.mailer.Send(ctx, notify.Message{
-			To: row.Email, Subject: subject, Body: body,
-		})
+		msg.To = row.Email
+		err = s.mailer.Send(ctx, msg)
 	case model.RecoverySMS:
 		text, renderErr := s.messages.Render(locale, i18n.KeyRecoverySMS, data)
 		if renderErr != nil {
@@ -389,16 +387,45 @@ func hashRecoveryToken(token string) string {
 	return hex.EncodeToString(sum[:])
 }
 
-// render produces a subject and a body together, so a message is never sent
-// with one of them missing.
-func (s *RecoveryService) render(locale i18n.Locale, subjectKey, bodyKey string, data any) (string, string, error) {
-	subject, err := s.messages.Render(locale, subjectKey, data)
-	if err != nil {
-		return "", "", err
+// email assembles the reset message, both parts of it.
+//
+// Separate from deliver so it can be built without sending it, which is what
+// lets a test read what somebody will actually receive rather than assert on
+// a fake mailer's record of an already-composed string.
+//
+// Every part is required. Unlike the trial messages — which would rather send
+// an ugly mail than refuse somebody a tenant — a password reset that renders
+// wrong should fail into the process log: the person asking for it has
+// already been answered, and a message missing its link helps nobody.
+func (s *RecoveryService) email(locale i18n.Locale, tenantName, link string, data i18n.RecoveryData) (notify.Message, error) {
+	parts := make(map[string]string, 6)
+	for _, key := range []string{
+		i18n.KeyRecoveryEmailSubject, i18n.KeyRecoveryEmailTitle,
+		i18n.KeyRecoveryEmailIntro, i18n.KeyRecoveryEmailAction,
+		i18n.KeyRecoveryEmailExpiry, i18n.KeyRecoveryEmailIgnore,
+		i18n.KeyMailLinkFallback,
+	} {
+		rendered, err := s.messages.Render(locale, key, data)
+		if err != nil {
+			return notify.Message{}, err
+		}
+		parts[key] = rendered
 	}
-	body, err := s.messages.Render(locale, bodyKey, data)
-	if err != nil {
-		return "", "", err
-	}
-	return subject, body, nil
+
+	doc := linkMail{
+		// The tenant's name, not the product's. This message is from the
+		// organization the account belongs to; whose identity server they run
+		// is not the recipient's concern.
+		Brand:    tenantName,
+		Title:    parts[i18n.KeyRecoveryEmailTitle],
+		Intro:    parts[i18n.KeyRecoveryEmailIntro],
+		Action:   parts[i18n.KeyRecoveryEmailAction],
+		Link:     link,
+		Fallback: parts[i18n.KeyMailLinkFallback],
+		Footer: []string{
+			parts[i18n.KeyRecoveryEmailExpiry],
+			parts[i18n.KeyRecoveryEmailIgnore],
+		},
+	}.document()
+	return message(parts[i18n.KeyRecoveryEmailSubject], doc)
 }

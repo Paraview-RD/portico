@@ -29,7 +29,10 @@ import (
 
 // Document is one email.
 type Document struct {
-	// Brand is the product this message is from, above the title.
+	// Brand is who this message is from, above the title. Usually a tenant's
+	// name — a password reset for Acme's user is from Acme, whatever software
+	// Acme happens to run — and the product's only where there is no tenant
+	// yet to name.
 	//
 	// A word rather than a logo: an image in mail is a broken box by default
 	// in most clients, and one loaded from a server is how a sender learns
@@ -180,7 +183,11 @@ var htmlTemplate = template.Must(template.New("mail").Parse(`<!doctype html>
   font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,'Helvetica Neue',Arial,'PingFang SC','Microsoft YaHei',sans-serif;
   font-size:15px;line-height:1.65;color:#1f2632;">
 <div style="max-width:560px;margin:0 auto;background:#ffffff;border:1px solid #e6eaf1;border-radius:12px;padding:32px 30px;">
-{{if .Brand}}<p style="margin:0 0 22px;font-size:12px;font-weight:600;letter-spacing:.14em;text-transform:uppercase;color:#98a1b3;">{{.Brand}}</p>{{end}}
+<!-- Not uppercased and not tracked, for the same reason the section headings
+     are not, plus one this line has on its own: the brand here is usually a
+     tenant's name, and an organization's name is written the way that
+     organization writes it. eBay is not EBAY. -->
+{{if .Brand}}<p style="margin:0 0 20px;font-size:13px;font-weight:600;color:#98a1b3;">{{.Brand}}</p>{{end}}
 {{if .Title}}<h1 style="margin:0 0 14px;font-size:21px;font-weight:600;line-height:1.4;color:#111826;">{{.Title}}</h1>{{end}}
 {{range .Intro}}<p style="margin:0 0 14px;">{{.}}</p>{{end}}
 {{range .Sections}}

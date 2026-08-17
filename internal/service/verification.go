@@ -325,20 +325,15 @@ func (s *VerificationService) deliver(ctx context.Context, tenant model.Tenant, 
 
 	switch channel {
 	case model.RecoveryEmail:
-		subject, err := s.messages.Render(locale, i18n.KeyVerificationEmailSubject, data)
+		msg, err := s.email(locale, tenant.Name, link, data)
 		if err != nil {
 			return err
 		}
-		body, err := s.messages.Render(locale, i18n.KeyVerificationEmailBody, data)
-		if err != nil {
-			return err
-		}
-		return s.mailer.Send(ctx, notify.Message{
-			// The account's stored address, never a submitted one. They are
-			// equal here by construction; taking it from the row is what
-			// keeps that true if the lookup ever changes.
-			To: row.Email, Subject: subject, Body: body,
-		})
+		// The account's stored address, never a submitted one. They are equal
+		// here by construction; taking it from the row is what keeps that true
+		// if the lookup ever changes.
+		msg.To = row.Email
+		return s.mailer.Send(ctx, msg)
 	case model.RecoverySMS:
 		text, err := s.messages.Render(locale, i18n.KeyVerificationSMS, data)
 		if err != nil {
@@ -347,6 +342,40 @@ func (s *VerificationService) deliver(ctx context.Context, tenant model.Tenant, 
 		return s.sms.Send(ctx, row.Phone, text)
 	}
 	return ErrVerificationUnavailable
+}
+
+// email assembles the confirmation message, both parts of it.
+//
+// Separate from deliver for the same reason its counterpart in recovery.go
+// is: so a test can read what somebody will actually receive.
+func (s *VerificationService) email(locale i18n.Locale, tenantName, link string, data i18n.VerificationData) (notify.Message, error) {
+	parts := make(map[string]string, 6)
+	for _, key := range []string{
+		i18n.KeyVerificationEmailSubject, i18n.KeyVerificationEmailTitle,
+		i18n.KeyVerificationEmailIntro, i18n.KeyVerificationEmailAction,
+		i18n.KeyVerificationEmailExpiry, i18n.KeyVerificationEmailIgnore,
+		i18n.KeyMailLinkFallback,
+	} {
+		rendered, err := s.messages.Render(locale, key, data)
+		if err != nil {
+			return notify.Message{}, err
+		}
+		parts[key] = rendered
+	}
+
+	doc := linkMail{
+		Brand:    tenantName,
+		Title:    parts[i18n.KeyVerificationEmailTitle],
+		Intro:    parts[i18n.KeyVerificationEmailIntro],
+		Action:   parts[i18n.KeyVerificationEmailAction],
+		Link:     link,
+		Fallback: parts[i18n.KeyMailLinkFallback],
+		Footer: []string{
+			parts[i18n.KeyVerificationEmailExpiry],
+			parts[i18n.KeyVerificationEmailIgnore],
+		},
+	}.document()
+	return message(parts[i18n.KeyVerificationEmailSubject], doc)
 }
 
 // verifyLink builds the address in the message.

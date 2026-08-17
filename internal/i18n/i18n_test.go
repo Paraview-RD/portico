@@ -33,6 +33,11 @@ func sampleFor(key string) any {
 		}
 	case strings.HasPrefix(key, "trial."):
 		return i18n.TrialData{Tenant: "Acme", Hours: 24}
+	case strings.HasPrefix(key, "mail."):
+		// Shared by every message, so it can depend on none of their data.
+		// An empty struct rather than nil: nil means "unlisted" to the caller,
+		// and this one is listed and takes nothing.
+		return struct{}{}
 	default:
 		return nil
 	}
@@ -128,31 +133,43 @@ func TestEveryMessageRendersWithTheDataItIsGiven(t *testing.T) {
 // password reset with no way to reset one, and every other assertion here
 // would still pass.
 //
-// Only the `.body` keys, and that is the shape of the rule rather than a
-// list: a body is one string holding a whole message, so the link is in it or
-// it is nowhere. The trial messages are assembled from parts by
-// internal/mailfmt, which places the address itself — as a button and as
-// readable text — so no string of theirs contains one, and requiring it would
-// mean a label reading "Tenant" had to have a URL in it.
+// Only the `.sms` keys now, and that is the shape of the rule rather than a
+// list: an SMS is one string holding a whole message, so the link is in it or
+// it is nowhere. The emails used to be `.body` keys of the same shape and are
+// not any more — they are assembled from parts by internal/mailfmt, which
+// places the address itself, as a button and as readable text. Requiring a
+// URL of every part would mean a label reading "Tenant" had to have one.
+//
+// So this guard no longer covers email, and the coverage did not evaporate:
+// it moved to internal/service, where each message is built and both of its
+// renderings are checked for the address. Deleting the last `.body` key
+// without moving that assertion would have left every test green and every
+// email linkless, which is why the count below is asserted rather than
+// assumed — a rule that silently matches nothing is not a rule.
 func TestEveryMessageKeepsTheLink(t *testing.T) {
 	catalog, err := i18n.Load()
 	if err != nil {
 		t.Fatalf("load: %v", err)
 	}
 
+	checked := 0
 	for _, locale := range i18n.Supported() {
 		for _, key := range catalog.Keys(locale) {
-			if !strings.HasSuffix(key, ".body") && !strings.HasSuffix(key, ".sms") {
+			if !strings.HasSuffix(key, ".sms") {
 				continue
 			}
 			out, err := catalog.Render(locale, key, sampleFor(key))
 			if err != nil {
 				t.Fatalf("%s %q: %v", locale, key, err)
 			}
+			checked++
 			if !strings.Contains(out, "https://portico.example/") {
 				t.Errorf("%s %q does not contain the link", locale, key)
 			}
 		}
+	}
+	if want := 2 * len(i18n.Supported()); checked != want {
+		t.Errorf("checked %d messages, expected %d — recovery and verification, in every locale", checked, want)
 	}
 }
 

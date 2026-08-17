@@ -105,20 +105,30 @@ func Resolve(accountPreference, tenantDefault, deploymentDefault string) Locale 
 // so that a key which exists in no locale is a compile error somewhere
 // rather than an empty email.
 const (
-	KeyRecoveryEmailSubject     = "recovery.email.subject"
-	KeyRecoveryEmailBody        = "recovery.email.body"
-	KeyRecoverySMS              = "recovery.sms"
-	KeyVerificationEmailSubject = "verification.email.subject"
-	KeyVerificationEmailBody    = "verification.email.body"
-	KeyVerificationSMS          = "verification.sms"
+	// Shared by every message with a link in it, because it introduces the
+	// same thing in all of them: the address written out under the button.
+	KeyMailLinkFallback = "mail.link.fallback"
 
-	// The two messages a self-service trial sends. Written as parts rather
-	// than as one body each, because they are rendered twice — as text and
-	// as HTML — from one description, and a paragraph that has to appear in
-	// both cannot be a paragraph of markup. See internal/mailfmt.
-	// Shared by both, because it introduces the same thing in both: the
-	// address written out under the button.
-	KeyTrialLinkFallback = "trial.link.fallback"
+	// Every email is written as parts rather than as one body, because each
+	// is rendered twice — as text and as HTML — from one description, and a
+	// paragraph that has to appear in both cannot be a paragraph of markup.
+	// See internal/mailfmt. The SMS messages stay one string each: there is
+	// only one way to render 160 characters.
+	KeyRecoveryEmailSubject = "recovery.email.subject"
+	KeyRecoveryEmailTitle   = "recovery.email.title"
+	KeyRecoveryEmailIntro   = "recovery.email.intro"
+	KeyRecoveryEmailAction  = "recovery.email.action"
+	KeyRecoveryEmailExpiry  = "recovery.email.expiry"
+	KeyRecoveryEmailIgnore  = "recovery.email.ignore"
+	KeyRecoverySMS          = "recovery.sms"
+
+	KeyVerificationEmailSubject = "verification.email.subject"
+	KeyVerificationEmailTitle   = "verification.email.title"
+	KeyVerificationEmailIntro   = "verification.email.intro"
+	KeyVerificationEmailAction  = "verification.email.action"
+	KeyVerificationEmailExpiry  = "verification.email.expiry"
+	KeyVerificationEmailIgnore  = "verification.email.ignore"
+	KeyVerificationSMS          = "verification.sms"
 
 	KeyTrialConfirmSubject = "trial.confirm.subject"
 	KeyTrialConfirmTitle   = "trial.confirm.title"
