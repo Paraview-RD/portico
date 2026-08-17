@@ -442,7 +442,7 @@ What a visitor goes through:
 | Per mailbox | one tenant | Enforced by a unique index, not only checked. Counted on the mailbox rather than the spelling: `me+one@` and `me+two@` are one inbox, and without that the rule is one tenant per plus-sign |
 | Per mailbox | 3 links a day | The only limit here that protects somebody who is *not* using this — an address typed into the form by a stranger. Three rather than one, so that losing the first message is not a refusal |
 | Per client address | 5 requests a day | The per-minute throttle cannot see fifty requests spread across an afternoon |
-| Whole deployment | 30 requests an hour | Every other limit is per-something, and per-something is defeated by having more of them. A sending quota and a sender reputation are shared by every message, and losing either takes password recovery down for the tenants that already exist |
+| Whole deployment | 10 requests an hour | Every other limit is per-something, and per-something is defeated by having more of them. A sending quota and a sender reputation are shared by every message, and losing either takes password recovery down for the tenants that already exist |
 | Mailbox provider | throwaway addresses refused | A built-in list, extended with `PORTICO_TRIAL_BLOCKED_EMAIL_DOMAINS`. Short and never complete; it raises the price of the cheapest attack rather than being a wall |
 | Link lifetime | 24 hours | It holds a reserved tenant code from the moment it is requested, which the limits above are what make affordable. Expired and unconfirmed, it is deleted by the hourly sweep and the name goes back into circulation |
 
