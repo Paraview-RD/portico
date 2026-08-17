@@ -308,7 +308,7 @@ jobs:
         env:
           PORTICO_E2E_DB_DSN: postgres://portico:portico@localhost:5432/portico_e2e?sslmode=disable
 
-      - uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@v7
         # Traces and screenshots are kept only for a failure, and are the
         # difference between "a browser test failed" and knowing why without
         # reproducing it locally.
