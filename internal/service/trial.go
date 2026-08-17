@@ -138,16 +138,11 @@ const trialsPerAddressPerDay = 5
 // turn a support case into a refusal.
 const trialsPerMailboxPerDay = 3
 
-// trialsPerHour bounds the whole deployment.
-//
-// Ten, and the number is chosen against the quota rather than against what a
-// server can serve. With a cap of fifty tenants, thirty an hour was not a
-// ceiling at all — seven hundred and twenty a day against a limit of fifty
-// means the per-hour figure could never be the thing that stopped anyone. Ten
-// makes filling the quota take five hours, which is the point: not that it
-// cannot be done, but that it cannot be done between two glances at the
-// dashboard.
-const trialsPerHour = 10
+// The hourly ceiling on the whole deployment is no longer here. It is
+// TrialRatePerHour on the configuration, set from PORTICO_TRIAL_RATE_PER_HOUR
+// and defaulting to ten — see the field for why ten, and why zero means off.
+// It moved because a demonstration being shown to a room of people had no way
+// to widen it for an afternoon short of a rebuild.
 
 var (
 	// ErrTrialSignupClosed is what every method answers when the deployment
@@ -232,7 +227,12 @@ type TrialService struct {
 
 	enabled    bool
 	maxTenants int
-	publicURL  string
+	// perHour is the deployment-wide hourly ceiling on requests. Zero means
+	// none, which is also what a service built without one gets — the same
+	// shape maxTenants uses, so an unconfigured service is permissive here
+	// and closed by `enabled` instead.
+	perHour   int
+	publicURL string
 
 	// filler is what turns a new tenant from empty into something worth
 	// looking at. Optional: without one a trial still produces a working
@@ -313,11 +313,13 @@ func NewTrialService(
 	audit *AuditService,
 	enabled bool,
 	maxTenants int,
+	perHour int,
 	publicURL string,
 ) *TrialService {
 	return &TrialService{
 		store: st, tenants: tenants, users: users, mailer: mailer, audit: audit,
-		enabled: enabled, maxTenants: maxTenants, publicURL: publicURL,
+		enabled: enabled, maxTenants: maxTenants, perHour: perHour,
+		publicURL:      publicURL,
 		blockedDomains: blockedEmailDomains(nil),
 		messages:       i18n.MustLoad(),
 		now:            time.Now,
@@ -471,7 +473,11 @@ func (s *TrialService) Request(ctx context.Context, in TrialRequestInput, ip str
 	if err != nil {
 		return fmt.Errorf("count recent trials: %w", err)
 	}
-	if burst >= trialsPerHour {
+	// Zero is off, matching maxTenants three checks above. Written as a guard
+	// rather than folded into the comparison because `burst >= 0` is true for
+	// every request, and a deployment that switched this off would refuse
+	// everyone.
+	if s.perHour > 0 && burst >= int64(s.perHour) {
 		return ErrTrialBusy
 	}
 

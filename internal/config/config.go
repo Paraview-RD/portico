@@ -121,6 +121,29 @@ type Config struct {
 	// is the demonstration becoming unusably slow for everybody.
 	TrialMaxTenants int
 
+	// TrialRatePerHour caps how many trial requests the whole deployment
+	// accepts in an hour, counting requests rather than confirmations —
+	// because it is the message that costs something, and most requests are
+	// never confirmed.
+	//
+	// Every other trial limit is per-something, and per-something is defeated
+	// by having more of them. This is the one that is not, and what it
+	// defends is not this deployment: a sending quota and a sender reputation
+	// are spent by every message and shared by every tenant, so losing either
+	// takes password recovery down for the tenants that already exist.
+	//
+	// It was a constant, and the reason it is no longer one is the same
+	// reason the lockout has an unlock button: a demonstration being shown to
+	// a room of people had no way to widen it for an afternoon short of a
+	// rebuild. Deployment-wide it stays, since the budget is not one tenant's
+	// to spend.
+	//
+	// Zero switches it off, as it does for TrialMaxTenants and for the rate
+	// limiter. That is worth saying out loud because the natural reading of
+	// `if sent >= ceiling` makes zero refuse everything, silently, on a
+	// deployment whose operator believed they had turned a limit off.
+	TrialRatePerHour int
+
 	// TenantConsole registers the operator screens: a list of every tenant
 	// with a count of what is inside it, and the switch that disables one.
 	//
@@ -276,6 +299,17 @@ func Load() (*Config, error) {
 		return nil, err
 	}
 	cfg.TrialMaxTenants = trialMax
+
+	// Ten, and the number is chosen against the quota rather than against
+	// what a server can serve: with a cap of fifty tenants, seven hundred and
+	// twenty a day could never be the thing that stopped anyone. Ten makes
+	// filling the quota take five hours — not that it cannot be done, but
+	// that it cannot be done between two glances at the dashboard.
+	trialPerHour, err := envInt("PORTICO_TRIAL_RATE_PER_HOUR", 10)
+	if err != nil {
+		return nil, err
+	}
+	cfg.TrialRatePerHour = trialPerHour
 
 	// Comma-separated, and forgiving about how it is written: a list of
 	// domains typed into an environment variable arrives with spaces, and one

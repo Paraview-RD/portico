@@ -151,6 +151,7 @@ Configuration is entirely environment variables:
                                    writes here reachable without signing in,
                                    and needs SMTP configured
   PORTICO_TRIAL_MAX_TENANTS        how many trial tenants may exist at once
+  PORTICO_TRIAL_RATE_PER_HOUR      trial requests an hour, deployment-wide (0 = no limit)
                                    (default 50)
   PORTICO_TRIAL_BLOCKED_EMAIL_DOMAINS
                                    comma-separated mailbox providers refused

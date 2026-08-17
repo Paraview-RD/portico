@@ -29,6 +29,19 @@ import (
 
 func newTrialTest(t *testing.T, enabled bool, quota ...int) (*apiTest, *recordingMailer) {
 	t.Helper()
+	return newTrialTestTuned(t, func(cfg *config.Config) {
+		cfg.TrialSignup = enabled
+		if len(quota) > 0 {
+			cfg.TrialMaxTenants = quota[0]
+		}
+	})
+}
+
+// newTrialTestTuned is newTrialTest for a test that needs to move one of the
+// deployment's own numbers, rather than the quota the variadic already
+// reaches. tune runs after the defaults and before the server is built.
+func newTrialTestTuned(t *testing.T, tune func(*config.Config)) (*apiTest, *recordingMailer) {
+	t.Helper()
 	silenceLogs(t)
 
 	cfg, err := config.Load()
@@ -46,11 +59,9 @@ func newTrialTest(t *testing.T, enabled bool, quota ...int) (*apiTest, *recordin
 	// dozen times in a millisecond, so it is held out of the way here; the
 	// limiter itself is exercised in rate_limit_test.go.
 	cfg.TrialRateLimit, cfg.TrialRateLimitBurst = 100000, 100000
-	cfg.TrialSignup = enabled
+	cfg.TrialSignup = true
 	cfg.TrialMaxTenants = 50
-	if len(quota) > 0 {
-		cfg.TrialMaxTenants = quota[0]
-	}
+	tune(cfg)
 
 	mailer := &recordingMailer{}
 	srv, err := server.New(cfg, server.WithMailer(mailer))
@@ -1334,5 +1345,67 @@ func TestALinkLastsADayRatherThanAnAfternoon(t *testing.T) {
 	if !strings.Contains(message.Body, hours) {
 		t.Errorf("the message does not state the life of the link in words (%q):\n%s",
 			hours, message.Body)
+	}
+}
+
+// The deployment-wide hourly ceiling is a deployment's own number.
+//
+// It was a constant, which meant a demonstration being shown to a room of
+// people had no way to widen it for an afternoon short of a rebuild — the
+// same "you can only wait" that the account lockout has an unlock button for.
+// The figure protects a sending quota and a sender reputation shared by every
+// tenant, so it stays deployment-wide; what changes is that a deployment can
+// say what its own is.
+func TestTheHourlyTrialCeilingComesFromConfiguration(t *testing.T) {
+	api, _ := newTrialTestTuned(t, func(cfg *config.Config) {
+		cfg.TrialRatePerHour = 2
+	})
+
+	for i := range 2 {
+		res := api.do(http.MethodPost, "/api/v1/trial", "", map[string]string{
+			"email":      fmt.Sprintf("ceiling-%d@example.test", i),
+			"tenantCode": fmt.Sprintf("ceiling%d", i),
+		})
+		if res.Status != http.StatusOK {
+			t.Fatalf("request %d: %d %s %s", i+1, res.Status, res.Code, res.Message)
+		}
+	}
+
+	res := api.do(http.MethodPost, "/api/v1/trial", "", map[string]string{
+		"email": "ceiling-over@example.test", "tenantCode": "ceilingover",
+	})
+	if res.Code != "TRIAL_BUSY" {
+		t.Errorf("the third request in an hour answered %d %q, want TRIAL_BUSY — "+
+			"the configured ceiling of two was not the one in force",
+			res.Status, res.Code)
+	}
+}
+
+// Zero means no hourly ceiling, not a closed door.
+//
+// This is the failure the setting could introduce and the reason it is worth
+// a test of its own. `if burst >= ceiling` with a ceiling of zero refuses
+// every request, silently, on a deployment whose operator believed they were
+// switching a limit off — which is the exact shape of failure this whole area
+// keeps producing. Zero is off, as it already is for PORTICO_TRIAL_MAX_TENANTS
+// and for the rate limiter.
+func TestAnHourlyCeilingOfZeroMeansNoCeiling(t *testing.T) {
+	api, _ := newTrialTestTuned(t, func(cfg *config.Config) {
+		cfg.TrialRatePerHour = 0
+	})
+
+	// Three is enough, and deliberately fewer than the per-address daily cap
+	// that would otherwise be what refused the sixth. The bug this guards
+	// does not need a burst to appear: `burst >= 0` is true before anything
+	// has been sent, so getting it wrong refuses the very first visitor.
+	for i := range 3 {
+		res := api.do(http.MethodPost, "/api/v1/trial", "", map[string]string{
+			"email":      fmt.Sprintf("nolimit-%d@example.test", i),
+			"tenantCode": fmt.Sprintf("nolimit%d", i),
+		})
+		if res.Status != http.StatusOK {
+			t.Fatalf("request %d was refused with a ceiling of zero: %d %s %s",
+				i+1, res.Status, res.Code, res.Message)
+		}
 	}
 }

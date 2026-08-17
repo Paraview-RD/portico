@@ -137,7 +137,7 @@ func New(cfg *config.Config, opts ...Option) (*Server, error) {
 	// registered either, so this is a backstop rather than the gate.
 	trials := service.NewTrialService(
 		st, tenants, users, deps.mailer, audit,
-		cfg.TrialSignup, cfg.TrialMaxTenants, cfg.PublicURL).
+		cfg.TrialSignup, cfg.TrialMaxTenants, cfg.TrialRatePerHour, cfg.PublicURL).
 		WithBlockedEmailDomains(cfg.TrialBlockedEmailDomains).
 		WithLocale(cfg.DefaultLocale).
 		WithMetrics(registry).
