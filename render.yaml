@@ -59,6 +59,28 @@ services:
           name: portico-demo-db
           property: connectionString
 
+      # Believe the forwarding headers, because on this platform there is
+      # always something in front: Render routes every request through its
+      # own edge, so the address the server reads off the connection is that
+      # router's and never a visitor's.
+      #
+      # Which quietly aims the abuse limits at the wrong target. The trial
+      # signup caps requests per client address per day, and with every
+      # arrival wearing the same address the whole internet shares one
+      # counter — the sixth stranger to ask for a trial is refused, politely,
+      # by a limit that looks like it is working.
+      #
+      # Only safe because of what is in front. The header is a claim anybody
+      # can write, so ClientIP reads the *rightmost* entry — the one the
+      # nearest proxy appended — rather than the leftmost, which is whatever
+      # the client said. That entry is the truth as long as the request
+      # reached Render directly. Put another proxy in front (a CDN in
+      # proxying mode) and the rightmost becomes that proxy's address
+      # instead, so the domain in front of this has to resolve straight to
+      # Render — DNS-only, not proxied.
+      - key: PORTICO_TRUST_PROXY_HEADERS
+        value: "true"
+
       # Generated once and kept by Render. Regenerating it signs everybody
       # out, which for a demonstration is a shrug.
       - key: PORTICO_JWT_SECRET

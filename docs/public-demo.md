@@ -130,9 +130,18 @@ Render → your service → Settings → Custom Domain → `demo.example.com`. I
 gives you a CNAME. Add it at the registrar.
 
 **If the DNS host proxies traffic — Cloudflare's orange cloud — turn it off
-for this record.** Behind a proxy, Render cannot complete the challenge that
-issues its certificate, and the symptom is a domain that resolves, answers,
-and is untrusted by every browser.
+for this record.** Not for the certificate: a proxying CDN usually terminates
+TLS with a certificate of its own, so the site answers and is trusted, which
+is what makes the real consequence easy to miss.
+
+It is the client's address. The server reads it from the rightmost
+`X-Forwarded-For` entry — the one the nearest proxy appended, rather than the
+leftmost, which is whatever the client claimed. Resolve straight to Render and
+that entry is the visitor. Put a proxying CDN in front and Render's own router
+appends *its* address after the CDN's, so every arrival wears one of a handful
+of edge addresses — and the trial signup's per-address daily cap then counts
+the whole internet into one bucket. The sixth stranger to ask for a trial is
+refused by a limit that looks like it is working.
 
 ### 5. Set `PORTICO_PUBLIC_URL` to the real address
 
