@@ -102,6 +102,21 @@ service cannot be moved afterwards.
 Leave the trial signup off. It has a prerequisite that is not in place until
 step 6, and turning it on early produces a button that always fails.
 
+Two things about this step are easy to get wrong, and both were.
+
+The service's address is probably not the name in `render.yaml`. If
+`portico-demo` is taken — and on a shared platform, common names are —
+Render appends a suffix, so the service answers at
+`portico-demo-a1b2.onrender.com`. Read the real one off the service page
+before filling anything in that refers to it.
+
+And the database must be in the same region as the service. `fromDatabase`
+hands over the *internal* connection string, whose hostname resolves only
+from inside its own region, so a database elsewhere fails at `no such host`
+on the first connection — after a successful build, which reads as a database
+that was never created. Neither a region nor a database can be moved
+afterwards: the fix is to delete it and let the Blueprint make another.
+
 Render asks for three values. `PORTICO_ENCRYPTION_KEY` is 32 bytes as hex,
 from `openssl rand -hex 32`. `PORTICO_INITIAL_ADMIN_PASSWORD` is the one that
 cannot wait — the address is public from the moment it deploys, and an unset

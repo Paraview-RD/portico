@@ -76,6 +76,18 @@ Render → New → Blueprint，指向你的 fork，`render.yaml` 在仓库根。
 
 **先别开试用。** 它有个前提在第 6 步之前不成立，提前打开会得到一个必然失败的按钮。
 
+这一步有两件容易搞错的事，而且都被搞错过。
+
+**服务的地址很可能不是 `render.yaml` 里那个名字。** 如果 `portico-demo` 被占了
+——在一个共享平台上，常见名字就是会被占——Render 会加后缀，服务实际答在
+`portico-demo-a1b2.onrender.com`。**先去服务页面读出真实地址**，再填任何引用它的
+东西。
+
+**数据库必须和服务在同一个 region。** `fromDatabase` 交给服务的是**内部**连接
+串，它的主机名只在自己那个 region 内可解析，所以库在别处时第一次连接就会
+`no such host` ——而这发生在构建成功之后，读起来像是数据库从来没被创建。region
+和数据库都不能事后迁移：只能删掉，让 Blueprint 重新建一个。
+
 Render 会问三个值。`PORTICO_ENCRYPTION_KEY` 是 32 字节十六进制，`openssl rand
 -hex 32` 生成。`PORTICO_INITIAL_ADMIN_PASSWORD` 是等不了的那个 —— 地址从部署那
 一刻起就是公开的，而不填就意味着 `admin` 账号是用手册里公开写着的那个密码创建
