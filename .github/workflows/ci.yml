@@ -353,7 +353,7 @@ jobs:
       # produces a runnable image; publishing one is release.yml's job and
       # needs credentials this workflow deliberately does not have.
       - name: Build the demo image
-        uses: docker/build-push-action@v6
+        uses: docker/build-push-action@v7
         with:
           context: .
           file: ./deploy/Dockerfile
