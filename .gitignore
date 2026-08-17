@@ -37,6 +37,13 @@
 .env.*
 !.env.example
 
+# The filled-in copy of deploy/demo-values.example.env, if somebody keeps it
+# in the tree after all. The template says to keep it outside — nothing git
+# does can reach a path it was never pointed at — and this is the belt for
+# whoever does it the other way. The example itself stays tracked.
+/demo-values.env
+/deploy/demo-values.env
+
 # Working notes for a long task, kept out of the repository. They accumulate
 # the things a scratch file accumulates — the demo tenant's password, which
 # database was dropped, what a history rewrite removed — none of which

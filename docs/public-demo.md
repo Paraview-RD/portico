@@ -190,6 +190,17 @@ do not have. The tenant console is how you see what has been created without
 opening any of it; it is visible only to an administrator of the default
 tenant.
 
+### 7b. Write down what you just typed
+
+`deploy/demo-values.example.env` lists every value a rebuild asks for again.
+Copy it outside the working tree, fill it in, and keep the secrets in a
+password manager as well — a laptop is not a backup.
+
+This is not tidiness. A free Postgres expires monthly, so the Blueprint is
+applied again for as long as the demo exists, and each apply asks for values
+nothing in the repository holds. A test holds the template against
+render.yaml, so a new prompt cannot appear without appearing on the list.
+
 ### 8. Keep it awake, and know when it dies
 
 Add `DEMO_URL` as an Actions **variable** — not a secret — set to the public
