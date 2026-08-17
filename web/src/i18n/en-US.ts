@@ -785,7 +785,7 @@ export const enUS = {
     "Portico is an open-source identity provider: one directory of accounts, one sign-in, and the applications that trust it.",
   "landing.heading.signIn": "One sign-in",
   "landing.point.signIn":
-    "One sign-in for every application, over OAuth 2.1 / OIDC, SAML 2.0 or CAS.",
+    "Somebody proves who they are once, in one place, and arrives at everything else already known.",
   "landing.heading.directory": "One directory",
   "landing.point.directory":
     "Accounts, organizations and groups — kept by hand, imported, or synchronized from LDAP or SCIM.",
@@ -794,6 +794,19 @@ export const enUS = {
     "Register an application in a form, and hand its developers one address.",
   "landing.tryIt": "Get a tenant to try",
   "landing.signIn": "Sign in",
+  "landing.speaks.title": "It speaks what you already run",
+  "landing.speaks.subtitle":
+    "Nothing here asks an application to be rewritten. If it can already talk to an identity provider, it can talk to this one.",
+  "landing.speaks.sso": "Single sign-on",
+  "landing.speaks.directory": "Directories",
+  "landing.speaks.events": "Events",
+  "landing.trial.title": "What a trial gives you",
+  "landing.trial.own":
+    "A tenant of your own, with its administrator password in your inbox and nobody else in it.",
+  "landing.trial.filled":
+    "Filled with example people, organizations and groups, so every screen has something in it to look at.",
+  "landing.trial.apps":
+    "Register an application against it and run a real sign-in, end to end, from your own code.",
   // Said before somebody types their own address into a form, not after.
   "landing.demoNotice":
     "This is a public demonstration. A tenant is yours to break — sign in, change anything, invite nobody real: the whole deployment is reset periodically and everything in it goes.",

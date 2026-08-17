@@ -737,7 +737,7 @@ export const zhCN: Record<keyof typeof enUS, string> = {
     "Portico 是一个开源的身份提供方：一份账号目录、一次登录，以及信任它的那些应用。",
   "landing.heading.signIn": "一次登录",
   "landing.point.signIn":
-    "所有应用共用一次登录，走 OAuth 2.1 / OIDC、SAML 2.0 或 CAS。",
+    "一个人只在一个地方证明一次自己是谁，到别处就已经是被认识的了。",
   "landing.heading.directory": "一份目录",
   "landing.point.directory":
     "账号、组织与用户组 —— 手工维护、批量导入，或者从 LDAP、SCIM 同步过来。",
@@ -746,6 +746,19 @@ export const zhCN: Record<keyof typeof enUS, string> = {
     "在表单里注册一个应用，然后把一个地址交给它的开发者。",
   "landing.tryIt": "申请一个租户来试",
   "landing.signIn": "登录",
+  "landing.speaks.title": "你现在跑着的那些，它都会说",
+  "landing.speaks.subtitle":
+    "不需要为它重写任何应用。只要那个应用本来就能对接身份提供方，它就能对接这一个。",
+  "landing.speaks.sso": "单点登录",
+  "landing.speaks.directory": "目录对接",
+  "landing.speaks.events": "事件订阅",
+  "landing.trial.title": "试用能拿到什么",
+  "landing.trial.own":
+    "一个属于你自己的租户，管理员密码发到你的邮箱，里面没有别人。",
+  "landing.trial.filled":
+    "里面预置了示例人员、组织和用户组，所以每一屏都有东西可看，而不是一片空白。",
+  "landing.trial.apps":
+    "拿你自己的代码注册一个应用，把一次真实的登录从头走到尾。",
   // 在有人把自己的邮箱填进表单之前说，而不是之后。
   "landing.demoNotice":
     "这是一个公开演示环境。租户就是给你随便折腾的 —— 登录、改任何东西都没关系，但别把真实的人和数据放进来：整个环境会定期重置，里面的一切都会没有。",

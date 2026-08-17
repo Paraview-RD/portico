@@ -157,6 +157,31 @@
   --color-tile-4: #d97706;
   --color-tile-5: #db2777;
   --color-tile-6: #7c3aed;
+
+  /* --- The landing page's backdrop -------------------------------------
+     A background for the one screen that has to look like something before
+     it is trusted, built from gradients and a drawn grid rather than from an
+     image.
+
+     Not a photograph, and the reasons are not aesthetic. An image is a file:
+     it goes into the binary through go:embed, it is the wrong size on half
+     the displays that ask for it, it has a licence somebody has to keep
+     track of, and it cannot follow the theme — a hero photo chosen against
+     a white page is a bright rectangle in the middle of the dark one. A
+     gradient is a few hundred bytes, is sharp at any width, and is defined
+     twice here so that it inverts with everything else.
+
+     Two washes rather than one, offset from each other, because a single
+     centred gradient reads as a spotlight on the heading. These sit off to
+     the sides and are what gives the page depth without becoming a subject.
+
+     The grid is the arch's own geometry: a portico is a structure, and a
+     ruled ground is what it stands on. Kept at a low opacity — it should be
+     something you notice second, if at all. */
+  --landing-wash-1: rgb(37 99 235 / 0.18);
+  --landing-wash-2: rgb(124 58 237 / 0.13);
+  --landing-grid: rgb(30 41 59 / 0.07);
+  --landing-grid-size: 56px;
 }
 
 [data-theme="dark"] {
@@ -170,4 +195,12 @@
   --color-border-strong: #334155;
   --color-primary-soft: #1e3a8a;
   --color-primary-soft-hover: #1e40af;
+
+  /* Stronger, not merely darker. The same alpha over a near-black page is
+     invisible, so the washes are raised until they read as the same amount
+     of colour, and the grid is switched from a dark rule to a light one —
+     a dark line on a dark page is not a fainter line, it is no line. */
+  --landing-wash-1: rgb(37 99 235 / 0.22);
+  --landing-wash-2: rgb(124 58 237 / 0.16);
+  --landing-grid: rgb(148 163 184 / 0.07);
 }
