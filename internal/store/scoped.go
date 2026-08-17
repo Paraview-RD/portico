@@ -422,6 +422,13 @@ func (s *Scoped) UpdateOAuthClientSecret(ctx context.Context, clientID string, s
 	})
 }
 
+// CountRecentPasswordResets reports how many reset messages an account has
+// been sent since the given time.
+func (s *Scoped) CountRecentPasswordResets(ctx context.Context, userID string, since time.Time) (int64, error) {
+	return s.q.CountRecentPasswordResets(ctx,
+		sqlcgen.CountRecentPasswordResetsParams{TenantID: s.tenantID, UserID: userID, CreatedAt: since})
+}
+
 // DeleteExpiredPasswordResets clears reset requests past the retention
 // window.
 func (s *Scoped) DeleteExpiredPasswordResets(ctx context.Context, before time.Time) error {

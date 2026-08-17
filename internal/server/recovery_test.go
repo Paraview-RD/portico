@@ -12,6 +12,7 @@ import (
 	"github.com/Paraview-RD/portico/internal/config"
 	"github.com/Paraview-RD/portico/internal/notify"
 	"github.com/Paraview-RD/portico/internal/server"
+	"github.com/Paraview-RD/portico/internal/service"
 	"github.com/Paraview-RD/portico/internal/testdb"
 )
 
@@ -593,4 +594,84 @@ func TestRecoveryRejectsAGarbageToken(t *testing.T) {
 			t.Errorf("token %q: code = %q, want INVALID_RESET_TOKEN", token, res.Code)
 		}
 	}
+}
+
+// How much mail one account can be made to receive in a day.
+//
+// The gap this closes was an asymmetry against a decision already made next
+// door. The two self-service trial endpoints were given their own budget and
+// their own per-mailbox count on the reasoning — written into routes.go —
+// that an endpoint whose job is to send mail to a stranger is not the same
+// kind of thing as signing in. Recovery is that same kind of thing, and had
+// only the per-address rate limiter that sign-in has: sixty a minute, from
+// one address, with nothing counting the mailbox at all.
+//
+// What that costs is not this deployment's inbox. It is the sending quota
+// and the sender reputation, both of which are spent by every message and
+// shared by every tenant — and when reputation goes, password recovery stops
+// working for the tenants that already exist. The person being flooded is a
+// real account holder, since the destination is always the address bound to
+// the account and never the one submitted.
+func TestRecoveryStopsMailingOneAccountAfterTheDailyCap(t *testing.T) {
+	api, mailer := newRecoveryTest(t)
+	admin := api.adminToken()
+
+	res := api.do(http.MethodPost, "/api/v1/users", admin, map[string]string{
+		"username": "mira", "displayName": "Mira", "password": "mira-old-pass-1",
+		"email": "mira@example.com",
+	})
+	if res.Status != http.StatusOK {
+		t.Fatalf("create user: %d %s", res.Status, res.Message)
+	}
+
+	// Up to the cap, every request produces a message.
+	for i := range service.RecoveryPerAccountPerDay {
+		if res := api.requestRecovery("EMAIL", "mira@example.com"); res.Status != http.StatusOK {
+			t.Fatalf("request %d: %d %s", i+1, res.Status, res.Message)
+		}
+		mailer.waitFor(t, i+1)
+	}
+
+	// The next one is answered exactly as the others were — a refusal the
+	// caller could see would say "this address has an account here", which is
+	// the disclosure the whole endpoint is built to avoid.
+	sent := len(mailer.sent())
+	if res := api.requestRecovery("EMAIL", "mira@example.com"); res.Status != http.StatusOK {
+		t.Fatalf("the request past the cap was refused visibly: %d %s %s",
+			res.Status, res.Code, res.Message)
+	}
+	mailer.quiet(t, sent)
+}
+
+// An unknown address costs nothing and is not counted.
+//
+// The count is keyed on the account the lookup resolved, which is the only
+// key available on a path that must not record misses. A table of attempted
+// destinations would answer "has anybody ever asked about this address",
+// which is the enumeration oracle this endpoint refuses to be — so a miss
+// leaves nothing behind, and cannot exhaust anybody's allowance either.
+func TestRecoveryDoesNotCountRequestsForAnUnknownAddress(t *testing.T) {
+	api, mailer := newRecoveryTest(t)
+	admin := api.adminToken()
+
+	res := api.do(http.MethodPost, "/api/v1/users", admin, map[string]string{
+		"username": "nils", "displayName": "Nils", "password": "nils-old-pass-1",
+		"email": "nils@example.com",
+	})
+	if res.Status != http.StatusOK {
+		t.Fatalf("create user: %d %s", res.Status, res.Message)
+	}
+
+	for range service.RecoveryPerAccountPerDay * 2 {
+		if res := api.requestRecovery("EMAIL", "nobody@example.com"); res.Status != http.StatusOK {
+			t.Fatalf("request for an unknown address: %d %s", res.Status, res.Message)
+		}
+	}
+	mailer.quiet(t, 0)
+
+	// The account that does exist still has its whole allowance.
+	if res := api.requestRecovery("EMAIL", "nils@example.com"); res.Status != http.StatusOK {
+		t.Fatalf("request: %d %s", res.Status, res.Message)
+	}
+	mailer.waitFor(t, 1)
 }

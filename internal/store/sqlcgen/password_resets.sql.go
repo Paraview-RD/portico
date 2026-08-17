@@ -10,6 +10,36 @@ import (
 	"time"
 )
 
+const countRecentPasswordResets = `-- name: CountRecentPasswordResets :one
+SELECT COUNT(*) FROM password_resets
+WHERE tenant_id = $1 AND user_id = $2 AND created_at > $3
+`
+
+type CountRecentPasswordResetsParams struct {
+	TenantID  string
+	UserID    string
+	CreatedAt time.Time
+}
+
+// How many reset messages this account has been sent lately.
+//
+// Counts rows rather than live tokens, and that is the point: a superseded
+// row is a message that was already delivered, and SupersedePasswordResets
+// marks every earlier request spent the moment a new one arrives. Counting
+// only unspent rows would therefore always return one, and the cap would
+// never fire.
+//
+// Safe against the retention sweep only because that sweep keeps thirty days
+// and this window is one — see passwordResetRetention in internal/server. A
+// retention shorter than the window would silently shrink it and leave a cap
+// that cannot be reached.
+func (q *Queries) CountRecentPasswordResets(ctx context.Context, arg CountRecentPasswordResetsParams) (int64, error) {
+	row := q.db.QueryRowContext(ctx, countRecentPasswordResets, arg.TenantID, arg.UserID, arg.CreatedAt)
+	var count int64
+	err := row.Scan(&count)
+	return count, err
+}
+
 const createPasswordReset = `-- name: CreatePasswordReset :exec
 INSERT INTO password_resets (
     id, tenant_id, user_id, token_hash, channel, expires_at, created_at

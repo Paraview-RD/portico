@@ -34,6 +34,31 @@ const recoveryDeliveryTimeout = 30 * time.Second
 // and reading does not have to ask again.
 const RecoveryTokenTTL = 30 * time.Minute
 
+// RecoveryPerAccountPerDay is how many reset messages one account can be
+// made to receive in a day.
+//
+// The thing this protects is not in this deployment. It is the sending quota
+// and the sender reputation, which every message spends and every tenant
+// shares — and a burnt reputation takes password recovery down for the
+// tenants that already exist, not for whoever caused it. That is the same
+// argument that gave the trial endpoints trialsPerMailboxPerDay, and this
+// endpoint had nothing equivalent: only the per-address rate limiter that
+// sign-in has, which counts a minute and cannot see a mailbox at all.
+//
+// Five rather than three, which is the trial figure. The person asking here
+// is far more likely the account's owner — the message only ever goes to the
+// address already bound to the account, never to the one submitted — so the
+// legitimate retries are the real ones: the message went to spam, the link
+// expired, they asked from their phone and then from their laptop.
+//
+// Deployment-wide rather than a tenant setting, deliberately, and it is the
+// question a reader will have. A tenant administrator raising their own cap
+// would be spending a budget belonging to every other tenant on the
+// deployment; the setting would put the decision with the party that does
+// not bear its cost. Lockout is the opposite case and is a tenant setting
+// for the opposite reason: it spends nothing outside the tenant.
+const RecoveryPerAccountPerDay = 5
+
 // Errors from password recovery.
 var (
 	ErrRecoveryUnavailable = httpx.NewError(503, "RECOVERY_UNAVAILABLE",
@@ -179,6 +204,42 @@ func (s *RecoveryService) completeRequest(ctx context.Context, tenant model.Tena
 	}
 
 	q := s.store.ForTenant(tenant.ID)
+
+	// How much mail this account has already been made to receive today.
+	//
+	// Here rather than in Request, and that placement is the whole reason
+	// this is safe. A cap enforced before the response would answer faster,
+	// or differently, for an address that has an account and has been asked
+	// about a lot — which is precisely the disclosure the detached path
+	// exists to prevent. Refusing silently costs the caller nothing they were
+	// entitled to: the response was always going to say the same thing.
+	//
+	// Keyed on the resolved account, which is the only key available. Keying
+	// it on the submitted destination would need a record of addresses that
+	// matched nothing, and that record would answer "has anybody ever asked
+	// about this address" — a new oracle in place of the one just closed.
+	// A request for an unknown address therefore leaves nothing behind and
+	// exhausts nobody's allowance.
+	sent, err := q.CountRecentPasswordResets(ctx, row.ID, store.Now().Add(-24*time.Hour))
+	if err != nil {
+		slog.ErrorContext(ctx, "failed to count recent password resets",
+			"tenant", tenant.Code, "error", err)
+		return
+	}
+	if sent >= RecoveryPerAccountPerDay {
+		// Recorded, because this is the one refusal nobody outside the audit
+		// trail can see. An account hitting it repeatedly is either somebody
+		// locked out of their own mailbox or somebody being used to spend the
+		// deployment's sending budget, and both are worth finding.
+		s.audit.Log(ctx, tenant.ID, AuditEntry{
+			Kind: model.LogOperation, Action: model.ActionPasswordRecoveryRequest,
+			Result:  model.LogFailure,
+			ActorID: row.ID, ActorName: row.Username,
+			Detail: fmt.Sprintf("daily recovery message limit reached (%d in 24h)", sent),
+			IP:     ip,
+		})
+		return
+	}
 
 	token, hash, err := newRecoveryToken()
 	if err != nil {

@@ -45,6 +45,16 @@ large number of attempts. There are two rate limits and neither is set here
 `PORTICO_AUTH_RATE_LIMIT` at startup, and the real one in your reverse
 proxy. See [Getting in](access-guide.md).
 
+**Password recovery is capped separately**, at five messages per account per
+day, and that one is not configurable at all. What it protects is not this
+tenant: a sending quota and a sender reputation are spent by every message
+and shared by every tenant on the deployment, and losing either takes
+recovery down for all of them. A setting here would put the decision with
+the party that does not pay for it. Reaching the cap is silent to whoever
+asked — saying "too many" out loud would confirm that the address has an
+account here — and recorded in the audit trail, which is where to look when
+somebody reports that no reset message arrives.
+
 The lock is checked *after* the password is compared, so a wrong guess never
 learns that an account is locked. It does not extend on further attempts,
 because otherwise anybody could keep any account locked indefinitely.
