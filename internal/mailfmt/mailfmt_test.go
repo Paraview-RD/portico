@@ -90,6 +90,41 @@ func TestAPasswordIsSetInAFontYouCanReadItIn(t *testing.T) {
 	}
 }
 
+// The tint that marks a value hugs the value, rather than filling the cell.
+//
+// It used to be on the cell, and three consecutive credentials then ran
+// together into one grey slab the full width of the message — which reads as
+// a table that failed to render rather than as three things to copy. The
+// cell keeps the spacing; the value keeps the box.
+func TestEachValueGetsItsOwnBoxRatherThanOneSlab(t *testing.T) {
+	html, err := sample().HTML()
+	if err != nil {
+		t.Fatalf("render html: %v", err)
+	}
+
+	password := "P0T5zLoMbaVwccd8XKb8H7my"
+	at := strings.Index(html, password)
+	if at < 0 {
+		t.Fatal("the password is not in the html at all")
+	}
+	cell := html[strings.LastIndex(html[:at], "<td"):at]
+
+	opening := cell[:strings.Index(cell, ">")+1]
+	if strings.Contains(opening, "background") {
+		t.Errorf("the tint is on the cell, so neighbouring values merge:\n%s", opening)
+	}
+	inner := cell[strings.Index(cell, ">")+1:]
+	if !strings.Contains(inner, "background") {
+		t.Errorf("the value carries no tint of its own:\n%s", inner)
+	}
+	// And the font is not carried by the decoration. Clients that drop the
+	// rounded box — Outlook's Word engine is the usual one — must still get
+	// the monospace, which is the reason any of this is HTML.
+	if !strings.Contains(inner, "monospace") {
+		t.Errorf("the font rides on the box rather than on the value:\n%s", inner)
+	}
+}
+
 // Values are escaped, which is not a nicety here.
 //
 // A tenant's name arrives from a form a stranger filled in and travels

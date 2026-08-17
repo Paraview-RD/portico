@@ -29,6 +29,12 @@ import (
 
 // Document is one email.
 type Document struct {
+	// Brand is the product this message is from, above the title.
+	//
+	// A word rather than a logo: an image in mail is a broken box by default
+	// in most clients, and one loaded from a server is how a sender learns
+	// that a message was opened. A line of text is neither.
+	Brand string
 	// Title is the first line, and the only heading.
 	Title string
 	// Intro is the paragraphs before anything structured.
@@ -66,6 +72,13 @@ type Fact struct {
 type Action struct {
 	Label string
 	URL   string
+	// Fallback introduces the written-out address under the button.
+	//
+	// Worded so that it is true in both renderings — the text part has no
+	// button to fall back from, so it cannot say "if the button does not
+	// work". A bare URL with nothing above it reads as something that leaked
+	// out of the layout rather than as the same destination spelled out.
+	Fallback string
 }
 
 // Text renders the plain-text part.
@@ -77,6 +90,9 @@ type Action struct {
 func (d Document) Text() string {
 	var b strings.Builder
 
+	if d.Brand != "" {
+		b.WriteString(d.Brand + "\n\n")
+	}
 	if d.Title != "" {
 		b.WriteString(d.Title + "\n")
 	}
@@ -108,7 +124,17 @@ func (d Document) Text() string {
 			}
 		}
 		if section.Action != nil {
-			b.WriteString("\n  " + section.Action.URL + "\n")
+			// Only when something in this section came first. A section that
+			// is nothing but an action already has the blank line the loop
+			// opened with, and a second one leaves a gap wide enough to read
+			// as the end of the message.
+			if section.Heading != "" || len(section.Body) > 0 || len(section.Facts) > 0 {
+				b.WriteString("\n")
+			}
+			if section.Action.Fallback != "" {
+				b.WriteString(section.Action.Fallback + "\n")
+			}
+			b.WriteString("  " + section.Action.URL + "\n")
 		}
 	}
 
@@ -150,29 +176,41 @@ var htmlTemplate = template.Must(template.New("mail").Parse(`<!doctype html>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">
 </head>
-<body style="margin:0;padding:24px;background:#f1f5fb;
+<body style="margin:0;padding:32px 16px;background:#f2f4f8;
   font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,'Helvetica Neue',Arial,'PingFang SC','Microsoft YaHei',sans-serif;
-  font-size:15px;line-height:1.6;color:#1e2430;">
-<div style="max-width:520px;margin:0 auto;background:#ffffff;border:1px solid #e3e8f0;border-radius:10px;padding:28px;">
-{{if .Title}}<h1 style="margin:0 0 16px;font-size:19px;line-height:1.4;color:#1e2430;">{{.Title}}</h1>{{end}}
+  font-size:15px;line-height:1.65;color:#1f2632;">
+<div style="max-width:560px;margin:0 auto;background:#ffffff;border:1px solid #e6eaf1;border-radius:12px;padding:32px 30px;">
+{{if .Brand}}<p style="margin:0 0 22px;font-size:12px;font-weight:600;letter-spacing:.14em;text-transform:uppercase;color:#98a1b3;">{{.Brand}}</p>{{end}}
+{{if .Title}}<h1 style="margin:0 0 14px;font-size:21px;font-weight:600;line-height:1.4;color:#111826;">{{.Title}}</h1>{{end}}
 {{range .Intro}}<p style="margin:0 0 14px;">{{.}}</p>{{end}}
 {{range .Sections}}
-<div style="margin-top:22px;">
-{{if .Heading}}<h2 style="margin:0 0 10px;font-size:13px;font-weight:600;letter-spacing:.06em;text-transform:uppercase;color:#5b6577;">{{.Heading}}</h2>{{end}}
+<div style="margin-top:26px;">
+<!-- Not uppercased and not tracked out. Both are typesetting for Latin
+     capitals: text-transform does nothing to 登录, and letter-spacing
+     applied to Chinese pulls a word apart rather than lending it authority.
+     One heading style that behaves in every language it is translated into. -->
+{{if .Heading}}<h2 style="margin:0 0 12px;font-size:13px;font-weight:600;color:#6b7484;">{{.Heading}}</h2>{{end}}
 {{range .Body}}<p style="margin:0 0 12px;">{{.}}</p>{{end}}
 {{if .Facts}}<table cellpadding="0" cellspacing="0" border="0" style="width:100%;border-collapse:collapse;">
 {{range .Facts}}<tr>
-<td style="padding:5px 12px 5px 0;color:#5b6577;white-space:nowrap;vertical-align:top;">{{.Label}}</td>
-<td style="padding:5px 0;vertical-align:top;{{if .Code}}font-family:ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;font-size:14px;background:#f5f7fb;border-radius:4px;padding-left:8px;padding-right:8px;{{end}}word-break:break-all;">{{.Value}}</td>
+<td style="padding:5px 14px 5px 0;color:#6b7484;white-space:nowrap;vertical-align:top;">{{.Label}}</td>
+<!-- The monospace font and the grey box are on the same span, but only one
+     of them is load-bearing. Outlook's Word engine drops border-radius and
+     is unreliable about padded inline-blocks; the font is what makes a
+     generated password readable, and it survives. The box on the span
+     rather than on the cell is also what stops three consecutive values
+     from merging into one grey slab the width of the card. -->
+<td style="padding:5px 0;vertical-align:top;">{{if .Code}}<span style="display:inline-block;padding:3px 9px;background:#f4f6fa;border-radius:6px;font-family:ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;font-size:14px;color:#111826;max-width:100%;word-break:break-all;">{{.Value}}</span>{{else}}{{.Value}}{{end}}</td>
 </tr>{{end}}
 </table>{{end}}
-{{with .Action}}<p style="margin:16px 0 0;">
-<a href="{{.URL}}" style="display:inline-block;padding:10px 18px;background:#2563eb;color:#ffffff;text-decoration:none;border-radius:6px;font-weight:600;">{{.Label}}</a>
+{{with .Action}}<p style="margin:18px 0 0;">
+<a href="{{.URL}}" style="display:inline-block;padding:11px 22px;background:#2563eb;color:#ffffff;text-decoration:none;border-radius:8px;font-weight:600;">{{.Label}}</a>
 </p>
-<p style="margin:10px 0 0;font-size:13px;color:#5b6577;word-break:break-all;">{{.URL}}</p>{{end}}
+{{if .Fallback}}<p style="margin:14px 0 2px;font-size:12px;color:#98a1b3;">{{.Fallback}}</p>{{end}}
+<p style="margin:0;font-size:12px;color:#98a1b3;word-break:break-all;">{{.URL}}</p>{{end}}
 </div>
 {{end}}
-{{if .Footer}}<div style="margin-top:24px;padding-top:16px;border-top:1px solid #e3e8f0;font-size:13px;color:#5b6577;">
+{{if .Footer}}<div style="margin-top:30px;padding-top:18px;border-top:1px solid #eef1f6;font-size:13px;line-height:1.6;color:#6b7484;">
 {{range .Footer}}<p style="margin:0 0 8px;">{{.}}</p>{{end}}
 </div>{{end}}
 </div>

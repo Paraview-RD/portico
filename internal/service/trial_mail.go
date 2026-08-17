@@ -15,6 +15,13 @@ import (
 // languages and in both renderings — rather than asserting on a fake mailer's
 // record of a string that was already composed.
 
+// mailBrand is the wordmark above the title.
+//
+// Not translated and not configurable: it is the name of the software, and a
+// deployment that renamed it here would be saying one thing in the message and
+// another everywhere the product refers to itself.
+const mailBrand = "Portico"
+
 // trialLocale is the language a trial message is written in.
 //
 // The deployment's default, because there is nobody to ask. Every other
@@ -47,10 +54,15 @@ func (s *TrialService) confirmMail(tenantName, link string) (notify.Message, err
 	}
 
 	doc := mailfmt.Document{
+		Brand: mailBrand,
 		Title: text(i18n.KeyTrialConfirmTitle),
 		Intro: []string{text(i18n.KeyTrialConfirmIntro)},
 		Sections: []mailfmt.Section{{
-			Action: &mailfmt.Action{Label: text(i18n.KeyTrialConfirmAction), URL: link},
+			Action: &mailfmt.Action{
+				Label:    text(i18n.KeyTrialConfirmAction),
+				URL:      link,
+				Fallback: text(i18n.KeyTrialLinkFallback),
+			},
 		}},
 		Footer: []string{
 			text(i18n.KeyTrialConfirmExpiry),
@@ -85,11 +97,17 @@ func (s *TrialService) readyMail(out TrialTenant) (notify.Message, error) {
 			{Label: text(i18n.KeyTrialReadyLabelUsername), Value: out.AdminUsername, Code: true},
 			{Label: text(i18n.KeyTrialReadyLabelPassword), Value: out.AdminPassword, Code: true},
 		},
-		Action: &mailfmt.Action{Label: text(i18n.KeyTrialReadyAction), URL: out.SignInURL},
+		Action: &mailfmt.Action{
+			Label:    text(i18n.KeyTrialReadyAction),
+			URL:      out.SignInURL,
+			Fallback: text(i18n.KeyTrialLinkFallback),
+		},
 	}
 
 	doc := mailfmt.Document{
+		Brand:    mailBrand,
 		Title:    text(i18n.KeyTrialReadyTitle),
+		Intro:    []string{text(i18n.KeyTrialReadyIntro)},
 		Sections: []mailfmt.Section{signIn},
 		Footer: []string{
 			text(i18n.KeyTrialReadyRecovery),

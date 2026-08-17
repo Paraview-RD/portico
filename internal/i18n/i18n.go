@@ -116,6 +116,10 @@ const (
 	// than as one body each, because they are rendered twice — as text and
 	// as HTML — from one description, and a paragraph that has to appear in
 	// both cannot be a paragraph of markup. See internal/mailfmt.
+	// Shared by both, because it introduces the same thing in both: the
+	// address written out under the button.
+	KeyTrialLinkFallback = "trial.link.fallback"
+
 	KeyTrialConfirmSubject = "trial.confirm.subject"
 	KeyTrialConfirmTitle   = "trial.confirm.title"
 	KeyTrialConfirmIntro   = "trial.confirm.intro"
@@ -125,6 +129,7 @@ const (
 
 	KeyTrialReadySubject       = "trial.ready.subject"
 	KeyTrialReadyTitle         = "trial.ready.title"
+	KeyTrialReadyIntro         = "trial.ready.intro"
 	KeyTrialReadySignIn        = "trial.ready.signIn"
 	KeyTrialReadyAction        = "trial.ready.action"
 	KeyTrialReadyLabelTenant   = "trial.ready.labelTenant"
