@@ -16,6 +16,26 @@ on:
 permissions:
   contents: read
 
+# One run per branch, and superseding one only where superseding is the right
+# answer.
+#
+# On a pull request it is: pushing a fix means the previous run is measuring
+# code nobody is proposing any more, and letting it finish costs a runner and
+# produces a result whose only effect is to be scrolled past. Cancelling also
+# bounds the damage from an external hang — the reason this was added is a
+# run that sat on `apt-get` for over an hour and had to be stopped by hand.
+#
+# On main it is not. Each commit's result is the record of that commit, and
+# a push during a slow run would erase the only answer main has about the
+# one before it — which is exactly the question asked when a bisect starts.
+# Two pushes a minute apart would leave the first with no verdict at all.
+#
+# The group covers the schedule too, so a nightly firing while a push is
+# still running queues rather than doubling up.
+concurrency:
+  group: ci-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+
 jobs:
   backend:
     runs-on: ubuntu-latest
