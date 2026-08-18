@@ -173,6 +173,18 @@ On a paid instance SMTP works on 465 and 587 — the `PORTICO_SMTP_*` keys are
 listed in `render.yaml` and in
 [access-guide.md](access-guide.md#then-if-you-want-self-service-trials).
 
+**Then replace the key, once the deployment works.** Whatever you used to get
+this far has probably been somewhere you cannot revoke: a chat window, a
+screenshot, a clipboard, a terminal that scrolls into a history file. That is
+not a suspicion about anybody, it is a question of provenance — a key with one
+home can be accounted for, and one that has been through those places cannot.
+Generate a fresh send-only key, put it in the dashboard, delete the old one at
+the provider, and record the new one where step 7b says.
+
+Afterwards rather than before, deliberately. A key rotated while the mail path
+is still unproven means the next failure has two possible causes, and you will
+spend the afternoon deciding which.
+
 ### 7. Turn on the three switches
 
 ```
@@ -200,6 +212,23 @@ This is not tidiness. A free Postgres expires monthly, so the Blueprint is
 applied again for as long as the demo exists, and each apply asks for values
 nothing in the repository holds. A test holds the template against
 render.yaml, so a new prompt cannot appear without appearing on the list.
+
+**Finish filling it.** Partly filled is the state this file is usually found
+in, and it is the dangerous one, because it looks done — the deployment facts
+get written down while the fresh instance is in front of you, and the secrets
+get left for later because they are already working in the dashboard. On the
+day the database expires, a file missing `PORTICO_ENCRYPTION_KEY` is the same
+as no file: Render will not show you a value it was told to hide, and the demo
+is rebuilt from whatever you can still produce.
+
+Check it by looking for lines with nothing to the right of the `=`:
+
+```
+grep -nE '^[A-Z][A-Z_]*=$' ~/.portico/demo-values.env
+```
+
+An empty `PORTICO_RESEND_API_KEY=` is also the record that step 6's rotation
+has not happened yet. That is the file doing its job, not a gap in it.
 
 ### 8. Keep it awake, and know when it dies
 
