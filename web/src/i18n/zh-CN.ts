@@ -390,7 +390,7 @@ export const zhCN: Record<keyof typeof enUS, string> = {
     "Portico 作为身份提供方，发给各个已接入应用的令牌能用多久。与上面的控制台会话是两件事。",
   "settings.oidcAccessTokenTtl": "访问令牌有效期（分钟）",
   "settings.oidcAccessTokenTtlHelp":
-    "取值 1 到 60，默认 15。上限之所以是 1 小时：访问令牌由对方应用离线验签、从不回头问 Portico，因此无法撤销——一个已经被停用的账号，其令牌还能用多久，完全取决于这个数字。ID 令牌跟随同一个值。",
+    "取值 1 到 60，默认 15。上限之所以是 1 小时：访问令牌由对方应用离线验签、从不回头问 Portico，因此无法吊销——一个已经被停用的账号，其令牌还能用多久，完全取决于这个数字。ID 令牌跟随同一个值。",
   "settings.oidcRefreshTokenTtl": "刷新令牌有效期（天）",
   "settings.oidcRefreshTokenTtlHelp":
     "取值 1 到 90，默认 30。每次刷新都会换发新的并重新计时，所以它限制的是“多久不用就失效”，不是会话总长。",
