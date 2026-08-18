@@ -22,6 +22,16 @@ updates:
     directory: /
     schedule:
       interval: weekly
+    # Sixteen distinct actions across six workflows, against a default cap of
+    # five open pull requests. That default is why a deadline was nearly
+    # missed: Node 20 leaves the runners on 2026-09-16, nine actions here were
+    # still targeting it, and exactly five had a pull request — the other four
+    # were never proposed, because the cap had been reached and a cap being
+    # reached looks identical to there being nothing left to update.
+    #
+    # Ten, so the whole set can be in flight at once and the absence of a pull
+    # request means what a reader assumes it means.
+    open-pull-requests-limit: 10
 
   - package-ecosystem: docker
     directory: /deploy
