@@ -18,7 +18,7 @@ jobs:
     name: Check sign-off
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
         with:
           # Need both branches to enumerate exactly the commits this PR adds.
           fetch-depth: 0
