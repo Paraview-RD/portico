@@ -14,7 +14,7 @@ jobs:
   release:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
         with:
           # GoReleaser needs the full history to resolve the previous tag.
           fetch-depth: 0
@@ -35,7 +35,7 @@ jobs:
       # And the manual, for the same reason. Without this the hook that builds
       # it cannot run, and the release embeds an empty directory — which is
       # what every release before this one did.
-      - uses: actions/setup-python@v5
+      - uses: actions/setup-python@v7
       - run: pip install -r hack/docs-requirements.txt
 
       # Refuse to publish a tag that does not pass the same gates as a PR.

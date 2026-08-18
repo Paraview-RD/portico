@@ -61,7 +61,7 @@ jobs:
       PORTICO_TEST_DB_DSN: postgres://portico:portico@localhost:5432/postgres?sslmode=disable
 
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
       - uses: actions/setup-go@v7
         with:
           go-version-file: go.mod
@@ -94,7 +94,7 @@ jobs:
       # still skipping them, and the next one somebody adds would go quiet
       # the same way. Half a minute on a job that already runs a
       # twenty-five-minute race build.
-      - uses: actions/setup-python@v5
+      - uses: actions/setup-python@v7
         with:
           python-version: "3.12"
       - run: pip install -r hack/docs-requirements.txt
@@ -132,7 +132,7 @@ jobs:
         if: github.event_name != 'pull_request'
         run: go test -race -timeout 25m ./...
 
-      - uses: golangci/golangci-lint-action@v8
+      - uses: golangci/golangci-lint-action@v9
         with:
           version: v2.12.2
 
@@ -147,7 +147,7 @@ jobs:
       run:
         working-directory: web
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
       - uses: actions/setup-node@v7
         with:
           node-version: "22"
@@ -184,7 +184,7 @@ jobs:
   openapi:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
       - uses: actions/setup-node@v7
         with:
           node-version: "22"
@@ -204,8 +204,8 @@ jobs:
   docs:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-python@v5
+      - uses: actions/checkout@v7
+      - uses: actions/setup-python@v7
         with:
           python-version: "3.12"
       # Pinned, for the same reason the OpenAPI linter is: a theme that
@@ -258,7 +258,7 @@ jobs:
           --health-retries 10
 
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
       - uses: actions/setup-node@v7
         with:
           node-version: "22"
@@ -286,7 +286,7 @@ jobs:
       # manual. Pinned to the same versions as the docs job; two builds of
       # the same site from different Material releases are two different
       # sites.
-      - uses: actions/setup-python@v5
+      - uses: actions/setup-python@v7
       - run: pip install -r hack/docs-requirements.txt
       - run: ./hack/build-docs.sh
 
@@ -339,7 +339,7 @@ jobs:
         env:
           PORTICO_E2E_DB_DSN: postgres://portico:portico@localhost:5432/portico_e2e?sslmode=disable
 
-      - uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@v7
         # Traces and screenshots are kept only for a failure, and are the
         # difference between "a browser test failed" and knowing why without
         # reproducing it locally.
@@ -376,15 +376,15 @@ jobs:
   demo-image:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
 
-      - uses: docker/setup-buildx-action@v3
+      - uses: docker/setup-buildx-action@v4
 
       # Built, not pushed. What is being asked is whether it compiles and
       # produces a runnable image; publishing one is release.yml's job and
       # needs credentials this workflow deliberately does not have.
       - name: Build the demo image
-        uses: docker/build-push-action@v6
+        uses: docker/build-push-action@v7
         with:
           context: .
           file: ./deploy/Dockerfile
