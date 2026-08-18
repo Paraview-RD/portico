@@ -14,7 +14,7 @@ that file is the list.
 - Resource-oriented, plural nouns: `/api/v1/users`, `/api/v1/organizations`.
 - Multi-word path segments use kebab-case: `/api/v1/audit-logs`.
 - Nesting reflects ownership, capped at one level:
-  `/api/v1/organizations/{id}/members`.
+  `/api/v1/groups/{id}/members`.
 - Actions that don't map to a CRUD verb are a POST sub-resource, not a
   query param: `POST /api/v1/users/{id}/disable`, not
   `PATCH /api/v1/users/{id}?action=disable`.

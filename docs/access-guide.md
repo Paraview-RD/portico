@@ -285,9 +285,12 @@ accumulation, not a flood, is how a public demonstration fails.
 
 Both halves matter in the order they happen. Disabling is reversible, which is
 what makes a deadline a prompt rather than a cliff: the tenant console shows
-the date and how many days are left, and **Extend** gives it another fortnight
-from now — press it twice for four weeks. Deletion is the irreversible half
-and the only half that gives anything back.
+the date and how many days are left, and **Extend** sets the deadline to a
+fortnight **from now**. Not from the old date, so pressing it twice in a row
+buys nothing — it is measured from now precisely so that a tenant already
+three days overdue moves forward rather than being extended into the past and
+staying disabled, which would read as the button not working. Deletion is the
+irreversible half and the only half that gives anything back.
 
 A tenant with no deadline is never touched, which is every tenant except one a
 trial created. The default tenant is skipped explicitly as well, because a bug
