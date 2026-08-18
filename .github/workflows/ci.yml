@@ -210,6 +210,17 @@ jobs:
   # which is the shape users deploy.
   single-binary:
     runs-on: ubuntu-latest
+    # Twenty, against a job that takes about nine. The margin is deliberate —
+    # this is not a budget, it is the point at which a stuck step should be
+    # called stuck.
+    #
+    # Added after `npx playwright install` hung here for half an hour on a
+    # commit that changed only prose. Without this the default applies, which
+    # is six hours: a runner held all morning, a red cross nobody can date,
+    # and the branch's actual result unknown for a working day. The download
+    # of a browser is the step most likely to do this, and it is the one step
+    # here that reaches a network this repository does not control.
+    timeout-minutes: 20
 
     services:
       postgres:

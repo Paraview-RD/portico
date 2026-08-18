@@ -163,9 +163,24 @@ spends about 730 of them, which works and leaves nothing over for a second
 free service or for a month with a redeploy in it. Eleven hours a day is
 roughly 340.
 
-It helps and it is not a fix. GitHub's scheduler is best-effort and runs late
-under load, so the fifteen minutes sometimes elapses anyway and a visitor pays
-for the cold start. Render's $7/month tier removes the problem outright.
+**It does not keep the service awake, and the gap is not marginal.** GitHub's
+scheduler is best-effort, and on a cron asking for ten minutes it delivers
+something closer to forty-five. Measured over one ordinary day on this
+repository: 12 runs against the 66 the schedule asks for, the shortest gap 27
+minutes and the longest 69 — every one of them longer than the fifteen
+minutes it takes Render to put the service to sleep. The morning after, the
+window opened at 00:03 UTC and the first run had still not fired at 00:52.
+
+So read this as *raising the chance* that a visitor arrives at a warm
+instance during the day, not as preventing cold starts. Somebody who opens
+the address and waits fifty seconds has not found a broken deployment; they
+have found the free tier. The README says the same thing to a visitor, in the
+sentence about the cold start, and that sentence is the honest one.
+
+What actually removes the problem is Render's $7/month tier, which does not
+sleep. An external uptime probe on a five-minute interval would also fit
+inside the fifteen, at the price of one more third-party account and one more
+credential to keep.
 
 `DEMO_KEEPALIVE=off` stops the schedule; running the workflow by hand still
 checks the demo.

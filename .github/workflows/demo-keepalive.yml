@@ -2,14 +2,22 @@
 #
 # Render spins a free web service down after 15 minutes without inbound
 # traffic, and the next visitor waits out a cold start. This asks it for its
-# health endpoint often enough that the 15 minutes rarely elapses.
+# health endpoint, often, during the hours somebody is likely to arrive.
 #
-# What this is not: a fix. GitHub's scheduler is best-effort and runs late
-# when the fleet is busy — a job asked for every 10 minutes can arrive 20 or
-# more minutes later, which is longer than the window it is trying to stay
-# inside. So the service will still be found asleep sometimes. The honest
-# fixes are Render's $7/month tier or a host that does not sleep; this is the
-# free-tier compromise, chosen knowingly.
+# What this is not: a fix, and the first version of this comment understated
+# by how much. It said the scheduler "runs late" and guessed 20 minutes.
+# Measured on this repository over one ordinary day: 12 runs against the 66
+# the cron below asks for, shortest gap 27 minutes, longest 69 — not one of
+# them inside the 15 this is trying to stay under. The next morning the
+# window opened at 00:03 UTC and nothing had fired by 00:52.
+#
+# So it does not keep the service awake. It raises the chance that a visitor
+# during the working day meets a warm one, which is worth having for free and
+# is not the same claim. The honest fixes are Render's $7/month tier, or an
+# external probe on a five-minute interval — that one fits inside the 15, at
+# the price of another account and another credential. docs/integrations.md
+# says the same to whoever is deciding, and README tells a visitor plainly
+# that the first request may wait out a cold start.
 #
 # Free for this repository: Actions minutes are unmetered on public
 # repositories, so the only cost is the noise in the run list.

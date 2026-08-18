@@ -238,10 +238,15 @@ nothing, which looks exactly like running.
 
 Then put two dates in a calendar somewhere that is not this repository:
 
-- A free Render instance sleeps after fifteen minutes without traffic. The
-  keepalive covers a working day, deliberately: 750 instance hours a month is
-  not enough to stay awake around the clock. Outside that window the first
-  visitor waits out a cold start.
+- A free Render instance sleeps after fifteen minutes without traffic, and the
+  keepalive **does not prevent that** — it improves the odds during the day
+  and nothing more. GitHub's scheduler delivers a ten-minute cron at roughly
+  forty-five minutes, which is longer than the fifteen it takes to fall
+  asleep; [integrations.md](integrations.md#render--the-public-demo-free-tier)
+  has a day of measurements. Expect cold starts of around fifty seconds, and
+  say so to anybody you send the address to. The window is limited on purpose
+  besides: 750 instance hours a month is not enough to stay awake around the
+  clock.
 - **A free Postgres expires thirty days after creation, plus a fourteen-day
   grace period.** Every trial tenant and everything in them goes with it, and
   the Blueprint has to be applied again. Nothing warns you.
