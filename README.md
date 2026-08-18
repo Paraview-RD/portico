@@ -20,14 +20,10 @@ ask for a tenant of their own: give an address, open the link, and a tenant
 arrives filled with an industry's worth of example people, organizations and
 applications.
 
-Two things about it are worth knowing before you judge it. It runs on a free
-instance that sleeps after fifteen minutes of quiet, so the first request
-after a while waits out a cold start of around fifty seconds — that is the
-host, not the software. And a tenant you ask for lasts a fortnight: after that
-it is disabled rather than deleted, and a week later it is deleted for good,
-which is what returns its name and its slot to the next visitor. So do not put
-anything real there — and if you want to keep looking at yours, ask before it
-lapses rather than after.
+It runs on a free instance that sleeps after fifteen minutes of quiet, so the
+first request after a while waits out a cold start of around fifty seconds —
+that is the host, not the software. Tenants are temporary, so do not put
+anything real there; how long yours lasts is in the message that creates it.
 
 ## Try it with Docker
 
