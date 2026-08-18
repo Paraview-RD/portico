@@ -821,7 +821,7 @@ export const enUS = {
   "tenants.title": "Tenants",
   "tenants.subtitle": "Every tenant on this deployment, and how much is in it.",
   "tenants.scopeNote":
-    "Sizes only: this screen can count what is in another tenant and cannot open any of it. Creating and deleting tenants stay on the command line.",
+    "This screen shows the size of each tenant only, and cannot open anything inside one. Creating and deleting tenants stay on the command line.",
   "tenants.colCode": "Code",
   "tenants.colName": "Name",
   "tenants.colStatus": "Status",
@@ -839,24 +839,25 @@ export const enUS = {
   "tenants.disableTitle": "Disable {0}",
   "tenants.enableTitle": "Enable {0}",
   "tenants.disableWarning":
-    "Everybody in this tenant is signed out immediately, and {0} active accounts stop being able to sign in. They will hear it from a sign-in screen rather than from you. Nothing is deleted, and enabling it again restores everything.",
+    "Everybody in this tenant is signed out immediately, {0} active accounts stop being able to sign in, and none of them is notified. Nothing is deleted, and enabling it again restores everything.",
   "tenants.enableBody": "Sign-in starts working again for this tenant.",
   "tenants.confirmLabel": "Type the tenant code to confirm",
   "tenants.confirmHint":
-    "Its own code, exactly. The server checks this too, so a script cannot skip it.",
+    "Enter this tenant's own code exactly. The server checks it again, so a script cannot skip this step.",
 
   "trial.title": "Try Portico",
   "trial.subtitle": "A tenant of your own, with an administrator account.",
-  "trial.step.fill": "Fill this in",
-  "trial.step.confirm": "Open the link",
-  "trial.step.ready": "Get your tenant",
+  "trial.step.fill": "Complete and submit",
+  "trial.step.confirm": "Open the emailed link",
+  "trial.step.ready": "Receive the tenant and credentials",
   "trial.stepNote":
-    "The emailed link is good for 24 hours. Nothing is created until you open it.",
+    "The emailed link is valid for 24 hours. The tenant is created when the link is opened.",
   "trial.email": "Email address",
-  "trial.emailHint": "A typo here is the one mistake this page cannot undo.",
+  "trial.emailHint":
+    "The confirmation link and the administrator credentials are both sent to this address. Please check it is correct.",
   "trial.tenantCode": "Tenant code",
   "trial.tenantCodeHint":
-    "What everybody types at sign-in. Lowercase, and fixed once created.",
+    "Required at sign-in. Lowercase only, and cannot be changed after creation.",
   "trial.tenantCodeInvalid":
     "Lowercase letters, digits, hyphens and underscores only.",
   "trial.industry": "Seeded data",
@@ -874,21 +875,22 @@ export const enUS = {
   "trial.submit": "Send the confirmation email",
   "trial.submitting": "Sending…",
   "trial.backToSignIn": "Back to sign-in",
-  "trial.sentTitle": "Check your email",
+  "trial.sentTitle": "Please check your email",
   "trial.sentBody":
-    "The link is good for 24 hours. Nothing has been created yet — clicking it is what makes your tenant.",
+    "The link is valid for 24 hours. The tenant is created when the link is opened.",
   "trial.sentTo": "Sent to {0}",
-  "trial.sentEdit": "Wrong address? Go back and change it",
+  "trial.sentEdit": "Change the email address",
   "trialConfirm.workingTitle": "Setting up your tenant",
   "trialConfirm.working":
-    "Creating your tenant and filling it with example data. This takes a few seconds — leave the page open.",
-  "trialConfirm.failedTitle": "That did not work",
+    "Creating the tenant and writing the example data. This takes a few seconds; please do not close this page.",
+  "trialConfirm.failedTitle": "Creation failed",
   "trialConfirm.startAgain": "Request a new trial",
   "trialConfirm.noToken":
-    "This address needs the link from your email; there is no token in it.",
+    "This page requires the confirmation link from your email. The current address carries no token.",
   "trialConfirm.readyTitle": "Your tenant is ready",
-  "trialConfirm.ready": "{0} is set up, and these are the keys to it.",
-  "trialConfirm.adminSection": "Your way in",
+  "trialConfirm.ready":
+    "{0} has been created. The credentials for signing in are below.",
+  "trialConfirm.adminSection": "Administrator credentials",
   "trialConfirm.demoSection": "Example accounts",
   "trialConfirm.tenant": "Tenant code",
   "trialConfirm.username": "Username",
@@ -897,12 +899,12 @@ export const enUS = {
   "trialConfirm.demoAccounts":
     "The tenant comes filled with example people and applications. Every one of those accounts is an ordinary user and they all share the password above — sign in as one to see what somebody who is not an administrator sees.",
   "trialConfirm.emptyTenant":
-    "The example data could not be created this time, so the tenant is empty. It works either way; build your own organizations and accounts in it.",
+    "The example data was not written this time, so the tenant is empty. It is fully usable; organizations and accounts can be created yourself.",
   "trialConfirm.onlyTime":
     "This is the only time the password is shown here. It is also in your email; nothing stores it in readable form.",
   "trialConfirm.notReal":
     "A demonstration, not a deployment. Do not put anything real in it.",
-  "trialConfirm.signInHint": "At sign-in, the tenant field takes",
+  "trialConfirm.signInHint": "At sign-in, enter this in the tenant field:",
   "trialConfirm.signIn": "Go to sign-in",
   "verify.noToken":
     "This address is missing its confirmation code. Open the link from the message rather than typing the address by hand.",
