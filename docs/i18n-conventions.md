@@ -164,6 +164,71 @@ be describing a request nobody can send.
   it must not carry an email, a phone number, a token, or an identifier the
   reader is not already entitled to see.
 
+## How a string is written
+
+This governs both catalogues, not the translation. The register slipped in
+English first and the Chinese followed it there.
+
+A string in these files is read by somebody who is halfway through doing
+something. It has one job: tell them what the constraint is and what happens
+next. Three habits stop it doing that, and all three were live in this
+repository until they were pointed at.
+
+**Do not explain the reasoning to the reader.** The comments in this codebase
+argue for their own decisions at length, and that is deliberate — a
+maintainer needs the argument. Somebody filling in a form does not. The
+argument in a hint is the author still in the room.
+
+| Was | Is |
+|---|---|
+| A typo here is the one mistake this page cannot undo. | The confirmation link and the administrator credentials are both sent to this address. Please check it is correct. |
+| Nothing is created until you open it. | The tenant is created when the link is opened. |
+| They will hear it from a sign-in screen rather than from you. | …and none of them is notified. |
+
+The first column is not wrong. It is an observation about the design, and it
+costs the reader a sentence they have to interpret before they learn where
+the email goes.
+
+**Do not write as if speaking.** 「登录时填的就是它」, "Wrong address? Go back
+and change it", 「先别关掉页面」, 「去查收邮件」. A rhetorical question, a
+掉/去 tacked onto a verb, 就是 — each is a register a product interface does
+not use, and in Chinese the effect is stronger than in English because the
+spoken forms are more marked.
+
+**Do not compress into fragments.** 「填两项，提交」 and "Fill this in" save
+three characters and leave the reader deciding what was elided. 「填写并提交」
+and "Complete and submit" say it.
+
+What good looks like, then: state the constraint (`仅限小写，创建后不可修改`),
+state the consequence (`该租户下所有人将被立即登出`), and stop. Where a warning
+must be given, give it as a fact rather than as drama —
+`此处为演示环境，非正式部署。请勿录入真实数据。`
+
+Two things this is not. It is not a ban on warmth: `你的租户已就绪` stays.
+And it does not reach the manual — the documentation's essayistic voice is
+the project's own and is consistent across every page, which is a different
+register for a different reader with a different amount of time.
+
+### One word per concept, including where the word is ordinary
+
+`撤销` was rendering both *revoke* and *undo*. The collision surfaced in one
+sentence: 「撤销被撤销了」 for "Revocations are undone." Two words in the
+source, one in the translation, and a reader left to work out which was
+which.
+
+So: **吊销** for the security sense — tokens, sessions, credentials, access —
+and **撤销** only for reversing an action, which is the sense next to a delete
+button (`不可撤销`).
+
+**This one is not guarded, and the reason is worth knowing before somebody
+assumes it is.** The glossary above is enforced by
+`TestTheDocumentsUseTheConsolesChineseTerms`, but that test looks for bare
+*English* in Chinese prose. It cannot see a Chinese page that says 撤销 where
+it means 吊销, because both are Chinese and both are legitimate words in this
+product. A check keyed on proximity — 撤销 near 令牌 — would fire on
+「删除后不可撤销」 in a screen about tokens, which is correct text. So this
+rule is held by review, and a relapse looks like nothing.
+
 ## Adding a string
 
 1. Add the key to `en-US.ts`, in the group for the screen that owns it.

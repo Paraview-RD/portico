@@ -67,7 +67,8 @@ actually does, so a reviewer can check a change against them:
 - **[logging-conventions.md](logging-conventions.md)** — structured log
   format, levels, correlation, and what must never be logged.
 - **[i18n-conventions.md](i18n-conventions.md)** — translation keys,
-  placeholders, and what does and does not get translated.
+  placeholders, what does and does not get translated, and how an interface
+  string is written.
 - **[design-principles.md](design-principles.md)** — design tokens, colour
   roles, and the rules the frontend styles itself by.
 - **[dev-stack.md](dev-stack.md)** — the containers a development machine
