@@ -203,23 +203,24 @@ starting — the service sleeps, and the database expires after thirty days.
    and SAML metadata are built from it, so a wrong value gives a console that
    works perfectly and every federation flow sending the browser somewhere
    unreachable.
-3. **Decide the way in, and keep it.** The address is public; the password
-   should not be. Generate one, and never use the published demo password —
-   on a public address it makes the first visitor who read the README an
-   administrator. Put it in the repository's Actions secrets as
-   `DEMO_SEED_PASSWORD`, along with `DEMO_DATABASE_URL` (Render's *external*
-   connection string), `DEMO_ENCRYPTION_KEY` and `DEMO_JWT_SECRET` — the same
-   two values the service is running with. Add `DEMO_URL` as an Actions
-   *variable*.
-4. **Seed it.** Run the `Demo reseed` workflow by hand. It empties the schema
-   and seeds a new one, which is also what it does nightly from then on: a
-   demo that signs everybody in as an administrator becomes a demonstration
-   of whatever the last visitor left behind.
-5. **Sign in** at `https://<your-service>.onrender.com/login` as `admin` with
-   the password from step 3.
+3. **Keep it awake.** Add `DEMO_URL` as an Actions *variable* — not a secret —
+   set to the public address. Without it `demo-keepalive.yml` runs and does
+   nothing, which looks exactly like running.
+4. **Sign in** at `https://<your-service>.onrender.com/login` as `admin` with
+   the password from step 2.
 
-The seeded accounts are the ones described above — `admin`, `zhangwei`,
-`liyan` — under whichever password you chose, not the published one.
+This deployment is not seeded, and that is the intended shape rather than a
+missing step. The example people described above — `admin`, `zhangwei`,
+`liyan` — are what `portico seed` builds for a local machine, under a password
+this file publishes. On a public address that password makes the first visitor
+who read it an administrator, so the demonstration is filled a different way:
+each visitor asks for a **tenant of their own**, and it arrives with an
+industry's worth of example people, organizations and applications already in
+it. The default tenant stays empty and is yours.
+
+For the whole of it — a domain, a mail transport, the three switches, and what
+fails invisibly at each step — see [public-demo.md](public-demo.md), which is
+the full walkthrough this list is the short form of.
 
 ### The root address
 

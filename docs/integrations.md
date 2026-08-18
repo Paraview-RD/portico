@@ -179,18 +179,19 @@ to be applied again.
 Scheduled jobs are a paid feature on Render, and Actions minutes are unmetered
 on a public repository, so both live here instead.
 
-`demo-keepalive.yml` pokes the health endpoint. `demo-reseed.yml` drops the
-schema and seeds a fresh one nightly, because a demo that signs everybody in
-as an administrator becomes a demonstration of whatever the last visitor left
-behind. It reaches the database directly over Render's external connection
-string.
+`demo-keepalive.yml` pokes the health endpoint. That is the only scheduled
+job, and it is the only one there has ever been in practice.
+
+There was a second, `demo-reseed.yml`, which emptied the schema nightly and
+seeded a fresh one. It is gone, and what replaced it is not another job: a
+tenant a trial creates now carries its own deadline — a fortnight, then a
+week of grace — so the thing that had to be swept up cleans itself up, per
+tenant, on the clock of whoever asked for it. Nothing has to reach into the
+database from outside to make that happen.
 
 | Secret / variable | What it is |
 |---|---|
-| `DEMO_DATABASE_URL` (secret) | Render's **external** connection string, TLS required |
-| `DEMO_SEED_PASSWORD` (secret) | What every seeded account signs in with. Deliberately not the published one: the address is public and the way in is not |
-| `DEMO_ENCRYPTION_KEY`, `DEMO_JWT_SECRET` (secrets) | The same values the service has, so the seed writes credentials the service can open |
-| `DEMO_URL` (variable, not secret) | The public address. A secret would be redacted out of the only logs these jobs produce |
+| `DEMO_URL` (variable, not secret) | The public address. A secret would be redacted out of the only logs this job produces |
 | `DEMO_KEEPALIVE` (variable, optional) | Set it to `off` to stop the keepalive schedule; remove it to resume. Running that workflow by hand still checks the demo, which is the one thing worth doing while it is off |
 
 ## Nothing else
