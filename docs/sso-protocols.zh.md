@@ -115,7 +115,7 @@ userinfo 端点（`GET /userinfo`）以 JSON 形式返回同样的内容。
 
 [单点登录 → Claim](federation.md#claim) — 每个 claim 及其来源。
 
-[单点登录 → 本地测试](federation.md#本地测试) — 对本地实例跑一个模拟 SP。
+[单点登录 → 本地测试](federation.md#本地测试) — 对本地实例运行一个模拟 SP。
 
 ---
 

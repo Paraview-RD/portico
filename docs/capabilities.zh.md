@@ -72,7 +72,7 @@ SCIM 提供 `/Users`、`/Groups`、`/ServiceProviderConfig`、`/ResourceTypes` �
 - **两种角色**:`SUPER_ADMIN` 和 `USER`。固定的。
 - **中英双语**,控制台和这份手册都是。
 
-副本、升级和探针见[在生产环境里跑](deployment.zh.md)。
+副本、升级和探针见[生产环境部署](deployment.zh.md)。
 
 ## 功能边界
 

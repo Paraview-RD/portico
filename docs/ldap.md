@@ -1,4 +1,4 @@
-# Reading accounts out of a directory
+# Reading from a Directory
 
 Portico connects to your Active Directory or OpenLDAP — when asked, or on an
 interval you set — and pulls accounts out of it. This is the **opposite

@@ -130,12 +130,12 @@ plugins:
             Single Sign-On: 单点登录
             SSO Protocols: 单点登录协议
             Federation: 单点登录配置
-            Integration guides: 集成食谱
+            Integration guides: 集成指南
             Webhooks: 事件订阅
             Field mappings: 字段映射
             Operations: 运维
             Integrations: 外部依赖
-            Running in production: 在生产环境里跑
+            Running in production: 生产环境部署
             Configuration: 配置参考
             CLI reference: CLI 参考
             Publishing a demo: 发布公开 demo

@@ -1,4 +1,4 @@
-# 从目录里把账号读进来
+# 从目录读取
 
 Portico 会连接你的 Active Directory 或 OpenLDAP，把账号拉过来——手动触发，或按你
 设定的间隔自动进行。这与

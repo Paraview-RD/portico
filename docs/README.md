@@ -34,7 +34,7 @@
 - **[settings.md](settings.md)** — the per-tenant settings and the audit
   trail: what each one changes, and which of them affect people who are
   already signed in.
-- **[deployment.md](deployment.md)** — running it in production: which probe
+- **[deployment.md](deployment.md)** — running in production: which probe
   points at which endpoint, whether you may run more than one instance, what
   an upgrade does, and the Kubernetes manifests in `deploy/k8s/`.
 - **[public-demo.md](public-demo.md)** — putting a demonstration where

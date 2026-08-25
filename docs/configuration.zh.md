@@ -109,4 +109,4 @@ PORTICO_SMTP_FROM=noreply@example.com
 PORTICO_TRUST_PROXY_HEADERS=true
 ```
 
-完整的部署流程参见[在生产环境里跑](deployment.md)。
+完整的部署流程参见[生产环境部署](deployment.md)。

@@ -81,7 +81,7 @@ Accounts are **disabled, never deleted** — the audit trail points at them.
 - **Two roles**: `SUPER_ADMIN` and `USER`. Fixed.
 - **English and 简体中文**, in the console and in this manual.
 
-[Running it in production](deployment.md) covers replicas, upgrades and
+[Running in Production](deployment.md) covers replicas, upgrades and
 probes.
 
 ## What it does not do

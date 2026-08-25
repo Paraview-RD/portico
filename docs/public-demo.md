@@ -1,4 +1,4 @@
-# Publishing a demo strangers can use
+# Publishing a Public Demo
 
 [access-guide.md](access-guide.md#publishing-a-demonstration-anybody-can-open)
 covers getting a demonstration onto Render and handing somebody the address.

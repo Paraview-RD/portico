@@ -1,4 +1,4 @@
-# Running it in production
+# Running in Production
 
 What you deploy is one binary and one PostgreSQL. The console, the manual
 and the API are the same process — there is no static site to host, no
