@@ -127,6 +127,7 @@ plugins:
             Provisioning: 目录供给
             SSO Protocols: 单点登录协议
             Federation: 单点登录
+            Integration guides: 集成食谱
             Webhooks: 事件订阅
             Field mappings: 字段映射
             Integrations: 外部依赖
@@ -155,6 +156,7 @@ nav:
   - Provisioning: scim.md
   - SSO Protocols: sso-protocols.md
   - Federation: federation.md
+  - Integration guides: integration-guides.md
   - Webhooks: webhooks.md
   - Field mappings: field-mappings.md
   - Integrations: integrations.md
