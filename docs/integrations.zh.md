@@ -38,7 +38,7 @@ Amazon SES、Postmark、Resend，或者一个本地 Postfix。
 
 **任何凭据都不属于这个仓库。** `.env.example` 里只有变量名。
 
-### Resend —— SMTP 的替代通道，给那些封了 SMTP 的托管环境
+### Resend
 
 可选，不主动开启。**SMTP 仍然是默认，也仍然是自己有中继的人的正确答案。**
 
@@ -77,7 +77,7 @@ Amazon SES、Postmark、Resend，或者一个本地 Postfix。
 
 *状态：接口和一个空实现存在；具体的 provider 尚未编写。*
 
-### Active Directory 或 OpenLDAP —— 可选，也是唯一由 Portico 主动去连的那一个
+### Active Directory / OpenLDAP
 
 目录连接器会从一个 AD 或 OpenLDAP 里读账号。**它是唯一一个由 Portico 打开连接、去连
 别人运行的系统的集成，也是唯一一个 Portico 要保存一份"日后还要拿来用"而不只是"用来
@@ -99,7 +99,7 @@ Amazon SES、Postmark、Resend，或者一个本地 Postfix。
 进来的账号**无法**用它的 AD 密码通过认证。联邦登录是另一个功能，目前不存在。
 [从目录读取](ldap.md) 里有属性映射表，以及一次同步**拒绝**做什么的清单。
 
-### Prometheus —— 可选，而且是它来取
+### Prometheus
 
 设置 `PORTICO_METRICS_ADDR` 会打开第二个监听，以文本暴露格式发布指标。**没有账号、
 没有令牌，除了地址之外没有任何配置**：Prometheus 来抓 Portico，所以什么都不会被发出
@@ -152,7 +152,7 @@ workspace 每个日历月有 750 实例小时，而**一个 24 小时不睡的�
 **免费的 Postgres 30 天后过期，另有 14 天宽限期。** 这一条没有任何绕法。演示环境连
 里面的东西一起消失，只能重新应用一次 Blueprint。
 
-### GitHub Actions —— Render 免费层跑不了的那两个定时任务
+### GitHub Actions
 
 定时任务在 Render 上是付费功能，而公开仓库的 Actions 时长不计量，所以这两件事放
 在这里。
