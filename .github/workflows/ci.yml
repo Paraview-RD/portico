@@ -16,25 +16,48 @@ on:
 permissions:
   contents: read
 
-# One run per branch, and superseding one only where superseding is the right
-# answer.
+# Supersede a run only where superseding is the right answer, and never by
+# accident.
 #
-# On a pull request it is: pushing a fix means the previous run is measuring
-# code nobody is proposing any more, and letting it finish costs a runner and
-# produces a result whose only effect is to be scrolled past. Cancelling also
-# bounds the damage from an external hang — the reason this was added is a
-# run that sat on `apt-get` for over an hour and had to be stopped by hand.
+# On a pull request superseding is right: pushing a fix means the previous run
+# is measuring code nobody is proposing any more, so letting it finish costs a
+# runner and produces a verdict whose only effect is to be scrolled past. It
+# also bounds an external hang — this began as a run that sat on `apt-get` for
+# over an hour and had to be stopped by hand.
 #
-# On main it is not. Each commit's result is the record of that commit, and
-# a push during a slow run would erase the only answer main has about the
-# one before it — which is exactly the question asked when a bisect starts.
-# Two pushes a minute apart would leave the first with no verdict at all.
+# On main it is wrong. Each commit's result is that commit's record, and it is
+# what a bisect reads.
 #
-# The group covers the schedule too, so a nightly firing while a push is
-# still running queues rather than doubling up.
+# Hence the key: the event, then the ref for a pull request and the commit for
+# everything else. Read it by what each event gets.
+#
+#   pull_request  one group per branch — a new push cancels the old run
+#   push          one group per commit — nothing else can join it, so nothing
+#                 can cancel it, and every commit reaches a verdict
+#   schedule      its own group, never shared with a push
+#
+# cancel-in-progress is unconditionally true, which reads backwards until you
+# see that a group nothing else joins has nothing to cancel.
+#
+# The obvious spelling — one group per ref, cancel-in-progress false on main —
+# is what this replaced, and it dropped two commits within a day of being
+# written. `cancel-in-progress: false` does hold in-progress runs, which is
+# what it promises. What it does not say is that the queue behind them holds
+# exactly one: a third arrival cancels whatever was waiting. Four merges landed
+# in twenty seconds, and the two in the middle were cancelled after seven and
+# ten seconds with no verdict on main at all — precisely the loss the comment
+# above them claimed to prevent.
+#
+# The event belongs in the key for a reason that is easy to miss: a scheduled
+# run carries the same SHA as the last push, so without it the nightly would
+# share that push's group — and since cancelling works newest-first, the
+# nightly would kill a push's run rather than the other way round. That is the
+# same lost verdict by another route, on a timer, at 18:37 UTC.
 concurrency:
-  group: ci-${{ github.workflow }}-${{ github.ref }}
-  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+  group: >-
+    ci-${{ github.workflow }}-${{ github.event_name }}-${{
+    github.event_name == 'pull_request' && github.ref || github.sha }}
+  cancel-in-progress: true
 
 jobs:
   backend:
