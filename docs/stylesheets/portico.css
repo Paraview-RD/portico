@@ -143,6 +143,31 @@ html {
   width: 22rem;
 }
 
+/* The left nav overrides the shared sidebar width to match its actual
+ * content: 18 items of 4–9 Chinese characters each sit comfortably in
+ * 16rem; the 22rem inherited from above left ~40% of the column empty.
+ *
+ * The 1px borders mark where navigation ends and prose begins without
+ * adding background colour — the same technique Material uses for its
+ * horizontal rule, chosen here so the dark-mode complement is one
+ * colour-swap rather than a full palette addition. */
+.md-sidebar--primary {
+  width: 16rem;
+  border-right: 1px solid rgba(0, 0, 0, 0.09);
+}
+
+.md-sidebar--secondary {
+  border-left: 1px solid rgba(0, 0, 0, 0.09);
+}
+
+[data-md-color-scheme="slate"] .md-sidebar--primary {
+  border-right-color: rgba(255, 255, 255, 0.09);
+}
+
+[data-md-color-scheme="slate"] .md-sidebar--secondary {
+  border-left-color: rgba(255, 255, 255, 0.09);
+}
+
 .md-typeset {
   /* 15px against the reader's 16px default — half a step above the
      console's 14px rather than a full one.
