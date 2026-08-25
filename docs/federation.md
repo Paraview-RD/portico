@@ -13,6 +13,10 @@ much as it did before. The names differ, because each protocol has its own;
 [One person, three sets of names](#one-person-three-sets-of-names) is the
 table to map from.
 
+New to these protocols? [SSO Protocols](sso-protocols.md) explains what each
+one is, what happens during a sign-in, and which to choose — without
+assuming prior knowledge.
+
 The sections below are OpenID Connect first, then [SAML](#saml-20), then
 [CAS](#cas).
 

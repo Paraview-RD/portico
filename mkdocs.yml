@@ -125,13 +125,17 @@ plugins:
             Organizations and groups: 组织与用户组
             Reading a directory: 从目录读取
             Provisioning: 目录供给
+            SSO Protocols: 单点登录协议
             Federation: 单点登录
             Webhooks: 事件订阅
+            Field mappings: 字段映射
             Integrations: 外部依赖
             Settings and audit: 系统设置与审计
             Running in production: 在生产环境里跑
+            Configuration: 配置参考
             Publishing a demo: 发布公开 demo
             Backup and restore: 备份与恢复
+            Troubleshooting: 排查手册
 
 extra:
   alternate:
@@ -149,14 +153,17 @@ nav:
   - Organizations and groups: organizations.md
   - Reading a directory: ldap.md
   - Provisioning: scim.md
+  - SSO Protocols: sso-protocols.md
   - Federation: federation.md
   - Webhooks: webhooks.md
   - Field mappings: field-mappings.md
   - Integrations: integrations.md
   - Settings and audit: settings.md
   - Running in production: deployment.md
+  - Configuration: configuration.md
   - Publishing a demo: public-demo.md
   - Backup and restore: backup-and-restore.md
+  - Troubleshooting: troubleshooting.md
 
 # Dead links fail the build under --strict, which is the point of building
 # the site in CI at all. These pages cross-reference each other densely

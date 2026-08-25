@@ -10,6 +10,9 @@
 
 下面依次是 OpenID Connect、[SAML](#saml-20)、[CAS](#cas)。
 
+初次接触这些协议？[单点登录协议](sso-protocols.md)解释了每种协议是什么、
+一次登录里发生了什么、以及如何选择——不假设读者有任何前置知识。
+
 ## 简短版本
 
 Portico 是一个 OpenID Provider。注册你的应用——在控制台的**应用管理**里，或者从命令
