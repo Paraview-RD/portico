@@ -133,7 +133,7 @@ PORTICO_MAIL_FROM        portico@mail.example.com
 绝，而不是被 Portico 拒绝。
 
 付费实例上 SMTP 在 465 和 587 可用，`PORTICO_SMTP_*` 那组键在 `render.yaml` 和
-[access-guide.md](access-guide.md#然后如果你要开自助试用) 里都列着。
+[access-guide.md](access-guide.md#自助试用配置) 里都列着。
 
 **然后，等部署跑通了，把这把 key 换掉。** 你用来把它跑通的那把，多半去过一些你撤不
 回来的地方：聊天窗口、截图、剪贴板、一个会写进历史文件的终端。这不是在怀疑谁，是来

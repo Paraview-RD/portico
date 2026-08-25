@@ -508,7 +508,7 @@ portico cas disable --url https://wiki.example.com/
 |---|---|
 | 端点 | `/cas/login`、`/cas/logout`、`/cas/serviceValidate`、`/cas/p3/serviceValidate` |
 | 票 | `ST-` 前缀，一次性，一分钟 |
-| 属性 | 仅 CAS 3.0，用 CAS 自己的名字——见[同一个人，三套名字](#同一个人三套名字) |
+| 属性 | 仅 CAS 3.0，用 CAS 自己的名字——见[字段名称对照](#字段名称对照) |
 
 **一张票被绑定在它被签发给的那个服务上**：否则，把它拿到另一个服务的校验端点去出示，
 会让一个合法收到票的服务得以在别处冒充那个人。**校验永远返回 `200`，即使是失败**，因

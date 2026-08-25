@@ -163,6 +163,7 @@ nav:
   - Settings and audit: settings.md
   - Running in production: deployment.md
   - Configuration: configuration.md
+  - CLI reference: cli.md
   - Publishing a demo: public-demo.md
   - Backup and restore: backup-and-restore.md
   - Troubleshooting: troubleshooting.md
