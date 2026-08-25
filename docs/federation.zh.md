@@ -54,7 +54,7 @@ https://id.example.com
 默认租户的两个挂载点是**同一批账号、同一批密钥之上的两个不同 issuer**。一个令牌写明
 它是从哪一个获得的，并且只对那一个校验通过。
 
-## 实现了什么
+## 实现范围
 
 | | |
 |---|---|
@@ -226,7 +226,7 @@ state 存在过。
 **这一趟是登录还是关联，在出发时就定好并记在服务端**，绝不从回来的东西里读。一个能
 自称是哪一种的回调，就是一条构造的链接能撒谎的地方。
 
-### 微信与钉钉：它们不是 OpenID Connect
+### 微信与钉钉的协议差异
 
 两者都支持，而且**都不是按上面那套方式配置的**。OpenID Connect 的 discovery 文档
 才是「一个提供方等于一张表单」的前提：给 Portico 一个 issuer，它自己学会端点、密
@@ -384,7 +384,7 @@ portico sp disable --entity-id https://confluence.example.com/saml
 `--metadata` 接受一个文件或一个 `https://` 地址。**纯 `http` 会被拒绝**：这份文档写明
 了断言要投递到哪里，所以路径上的任何人都能把它们改道。
 
-### 实现了什么
+### 实现范围
 
 | | |
 |---|---|
@@ -549,7 +549,7 @@ CAS 客户端都按拿到的名字去映射——**统一成一套自家风格�
 | 组织 | `organization_id`、`organization_name` | `organizationId`、`organizationName` | `organization_id`、`organization_name` |
 | 最后变更时间 | `updated_at` | 不发 | 不发 |
 
-SAML 这一列是**友好名**。服务提供方真正映射的 Attribute Name 在[上面那张表](#实现了什么_1)。
+SAML 这一列是**友好名**。服务提供方真正映射的 Attribute Name 在[上面那张表](#实现范围_1)。
 
 **一个名字只在账号确实有这项事实时才出现**：没有邮箱就没有 `mail`，没有组织就没有
 `organization_id`。**不会发空值**——所以一个映射了却始终收不到的字段，先去看账号，再

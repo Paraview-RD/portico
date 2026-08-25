@@ -155,7 +155,7 @@ curl https://<host>/scim/v2/ServiceProviderConfig \
 那个字段是**只读**的——成员关系通过 Group 资源修改，所以只有一种改法，也就不存在
 "哪一边说了算"的问题。
 
-## 目录可以改什么、不可以改什么
+## 目录的权限边界
 
 它可以设置：`userName`、`displayName`、`emails`、`phoneNumbers`、`externalId`、
 `active`。
@@ -167,7 +167,7 @@ curl https://<host>/scim/v2/ServiceProviderConfig \
 它不可以设置密码。目录推密码意味着它持有一个可以重放的值，而且本部署自己的策略
 ——长度、历史、有效期——会作用在一个这里没人选过的东西上。
 
-## externalId 是"一个账号始终是一个账号"的保证
+## externalId 的作用
 
 给你供给的每一个账号绑定 `externalId`。它是**唯一稳定的对账键**：用户名和邮箱地址
 恰恰是同步最可能正在修改的那些属性。

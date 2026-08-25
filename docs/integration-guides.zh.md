@@ -263,7 +263,7 @@ portico client register \
 
 ---
 
-## 没有找到你的应用？
+## 未列出的应用
 
 如果你的应用支持 OIDC 但未在列表中，[通用 OIDC 应用](#通用-oidc-应用)涵盖了通用流程。
 支持"generic OAuth2"或"OIDC"的应用大多遵循相同的四步：
