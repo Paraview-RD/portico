@@ -89,8 +89,39 @@ func startDirectory(t *testing.T) directory.Config {
 				ContainerFilePath: "/container/service/slapd/assets/config/bootstrap/ldif/custom/seed.ldif",
 				FileMode:          0o644,
 			}},
-			Cmd:        []string{"--copy-service"},
-			WaitingFor: wait.ForLog("slapd starting").WithStartupTimeout(2 * time.Minute),
+			Cmd: []string{"--copy-service"},
+			// Ready means "the real slapd answers, and the seed is in it".
+			//
+			// Two conditions, because this image satisfies them at different
+			// moments and each alone has been watched to fail.
+			//
+			// The log line alone is what this was, and it is the weaker half.
+			// slapd prints "slapd starting" as it starts rather than once it
+			// serves, so on a loaded runner the dial below lands in the gap and
+			// fails with "connection reset by peer" — which reads as a broken
+			// directory and is a container that was not asked the right question.
+			//
+			// The search alone is not enough either, and for a reason that is
+			// invisible from outside: bootstrapping runs a temporary slapd to
+			// import the LDIFs, so a search can succeed against an instance that
+			// is about to be stopped. Asked for the base entry it succeeds
+			// earlier still — "Add image bootstrap ldif" creates that entry and
+			// "Add custom bootstrap ldif" adds the people, so a base search
+			// passes between the two and the test then reads zero entries.
+			//
+			// So: the log line first, which the image prints last of all, and
+			// then a search for the thing the test actually asserts on. grep,
+			// because ldapsearch exits 0 having found nothing.
+			//
+			// Waiting for the port would be worse than either. Docker's forwarder
+			// accepts before anything inside listens: measured on this image, the
+			// mapped port accepts at zero seconds and the log line appears at one.
+			WaitingFor: wait.ForAll(
+				wait.ForLog("slapd starting"),
+				wait.ForExec([]string{"sh", "-c", fmt.Sprintf(
+					`ldapsearch -x -H ldap://localhost:389 -D %q -w %q -b %q "(objectClass=inetOrgPerson)" | grep -q "^dn:"`,
+					adminDN, adminPassword, baseDN)}),
+			).WithDeadline(2 * time.Minute),
 		},
 		Started: true,
 	})
