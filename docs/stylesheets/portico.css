@@ -230,14 +230,34 @@ html {
    The ratio moved with the body size rather than staying put. At 0.875em it
    followed 15px prose down to 13.1px, which is where a comparison table
    stops being the easiest thing on the page to scan and starts being the
-   hardest — the opposite of what this rule is for. */
+   hardest — the opposite of what this rule is for.
+
+   width: 100% makes every table occupy the full prose column rather than
+   collapsing to its narrowest content fit. Markdown tables have no natural
+   mechanism for spanning the column, so without this a two-cell table sits
+   in a third of the space a five-cell one would. */
 .md-typeset table:not([class]) {
   font-size: 0.9375em;
   line-height: 1.6;
+  width: 100%;
 }
 
 .md-typeset table:not([class]) th {
   font-weight: 600;
+}
+
+/* Column separators — the same weight as the row borders Material draws,
+   so the grid is uniform rather than ruled in one direction only. The
+   :first-child exclusion means the left edge of the table is the
+   cell background, not a doubled border. */
+.md-typeset table:not([class]) th:not(:first-child),
+.md-typeset table:not([class]) td:not(:first-child) {
+  border-left: 0.05rem solid var(--md-typeset-table-color);
+}
+
+[data-md-color-scheme="slate"] .md-typeset table:not([class]) th:not(:first-child),
+[data-md-color-scheme="slate"] .md-typeset table:not([class]) td:not(:first-child) {
+  border-left-color: rgba(255, 255, 255, 0.08);
 }
 
 /* Inline code sits inside running prose, so it is sized to the text around
