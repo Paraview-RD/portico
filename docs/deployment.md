@@ -140,6 +140,37 @@ to match another system's registration character for character.
 [Getting in](access-guide.md) has a worked nginx configuration, including
 the rate limiting this page just deferred to it.
 
+## One hostname, not one per tenant
+
+A tenant is a path here, never a host. The protocol endpoints live under
+`/t/{tenant}`; an anonymous request names its tenant in the
+`X-Portico-Tenant` header; and once somebody is signed in the tenant comes
+from their token and that header is ignored — honouring it there would let
+one tenant's administrator reach another's data. Nothing reads the `Host`
+header to decide whose data a request is about, and `PORTICO_PUBLIC_URL` is
+a single declared value for the reason the section above gives.
+
+So `acme.example.com` and `beta.example.com` pointed at one Portico are two
+names for the same deployment, not two tenants. Giving a tenant its own
+subdomain is a change to this system rather than a configuration of it.
+
+**If that change is ever made, the session is the part to settle first.**
+The console keeps its bearer token in `localStorage`, which is scoped to an
+origin — two subdomains are two origins and share nothing, so isolation
+between tenants in the browser is a property of where the token is kept
+rather than of any setting. A cookie is not scoped that way. One carrying
+`Domain=example.com` is sent to every subdomain beneath it, which would hand
+each tenant's session to all the others; one with no `Domain` is host-only
+and would not. The default is the safe half, and the unsafe half is one
+field away.
+
+Portico sets no cookie today, in its own handlers or in `zitadel/oidc`'s
+`op` package — its `CryptoKey` encrypts tokens, not cookies — and
+`TestNothingSetsACookie` in `internal/server/` fails if one appears. That
+test guards the premise, not the conclusion: it can see a cookie being set,
+and it cannot see a `Domain` chosen badly on the day one legitimately is.
+Whoever adds the first cookie is the last reader this paragraph reaches.
+
 ## Metrics
 
 Unset by default. `PORTICO_METRICS_ADDR=:9090` opens a second listener that

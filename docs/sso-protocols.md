@@ -99,9 +99,10 @@ Browser           App (RP)              Portico (OP)
    │←── signed in ───│                       │
 ```
 
-**Already signed in?** If the browser holds a valid session cookie, Portico
+**Already signed in?** If the browser already holds a valid session, Portico
 skips the sign-in page and issues the code immediately. The user sees no
-interruption.
+interruption. The session is a bearer token the console keeps in
+`localStorage`, not a cookie; nothing in Portico sets one.
 
 **No consent screen.** The administrator registering the application is the
 authorization decision. Users are not asked to approve scopes.
