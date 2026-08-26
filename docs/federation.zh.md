@@ -1,6 +1,6 @@
 # 单点登录：OpenID Connect、SAML 2.0 与 CAS
 
-另一个应用怎么通过 Portico 让人登录，以及登录之后它能指望什么、不能指望什么。
+另一个应用怎么通过 Portico 让人登录，以及登录之后它能期望什么、不能期望什么。
 
 三种协议，一套账号。用哪一种由**这个应用本来就支持哪一种**决定，而不是由这里的任何
 东西决定：现代应用用 OpenID Connect，企业产品通常有一个多年前写好的 SAML 集成，大学
@@ -16,7 +16,7 @@
 ## 概述
 
 Portico 是一个 OpenID Provider。注册你的应用——在控制台的**应用管理**里，或者从命令
-行——把你的 OIDC 库指向 issuer，就完事了：**没有任何 Portico 专有的代码要写。**
+行——把你的 OIDC 库指向 issuer 即可：**没有任何 Portico 专有的代码要写。**
 
 ```bash
 portico client register --id grafana --name "Grafana" \
@@ -40,7 +40,7 @@ https://id.example.com/t/<tenant-code>
 ```
 
 默认租户额外在根路径上也提供一份，这样**单租户部署拥有人们预期的那个 issuer，也永远
-不必向集成方解释多租户是怎么回事**：
+不必向集成方说明多租户机制**：
 
 ```
 https://id.example.com
@@ -107,7 +107,7 @@ Portico 的人看到的是普通的登录页，然后被送回应用；没有任
 portico client register --id grafana --name Grafana \
   --redirect-uri https://grafana.example.com/login/generic_oauth
 
-# 一个浏览器或移动端应用，它保不住秘密。它不会拿到 secret，
+# 一个浏览器或移动端应用，无法安全存储密钥。它不会拿到 secret，
 # 仅靠 PKCE 完成认证。
 portico client register --id console --name Console --public \
   --redirect-uri https://console.example.com/callback

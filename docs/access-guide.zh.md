@@ -278,8 +278,8 @@ portico trial delete --code acme-trial --yes    # 租户及其中一切，不可
     export PORTICO_JWT_SECRET=$(openssl rand -hex 32)
     docker compose -f deploy/docker-compose.yml up -d
     ```
-2. 用 `admin` / `Portico@1` 登录——除非你自己设了密码。**现在就做，别拖。** 这个密
-   码写在本文件里，所以在有人换掉它之前，这个账号属于最先够到这台实例的人；而对
+2. 用 `admin` / `Portico@1` 登录——除非你自己设了密码。**请立即执行此步骤。** 这个密
+   码写在本文件里，所以在有人换掉它之前，这个账号属于首个能够访问该实例的人；而对
    方一旦换了密码，你就不知道新密码是什么了，而这个账号没有邮箱也没有手机号，没有
    找回的通道。
 3. 这次登录会被拒绝，登录页当场要求设置新密码：把默认密码再输一遍当作当前密码，
