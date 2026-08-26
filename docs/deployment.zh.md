@@ -118,6 +118,31 @@ Portico 只提供明文 HTTP，指望前面有东西。把 `PORTICO_PUBLIC_URL` 
 [访问指南](access-guide.zh.md) 里有一份写好的 nginx 配置，包含这一页刚刚推给它的
 那个限流。
 
+## 主机名与租户的关系
+
+租户在这里是路径，从来不是主机。协议端点挂在 `/t/{tenant}` 下；匿名请求用
+`X-Portico-Tenant` 头声明自己属于哪个租户；而人一旦登录，租户就来自其令牌，该
+头会被忽略 —— 在那里采信它，等于让一个租户的管理员够到另一个租户的数据。没有
+任何地方读 `Host` 头来判定一个请求问的是谁的数据，而 `PORTICO_PUBLIC_URL` 是
+单一的声明值，理由见上一节。
+
+所以把 `acme.example.com` 和 `beta.example.com` 都指向同一个 Portico，得到的是
+同一套部署的两个名字，不是两个租户。让租户各自占一个子域，是对这个系统的改动，
+而非对它的配置。
+
+**真要做这个改动，先定下来的应当是会话。** 控制台把bearer 令牌存在 `localStorage`
+里，而它以源（origin）为界 —— 两个子域是两个源，彼此不共享任何东西，所以浏览器
+这一侧的租户隔离，是令牌存放位置带来的性质，不是某个开关带来的。cookie 不按这个
+界限划分：带 `Domain=example.com` 的 cookie 会被送往其下每一个子域，等于把每个
+租户的会话交给其余所有租户；不带 `Domain` 的则仅限当前主机，不会。默认值是安全的
+那一半，而不安全的那一半只差一个字段。
+
+Portico 今天不设任何 cookie —— 自己的处理器里没有，`zitadel/oidc` 的 `op` 包里
+也没有，它的 `CryptoKey` 加密的是令牌而非 cookie —— 且 `internal/server/` 下的
+`TestNothingSetsACookie` 会在出现第一个 cookie 时失败。那个测试守住的是前提，不是
+结论：它看得见 cookie 被设置，看不见将来真要设时 `Domain` 填错。添加第一个 cookie
+的人，是这段话能触及的最后一位读者。
+
 ## 指标
 
 默认不开。`PORTICO_METRICS_ADDR=:9090` 会另开一个监听，只服务 `/metrics`，别的

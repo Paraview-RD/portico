@@ -15,7 +15,7 @@ Portico 会连接你的 Active Directory 或 OpenLDAP，把账号拉过来——
 如果你的目录能推 SCIM，优先用它：这样这里根本不需要保存任何关于服务账号的东西。
 LDAP 之所以存在，是因为大多数 Active Directory 部署做不到推。
 
-## 同步什么
+## 同步内容
 
 用户。不同步组，不同步组织，不同步密码。
 

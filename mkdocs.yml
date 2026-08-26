@@ -129,7 +129,7 @@ plugins:
             Settings and audit: 系统设置与审计
             Single Sign-On: 单点登录
             SSO Protocols: 单点登录协议
-            Federation: 单点登录
+            Federation: 协议配置
             Integration guides: 集成指南
             Webhooks: 事件订阅
             Field mappings: 字段映射

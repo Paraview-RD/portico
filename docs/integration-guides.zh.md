@@ -15,7 +15,7 @@ GET https://<host>/t/<租户代码>/.well-known/openid-configuration
 
 这是通用配置流程。如果你的应用文档写的是"OpenID Connect"或"OAuth 2.0 / OIDC"，按以下步骤操作。
 
-### 第一步：在 Portico 注册应用
+### 第一步：应用注册
 
 在 Portico 控制台：**应用 → 新建应用**。
 
@@ -36,7 +36,7 @@ portico client register \
   --redirect-uri https://myapp.example.com/auth/callback
 ```
 
-### 第二步：配置应用
+### 第二步：应用配置
 
 将以下四个值填入你的应用：
 
@@ -58,7 +58,7 @@ portico client register \
 | JWKS | `<issuer>/keys` |
 | 登出 | `<issuer>/end_session` |
 
-### 第三步：启用 PKCE
+### 第三步：PKCE 配置
 
 Portico 实现的是 OAuth 2.1，要求所有客户端都使用 PKCE。
 在应用的 OIDC 配置中找到 PKCE 选项，设为 `S256`。
@@ -79,7 +79,7 @@ Portico 实现的是 OAuth 2.1，要求所有客户端都使用 PKCE。
 
 Grafana 通过其通用 OAuth provider 支持 OIDC。
 
-### 在 Portico 注册
+### Portico 注册
 
 ```bash
 portico client register \
@@ -90,7 +90,7 @@ portico client register \
 
 复制 client secret。
 
-### 配置 Grafana
+### Grafana 配置
 
 在 `grafana.ini` 或对应的环境变量中：
 
@@ -150,11 +150,11 @@ GF_AUTH_GENERIC_OAUTH_EMAIL_ATTRIBUTE_PATH=email
 
 Nextcloud 通过 **OpenID Connect user backend** 应用支持 OIDC。
 
-### 安装应用
+### 应用安装
 
 在 Nextcloud：**应用 → 搜索"OpenID Connect user backend"** → 启用。
 
-### 在 Portico 注册
+### Portico 注册
 
 ```bash
 portico client register \
@@ -165,7 +165,7 @@ portico client register \
 
 复制 client secret。
 
-### 在 Nextcloud 配置
+### Nextcloud 配置
 
 **设置 → OpenID Connect** → 添加提供商：
 
@@ -195,7 +195,7 @@ portico client register \
 SAML 集成需要在 Portico 和 SP 之间交换 metadata。
 Metadata 携带双方验证签名所需的端点和证书。
 
-### 第一步：获取 Portico 的 metadata
+### 第一步：Portico metadata 获取
 
 ```
 GET https://<host>/saml/metadata                     ← 默认租户
@@ -204,7 +204,7 @@ GET https://<host>/t/<租户代码>/saml/metadata         ← 其他租户
 
 将此 URL（或下载 XML）导入 SP。SP 从中读取签名证书和 SSO 端点。
 
-### 第二步：获取 SP 的 metadata
+### 第二步：SP metadata 获取
 
 SP 会提供 metadata URL 或 XML 文件。在 Portico 控制台：
 **应用 → 新建应用 → SAML**。
@@ -217,7 +217,7 @@ SP 会提供 metadata URL 或 XML 文件。在 Portico 控制台：
 
 若 SP 不发布 URL，直接粘贴 metadata XML。
 
-### 第三步：配置字段映射（如需）
+### 第三步：字段映射配置（如需）
 
 Portico 默认释放与 OIDC 相同的属性：用户 ID、姓名、邮箱、角色。
 如果 SP 期望不同的属性名或额外字段，在[字段映射](field-mappings.md)中配置。
@@ -233,7 +233,7 @@ Portico 默认释放与 OIDC 相同的属性：用户 ID、姓名、邮箱、角
 
 Gitea 支持包括 OIDC 在内的多种认证来源。
 
-### 在 Portico 注册
+### Portico 注册
 
 ```bash
 portico client register \
@@ -244,7 +244,7 @@ portico client register \
 
 复制 client secret。
 
-### 在 Gitea 配置
+### Gitea 配置
 
 **站点管理 → 认证来源 → 添加认证来源**：
 
