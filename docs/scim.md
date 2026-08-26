@@ -91,7 +91,7 @@ a different feature and this is not it.
 there is nothing for a group to carry — and if that changes it will change
 deliberately, not because a directory wrote an attribute.
 
-### Why DELETE does not delete
+### DELETE and deactivation
 
 `DELETE /Users/{id}` **deactivates** the account rather than removing the
 row. Portico disables and never deletes, so the audit trail keeps naming
@@ -189,7 +189,7 @@ It may not set passwords. A directory pushing them would mean it holds a
 value it can replay, and this deployment's own policy — length, history,
 expiry — would apply to something nobody here chose.
 
-## externalId is what keeps one account one account
+## externalId and account identity
 
 Bind `externalId` on every account you provision. It is the only stable
 correlation key: usernames and email addresses are exactly the attributes a

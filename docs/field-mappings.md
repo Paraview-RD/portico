@@ -21,7 +21,7 @@ be named. It has two halves:
 | **Yours** | Whatever attributes this tenant defined for itself, under **System → User attributes** in the console |
 
 Both halves are addressed the same way. A mapping stores a **key** from this
-list, never a column name — see [the note below](#why-a-list-and-not-a-column-name).
+list, never a column name — see [the note below](#lists-not-column-names).
 
 ### Defining one of your own
 
@@ -77,7 +77,7 @@ Suppression is a flag rather than an empty name, because "send nothing" and
 Adding is the larger half. The twenty-five profile attributes are stored,
 arrive over SCIM, and by default reach no application at all.
 
-### Which of the three you get, you do not choose
+### Mapping type determination
 
 A rule looks the same in all three cases: a key, and a name. Which of the three
 it turns out to be is decided by whether the recipient already sends that field
@@ -366,7 +366,7 @@ The four kinds share one table, which is what makes this answerable in one
 query rather than four. It is the question asked after a disclosure review and
 not before one: *who is receiving `department`?*
 
-## Why a list and not a column name
+## Lists, not column names
 
 The cheaper design lets a mapping name a database column. The `users` table
 also holds `password_hash`, `token_version`, and `failed_login_attempts`.

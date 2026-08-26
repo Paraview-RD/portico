@@ -5,7 +5,7 @@ effect for everybody the moment it is saved**. There is no staged rollout and
 no dry run, so the two irreversible ones below are worth reading before
 touching.
 
-## The two that cannot be undone
+## Irreversible settings
 
 **Lowering audit retention deletes.** Entries past the new limit are removed
 permanently by the next sweep, with no copy kept. Export anything needed
@@ -19,7 +19,7 @@ immediately. Zero — the default — switches it off.
 Everything else is reversible: tightening a password rule does not
 invalidate existing passwords, it only applies to the next change.
 
-## Two different things are called a session
+## Session types
 
 This confuses people, and the two are unrelated.
 

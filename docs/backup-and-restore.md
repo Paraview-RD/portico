@@ -3,7 +3,7 @@
 What to copy, what a copy is worth without the rest, and what happens when
 you actually use one.
 
-## The state is in two places, and one of them is not the database
+## State outside the database
 
 | Where | What | Lost how |
 |---|---|---|
@@ -36,7 +36,7 @@ Back up both secrets with the same care and the same schedule as the
 database, and keep all three recoverable together. It is one backup in three
 files.
 
-## The database dump contains private keys
+## Private keys in the database dump
 
 `oauth_signing_keys.private_key` and `saml_signing_keys.private_key` are
 PKCS#8 PEM, stored as plain text — a deliberate decision, on the same
@@ -131,7 +131,7 @@ curl -sf http://127.0.0.1:8410/api/v1/ready     # 200 means the database answere
 it answers 200 against a restored instance whose database is unreachable —
 see [access-guide.md](access-guide.md).
 
-## Three things a point-in-time restore does that nobody expects
+## Point-in-time restore behavior
 
 These follow from what the data means, and none of them announce themselves.
 

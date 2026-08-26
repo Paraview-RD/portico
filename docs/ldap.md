@@ -36,7 +36,7 @@ directory has a random password here that nothing can authenticate with, the
 same as a SCIM-provisioned one. **Signing in with an AD password is a
 different feature** (federation, not synchronization) and does not exist yet.
 
-## The attribute map, which is the part to get right
+## The attribute map
 
 There are no defaults, and that is deliberate. Active Directory and OpenLDAP
 disagree on every one of these, and a wrong guess imports a directory's worth
@@ -117,7 +117,7 @@ a bind account with write access is a standing risk for no benefit.
 An empty bind DN means an anonymous bind, which some read-only directories
 allow.
 
-## Running it
+## Running the synchronization
 
 By hand: **Directory integration** → **Synchronize**. The run is synchronous
 and reports what it did — created, updated, deactivated, skipped — and the

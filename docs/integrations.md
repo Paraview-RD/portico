@@ -135,7 +135,7 @@ something inside your network comes and reads it, and if you never set the
 address, the listener does not exist. See
 [access-guide.md](access-guide.md#metrics) for why it is a separate port.
 
-## Where the demonstration is hosted — this project's choice, not Portico's
+## Demo hosting
 
 Nothing below is a dependency of Portico. It is where *we* run the public
 demonstration, recorded here because somebody has to know what the bill is

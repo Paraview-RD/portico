@@ -698,7 +698,7 @@ against what is written here — in both directions, and against both
 translations of this page. It exists because this section previously said CAS
 used the same names as the other two, which it never has.
 
-## Trying it locally
+## Local testing
 
 Register an application and ask the server what it advertises:
 

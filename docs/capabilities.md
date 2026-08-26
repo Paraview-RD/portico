@@ -1,4 +1,4 @@
-# What Portico does
+# Capabilities
 
 One page, for the question that comes before any of the others: *does this
 do what we need?*
@@ -31,7 +31,7 @@ serves several organizations with separate issuers.
 | **WeChat and DingTalk** | Supported. Neither speaks OpenID Connect, so each is an adapter in the server rather than a configuration entry — WeChat through the Open Platform's website application, the QR code somebody scans. |
 | **Multi-factor** | **Not implemented.** Planned for V0.3, TOTP only. |
 
-### An external identity never creates an account
+### No implicit account creation
 
 A first-time arrival whose identity is not linked to anything here is
 refused and told to sign in with a password and link it from their profile.
@@ -84,7 +84,7 @@ Accounts are **disabled, never deleted** — the audit trail points at them.
 [Running in Production](deployment.md) covers replicas, upgrades and
 probes.
 
-## What it does not do
+## Deliberate omissions
 
 The part of this page most worth reading. None of these is an oversight;
 each is a decision, and most are recorded with their reasoning elsewhere in

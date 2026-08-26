@@ -332,7 +332,7 @@ twenty seconds.
 Pausing a subscription stops events being queued for it. Resuming does not
 deliver what happened while it was paused — that is what pausing means.
 
-## When a subscriber says they are receiving nothing
+## Delivery troubleshooting
 
 **Webhooks → Deliveries** shows what was attempted,
 what came back, and how many times. That is the difference between "we never

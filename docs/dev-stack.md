@@ -18,7 +18,7 @@ All thirteen steps run there. `examples/mock-sp` is in the repository now, so
 the three federation steps are no longer skipped — see below for the guard
 that still covers a checkout without it.
 
-## Running it
+## Starting the stack
 
 ```bash
 docker compose -f deploy/dev-stack/compose.yml up -d --wait

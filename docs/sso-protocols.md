@@ -128,7 +128,7 @@ full list of supported scopes, endpoints, and grant types.
 
 [Federation → Claims](federation.md#claims) — every claim, with its source.
 
-[Federation → Trying it locally](federation.md#trying-it-locally) — run a
+[Federation → Local testing](federation.md#local-testing) — run a
 mock service provider against a local instance.
 
 ---

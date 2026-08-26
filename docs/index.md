@@ -8,7 +8,7 @@ and the page in front of you disagree, that is worth reporting.
 
 ## Start here
 
-**[Getting in](access-guide.md)** — the entry points, where credentials come
+**[Access guide](access-guide.md)** — the entry points, where credentials come
 from, and what each of the two roles can actually do, written as the journeys
 people take rather than as a list of screens. Read this one first.
 
@@ -16,7 +16,7 @@ people take rather than as a list of screens. Read this one first.
 
 Two directions, and the distinction matters more than it sounds:
 
-- **[Reading a directory](ldap.md)** — Portico connects to your Active
+- **[Reading from a directory](ldap.md)** — Portico connects to your Active
   Directory or OpenLDAP and pulls accounts out. Portico starts it and holds a
   credential.
 - **[Provisioning](scim.md)** — your directory pushes accounts in over SCIM
@@ -35,7 +35,7 @@ still in an application.
 **[Webhooks](webhooks.md)** — a signed POST when an account, organization, or
 group changes, with the verification recipe a subscriber should implement.
 
-## Running it
+## Operations
 
 **[Integrations](integrations.md)** — every external thing Portico talks to,
 what it authenticates with, and what it costs.
