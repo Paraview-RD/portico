@@ -133,23 +133,22 @@ OIDC 普及之前，企业产品已内置的集成方式。使用签名 XML 而�
 
 ### SP 发起的流程
 
-```
-Browser          SP（应用）           Portico（IdP）
-   │                │                     │
-   │─ 访问页面 ──────→│                     │
-   │                │ 构造 AuthnRequest    │
-   │←── 302 ────────────────────────────→│
-   │    /saml/sso?SAMLRequest=…          │
-   │                │                     │
-   │─ GET /saml/sso ──────────────────────→│
-   │←── 登录页 ───────────────────────────│
-   │─ 提交凭证 ───────────────────────────→│
-   │←── POST /acs（SAMLResponse）──────────│
-   │                │                     │
-   │─ POST assertion ──→│                 │
-   │                │ 验证 XML 签名        │
-   │                │ 提取属性            │
-   │←── 建立会话 ────│                     │
+```mermaid
+sequenceDiagram
+    participant B as Browser
+    participant SP as SP（应用）
+    participant IdP as Portico（IdP）
+
+    B->>SP: 访问页面
+    Note over SP: 构造 AuthnRequest
+    SP-->>B: 302 /saml/sso?SAMLRequest=…
+    B->>IdP: GET /saml/sso
+    IdP-->>B: 登录页
+    B->>IdP: 提交凭证
+    IdP-->>B: POST /acs（SAMLResponse）
+    B->>SP: POST assertion
+    Note over SP: 验证 XML 签名<br/>提取属性
+    SP-->>B: 建立会话
 ```
 
 **Portico 的 metadata URL：**

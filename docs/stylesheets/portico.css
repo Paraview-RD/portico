@@ -303,18 +303,11 @@ html {
   border-bottom-color: rgba(255, 255, 255, 0.15);
 }
 
-/* Active page: left-edge indicator so the current position reads at a glance.
-   box-shadow inset avoids shifting the link's padding or layout. */
+/* Active page: bold weight so the current position reads at a glance.
+   Color is already set by Material's own .md-nav__link--active rule. */
 .md-sidebar--primary .md-nav__link--active,
 .md-sidebar--primary .md-nav__link[aria-current="page"] {
-  box-shadow: inset 2px 0 0 var(--md-primary-fg-color);
-  background-color: rgba(37, 99, 235, 0.07);
-  border-radius: 0 2px 2px 0;
-}
-
-[data-md-color-scheme="slate"] .md-sidebar--primary .md-nav__link--active,
-[data-md-color-scheme="slate"] .md-sidebar--primary .md-nav__link[aria-current="page"] {
-  background-color: rgba(96, 165, 250, 0.10);
+  font-weight: 600;
 }
 
 /* ── Right TOC: visual hierarchy (Option A) ────────────────────

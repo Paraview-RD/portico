@@ -199,5 +199,9 @@ markdown_extensions:
       # non-ASCII entirely, which turns "### 4.2 目录对接" into "#42" and
       # breaks every cross-document anchor into a translated page.
       slugify: !!python/object/apply:pymdownx.slugs.slugify {kwds: {case: lower}}
-  - pymdownx.superfences
+  - pymdownx.superfences:
+      custom_fences:
+        - name: mermaid
+          class: mermaid
+          format: !!python/name:pymdownx.superfences.fence_code_format
   - pymdownx.details
