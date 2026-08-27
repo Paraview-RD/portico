@@ -129,7 +129,7 @@ OIDC 普及之前，企业产品已内置的集成方式。使用签名 XML 而�
 把 SP 的 metadata XML 交给 Portico。metadata 携带双方所需的端点和证书。
 
 **最重要的一件事：** SAML 没有可靠的单点注销。Portico 刻意不实现它。
-参见[单点登录 → 刻意不实现](federation.md#刻意不实现)。
+参见[单点登录 → 实现范围](federation.zh.md#实现范围)。
 
 ### SP 发起的流程
 
