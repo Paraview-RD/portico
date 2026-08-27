@@ -61,31 +61,23 @@ ID token（回答"谁登录了"）和 userinfo 端点（回答"这个人有哪�
 
 ### 授权码流程（含 PKCE）
 
-```
-Browser           App（RP）              Portico（OP）
-   │                 │                       │
-   │─ 点击登录 ──────→│                       │
-   │                 │ 生成 verifier          │
-   │                 │ challenge=S256(v)      │
-   │←── 302 ─────────────────────────────────│
-   │    /authorize?client_id=…               │
-   │    &code_challenge=…                    │
-   │    &code_challenge_method=S256          │
-   │                 │                       │
-   │─ GET /authorize ──────────────────────→│
-   │←── 登录页 ────────────────────────────│
-   │─ 提交凭证 ────────────────────────────→│
-   │←── 302 /callback?code=… ──────────────│
-   │                 │                       │
-   │─ ?code=… ──────→│                       │
-   │                 │─ POST /oauth/token ──→│
-   │                 │  grant_type=authorization_code
-   │                 │  code=…               │
-   │                 │  code_verifier=…      │
-   │                 │←── access_token ──────│
-   │                 │    id_token           │
-   │                 │                       │
-   │←── 已登录 ───────│                       │
+```mermaid
+sequenceDiagram
+    participant B as Browser
+    participant App as App（RP）
+    participant P as Portico（OP）
+
+    B->>App: 点击登录
+    Note over App: 生成 verifier<br/>challenge = S256(verifier)
+    App-->>B: 302 /authorize?client_id=…&code_challenge=…&code_challenge_method=S256
+    B->>P: GET /authorize
+    P-->>B: 登录页
+    B->>P: 提交凭证
+    P-->>B: 302 /callback?code=…
+    B->>App: ?code=…
+    App->>P: POST /oauth/token<br/>code + code_verifier
+    P-->>App: access_token, id_token
+    App-->>B: 已登录
 ```
 
 **已有会话？** 浏览器已持有有效会话时，Portico 跳过登录页，直接颁发授权码。
@@ -176,25 +168,22 @@ Service URL 必须在 Portico 中注册。
 
 ### 登录流程
 
-```
-Browser       App（CAS 客户端）     Portico（CAS 服务端）
-   │                 │                      │
-   │─ 访问页面 ───────→│                      │
-   │                 │                      │
-   │←── 302 /cas/login?service=<app URL> ──│
-   │                 │                      │
-   │─ GET /cas/login ──────────────────────→│
-   │←── 登录页 ─────────────────────────────│
-   │─ 提交凭证 ─────────────────────────────→│
-   │←── 302 <app URL>?ticket=ST-… ─────────│
-   │                 │                      │
-   │─ ?ticket=ST-… ─→│                      │
-   │                 │─ GET /cas/serviceValidate
-   │                 │   ?service=<app URL> │
-   │                 │   &ticket=ST-…       │
-   │                 │←── <cas:authenticationSuccess>
-   │                 │    <cas:user>alice</cas:user>
-   │←── 建立会话 ─────│                      │
+```mermaid
+sequenceDiagram
+    participant B as Browser
+    participant App as App（CAS 客户端）
+    participant CAS as Portico（CAS 服务端）
+
+    B->>App: 访问页面
+    App-->>B: 302 /cas/login?service=SERVICE_URL
+    B->>CAS: GET /cas/login
+    CAS-->>B: 登录页
+    B->>CAS: 提交凭证
+    CAS-->>B: 302 SERVICE_URL?ticket=ST-…
+    B->>App: ?ticket=ST-…
+    App->>CAS: GET /cas/serviceValidate?service=SERVICE_URL&ticket=ST-…
+    CAS-->>App: cas:authenticationSuccess / user=alice
+    App-->>B: 建立会话
 ```
 
 **客户端填写的 CAS server URL：**

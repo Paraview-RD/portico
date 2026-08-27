@@ -72,31 +72,23 @@ PKCE of every client — confidential clients included. A request without
 
 ### Authorization Code flow with PKCE
 
-```
-Browser           App (RP)              Portico (OP)
-   │                 │                       │
-   │─ click login ──→│                       │
-   │                 │ generate verifier      │
-   │                 │ challenge=S256(v)      │
-   │←── 302 ─────────────────────────────────│
-   │    /authorize?client_id=…               │
-   │    &code_challenge=…                    │
-   │    &code_challenge_method=S256          │
-   │                 │                       │
-   │─ GET /authorize ──────────────────────→│
-   │←── sign-in page ──────────────────────│
-   │─ submit credentials ──────────────────→│
-   │←── 302 /callback?code=… ──────────────│
-   │                 │                       │
-   │─ ?code=… ──────→│                       │
-   │                 │─ POST /oauth/token ──→│
-   │                 │  grant_type=authorization_code
-   │                 │  code=…               │
-   │                 │  code_verifier=…      │
-   │                 │←── access_token ──────│
-   │                 │    id_token           │
-   │                 │                       │
-   │←── signed in ───│                       │
+```mermaid
+sequenceDiagram
+    participant B as Browser
+    participant App as App (RP)
+    participant P as Portico (OP)
+
+    B->>App: click login
+    Note over App: generate verifier<br/>challenge = S256(verifier)
+    App-->>B: 302 /authorize?client_id=…&code_challenge=…&code_challenge_method=S256
+    B->>P: GET /authorize
+    P-->>B: sign-in page
+    B->>P: submit credentials
+    P-->>B: 302 /callback?code=…
+    B->>App: ?code=…
+    App->>P: POST /oauth/token<br/>code + code_verifier
+    P-->>App: access_token, id_token
+    App-->>B: signed in
 ```
 
 **Already signed in?** If the browser already holds a valid session, Portico
@@ -150,23 +142,22 @@ Portico deliberately does not implement it. See
 
 ### SP-initiated flow
 
-```
-Browser          SP (App)           Portico (IdP)
-   │                │                     │
-   │─ access page ─→│                     │
-   │                │ build AuthnRequest   │
-   │←── 302 ────────────────────────────→│
-   │    /saml/sso?SAMLRequest=…          │
-   │                │                     │
-   │─ GET /saml/sso ──────────────────────→│
-   │←── sign-in page ────────────────────│
-   │─ submit credentials ────────────────→│
-   │←── POST /acs (SAMLResponse) ────────│
-   │                │                     │
-   │─ POST assertion ──→│                 │
-   │                │ verify XML signature │
-   │                │ extract attributes  │
-   │←── session ────│                     │
+```mermaid
+sequenceDiagram
+    participant B as Browser
+    participant SP as SP (App)
+    participant IdP as Portico (IdP)
+
+    B->>SP: access page
+    Note over SP: build AuthnRequest
+    SP-->>B: 302 /saml/sso?SAMLRequest=…
+    B->>IdP: GET /saml/sso
+    IdP-->>B: sign-in page
+    B->>IdP: submit credentials
+    IdP-->>B: POST /acs (SAMLResponse)
+    B->>SP: POST assertion
+    Note over SP: verify XML signature<br/>extract attributes
+    SP-->>B: session
 ```
 
 **Portico's metadata URL:**
@@ -197,25 +188,22 @@ ticket or validating it twice fails.
 
 ### Login flow
 
-```
-Browser       App (CAS client)      Portico (CAS server)
-   │                 │                      │
-   │─ access page ──→│                      │
-   │                 │                      │
-   │←── 302 /cas/login?service=<app URL> ──│
-   │                 │                      │
-   │─ GET /cas/login ──────────────────────→│
-   │←── sign-in page ──────────────────────│
-   │─ submit credentials ──────────────────→│
-   │←── 302 <app URL>?ticket=ST-… ─────────│
-   │                 │                      │
-   │─ ?ticket=ST-… ─→│                      │
-   │                 │─ GET /cas/serviceValidate
-   │                 │   ?service=<app URL> │
-   │                 │   &ticket=ST-…       │
-   │                 │←── <cas:authenticationSuccess>
-   │                 │    <cas:user>alice</cas:user>
-   │←── session ─────│                      │
+```mermaid
+sequenceDiagram
+    participant B as Browser
+    participant App as App (CAS client)
+    participant CAS as Portico (CAS server)
+
+    B->>App: access page
+    App-->>B: 302 /cas/login?service=SERVICE_URL
+    B->>CAS: GET /cas/login
+    CAS-->>B: sign-in page
+    B->>CAS: submit credentials
+    CAS-->>B: 302 SERVICE_URL?ticket=ST-…
+    B->>App: ?ticket=ST-…
+    App->>CAS: GET /cas/serviceValidate?service=SERVICE_URL&ticket=ST-…
+    CAS-->>App: cas:authenticationSuccess / user=alice
+    App-->>B: session
 ```
 
 **CAS server URL to configure in the client:**

@@ -144,32 +144,14 @@ curl -X PUT https://<host>/api/v1/applications/oauth-clients/wiki/field-mappings
 
 保存的时候：
 
+```mermaid
+flowchart TD
+    IN["控制台「字段映射」页<br/>— 或 —<br/>PUT /api/v1/…/field-mappings"] --> SVC[FieldMappingService.Replace]
+    SVC -->|保存时校验失败| REJ["拒绝 — 返回给能修的管理员：<br/>UNKNOWN_FIELD · MAPPING_TARGET_REQUIRED<br/>DUPLICATE_MAPPING_SOURCE · DUPLICATE_MAPPING_TARGET<br/>RESERVED_CLAIM_NAME · CLAIM_NAME_TAKEN · PAYLOAD_NAME_TAKEN"]
+    SVC -->|"有效 — 一个事务：<br/>先删掉该接收方的所有行，<br/>再写入这次发来的那一套"| DB[("field_mappings<br/>tenant_id<br/>之一：oauth_client_id · saml_sp_id · cas_service_id · webhook_subscription_id<br/>source_key → target_name | suppressed")]
 ```
-控制台的「字段映射」页，或
-PUT /api/v1/.../field-mappings              （整套替换，不是打补丁）
-  │
-  ▼
-FieldMappingService.Replace
-  │
-  │   在保存时就拒绝，面对的是能改的那个人：
-  │     UNKNOWN_FIELD              MAPPING_TARGET_REQUIRED
-  │     DUPLICATE_MAPPING_SOURCE   DUPLICATE_MAPPING_TARGET
-  │     RESERVED_CLAIM_NAME        CLAIM_NAME_TAKEN
-  │     PAYLOAD_NAME_TAKEN
-  │
-  │   一个事务：先删掉该接收方的所有行，
-  │   再写入这次发来的那一套
-  ▼
-┌──────────────────────────────────────────────────────────────┐
-│ field_mappings                                               │
-│   tenant_id                                                  │
-│   exactly one of   oauth_client_id, saml_sp_id,              │
-│                    cas_service_id, webhook_subscription_id   │
-│   source_key  ->   target_name  |  suppressed                │
-└──────────────────────────────────────────────────────────────┘
 
-该接收方没有任何行  =  按默认发，一字不差
-```
+该接收方没有任何行，等于按默认发，一字不差。
 
 删除和写入放在一个事务里是刻意的。如果「清空」提交了而「重写」没有，表里就没有
 行了——而没有行不等于「什么都不发」，它等于「按默认发」。也就是说，那半次保存会
@@ -177,25 +159,24 @@ FieldMappingService.Replace
 
 生效的时候：
 
-```
-users                                    field_mappings
-user_attribute_values                    │
-organizations                            │  OutboundFor(tenant, recipient)
-tenants                                  │  只查一次库，查在需要它的那次
-│                                        │  请求上：不缓存，也不推送
-│                                        ▼
-│                                        Outbound
-│                                        rename / suppress / add
-│                                        │
-└────────────────────────────────────────┤
-                                         │
-   ┌───────────────┬─────────────────────┼──────────────────┐
-   ▼               ▼                     ▼                  ▼
-   OIDC client     SAML SP               CAS service        webhook sub
-   ID token        assertion             cas:attributes     keys at the
-   access token    attributes            in the ticket      top of the
-   userinfo                              validation         event's data
-   introspection                         response           object
+```mermaid
+flowchart LR
+    subgraph SRC[来源表]
+        U[users]
+        UAV[user_attribute_values]
+        O[organizations]
+        T[tenants]
+    end
+    FM["field_mappings<br/>OutboundFor(tenant, recipient)<br/>每次请求查一次库，不缓存，不推送"]
+    OB["Outbound<br/>rename / suppress / add"]
+
+    SRC --> OB
+    FM --> OB
+
+    OB --> OIDC["OIDC client<br/>ID token · access token<br/>userinfo · introspection"]
+    OB --> SAML["SAML SP<br/>assertion 属性"]
+    OB --> CAS["CAS service<br/>票据校验响应中的<br/>cas:attributes"]
+    OB --> WH["webhook subscription<br/>事件数据对象<br/>顶层 key"]
 ```
 
 `Outbound` 就是协议包拿到的全部词汇量。对于协议本来就会发的事实，它问的是*这个

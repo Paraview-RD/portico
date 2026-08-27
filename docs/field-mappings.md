@@ -165,32 +165,14 @@ the next request through that channel, with no restart and no wait.
 
 Saving one:
 
+```mermaid
+flowchart TD
+    IN["Console 'Field Mappings' tab<br/>— or —<br/>PUT /api/v1/…/field-mappings"] --> SVC[FieldMappingService.Replace]
+    SVC -->|save-time validation fails| REJ["Rejected — returned to the admin who can fix it:<br/>UNKNOWN_FIELD · MAPPING_TARGET_REQUIRED<br/>DUPLICATE_MAPPING_SOURCE · DUPLICATE_MAPPING_TARGET<br/>RESERVED_CLAIM_NAME · CLAIM_NAME_TAKEN · PAYLOAD_NAME_TAKEN"]
+    SVC -->|"valid — one transaction:<br/>delete all rows for this recipient,<br/>then insert the new set"| DB[("field_mappings<br/>tenant_id<br/>one of: oauth_client_id · saml_sp_id · cas_service_id · webhook_subscription_id<br/>source_key → target_name | suppressed")]
 ```
-the console's Field mappings tab, or
-PUT /api/v1/.../field-mappings              (the whole set, not a patch)
-  │
-  ▼
-FieldMappingService.Replace
-  │
-  │   refused at save time, in front of somebody who can fix it:
-  │     UNKNOWN_FIELD              MAPPING_TARGET_REQUIRED
-  │     DUPLICATE_MAPPING_SOURCE   DUPLICATE_MAPPING_TARGET
-  │     RESERVED_CLAIM_NAME        CLAIM_NAME_TAKEN
-  │     PAYLOAD_NAME_TAKEN
-  │
-  │   one transaction: every row for this recipient deleted,
-  │   then the set that was sent inserted
-  ▼
-┌──────────────────────────────────────────────────────────────┐
-│ field_mappings                                               │
-│   tenant_id                                                  │
-│   exactly one of   oauth_client_id, saml_sp_id,              │
-│                    cas_service_id, webhook_subscription_id   │
-│   source_key  ->   target_name  |  suppressed                │
-└──────────────────────────────────────────────────────────────┘
 
-no rows for a recipient  =  the defaults, unchanged
-```
+No rows for a recipient means the defaults, unchanged.
 
 The delete and the insert are one transaction on purpose. A clear that
 committed without its rewrite would leave no rows — which does not mean "sends
@@ -199,25 +181,24 @@ than the state before it did.
 
 Applying one:
 
-```
-users                                    field_mappings
-user_attribute_values                    │
-organizations                            │  OutboundFor(tenant, recipient)
-tenants                                  │  one query, on the request that
-│                                        │  needs it: no cache, no push
-│                                        ▼
-│                                        Outbound
-│                                        rename / suppress / add
-│                                        │
-└────────────────────────────────────────┤
-                                         │
-   ┌───────────────┬─────────────────────┼──────────────────┐
-   ▼               ▼                     ▼                  ▼
-   OIDC client     SAML SP               CAS service        webhook sub
-   ID token        assertion             cas:attributes     keys at the
-   access token    attributes            in the ticket      top of the
-   userinfo                              validation         event's data
-   introspection                         response           object
+```mermaid
+flowchart LR
+    subgraph SRC[Source tables]
+        U[users]
+        UAV[user_attribute_values]
+        O[organizations]
+        T[tenants]
+    end
+    FM["field_mappings<br/>OutboundFor(tenant, recipient)<br/>one query per request — no cache, no push"]
+    OB["Outbound<br/>rename / suppress / add"]
+
+    SRC --> OB
+    FM --> OB
+
+    OB --> OIDC["OIDC client<br/>ID token · access token<br/>userinfo · introspection"]
+    OB --> SAML["SAML SP<br/>assertion attributes"]
+    OB --> CAS["CAS service<br/>cas:attributes in<br/>ticket validation response"]
+    OB --> WH["webhook subscription<br/>keys at top of<br/>event data object"]
 ```
 
 `Outbound` is the whole vocabulary a protocol package gets. For a fact the
