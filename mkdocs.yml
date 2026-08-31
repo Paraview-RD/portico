@@ -49,6 +49,7 @@ exclude_docs: |
   design-principles.md
   dev-stack.md
   requirements/
+  adr/
 
 theme:
   name: material
