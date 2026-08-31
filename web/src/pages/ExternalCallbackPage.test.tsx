@@ -27,6 +27,27 @@ vi.mock("../api/endpoints", () => ({
   authApi: {
     completeExternalSignIn: (state: string, code: string, tenant: string) =>
       completeExternalSignIn(state, code, tenant),
+    // AuthShell fetches this on mount for branding — see AuthShell.tsx.
+    // Never resolving would leave the shell waiting forever rather than
+    // rendering with the built-in appearance, so this must settle.
+    registrationStatus: () =>
+      Promise.resolve({
+        registrationEnabled: false,
+        systemName: "Portico",
+        tenant: "default",
+        tenantName: "Default",
+        branding: {
+          logoUrl: "",
+          productName: "",
+          colorPrimary: "",
+          fontFamily: "",
+          bgImageUrl: "",
+          footerPrivacyUrl: "",
+          footerTermsUrl: "",
+          footerSupportUrl: "",
+          loginHeading: "",
+        },
+      }),
   },
 }));
 

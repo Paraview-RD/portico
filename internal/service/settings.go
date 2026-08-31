@@ -5,6 +5,7 @@ package service
 import (
 	"context"
 	"fmt"
+	"regexp"
 	"strconv"
 	"strings"
 	"sync"
@@ -120,6 +121,21 @@ const (
 	// never seen the screen before, and a deployment that starts with them
 	// hidden helps nobody.
 	SettingShowGuides = "show_guides"
+
+	// Branding. What the four unauthenticated screens (sign-in, register,
+	// forgot-password, authorize) show in place of Portico's own name, mark
+	// and colour — see docs/settings.md#branding. Every value here is empty
+	// by default, and empty means "not customized," the same convention
+	// SystemName already uses.
+	SettingBrandingLogoURL          = "branding_logo_url"
+	SettingBrandingProductName      = "branding_product_name"
+	SettingBrandingColorPrimary     = "branding_color_primary"
+	SettingBrandingFontFamily       = "branding_font_family"
+	SettingBrandingBgImageURL       = "branding_bg_image_url"
+	SettingBrandingFooterPrivacyURL = "branding_footer_privacy_url"
+	SettingBrandingFooterTermsURL   = "branding_footer_terms_url"
+	SettingBrandingFooterSupportURL = "branding_footer_support_url"
+	SettingBrandingLoginHeading     = "branding_login_heading"
 )
 
 // Settings is the full set of runtime settings for one tenant.
@@ -144,6 +160,19 @@ type Settings struct {
 	// address is where a password-reset link would be sent.
 	RegistrationVerification bool   `json:"registrationVerification"`
 	SystemName               string `json:"systemName"`
+
+	// Branding. All empty by default; each is "not customized" until an
+	// administrator sets it. See the SettingBranding* keys above for what
+	// each one changes and why the set is this narrow.
+	BrandingLogoURL          string `json:"brandingLogoUrl"`
+	BrandingProductName      string `json:"brandingProductName"`
+	BrandingColorPrimary     string `json:"brandingColorPrimary"`
+	BrandingFontFamily       string `json:"brandingFontFamily"`
+	BrandingBgImageURL       string `json:"brandingBgImageUrl"`
+	BrandingFooterPrivacyURL string `json:"brandingFooterPrivacyUrl"`
+	BrandingFooterTermsURL   string `json:"brandingFooterTermsUrl"`
+	BrandingFooterSupportURL string `json:"brandingFooterSupportUrl"`
+	BrandingLoginHeading     string `json:"brandingLoginHeading"`
 
 	// LockoutThreshold is the number of consecutive failed sign-ins that
 	// locks an account. Zero means no lockout.
@@ -272,6 +301,21 @@ const (
 
 	MaxOIDCSessionMaxAgeDays = 365
 )
+
+// Bounds on branding fields. Long enough for anything a real brand name,
+// CSS font-family list, or short heading needs; short enough that this
+// column stays what it is — a label, not a place to paste a paragraph.
+const (
+	MaxBrandingProductNameLength  = 80
+	MaxBrandingFontFamilyLength   = 200
+	MaxBrandingLoginHeadingLength = 160
+)
+
+// brandingColorPattern is a 6-digit hex colour, the shape a CSS custom
+// property and an <input type="color"> both already agree on. 3-digit and
+// named colours are not accepted: normalizing "red" or "#fff" to a 6-digit
+// form is more code than the convenience is worth for one field.
+var brandingColorPattern = regexp.MustCompile(`^#[0-9a-fA-F]{6}$`)
 
 // Bounds on lockout.
 //
@@ -489,6 +533,24 @@ func (s *SettingsService) Get(ctx context.Context, tenantID string) (Settings, e
 			loaded.RegistrationVerification = row.Value == "true"
 		case SettingSystemName:
 			loaded.SystemName = row.Value
+		case SettingBrandingLogoURL:
+			loaded.BrandingLogoURL = row.Value
+		case SettingBrandingProductName:
+			loaded.BrandingProductName = row.Value
+		case SettingBrandingColorPrimary:
+			loaded.BrandingColorPrimary = row.Value
+		case SettingBrandingFontFamily:
+			loaded.BrandingFontFamily = row.Value
+		case SettingBrandingBgImageURL:
+			loaded.BrandingBgImageURL = row.Value
+		case SettingBrandingFooterPrivacyURL:
+			loaded.BrandingFooterPrivacyURL = row.Value
+		case SettingBrandingFooterTermsURL:
+			loaded.BrandingFooterTermsURL = row.Value
+		case SettingBrandingFooterSupportURL:
+			loaded.BrandingFooterSupportURL = row.Value
+		case SettingBrandingLoginHeading:
+			loaded.BrandingLoginHeading = row.Value
 		case SettingDefaultLocale:
 			loaded.DefaultLocale = row.Value
 		case SettingLockoutThreshold:
@@ -626,6 +688,54 @@ func (s *SettingsService) Update(ctx context.Context, tenantID string, next Sett
 		}
 	}
 
+	// Branding. Each URL-shaped field goes through the same normalizer as
+	// the application-registration equivalent, so a value that would be
+	// refused there is refused here too rather than stored and failing
+	// later when it is rendered as an <img> or followed as a link.
+	logoURL, err := normalizeLogoURI(next.BrandingLogoURL)
+	if err != nil {
+		return Settings{}, err
+	}
+	next.BrandingLogoURL = logoURL
+
+	bgImageURL, err := normalizeLogoURI(next.BrandingBgImageURL)
+	if err != nil {
+		return Settings{}, err
+	}
+	next.BrandingBgImageURL = bgImageURL
+
+	for _, field := range []*string{
+		&next.BrandingFooterPrivacyURL,
+		&next.BrandingFooterTermsURL,
+		&next.BrandingFooterSupportURL,
+	} {
+		normalized, err := normalizeFooterLinkURI(*field)
+		if err != nil {
+			return Settings{}, err
+		}
+		*field = normalized
+	}
+
+	// Refused rather than clamped: a colour an administrator typed wrong
+	// should be rejected in the form, not silently applied as something
+	// else. Empty is allowed and means "use the default palette."
+	if next.BrandingColorPrimary != "" && !brandingColorPattern.MatchString(next.BrandingColorPrimary) {
+		return Settings{}, httpx.BadRequest("INVALID_SETTINGS",
+			"The primary colour must be a 6-digit hex colour, like #2563eb.")
+	}
+	if len(next.BrandingFontFamily) > MaxBrandingFontFamilyLength {
+		return Settings{}, httpx.BadRequest("INVALID_SETTINGS",
+			fmt.Sprintf("Font family must be under %d characters.", MaxBrandingFontFamilyLength))
+	}
+	if len(next.BrandingProductName) > MaxBrandingProductNameLength {
+		return Settings{}, httpx.BadRequest("INVALID_SETTINGS",
+			fmt.Sprintf("Product name must be under %d characters.", MaxBrandingProductNameLength))
+	}
+	if len(next.BrandingLoginHeading) > MaxBrandingLoginHeadingLength {
+		return Settings{}, httpx.BadRequest("INVALID_SETTINGS",
+			fmt.Sprintf("Login heading must be under %d characters.", MaxBrandingLoginHeadingLength))
+	}
+
 	values := map[string]string{
 		SettingTokenTTLMinutes:           strconv.Itoa(next.TokenTTLMinutes),
 		SettingOIDCAccessTokenTTLMinutes: strconv.Itoa(next.OIDCAccessTokenTTLMinutes),
@@ -635,6 +745,16 @@ func (s *SettingsService) Update(ctx context.Context, tenantID string, next Sett
 		SettingShowGuides:                strconv.FormatBool(next.ShowGuides),
 		SettingRegistrationVerification:  strconv.FormatBool(next.RegistrationVerification),
 		SettingSystemName:                next.SystemName,
+
+		SettingBrandingLogoURL:          next.BrandingLogoURL,
+		SettingBrandingProductName:      next.BrandingProductName,
+		SettingBrandingColorPrimary:     next.BrandingColorPrimary,
+		SettingBrandingFontFamily:       next.BrandingFontFamily,
+		SettingBrandingBgImageURL:       next.BrandingBgImageURL,
+		SettingBrandingFooterPrivacyURL: next.BrandingFooterPrivacyURL,
+		SettingBrandingFooterTermsURL:   next.BrandingFooterTermsURL,
+		SettingBrandingFooterSupportURL: next.BrandingFooterSupportURL,
+		SettingBrandingLoginHeading:     next.BrandingLoginHeading,
 
 		SettingLockoutThreshold:       strconv.Itoa(next.LockoutThreshold),
 		SettingLockoutDurationMinutes: strconv.Itoa(next.LockoutDurationMinutes),

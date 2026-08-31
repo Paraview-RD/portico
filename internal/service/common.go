@@ -219,3 +219,47 @@ func normalizeLogoURI(raw string) (string, error) {
 		return "", ErrInvalidLogoURI
 	}
 }
+
+// ErrInvalidFooterLinkURI is a footer link address of a shape a browser
+// cannot follow anywhere useful.
+var ErrInvalidFooterLinkURI = httpx.BadRequest("INVALID_FOOTER_LINK_URI",
+	"A footer link must be an http or https URL, or a mailto: address.")
+
+// normalizeFooterLinkURI checks a branding footer link (privacy policy,
+// terms, support contact).
+//
+// Three schemes, not the two normalizeLogoURI accepts: http(s) covers a
+// hosted policy page, and mailto: covers "email us" — the shape the support
+// link is for. No path-on-this-server form, unlike a logo: a footer link is
+// followed by clicking it, not rendered as a picture, so there is no reason
+// to let it point inside this server's own static assets. No `data:`, same
+// reasoning as the logo — a link an administrator did not expect to be
+// clickable is not a link this validates for them.
+//
+// Empty is allowed and means the link is not shown.
+func normalizeFooterLinkURI(raw string) (string, error) {
+	trimmed := strings.TrimSpace(raw)
+	if trimmed == "" {
+		return "", nil
+	}
+
+	parsed, err := url.Parse(trimmed)
+	if err != nil {
+		return "", ErrInvalidFooterLinkURI
+	}
+
+	switch parsed.Scheme {
+	case "http", "https":
+		if parsed.Host == "" {
+			return "", ErrInvalidFooterLinkURI
+		}
+		return trimmed, nil
+	case "mailto":
+		if parsed.Opaque == "" {
+			return "", ErrInvalidFooterLinkURI
+		}
+		return trimmed, nil
+	default:
+		return "", ErrInvalidFooterLinkURI
+	}
+}

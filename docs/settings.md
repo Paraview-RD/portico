@@ -93,6 +93,74 @@ Each panel can also be collapsed individually, which is remembered per
 browser rather than for everybody — so an operator who reads them daily can
 put one away without deciding for the rest of the tenant.
 
+## Branding
+
+Overrides what the four unauthenticated screens — sign-in, register,
+forgot-password, authorize — show in place of Portico's own name, mark and
+colour. The administrative console is unaffected: an operator's own team
+sees Portico; only a visitor who has not signed in yet sees the brand.
+
+Global and per-tenant, on the same fallback every other setting here
+already uses: a tenant that has set nothing inherits the deployment's
+default, matching how `System name` already behaves.
+
+| Field | What it changes |
+|---|---|
+| Logo | The mark beside the product name. Accepts an uploaded picture (through the same PNG/JPEG pipeline application tiles use) or a path on this server. |
+| Product name | Replaces "Portico" in the header. |
+| Primary colour | A 6-digit hex colour. Buttons and links on these four screens follow it; the console's own palette does not. |
+| Font family | A CSS `font-family` value. |
+| Background image | Behind the sign-in card. |
+| Footer links | Three named slots — privacy policy, terms of service, support contact — not an open list. |
+| Sign-in heading | Replaces the default heading on the sign-in screen specifically; the other three screens keep their own. |
+
+**The footer is three slots, not a list an operator supplies text for.**
+Each label is drawn from this console's own translation catalogue and
+appears in whichever language the visitor's browser is showing; only the
+address is theirs to set. An open list of arbitrary link text would mean
+every one of them needing its own translation, decided by whoever is
+filling in a form rather than by this product's own wording conventions —
+see [i18n conventions](i18n-conventions.md).
+
+**The sign-in heading is one field, not an open text-override layer.**
+Every other string on these screens is translated and compile-time
+checked — a typo in a translation key fails the build before it ships. An
+open override keyed by string would sit outside that check entirely: a
+mistyped key would silently do nothing, and nothing would say so. One named
+field avoids the question by not having a key to typo.
+
+**The logo reuses the application-logo upload**, the same mechanism and the
+same limits (512 KiB, 1024 pixels on a side, PNG or JPEG only, SVG
+refused — an SVG is a document that can carry a script, and one served back
+from this origin and opened directly carries this origin's session with
+it). It is not a new upload path with its own rules to keep in sync with
+the first one.
+
+How a save reaches a visitor who has not signed in:
+
+```mermaid
+sequenceDiagram
+    participant A as Administrator
+    participant S as Portico (Settings)
+    participant B as Browser
+    participant P as Portico (Auth)
+
+    A->>S: PUT /settings (branding fields)
+    Note over S: validate, upsert as tenant settings
+    S-->>A: 200
+
+    B->>P: GET /login
+    Note over B: AuthShell mounts
+    B->>P: GET /auth/registration-status
+    Note over P: settings lookup, cached per tenant
+    P-->>B: branding { logoUrl, colorPrimary, … }
+    Note over B: applied as CSS custom properties<br/>scoped to the sign-in screen
+```
+
+There is no draft or preview: like every other setting on this screen, a
+save takes effect immediately for the next visitor, and there is no staged
+rollout to catch a mistake before it is seen.
+
 ## The audit trail
 
 What is recorded has already happened — who signed in when, who changed

@@ -250,7 +250,38 @@ func (h *Handler) RegistrationStatus(w http.ResponseWriter, r *http.Request) {
 		"systemName":          settings.SystemName,
 		"tenant":              tenant.Code,
 		"tenantName":          tenant.Name,
+		"branding":            brandingOf(settings),
 	})
+}
+
+// brandingResponse is what an anonymous caller on the four unauthenticated
+// screens receives. Every field is public by design — it is rendered on a
+// page nobody has signed in to yet — which is why this is a narrower view
+// than service.Settings rather than that struct reused directly.
+type brandingResponse struct {
+	LogoURL          string `json:"logoUrl"`
+	ProductName      string `json:"productName"`
+	ColorPrimary     string `json:"colorPrimary"`
+	FontFamily       string `json:"fontFamily"`
+	BgImageURL       string `json:"bgImageUrl"`
+	FooterPrivacyURL string `json:"footerPrivacyUrl"`
+	FooterTermsURL   string `json:"footerTermsUrl"`
+	FooterSupportURL string `json:"footerSupportUrl"`
+	LoginHeading     string `json:"loginHeading"`
+}
+
+func brandingOf(settings service.Settings) brandingResponse {
+	return brandingResponse{
+		LogoURL:          settings.BrandingLogoURL,
+		ProductName:      settings.BrandingProductName,
+		ColorPrimary:     settings.BrandingColorPrimary,
+		FontFamily:       settings.BrandingFontFamily,
+		BgImageURL:       settings.BrandingBgImageURL,
+		FooterPrivacyURL: settings.BrandingFooterPrivacyURL,
+		FooterTermsURL:   settings.BrandingFooterTermsURL,
+		FooterSupportURL: settings.BrandingFooterSupportURL,
+		LoginHeading:     settings.BrandingLoginHeading,
+	}
 }
 
 // meResponse is the caller's own profile plus the one thing about their

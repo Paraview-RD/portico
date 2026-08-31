@@ -84,6 +84,13 @@ export function LoginPage() {
   const mustReplacePassword = replaceReason !== "";
   const [newPassword, setNewPassword] = useState("");
   const [systemName, setSystemName] = useState("Portico");
+  // The one copy override branding has, and it belongs to this screen
+  // specifically — AuthShell fetches branding for the logo, colour and
+  // footer it renders on all five unauthenticated screens, but a heading
+  // override is meaningful only for the screen that has a heading to
+  // replace, so it is read from this component's own registration-status
+  // call rather than threaded through AuthShell as a sixth prop.
+  const [loginHeading, setLoginHeading] = useState("");
 
   // A 404 is the answer on every ordinary installation, and it means "no"
   // rather than "something went wrong" — the routes are not registered unless
@@ -110,6 +117,7 @@ export function LoginPage() {
       .then((status) => {
         setRegistrationOpen(status.registrationEnabled);
         setSystemName(status.systemName);
+        setLoginHeading(status.branding.loginHeading);
       })
       .catch(() => {
         // An unknown tenant lands here. Sign-in will say so plainly, which
@@ -118,6 +126,7 @@ export function LoginPage() {
         // previous tenant's name as though this one existed.
         setRegistrationOpen(false);
         setSystemName("Portico");
+        setLoginHeading("");
       });
 
     // Which buttons this tenant offers, asked in the same breath and for the
@@ -209,7 +218,7 @@ export function LoginPage() {
 
   return (
     <AuthShell
-      title={t("login.title")}
+      title={loginHeading || t("login.title")}
       subtitle={
         // Which tenant is being signed in to, once the server has resolved
         // one. A deployment with only the default tenant never sees this,

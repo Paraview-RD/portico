@@ -4781,6 +4781,35 @@ components:
             Requires a self-registered account to confirm its email address
             or phone number before it can sign in. Turning it on is refused
             where the deployment has no way to send one.
+        brandingLogoUrl:
+          type: string
+          description: |
+            An http(s) URL or a path on this server, the same shape an
+            application's own logoUri accepts. Empty means no logo, and the
+            default vector mark is shown instead.
+        brandingProductName:
+          type: string
+          description: Replaces "Portico" on the four unauthenticated screens.
+        brandingColorPrimary:
+          type: string
+          description: |
+            A 6-digit hex colour, like `#2563eb`. Empty uses the default
+            palette.
+        brandingFontFamily: { type: string }
+        brandingBgImageUrl:
+          type: string
+          description: Same address rules as brandingLogoUrl.
+        brandingFooterPrivacyUrl:
+          type: string
+          description: |
+            http(s) or mailto:. Empty hides the link. Unlike a logo, this is
+            followed rather than rendered, so a path on this server is not
+            accepted.
+        brandingFooterTermsUrl: { type: string }
+        brandingFooterSupportUrl: { type: string }
+        brandingLoginHeading:
+          type: string
+          description: Replaces the default sign-in heading. Empty uses the built-in text.
         tokenTtlMinutes:
           type: integer
           description: The console's own session, not the OIDC tokens below.
@@ -4904,6 +4933,26 @@ components:
         systemName: { type: string }
         tenant: { type: string }
         tenantName: { type: string }
+        branding: { $ref: "#/components/schemas/Branding" }
+
+    Branding:
+      type: object
+      description: |
+        What an anonymous visitor's browser receives to render the four
+        unauthenticated screens (sign-in, register, forgot-password,
+        authorize). Every field is public by design, and empty means "not
+        customized" — the same convention the settings endpoint writes it
+        with.
+      properties:
+        logoUrl: { type: string }
+        productName: { type: string }
+        colorPrimary: { type: string }
+        fontFamily: { type: string }
+        bgImageUrl: { type: string }
+        footerPrivacyUrl: { type: string }
+        footerTermsUrl: { type: string }
+        footerSupportUrl: { type: string }
+        loginHeading: { type: string }
 
     LandingStatus:
       type: object

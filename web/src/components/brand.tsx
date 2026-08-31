@@ -16,6 +16,8 @@
  * actually seen at most of the time.
  */
 
+import { useState } from "react";
+
 interface MarkProps {
   size?: number;
   className?: string;
@@ -79,14 +81,43 @@ export function BrandLockup({
   name,
   descriptor,
   size = 32,
+  logoSrc,
 }: {
   name: string;
   descriptor?: string;
   size?: number;
+  /**
+   * A branding override for the mark, in place of the vector portico glyph.
+   * Absent on every screen except the four unauthenticated ones, which are
+   * the only place a deployment's own logo is meant to appear — see
+   * AuthShell. Falls back to the glyph on a load error, the same as
+   * AppIcon, rather than leaving a broken-image icon in the corner of every
+   * sign-in attempt.
+   */
+  logoSrc?: string;
 }) {
+  const [logoFailed, setLogoFailed] = useState(false);
+
   return (
     <div className="flex items-center gap-2.5">
-      <BrandTile size={size} />
+      {logoSrc && !logoFailed ? (
+        <img
+          src={logoSrc}
+          // Decorative: the product name renders right beside it.
+          alt=""
+          width={size}
+          height={size}
+          loading="lazy"
+          // An external logo would otherwise tell its host the address of
+          // every sign-in page it appeared on.
+          referrerPolicy="no-referrer"
+          onError={() => setLogoFailed(true)}
+          className="shrink-0 object-contain"
+          style={{ width: size, height: size }}
+        />
+      ) : (
+        <BrandTile size={size} />
+      )}
       <div className="min-w-0 leading-tight">
         <div className="truncate text-[length:var(--font-size-lg)] font-[weight:var(--font-weight-bold)] text-[var(--color-fg)]">
           {name}

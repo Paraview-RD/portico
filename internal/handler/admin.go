@@ -95,6 +95,20 @@ type updateSettingsRequest struct {
 	RegistrationVerification *bool   `json:"registrationVerification"`
 	SystemName               *string `json:"systemName"`
 
+	// Branding, all optional. Empty string is a real value here too — it
+	// means "not customized" and falls back to the default — so omitting
+	// the field and sending "" are different, same reasoning as
+	// DefaultLocale below.
+	BrandingLogoURL          *string `json:"brandingLogoUrl"`
+	BrandingProductName      *string `json:"brandingProductName"`
+	BrandingColorPrimary     *string `json:"brandingColorPrimary"`
+	BrandingFontFamily       *string `json:"brandingFontFamily"`
+	BrandingBgImageURL       *string `json:"brandingBgImageUrl"`
+	BrandingFooterPrivacyURL *string `json:"brandingFooterPrivacyUrl"`
+	BrandingFooterTermsURL   *string `json:"brandingFooterTermsUrl"`
+	BrandingFooterSupportURL *string `json:"brandingFooterSupportUrl"`
+	BrandingLoginHeading     *string `json:"brandingLoginHeading"`
+
 	// Zero threshold switches lockout off, which a deployment that trusts
 	// its reverse proxy's throttling may well want — but it has to be sent
 	// deliberately, not arrived at by omission.
@@ -138,6 +152,16 @@ func (req updateSettingsRequest) applyTo(current service.Settings) service.Setti
 		current.DefaultLocale = *req.DefaultLocale
 	}
 
+	overlayString(&current.BrandingLogoURL, req.BrandingLogoURL)
+	overlayString(&current.BrandingProductName, req.BrandingProductName)
+	overlayString(&current.BrandingColorPrimary, req.BrandingColorPrimary)
+	overlayString(&current.BrandingFontFamily, req.BrandingFontFamily)
+	overlayString(&current.BrandingBgImageURL, req.BrandingBgImageURL)
+	overlayString(&current.BrandingFooterPrivacyURL, req.BrandingFooterPrivacyURL)
+	overlayString(&current.BrandingFooterTermsURL, req.BrandingFooterTermsURL)
+	overlayString(&current.BrandingFooterSupportURL, req.BrandingFooterSupportURL)
+	overlayString(&current.BrandingLoginHeading, req.BrandingLoginHeading)
+
 	overlayInt(&current.LockoutThreshold, req.LockoutThreshold)
 	overlayInt(&current.LockoutDurationMinutes, req.LockoutDurationMinutes)
 
@@ -160,6 +184,12 @@ func overlayInt(target *int, supplied *int) {
 }
 
 func overlayBool(target *bool, supplied *bool) {
+	if supplied != nil {
+		*target = *supplied
+	}
+}
+
+func overlayString(target *string, supplied *string) {
 	if supplied != nil {
 		*target = *supplied
 	}

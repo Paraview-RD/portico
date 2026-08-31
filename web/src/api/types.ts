@@ -302,6 +302,26 @@ export interface Settings {
   systemName: string;
 
   /**
+   * What the four unauthenticated screens (sign-in, register,
+   * forgot-password, authorize) show in place of Portico's own name, mark
+   * and colour. Empty means "not customized" for every field here — there
+   * is no separate on/off switch, since an empty string is already
+   * distinguishable from a set one.
+   */
+  brandingLogoUrl: string;
+  brandingProductName: string;
+  /** A 6-digit hex colour, like `#2563eb`. Empty uses the default palette. */
+  brandingColorPrimary: string;
+  brandingFontFamily: string;
+  brandingBgImageUrl: string;
+  /** http(s) or `mailto:`. Empty hides the link. */
+  brandingFooterPrivacyUrl: string;
+  brandingFooterTermsUrl: string;
+  brandingFooterSupportUrl: string;
+  /** Replaces the default sign-in heading. Empty uses the built-in text. */
+  brandingLoginHeading: string;
+
+  /**
    * The language of messages this tenant sends — a reset link, a
    * confirmation — to somebody who has stated no preference of their own.
    * Empty means "follow the deployment", and is a real value rather than an
@@ -381,6 +401,25 @@ export interface RegistrationStatus {
   /** The tenant the answer is about, resolved from the request. */
   tenant: string;
   tenantName: string;
+  branding: Branding;
+}
+
+/**
+ * What an anonymous visitor's browser receives to render the four
+ * unauthenticated screens. Every field here is public by design — served
+ * before anyone has signed in — and empty means "not customized," the same
+ * convention the settings screen writes it with.
+ */
+export interface Branding {
+  logoUrl: string;
+  productName: string;
+  colorPrimary: string;
+  fontFamily: string;
+  bgImageUrl: string;
+  footerPrivacyUrl: string;
+  footerTermsUrl: string;
+  footerSupportUrl: string;
+  loginHeading: string;
 }
 
 /**

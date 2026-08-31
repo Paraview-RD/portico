@@ -469,6 +469,26 @@ export const enUS = {
   "settings.lockoutDurationHelp":
     "Also the window failures are counted over. Further attempts while locked do not extend it.",
 
+  "settings.brandingLegend": "Branding",
+  "settings.brandingHelp":
+    "Applies to the sign-in, registration, and password-recovery screens only. The administrative console keeps its own appearance.",
+  "settings.brandingProductName": "Product name",
+  "settings.brandingLoginHeading": "Sign-in heading",
+  "settings.brandingLoginHeadingHelp":
+    "Replaces the default sign-in heading. Leave empty to keep it.",
+  "settings.brandingColorPrimary": "Primary colour",
+  "settings.brandingColorPrimaryHelp": "A 6-digit hex colour, like #2563eb.",
+  "settings.brandingFontFamily": "Font family",
+  "settings.brandingFontFamilyHelp": "A CSS font-family value.",
+  "settings.brandingBgImageUrl": "Background image URL",
+  "settings.brandingBgImageUrlHelp":
+    "An http(s) address. Leave empty for none.",
+  "settings.brandingFooterPrivacyUrl": "Privacy policy link",
+  "settings.brandingFooterLinkHelp":
+    "An http(s) address, or a mailto: address.",
+  "settings.brandingFooterTermsUrl": "Terms of service link",
+  "settings.brandingFooterSupportUrl": "Support contact link",
+
   "common.delete": "Delete",
 
   "groups.title": "Groups",
@@ -938,6 +958,9 @@ export const enUS = {
     "This link is incomplete. Open the one from your message, or ask for a new link.",
   "reset.requestAnother": "Request a new link",
   "brand.descriptor": "Identity Platform",
+  "brand.footerPrivacy": "Privacy Policy",
+  "brand.footerTerms": "Terms of Service",
+  "brand.footerSupport": "Contact support",
   "nav.language": "Language",
   // Each names the question its group answers. "Operations" used to be the
   // second of two, which is how application registration ended up beside

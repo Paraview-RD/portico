@@ -240,12 +240,21 @@ func TestTheSweepRemovesAnUnreferencedLogoAndKeepsAReferencedOne(t *testing.T) {
 		t.Fatalf("upload referenced: %d %s %s",
 			referenced.Status, referenced.Code, referenced.Message)
 	}
+	// A third, referenced only from the tenant's branding setting — not
+	// from any of the three application tables. This is the case
+	// DeleteOrphanedApplicationLogos cannot see without its fourth
+	// NOT EXISTS branch, against system_settings.
+	branded := uploadLogo(t, api, token, "brand.png", pngBytes(t, 24))
+	if branded.Status != http.StatusOK {
+		t.Fatalf("upload branding logo: %d %s %s", branded.Status, branded.Code, branded.Message)
+	}
 
-	var orphanPath, referencedPath struct {
+	var orphanPath, referencedPath, brandedPath struct {
 		Path string `json:"path"`
 	}
 	orphan.into(t, &orphanPath)
 	referenced.into(t, &referencedPath)
+	branded.into(t, &brandedPath)
 
 	// An application that names the second one.
 	res := api.do(http.MethodPost, "/api/v1/applications/oauth-clients", token, map[string]any{
@@ -257,7 +266,17 @@ func TestTheSweepRemovesAnUnreferencedLogoAndKeepsAReferencedOne(t *testing.T) {
 		t.Fatalf("register client: %d %s %s", res.Status, res.Code, res.Message)
 	}
 
-	// Both are younger than the retention window, so nothing should go yet.
+	// A branding setting that names the third, referenced by nothing an
+	// application table knows about.
+	res = api.do(http.MethodPut, "/api/v1/settings", token, map[string]any{
+		"brandingLogoUrl": brandedPath.Path,
+	})
+	if res.Status != http.StatusOK {
+		t.Fatalf("set branding logo: %d %s %s", res.Status, res.Code, res.Message)
+	}
+
+	// All three are younger than the retention window, so nothing should go
+	// yet.
 	if err := api.srv.SweepExpired(context.Background()); err != nil {
 		t.Fatalf("sweep: %v", err)
 	}
@@ -267,7 +286,7 @@ func TestTheSweepRemovesAnUnreferencedLogoAndKeepsAReferencedOne(t *testing.T) {
 			"hour to finish the form must still find it there.", rec.Code)
 	}
 
-	// Age both past the window.
+	// Age all three past the window.
 	api.execSQL(t, "UPDATE application_logos SET created_at = $1",
 		time.Now().Add(-2*service.OrphanRetention))
 
@@ -281,5 +300,10 @@ func TestTheSweepRemovesAnUnreferencedLogoAndKeepsAReferencedOne(t *testing.T) {
 	if rec := fetchRaw(t, api, referencedPath.Path); rec.Code != http.StatusOK {
 		t.Errorf("a referenced logo was swept (status %d) — the application "+
 			"pointing at it now has a tile that 404s", rec.Code)
+	}
+	if rec := fetchRaw(t, api, brandedPath.Path); rec.Code != http.StatusOK {
+		t.Errorf("a branding logo was swept (status %d) — the sign-in screen "+
+			"pointing at it now has a broken image, with no application row "+
+			"anywhere to have warned this sweep off it", rec.Code)
 	}
 }

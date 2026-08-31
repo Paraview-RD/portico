@@ -441,6 +441,24 @@ export const zhCN: Record<keyof typeof enUS, string> = {
   "settings.lockoutDurationHelp":
     "同时也是统计失败次数的时间窗。锁定期间继续尝试不会延长它。",
 
+  "settings.brandingLegend": "品牌定制",
+  "settings.brandingHelp":
+    "仅作用于登录、注册、找回密码三个页面，管理控制台外观不变。",
+  "settings.brandingProductName": "产品名称",
+  "settings.brandingLoginHeading": "登录页标题",
+  "settings.brandingLoginHeadingHelp":
+    "替换默认的登录页标题，留空则使用默认文案。",
+  "settings.brandingColorPrimary": "主色",
+  "settings.brandingColorPrimaryHelp": "6 位十六进制颜色值，如 #2563eb。",
+  "settings.brandingFontFamily": "字体",
+  "settings.brandingFontFamilyHelp": "CSS font-family 取值。",
+  "settings.brandingBgImageUrl": "背景图片地址",
+  "settings.brandingBgImageUrlHelp": "http(s) 地址，留空则不设置。",
+  "settings.brandingFooterPrivacyUrl": "隐私政策链接",
+  "settings.brandingFooterLinkHelp": "http(s) 地址，或 mailto: 地址。",
+  "settings.brandingFooterTermsUrl": "服务条款链接",
+  "settings.brandingFooterSupportUrl": "支持联系方式链接",
+
   "common.delete": "删除",
 
   "groups.title": "用户组",
@@ -875,6 +893,9 @@ export const zhCN: Record<keyof typeof enUS, string> = {
   "reset.missingToken": "链接不完整，请打开邮件中的原始链接，或重新申请一个。",
   "reset.requestAnother": "重新申请链接",
   "brand.descriptor": "统一身份认证平台",
+  "brand.footerPrivacy": "隐私政策",
+  "brand.footerTerms": "服务条款",
+  "brand.footerSupport": "联系支持",
   "nav.language": "语言",
   "nav.group.directory": "目录",
   "nav.group.integration": "接入",
