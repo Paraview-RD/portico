@@ -100,6 +100,11 @@ forgot-password, authorize — show in place of Portico's own name, mark and
 colour. The administrative console is unaffected: an operator's own team
 sees Portico; only a visitor who has not signed in yet sees the brand.
 
+Reached from its own entry in the sidebar rather than a card on this
+screen — it grew past that once it needed a live preview and two long-text
+fields, the same way provisioning and identity providers were pulled out
+before it.
+
 Global and per-tenant, on the same fallback every other setting here
 already uses: a tenant that has set nothing inherits the deployment's
 default, matching how `System name` already behaves.
@@ -111,16 +116,28 @@ default, matching how `System name` already behaves.
 | Primary colour | A 6-digit hex colour. Buttons and links on these four screens follow it; the console's own palette does not. |
 | Font family | A CSS `font-family` value. |
 | Background image | Behind the sign-in card. |
-| Footer links | Three named slots — privacy policy, terms of service, support contact — not an open list. |
+| Footer links | Three named slots — privacy policy, terms of service, support contact. Each is off, an external address, or plain text shown on this page — not an open list, and not a page of its own. |
 | Sign-in heading | Replaces the default heading on the sign-in screen specifically; the other three screens keep their own. |
 
 **The footer is three slots, not a list an operator supplies text for.**
 Each label is drawn from this console's own translation catalogue and
 appears in whichever language the visitor's browser is showing; only the
-address is theirs to set. An open list of arbitrary link text would mean
-every one of them needing its own translation, decided by whoever is
-filling in a form rather than by this product's own wording conventions —
-see [i18n conventions](i18n-conventions.md).
+address or the text behind it is theirs to set. An open list of arbitrary
+link text would mean every one of them needing its own translation,
+decided by whoever is filling in a form rather than by this product's own
+wording conventions — see [i18n conventions](i18n-conventions.md).
+
+**A slot's inline text has no address of its own.** Choosing "text on this
+page" for, say, the privacy policy opens the text in a dialog over
+whichever of the four screens the visitor is on — it reuses the console's
+existing dialog component rather than a new public page, so there is
+nothing to route to and nothing new to keep reachable across a redeploy.
+The trade taken deliberately: that text cannot be linked to or shared on
+its own. A deployment that needs a linkable policy page uses the external
+address instead. The text itself is plain — a blank line starts a new
+paragraph, and nothing else is applied; there is no Markdown or HTML
+renderer on any of the four screens, on purpose, so nothing an
+administrator pastes in ever executes.
 
 **The sign-in heading is one field, not an open text-override layer.**
 Every other string on these screens is translated and compile-time
@@ -157,9 +174,16 @@ sequenceDiagram
     Note over B: applied as CSS custom properties<br/>scoped to the sign-in screen
 ```
 
-There is no draft or preview: like every other setting on this screen, a
-save takes effect immediately for the next visitor, and there is no staged
-rollout to catch a mistake before it is seen.
+**The preview beside the fields is local to the browser, not a draft.**
+It renders the same code the real sign-in screen does, fed from whatever
+is currently typed into the form — so it updates as the fields change, but
+nothing about it is sent to the server or stored until Save is pressed.
+That is the one exception to "there is no staged rollout" worth stating
+precisely: there is still no server-side draft, no second copy of the
+settings row, and no preview URL a visitor could stumble onto — only a
+local rendering of values that have not been saved yet. Pressing Save
+takes effect immediately for the next visitor, same as every other setting
+on this screen.
 
 ## The audit trail
 

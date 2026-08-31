@@ -6,6 +6,7 @@ package server_test
 
 import (
 	"net/http"
+	"strings"
 	"testing"
 )
 
@@ -22,15 +23,18 @@ func TestBrandingRoundTripsThroughSettings(t *testing.T) {
 	admin := api.adminToken()
 
 	res := setBranding(t, api, admin, map[string]any{
-		"brandingLogoUrl":          "/icons/acme.svg",
-		"brandingProductName":      "ACME Cloud",
-		"brandingColorPrimary":     "#7c3aed",
-		"brandingFontFamily":       "'Inter', sans-serif",
-		"brandingBgImageUrl":       "https://example.com/bg.jpg",
-		"brandingFooterPrivacyUrl": "https://example.com/privacy",
-		"brandingFooterTermsUrl":   "https://example.com/terms",
-		"brandingFooterSupportUrl": "mailto:support@example.com",
-		"brandingLoginHeading":     "Sign in to ACME Cloud",
+		"brandingLogoUrl":           "/icons/acme.svg",
+		"brandingProductName":       "ACME Cloud",
+		"brandingColorPrimary":      "#7c3aed",
+		"brandingFontFamily":        "'Inter', sans-serif",
+		"brandingBgImageUrl":        "https://example.com/bg.jpg",
+		"brandingFooterPrivacyMode": "link",
+		"brandingFooterPrivacyUrl":  "https://example.com/privacy",
+		"brandingFooterTermsMode":   "link",
+		"brandingFooterTermsUrl":    "https://example.com/terms",
+		"brandingFooterSupportMode": "link",
+		"brandingFooterSupportUrl":  "mailto:support@example.com",
+		"brandingLoginHeading":      "Sign in to ACME Cloud",
 	})
 	if res.Status != http.StatusOK {
 		t.Fatalf("save branding: %d %s %s", res.Status, res.Code, res.Message)
@@ -59,11 +63,12 @@ func TestBrandingRoundTripsThroughSettings(t *testing.T) {
 	}
 	var status struct {
 		Branding struct {
-			LogoURL          string `json:"logoUrl"`
-			ProductName      string `json:"productName"`
-			ColorPrimary     string `json:"colorPrimary"`
-			LoginHeading     string `json:"loginHeading"`
-			FooterSupportURL string `json:"footerSupportUrl"`
+			LogoURL           string `json:"logoUrl"`
+			ProductName       string `json:"productName"`
+			ColorPrimary      string `json:"colorPrimary"`
+			LoginHeading      string `json:"loginHeading"`
+			FooterSupportMode string `json:"footerSupportMode"`
+			FooterSupportURL  string `json:"footerSupportUrl"`
 		} `json:"branding"`
 	}
 	anon.into(t, &status)
@@ -74,6 +79,9 @@ func TestBrandingRoundTripsThroughSettings(t *testing.T) {
 	if status.Branding.LoginHeading != saved.BrandingLoginHeading {
 		t.Errorf("anonymous caller's login heading disagreed with the saved value: "+
 			"got %q, saved %q", status.Branding.LoginHeading, saved.BrandingLoginHeading)
+	}
+	if status.Branding.FooterSupportMode != "link" {
+		t.Errorf("support link mode did not round-trip: got %q", status.Branding.FooterSupportMode)
 	}
 	if status.Branding.FooterSupportURL != "mailto:support@example.com" {
 		t.Errorf("support link did not round-trip: got %q", status.Branding.FooterSupportURL)
@@ -115,7 +123,10 @@ func TestBrandingRejectsAFooterLink(t *testing.T) {
 		"not a url",
 		"ftp://example.com/policy",
 	} {
-		res := setBranding(t, api, admin, map[string]any{"brandingFooterPrivacyUrl": bad})
+		res := setBranding(t, api, admin, map[string]any{
+			"brandingFooterPrivacyMode": "link",
+			"brandingFooterPrivacyUrl":  bad,
+		})
 		if res.Status != http.StatusBadRequest {
 			t.Errorf("footer link %q: got %d, want 400", bad, res.Status)
 		}
@@ -125,7 +136,10 @@ func TestBrandingRejectsAFooterLink(t *testing.T) {
 		"https://example.com/privacy",
 		"mailto:legal@example.com",
 	} {
-		res := setBranding(t, api, admin, map[string]any{"brandingFooterPrivacyUrl": good})
+		res := setBranding(t, api, admin, map[string]any{
+			"brandingFooterPrivacyMode": "link",
+			"brandingFooterPrivacyUrl":  good,
+		})
 		if res.Status != http.StatusOK {
 			t.Errorf("footer link %q: got %d %s, want 200", good, res.Status, res.Code)
 		}
@@ -134,9 +148,101 @@ func TestBrandingRejectsAFooterLink(t *testing.T) {
 	// Unlike a logo, a footer link does not accept a path on this server —
 	// it is followed, not rendered as a picture, and there is no reason to
 	// route it through this server's own static assets.
-	res := setBranding(t, api, admin, map[string]any{"brandingFooterPrivacyUrl": "/privacy.html"})
+	res := setBranding(t, api, admin, map[string]any{
+		"brandingFooterPrivacyMode": "link",
+		"brandingFooterPrivacyUrl":  "/privacy.html",
+	})
 	if res.Status != http.StatusBadRequest {
 		t.Errorf("server-relative footer link: got %d, want 400", res.Status)
+	}
+
+	// An unrecognized mode is refused outright, before either field is
+	// even looked at.
+	res = setBranding(t, api, admin, map[string]any{"brandingFooterPrivacyMode": "carrier-pigeon"})
+	if res.Status != http.StatusBadRequest {
+		t.Errorf("unrecognized mode: got %d, want 400", res.Status)
+	}
+}
+
+// TestBrandingFooterModeSwitchClearsTheOtherField proves the row a link
+// stops in is never ambiguous: switching a slot from a link to inline text,
+// or turning it off, does not leave the previous mode's value sitting in
+// the database for a later reader to wonder whether it is still live.
+func TestBrandingFooterModeSwitchClearsTheOtherField(t *testing.T) {
+	api := newAPITest(t)
+	admin := api.adminToken()
+
+	res := setBranding(t, api, admin, map[string]any{
+		"brandingFooterPrivacyMode": "link",
+		"brandingFooterPrivacyUrl":  "https://example.com/privacy",
+	})
+	if res.Status != http.StatusOK {
+		t.Fatalf("set link mode: %d %s %s", res.Status, res.Code, res.Message)
+	}
+
+	// Switch to text. The URL from the previous save must not survive.
+	longText := "We collect nothing we do not need.\n\nContact us with questions."
+	res = setBranding(t, api, admin, map[string]any{
+		"brandingFooterPrivacyMode": "text",
+		"brandingFooterPrivacyText": longText,
+	})
+	if res.Status != http.StatusOK {
+		t.Fatalf("switch to text mode: %d %s %s", res.Status, res.Code, res.Message)
+	}
+
+	var afterText struct {
+		BrandingFooterPrivacyMode string `json:"brandingFooterPrivacyMode"`
+		BrandingFooterPrivacyURL  string `json:"brandingFooterPrivacyUrl"`
+		BrandingFooterPrivacyText string `json:"brandingFooterPrivacyText"`
+	}
+	res.into(t, &afterText)
+	if afterText.BrandingFooterPrivacyURL != "" {
+		t.Errorf("the URL from link mode survived the switch to text mode: %q",
+			afterText.BrandingFooterPrivacyURL)
+	}
+	if afterText.BrandingFooterPrivacyText != longText {
+		t.Errorf("text did not save: got %q", afterText.BrandingFooterPrivacyText)
+	}
+
+	// Switch to off. Neither field should survive.
+	res = setBranding(t, api, admin, map[string]any{"brandingFooterPrivacyMode": ""})
+	if res.Status != http.StatusOK {
+		t.Fatalf("switch to off: %d %s %s", res.Status, res.Code, res.Message)
+	}
+	var afterOff struct {
+		BrandingFooterPrivacyURL  string `json:"brandingFooterPrivacyUrl"`
+		BrandingFooterPrivacyText string `json:"brandingFooterPrivacyText"`
+	}
+	res.into(t, &afterOff)
+	if afterOff.BrandingFooterPrivacyURL != "" || afterOff.BrandingFooterPrivacyText != "" {
+		t.Errorf("turning the link off left a value behind: url=%q text=%q",
+			afterOff.BrandingFooterPrivacyURL, afterOff.BrandingFooterPrivacyText)
+	}
+}
+
+// TestBrandingFooterTextIsCapped proves text mode has its own, more
+// generous length bound than the short label fields — and that it is
+// still enforced, not unbounded.
+func TestBrandingFooterTextIsCapped(t *testing.T) {
+	api := newAPITest(t)
+	admin := api.adminToken()
+
+	huge := strings.Repeat("a", 20001)
+	res := setBranding(t, api, admin, map[string]any{
+		"brandingFooterPrivacyMode": "text",
+		"brandingFooterPrivacyText": huge,
+	})
+	if res.Status != http.StatusBadRequest {
+		t.Errorf("oversized footer text: got %d, want 400", res.Status)
+	}
+
+	ok := strings.Repeat("a", 20000)
+	res = setBranding(t, api, admin, map[string]any{
+		"brandingFooterPrivacyMode": "text",
+		"brandingFooterPrivacyText": ok,
+	})
+	if res.Status != http.StatusOK {
+		t.Errorf("text at the cap: got %d %s, want 200", res.Status, res.Code)
 	}
 }
 

@@ -259,28 +259,47 @@ func (h *Handler) RegistrationStatus(w http.ResponseWriter, r *http.Request) {
 // page nobody has signed in to yet — which is why this is a narrower view
 // than service.Settings rather than that struct reused directly.
 type brandingResponse struct {
-	LogoURL          string `json:"logoUrl"`
-	ProductName      string `json:"productName"`
-	ColorPrimary     string `json:"colorPrimary"`
-	FontFamily       string `json:"fontFamily"`
-	BgImageURL       string `json:"bgImageUrl"`
-	FooterPrivacyURL string `json:"footerPrivacyUrl"`
-	FooterTermsURL   string `json:"footerTermsUrl"`
-	FooterSupportURL string `json:"footerSupportUrl"`
-	LoginHeading     string `json:"loginHeading"`
+	LogoURL      string `json:"logoUrl"`
+	ProductName  string `json:"productName"`
+	ColorPrimary string `json:"colorPrimary"`
+	FontFamily   string `json:"fontFamily"`
+	BgImageURL   string `json:"bgImageUrl"`
+
+	// Each footer link's mode plus whichever of url/text that mode uses;
+	// the console decides how to render the slot from the mode rather than
+	// guessing from which field is non-empty.
+	FooterPrivacyMode string `json:"footerPrivacyMode"`
+	FooterPrivacyURL  string `json:"footerPrivacyUrl"`
+	FooterPrivacyText string `json:"footerPrivacyText"`
+	FooterTermsMode   string `json:"footerTermsMode"`
+	FooterTermsURL    string `json:"footerTermsUrl"`
+	FooterTermsText   string `json:"footerTermsText"`
+	FooterSupportMode string `json:"footerSupportMode"`
+	FooterSupportURL  string `json:"footerSupportUrl"`
+	FooterSupportText string `json:"footerSupportText"`
+
+	LoginHeading string `json:"loginHeading"`
 }
 
 func brandingOf(settings service.Settings) brandingResponse {
 	return brandingResponse{
-		LogoURL:          settings.BrandingLogoURL,
-		ProductName:      settings.BrandingProductName,
-		ColorPrimary:     settings.BrandingColorPrimary,
-		FontFamily:       settings.BrandingFontFamily,
-		BgImageURL:       settings.BrandingBgImageURL,
-		FooterPrivacyURL: settings.BrandingFooterPrivacyURL,
-		FooterTermsURL:   settings.BrandingFooterTermsURL,
-		FooterSupportURL: settings.BrandingFooterSupportURL,
-		LoginHeading:     settings.BrandingLoginHeading,
+		LogoURL:      settings.BrandingLogoURL,
+		ProductName:  settings.BrandingProductName,
+		ColorPrimary: settings.BrandingColorPrimary,
+		FontFamily:   settings.BrandingFontFamily,
+		BgImageURL:   settings.BrandingBgImageURL,
+
+		FooterPrivacyMode: settings.BrandingFooterPrivacyMode,
+		FooterPrivacyURL:  settings.BrandingFooterPrivacyURL,
+		FooterPrivacyText: settings.BrandingFooterPrivacyText,
+		FooterTermsMode:   settings.BrandingFooterTermsMode,
+		FooterTermsURL:    settings.BrandingFooterTermsURL,
+		FooterTermsText:   settings.BrandingFooterTermsText,
+		FooterSupportMode: settings.BrandingFooterSupportMode,
+		FooterSupportURL:  settings.BrandingFooterSupportURL,
+		FooterSupportText: settings.BrandingFooterSupportText,
+
+		LoginHeading: settings.BrandingLoginHeading,
 	}
 }
 

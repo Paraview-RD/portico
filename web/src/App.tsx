@@ -24,6 +24,7 @@ import { ResetPasswordPage } from "./pages/ResetPasswordPage";
 import { TrialConfirmPage } from "./pages/TrialConfirmPage";
 import { TrialPage } from "./pages/TrialPage";
 import { VerifyPage } from "./pages/VerifyPage";
+import { BrandingPage } from "./pages/BrandingPage";
 import { SettingsPage } from "./pages/SettingsPage";
 import { TenantsPage } from "./pages/TenantsPage";
 import { UserAttributesPage } from "./pages/UserAttributesPage";
@@ -223,6 +224,8 @@ function AuthenticatedRoute({
       return <AuditLogsPage />;
     case "/settings":
       return <SettingsPage />;
+    case "/settings/branding":
+      return <BrandingPage />;
     case "/user-attributes":
       return <UserAttributesPage />;
     case "/tenants":

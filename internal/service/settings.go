@@ -127,15 +127,27 @@ const (
 	// and colour — see docs/settings.md#branding. Every value here is empty
 	// by default, and empty means "not customized," the same convention
 	// SystemName already uses.
-	SettingBrandingLogoURL          = "branding_logo_url"
-	SettingBrandingProductName      = "branding_product_name"
-	SettingBrandingColorPrimary     = "branding_color_primary"
-	SettingBrandingFontFamily       = "branding_font_family"
-	SettingBrandingBgImageURL       = "branding_bg_image_url"
-	SettingBrandingFooterPrivacyURL = "branding_footer_privacy_url"
-	SettingBrandingFooterTermsURL   = "branding_footer_terms_url"
-	SettingBrandingFooterSupportURL = "branding_footer_support_url"
-	SettingBrandingLoginHeading     = "branding_login_heading"
+	SettingBrandingLogoURL      = "branding_logo_url"
+	SettingBrandingProductName  = "branding_product_name"
+	SettingBrandingColorPrimary = "branding_color_primary"
+	SettingBrandingFontFamily   = "branding_font_family"
+	SettingBrandingBgImageURL   = "branding_bg_image_url"
+	// Each footer link has a mode — "" (hidden), "link", or "text" — plus
+	// the URL and the text field, only one of which is ever populated for
+	// a given mode. See SettingsService.Update: the field the mode is not
+	// pointing at is cleared on every save, so a row's mode is always
+	// consistent with what is actually stored, never a stale second value
+	// left over from switching modes.
+	SettingBrandingFooterPrivacyMode = "branding_footer_privacy_mode"
+	SettingBrandingFooterPrivacyURL  = "branding_footer_privacy_url"
+	SettingBrandingFooterPrivacyText = "branding_footer_privacy_text"
+	SettingBrandingFooterTermsMode   = "branding_footer_terms_mode"
+	SettingBrandingFooterTermsURL    = "branding_footer_terms_url"
+	SettingBrandingFooterTermsText   = "branding_footer_terms_text"
+	SettingBrandingFooterSupportMode = "branding_footer_support_mode"
+	SettingBrandingFooterSupportURL  = "branding_footer_support_url"
+	SettingBrandingFooterSupportText = "branding_footer_support_text"
+	SettingBrandingLoginHeading      = "branding_login_heading"
 )
 
 // Settings is the full set of runtime settings for one tenant.
@@ -164,15 +176,24 @@ type Settings struct {
 	// Branding. All empty by default; each is "not customized" until an
 	// administrator sets it. See the SettingBranding* keys above for what
 	// each one changes and why the set is this narrow.
-	BrandingLogoURL          string `json:"brandingLogoUrl"`
-	BrandingProductName      string `json:"brandingProductName"`
-	BrandingColorPrimary     string `json:"brandingColorPrimary"`
-	BrandingFontFamily       string `json:"brandingFontFamily"`
-	BrandingBgImageURL       string `json:"brandingBgImageUrl"`
-	BrandingFooterPrivacyURL string `json:"brandingFooterPrivacyUrl"`
-	BrandingFooterTermsURL   string `json:"brandingFooterTermsUrl"`
-	BrandingFooterSupportURL string `json:"brandingFooterSupportUrl"`
-	BrandingLoginHeading     string `json:"brandingLoginHeading"`
+	BrandingLogoURL      string `json:"brandingLogoUrl"`
+	BrandingProductName  string `json:"brandingProductName"`
+	BrandingColorPrimary string `json:"brandingColorPrimary"`
+	BrandingFontFamily   string `json:"brandingFontFamily"`
+	BrandingBgImageURL   string `json:"brandingBgImageUrl"`
+	// Each footer link's mode, plus the field its current mode uses. The
+	// other field is always empty — see the SettingBrandingFooter* keys
+	// above for why.
+	BrandingFooterPrivacyMode string `json:"brandingFooterPrivacyMode"`
+	BrandingFooterPrivacyURL  string `json:"brandingFooterPrivacyUrl"`
+	BrandingFooterPrivacyText string `json:"brandingFooterPrivacyText"`
+	BrandingFooterTermsMode   string `json:"brandingFooterTermsMode"`
+	BrandingFooterTermsURL    string `json:"brandingFooterTermsUrl"`
+	BrandingFooterTermsText   string `json:"brandingFooterTermsText"`
+	BrandingFooterSupportMode string `json:"brandingFooterSupportMode"`
+	BrandingFooterSupportURL  string `json:"brandingFooterSupportUrl"`
+	BrandingFooterSupportText string `json:"brandingFooterSupportText"`
+	BrandingLoginHeading      string `json:"brandingLoginHeading"`
 
 	// LockoutThreshold is the number of consecutive failed sign-ins that
 	// locks an account. Zero means no lockout.
@@ -309,6 +330,11 @@ const (
 	MaxBrandingProductNameLength  = 80
 	MaxBrandingFontFamilyLength   = 200
 	MaxBrandingLoginHeadingLength = 160
+	// MaxBrandingFooterTextLength is generous on purpose: a footer link in
+	// text mode holds prose — a privacy policy, a support notice — not a
+	// label, and the other branding fields' short caps would truncate it
+	// mid-sentence.
+	MaxBrandingFooterTextLength = 20000
 )
 
 // brandingColorPattern is a 6-digit hex colour, the shape a CSS custom
@@ -316,6 +342,41 @@ const (
 // named colours are not accepted: normalizing "red" or "#fff" to a 6-digit
 // form is more code than the convenience is worth for one field.
 var brandingColorPattern = regexp.MustCompile(`^#[0-9a-fA-F]{6}$`)
+
+// normalizeFooterLink validates one footer link against its own mode and
+// clears whichever of url/text that mode does not use.
+//
+// The clearing is the point, not a side effect: switching a link from
+// text back to link, or off entirely, must not leave the previous mode's
+// value sitting in the row for a later reader to wonder whether it is
+// still live. After this returns, at most one of *url and *text is
+// non-empty, and it agrees with *mode.
+func normalizeFooterLink(name string, mode, url, text *string) error {
+	switch *mode {
+	case "":
+		*url, *text = "", ""
+	case "link":
+		normalized, err := normalizeFooterLinkURI(*url)
+		if err != nil {
+			return err
+		}
+		*url = normalized
+		*text = ""
+	case "text":
+		trimmed := strings.TrimSpace(*text)
+		if len(trimmed) > MaxBrandingFooterTextLength {
+			return httpx.BadRequest("INVALID_SETTINGS",
+				fmt.Sprintf("The %s text must be under %d characters.",
+					name, MaxBrandingFooterTextLength))
+		}
+		*text = trimmed
+		*url = ""
+	default:
+		return httpx.BadRequest("INVALID_SETTINGS",
+			fmt.Sprintf(`The %s mode must be "", "link", or "text".`, name))
+	}
+	return nil
+}
 
 // Bounds on lockout.
 //
@@ -543,12 +604,24 @@ func (s *SettingsService) Get(ctx context.Context, tenantID string) (Settings, e
 			loaded.BrandingFontFamily = row.Value
 		case SettingBrandingBgImageURL:
 			loaded.BrandingBgImageURL = row.Value
+		case SettingBrandingFooterPrivacyMode:
+			loaded.BrandingFooterPrivacyMode = row.Value
 		case SettingBrandingFooterPrivacyURL:
 			loaded.BrandingFooterPrivacyURL = row.Value
+		case SettingBrandingFooterPrivacyText:
+			loaded.BrandingFooterPrivacyText = row.Value
+		case SettingBrandingFooterTermsMode:
+			loaded.BrandingFooterTermsMode = row.Value
 		case SettingBrandingFooterTermsURL:
 			loaded.BrandingFooterTermsURL = row.Value
+		case SettingBrandingFooterTermsText:
+			loaded.BrandingFooterTermsText = row.Value
+		case SettingBrandingFooterSupportMode:
+			loaded.BrandingFooterSupportMode = row.Value
 		case SettingBrandingFooterSupportURL:
 			loaded.BrandingFooterSupportURL = row.Value
+		case SettingBrandingFooterSupportText:
+			loaded.BrandingFooterSupportText = row.Value
 		case SettingBrandingLoginHeading:
 			loaded.BrandingLoginHeading = row.Value
 		case SettingDefaultLocale:
@@ -704,16 +777,17 @@ func (s *SettingsService) Update(ctx context.Context, tenantID string, next Sett
 	}
 	next.BrandingBgImageURL = bgImageURL
 
-	for _, field := range []*string{
-		&next.BrandingFooterPrivacyURL,
-		&next.BrandingFooterTermsURL,
-		&next.BrandingFooterSupportURL,
+	for _, link := range []struct {
+		name            string
+		mode, url, text *string
+	}{
+		{"privacy policy", &next.BrandingFooterPrivacyMode, &next.BrandingFooterPrivacyURL, &next.BrandingFooterPrivacyText},
+		{"terms of service", &next.BrandingFooterTermsMode, &next.BrandingFooterTermsURL, &next.BrandingFooterTermsText},
+		{"support contact", &next.BrandingFooterSupportMode, &next.BrandingFooterSupportURL, &next.BrandingFooterSupportText},
 	} {
-		normalized, err := normalizeFooterLinkURI(*field)
-		if err != nil {
+		if err := normalizeFooterLink(link.name, link.mode, link.url, link.text); err != nil {
 			return Settings{}, err
 		}
-		*field = normalized
 	}
 
 	// Refused rather than clamped: a colour an administrator typed wrong
@@ -746,15 +820,21 @@ func (s *SettingsService) Update(ctx context.Context, tenantID string, next Sett
 		SettingRegistrationVerification:  strconv.FormatBool(next.RegistrationVerification),
 		SettingSystemName:                next.SystemName,
 
-		SettingBrandingLogoURL:          next.BrandingLogoURL,
-		SettingBrandingProductName:      next.BrandingProductName,
-		SettingBrandingColorPrimary:     next.BrandingColorPrimary,
-		SettingBrandingFontFamily:       next.BrandingFontFamily,
-		SettingBrandingBgImageURL:       next.BrandingBgImageURL,
-		SettingBrandingFooterPrivacyURL: next.BrandingFooterPrivacyURL,
-		SettingBrandingFooterTermsURL:   next.BrandingFooterTermsURL,
-		SettingBrandingFooterSupportURL: next.BrandingFooterSupportURL,
-		SettingBrandingLoginHeading:     next.BrandingLoginHeading,
+		SettingBrandingLogoURL:           next.BrandingLogoURL,
+		SettingBrandingProductName:       next.BrandingProductName,
+		SettingBrandingColorPrimary:      next.BrandingColorPrimary,
+		SettingBrandingFontFamily:        next.BrandingFontFamily,
+		SettingBrandingBgImageURL:        next.BrandingBgImageURL,
+		SettingBrandingFooterPrivacyMode: next.BrandingFooterPrivacyMode,
+		SettingBrandingFooterPrivacyURL:  next.BrandingFooterPrivacyURL,
+		SettingBrandingFooterPrivacyText: next.BrandingFooterPrivacyText,
+		SettingBrandingFooterTermsMode:   next.BrandingFooterTermsMode,
+		SettingBrandingFooterTermsURL:    next.BrandingFooterTermsURL,
+		SettingBrandingFooterTermsText:   next.BrandingFooterTermsText,
+		SettingBrandingFooterSupportMode: next.BrandingFooterSupportMode,
+		SettingBrandingFooterSupportURL:  next.BrandingFooterSupportURL,
+		SettingBrandingFooterSupportText: next.BrandingFooterSupportText,
+		SettingBrandingLoginHeading:      next.BrandingLoginHeading,
 
 		SettingLockoutThreshold:       strconv.Itoa(next.LockoutThreshold),
 		SettingLockoutDurationMinutes: strconv.Itoa(next.LockoutDurationMinutes),

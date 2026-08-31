@@ -1,56 +1,16 @@
-import { useEffect, useState, type CSSProperties, type ReactNode } from "react";
+import { useEffect, useState, type ReactNode } from "react";
 
+import {
+  brandingBackgroundStyle,
+  brandingStyle,
+  BrandingFooterLinks,
+  noBranding,
+} from "./branding";
 import { BrandLockup } from "./brand";
 import { LanguageMenu } from "./menu";
 import { authApi } from "../api/endpoints";
 import type { Branding } from "../api/types";
 import { useT } from "../i18n";
-
-/** Nothing customized — every field empty, so the shell renders unchanged. */
-const noBranding: Branding = {
-  logoUrl: "",
-  productName: "",
-  colorPrimary: "",
-  fontFamily: "",
-  bgImageUrl: "",
-  footerPrivacyUrl: "",
-  footerTermsUrl: "",
-  footerSupportUrl: "",
-  loginHeading: "",
-};
-
-/**
- * Branding as CSS custom properties, scoped to whatever element receives
- * this as its `style` prop.
- *
- * A custom property cascades to descendants like any other inherited CSS
- * value, so setting it here — rather than on `document.documentElement` —
- * confines the override to this subtree with no cleanup needed on unmount:
- * the shell simply stops rendering, and the property goes with it. The
- * signed-in console, which never mounts this component, never sees it.
- */
-function brandingStyle(branding: Branding): CSSProperties {
-  const style: Record<string, string> = {};
-  if (branding.colorPrimary) {
-    style["--color-primary"] = branding.colorPrimary;
-    // theme.css defines hover/active/soft as their own hex values, not as a
-    // function of --color-primary, so setting the base alone would leave a
-    // button in the brand colour that goes theme-blue the moment somebody
-    // hovers it. color-mix keeps the four in the same relationship
-    // theme.css's own values are in, without this file knowing how to do
-    // colour math.
-    style["--color-primary-hover"] =
-      `color-mix(in srgb, ${branding.colorPrimary} 85%, black)`;
-    style["--color-primary-active"] =
-      `color-mix(in srgb, ${branding.colorPrimary} 70%, black)`;
-    style["--color-primary-soft"] =
-      `color-mix(in srgb, ${branding.colorPrimary} 15%, white)`;
-    style["--color-primary-soft-hover"] =
-      `color-mix(in srgb, ${branding.colorPrimary} 25%, white)`;
-  }
-  if (branding.fontFamily) style["--font-family"] = branding.fontFamily;
-  return style as CSSProperties;
-}
 
 /**
  * The frame around every signed-out screen: sign-in, registration, and the
@@ -112,13 +72,7 @@ export function AuthShell({
       className="flex min-h-dvh flex-col bg-[var(--color-bg-soft)] p-4"
       style={{
         ...brandingStyle(branding),
-        ...(branding.bgImageUrl
-          ? {
-              backgroundImage: `url(${branding.bgImageUrl})`,
-              backgroundSize: "cover",
-              backgroundPosition: "center",
-            }
-          : undefined),
+        ...brandingBackgroundStyle(branding),
       }}
     >
       {/* Same reasoning as the landing page: everybody on these four screens
@@ -159,41 +113,7 @@ export function AuthShell({
           </div>
         )}
 
-        {(branding.footerPrivacyUrl ||
-          branding.footerTermsUrl ||
-          branding.footerSupportUrl) && (
-          // Three named slots, not a list an administrator supplies text
-          // for: each link's label comes from this catalogue, translated,
-          // and only its address is theirs to set. See
-          // docs/settings.md#branding for why.
-          <div className="mt-4 flex justify-center gap-4 text-[length:var(--font-size-xs)] text-[var(--color-fg-subtle)]">
-            {branding.footerPrivacyUrl && (
-              <a
-                href={branding.footerPrivacyUrl}
-                className="hover:underline"
-                target="_blank"
-                rel="noreferrer"
-              >
-                {t("brand.footerPrivacy")}
-              </a>
-            )}
-            {branding.footerTermsUrl && (
-              <a
-                href={branding.footerTermsUrl}
-                className="hover:underline"
-                target="_blank"
-                rel="noreferrer"
-              >
-                {t("brand.footerTerms")}
-              </a>
-            )}
-            {branding.footerSupportUrl && (
-              <a href={branding.footerSupportUrl} className="hover:underline">
-                {t("brand.footerSupport")}
-              </a>
-            )}
-          </div>
-        )}
+        <BrandingFooterLinks branding={branding} />
       </main>
     </div>
   );

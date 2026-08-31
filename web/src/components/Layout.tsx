@@ -6,6 +6,7 @@ import {
   ApplicationsIcon,
   AttributesIcon,
   AuditIcon,
+  BrandingIcon,
   ChevronDownIcon,
   GroupsIcon,
   HomeIcon,
@@ -161,6 +162,17 @@ const navGroups: NavGroup[] = [
         route: "/settings",
         labelKey: "nav.settings",
         icon: SettingsIcon,
+        adminOnly: true,
+      },
+      {
+        // Pulled out to its own entry rather than left as a card on the
+        // settings screen — the same move already made for provisioning
+        // and identity providers, and for the same reason: it grew past
+        // "a section of the general settings" once it needed its own
+        // preview and its own long-form text fields.
+        route: "/settings/branding",
+        labelKey: "nav.settingsBranding",
+        icon: BrandingIcon,
         adminOnly: true,
       },
       {

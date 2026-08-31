@@ -469,25 +469,37 @@ export const enUS = {
   "settings.lockoutDurationHelp":
     "Also the window failures are counted over. Further attempts while locked do not extend it.",
 
-  "settings.brandingLegend": "Branding",
-  "settings.brandingHelp":
+  "nav.settingsBranding": "Branding",
+
+  "branding.title": "Branding",
+  "branding.subtitle":
     "Applies to the sign-in, registration, and password-recovery screens only. The administrative console keeps its own appearance.",
-  "settings.brandingProductName": "Product name",
-  "settings.brandingLoginHeading": "Sign-in heading",
-  "settings.brandingLoginHeadingHelp":
+  "branding.fieldsLegend": "Appearance",
+  "branding.previewLegend": "Preview",
+  "branding.previewHelp":
+    "Updates as you edit the fields on the left. Not saved until you press Save.",
+  "branding.productName": "Product name",
+  "branding.loginHeading": "Sign-in heading",
+  "branding.loginHeadingHelp":
     "Replaces the default sign-in heading. Leave empty to keep it.",
-  "settings.brandingColorPrimary": "Primary colour",
-  "settings.brandingColorPrimaryHelp": "A 6-digit hex colour, like #2563eb.",
-  "settings.brandingFontFamily": "Font family",
-  "settings.brandingFontFamilyHelp": "A CSS font-family value.",
-  "settings.brandingBgImageUrl": "Background image URL",
-  "settings.brandingBgImageUrlHelp":
-    "An http(s) address. Leave empty for none.",
-  "settings.brandingFooterPrivacyUrl": "Privacy policy link",
-  "settings.brandingFooterLinkHelp":
-    "An http(s) address, or a mailto: address.",
-  "settings.brandingFooterTermsUrl": "Terms of service link",
-  "settings.brandingFooterSupportUrl": "Support contact link",
+  "branding.colorPrimary": "Primary colour",
+  "branding.colorPrimaryHelp": "A 6-digit hex colour, like #2563eb.",
+  "branding.fontFamily": "Font family",
+  "branding.fontFamilyHelp": "A CSS font-family value.",
+  "branding.bgImageUrl": "Background image URL",
+  "branding.bgImageUrlHelp": "An http(s) address. Leave empty for none.",
+  "branding.footerPrivacy": "Privacy policy",
+  "branding.footerTerms": "Terms of service",
+  "branding.footerSupport": "Support contact",
+  "branding.footerMode": "Show as",
+  "branding.footerModeOff": "Hidden",
+  "branding.footerModeLink": "External link",
+  "branding.footerModeText": "Text on this page",
+  "branding.footerLinkAddress": "Address",
+  "branding.footerLinkHelp": "An http(s) address, or a mailto: address.",
+  "branding.footerLinkText": "Text",
+  "branding.footerTextHelp":
+    "Plain text. A blank line starts a new paragraph — no other formatting is applied.",
 
   "common.delete": "Delete",
 

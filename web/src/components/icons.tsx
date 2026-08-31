@@ -247,3 +247,12 @@ export function TenantIcon(props: IconProps) {
     </Svg>
   );
 }
+
+export function BrandingIcon(props: IconProps) {
+  return (
+    <Svg {...props}>
+      <path d="M20.59 13.41 13.42 20.58a2 2 0 0 1-2.83 0L2 12V2h10l8.59 8.59a2 2 0 0 1 0 2.82Z" />
+      <path d="M7 7h.01" />
+    </Svg>
+  );
+}

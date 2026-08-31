@@ -4799,14 +4799,38 @@ components:
         brandingBgImageUrl:
           type: string
           description: Same address rules as brandingLogoUrl.
+        brandingFooterPrivacyMode:
+          type: string
+          enum: ["", "link", "text"]
+          description: |
+            "" hides the link. "link" renders brandingFooterPrivacyUrl as
+            an address to follow. "text" renders brandingFooterPrivacyText
+            in a dialog on this server, with no address of its own.
+            Whichever field the mode does not name is cleared on save, so
+            only one is ever populated for a given mode.
         brandingFooterPrivacyUrl:
           type: string
           description: |
-            http(s) or mailto:. Empty hides the link. Unlike a logo, this is
-            followed rather than rendered, so a path on this server is not
-            accepted.
+            http(s) or mailto:. Used when brandingFooterPrivacyMode is
+            "link". Unlike a logo, this is followed rather than rendered,
+            so a path on this server is not accepted.
+        brandingFooterPrivacyText:
+          type: string
+          description: |
+            Plain text, rendered as paragraphs split on blank lines. Used
+            when brandingFooterPrivacyMode is "text". No Markdown, no
+            HTML — the four unauthenticated screens have no renderer for
+            either.
+        brandingFooterTermsMode:
+          type: string
+          enum: ["", "link", "text"]
         brandingFooterTermsUrl: { type: string }
+        brandingFooterTermsText: { type: string }
+        brandingFooterSupportMode:
+          type: string
+          enum: ["", "link", "text"]
         brandingFooterSupportUrl: { type: string }
+        brandingFooterSupportText: { type: string }
         brandingLoginHeading:
           type: string
           description: Replaces the default sign-in heading. Empty uses the built-in text.
@@ -4949,9 +4973,15 @@ components:
         colorPrimary: { type: string }
         fontFamily: { type: string }
         bgImageUrl: { type: string }
+        footerPrivacyMode: { type: string, enum: ["", "link", "text"] }
         footerPrivacyUrl: { type: string }
+        footerPrivacyText: { type: string }
+        footerTermsMode: { type: string, enum: ["", "link", "text"] }
         footerTermsUrl: { type: string }
+        footerTermsText: { type: string }
+        footerSupportMode: { type: string, enum: ["", "link", "text"] }
         footerSupportUrl: { type: string }
+        footerSupportText: { type: string }
         loginHeading: { type: string }
 
     LandingStatus:

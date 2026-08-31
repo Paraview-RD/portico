@@ -99,15 +99,21 @@ type updateSettingsRequest struct {
 	// means "not customized" and falls back to the default — so omitting
 	// the field and sending "" are different, same reasoning as
 	// DefaultLocale below.
-	BrandingLogoURL          *string `json:"brandingLogoUrl"`
-	BrandingProductName      *string `json:"brandingProductName"`
-	BrandingColorPrimary     *string `json:"brandingColorPrimary"`
-	BrandingFontFamily       *string `json:"brandingFontFamily"`
-	BrandingBgImageURL       *string `json:"brandingBgImageUrl"`
-	BrandingFooterPrivacyURL *string `json:"brandingFooterPrivacyUrl"`
-	BrandingFooterTermsURL   *string `json:"brandingFooterTermsUrl"`
-	BrandingFooterSupportURL *string `json:"brandingFooterSupportUrl"`
-	BrandingLoginHeading     *string `json:"brandingLoginHeading"`
+	BrandingLogoURL           *string `json:"brandingLogoUrl"`
+	BrandingProductName       *string `json:"brandingProductName"`
+	BrandingColorPrimary      *string `json:"brandingColorPrimary"`
+	BrandingFontFamily        *string `json:"brandingFontFamily"`
+	BrandingBgImageURL        *string `json:"brandingBgImageUrl"`
+	BrandingFooterPrivacyMode *string `json:"brandingFooterPrivacyMode"`
+	BrandingFooterPrivacyURL  *string `json:"brandingFooterPrivacyUrl"`
+	BrandingFooterPrivacyText *string `json:"brandingFooterPrivacyText"`
+	BrandingFooterTermsMode   *string `json:"brandingFooterTermsMode"`
+	BrandingFooterTermsURL    *string `json:"brandingFooterTermsUrl"`
+	BrandingFooterTermsText   *string `json:"brandingFooterTermsText"`
+	BrandingFooterSupportMode *string `json:"brandingFooterSupportMode"`
+	BrandingFooterSupportURL  *string `json:"brandingFooterSupportUrl"`
+	BrandingFooterSupportText *string `json:"brandingFooterSupportText"`
+	BrandingLoginHeading      *string `json:"brandingLoginHeading"`
 
 	// Zero threshold switches lockout off, which a deployment that trusts
 	// its reverse proxy's throttling may well want — but it has to be sent
@@ -157,9 +163,15 @@ func (req updateSettingsRequest) applyTo(current service.Settings) service.Setti
 	overlayString(&current.BrandingColorPrimary, req.BrandingColorPrimary)
 	overlayString(&current.BrandingFontFamily, req.BrandingFontFamily)
 	overlayString(&current.BrandingBgImageURL, req.BrandingBgImageURL)
+	overlayString(&current.BrandingFooterPrivacyMode, req.BrandingFooterPrivacyMode)
 	overlayString(&current.BrandingFooterPrivacyURL, req.BrandingFooterPrivacyURL)
+	overlayString(&current.BrandingFooterPrivacyText, req.BrandingFooterPrivacyText)
+	overlayString(&current.BrandingFooterTermsMode, req.BrandingFooterTermsMode)
 	overlayString(&current.BrandingFooterTermsURL, req.BrandingFooterTermsURL)
+	overlayString(&current.BrandingFooterTermsText, req.BrandingFooterTermsText)
+	overlayString(&current.BrandingFooterSupportMode, req.BrandingFooterSupportMode)
 	overlayString(&current.BrandingFooterSupportURL, req.BrandingFooterSupportURL)
+	overlayString(&current.BrandingFooterSupportText, req.BrandingFooterSupportText)
 	overlayString(&current.BrandingLoginHeading, req.BrandingLoginHeading)
 
 	overlayInt(&current.LockoutThreshold, req.LockoutThreshold)

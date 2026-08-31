@@ -314,10 +314,25 @@ export interface Settings {
   brandingColorPrimary: string;
   brandingFontFamily: string;
   brandingBgImageUrl: string;
-  /** http(s) or `mailto:`. Empty hides the link. */
+
+  /**
+   * Each footer link is one of three modes: hidden, an external address,
+   * or text shown in a dialog on this page. Only the field the mode names
+   * is ever non-empty after a save — the server clears the other one, so
+   * there is never a stale value left in the field the form just hid.
+   */
+  brandingFooterPrivacyMode: FooterLinkMode;
+  /** http(s) or `mailto:`. Used when the mode is "link". */
   brandingFooterPrivacyUrl: string;
+  /** Plain text, shown as paragraphs split on blank lines. Used when the mode is "text". */
+  brandingFooterPrivacyText: string;
+  brandingFooterTermsMode: FooterLinkMode;
   brandingFooterTermsUrl: string;
+  brandingFooterTermsText: string;
+  brandingFooterSupportMode: FooterLinkMode;
   brandingFooterSupportUrl: string;
+  brandingFooterSupportText: string;
+
   /** Replaces the default sign-in heading. Empty uses the built-in text. */
   brandingLoginHeading: string;
 
@@ -405,6 +420,12 @@ export interface RegistrationStatus {
 }
 
 /**
+ * A footer link's mode. "" hides the slot; "link" follows footerXUrl;
+ * "text" opens footerXText in a dialog, with no address of its own.
+ */
+export type FooterLinkMode = "" | "link" | "text";
+
+/**
  * What an anonymous visitor's browser receives to render the four
  * unauthenticated screens. Every field here is public by design — served
  * before anyone has signed in — and empty means "not customized," the same
@@ -416,9 +437,15 @@ export interface Branding {
   colorPrimary: string;
   fontFamily: string;
   bgImageUrl: string;
+  footerPrivacyMode: FooterLinkMode;
   footerPrivacyUrl: string;
+  footerPrivacyText: string;
+  footerTermsMode: FooterLinkMode;
   footerTermsUrl: string;
+  footerTermsText: string;
+  footerSupportMode: FooterLinkMode;
   footerSupportUrl: string;
+  footerSupportText: string;
   loginHeading: string;
 }
 
