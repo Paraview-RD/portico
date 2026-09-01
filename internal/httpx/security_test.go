@@ -120,6 +120,26 @@ func TestClientIPUsesForwardingHeadersWhenTrusted(t *testing.T) {
 	})
 }
 
+// A branding logo or background image, and an application's own tile
+// logo, can be hosted anywhere — img-src has to admit https, not just
+// this origin and data: URIs, or the address a form accepts is one a
+// browser then silently refuses to draw. http is deliberately left out:
+// everything else this server accepts as an external address is
+// https-only (see normalizeLogoURI, normalizeFooterLinkURI), and img-src
+// widened to plain http would be the one exception.
+//
+// No compensating referrerpolicy is needed here for a CSS
+// background-image the way AppIcon sets one on an <img> element — this
+// server's own Referrer-Policy header is already "no-referrer" for every
+// response (TestSecurityHeadersAreSet), which governs every subresource
+// request the page makes, img tag or CSS background alike.
+func TestImgSrcAdmitsHTTPSButNotPlainHTTP(t *testing.T) {
+	csp := httpx.ContentSecurityPolicy()
+	if !contains(csp, "img-src 'self' data: https:") {
+		t.Errorf("img-src does not admit https: %s", csp)
+	}
+}
+
 // The manual needs script-src widened and nothing else, and the way that goes
 // wrong is a second policy written out beside the first that then misses
 // whatever is added to it later.

@@ -169,6 +169,18 @@ func ClientIP(r *http.Request) string {
 // served from this origin with no CDN and no inline scripts of its own, so
 // script-src 'self' costs it nothing. style-src allows inline because the
 // bundler emits a style element.
+//
+// img-src admits https, not only this origin and data: URIs, because an
+// application's logo, a branding logo, and a branding background image
+// are all addresses a form accepts as an external https URL —
+// normalizeLogoURI and its siblings already refuse plain http for the
+// same reason everything else external here is https-only. Without this,
+// a browser draws the address this server was handed and then silently
+// refuses to render it: the form saves, and the picture never appears.
+// No per-image referrerpolicy compensates for the wider img-src — the
+// Referrer-Policy header below is "no-referrer" for every response,
+// which already governs every subresource request the page makes,
+// <img> and CSS background-image alike.
 func ContentSecurityPolicy(extraScriptSources ...string) string {
 	scriptSrc := "'self'"
 	if len(extraScriptSources) > 0 {
@@ -176,7 +188,7 @@ func ContentSecurityPolicy(extraScriptSources ...string) string {
 	}
 	return "default-src 'self'; script-src " + scriptSrc + "; " +
 		"style-src 'self' 'unsafe-inline'; " +
-		"img-src 'self' data:; connect-src 'self'; font-src 'self'; " +
+		"img-src 'self' data: https:; connect-src 'self'; font-src 'self'; " +
 		"object-src 'none'; frame-ancestors 'none'; base-uri 'self'; form-action 'self'"
 }
 
