@@ -26,7 +26,7 @@ Portico 永远在左边。接入它的应用永远在右边。
 
 | 协议 | 应用收到什么 | 在哪里验证 |
 |---|---|---|
-| OIDC | Access token（JWT）+ ID token（JWT）| 对照 `/keys` 处的 JWKS 验证签名 |
+| OIDC | 访问令牌（access token）+ ID 令牌（ID token），均为 JWT | 对照 `/keys` 处的 JWKS 验证签名 |
 | SAML 2.0 | Assertion（已签名的 XML）| 对照 IdP 证书验证签名 |
 | CAS | Service ticket（不透明字符串）| 回调 `/serviceValidate` 做后端验证 |
 
@@ -41,7 +41,7 @@ Token 是持有者凭证——谁拿到谁可以用，直到过期。Assertion �
 出示 token、被信任。它不涉及用户是谁。
 
 **OpenID Connect 1.0** 是在 OAuth 2.1 之上的身份层。它新增了
-ID token（回答"谁登录了"）和 userinfo 端点（回答"这个人有哪些属性"）。
+ID 令牌（回答"谁登录了"）和 userinfo 端点（回答"这个人有哪些属性"）。
 每一次 OIDC 登录都是一次 OAuth 2.1 交换；反之不然。
 
 分开计数：四个（OAuth 2.1、OIDC、SAML、CAS）。
@@ -89,7 +89,7 @@ Portico 不设任何 cookie。
 
 ### Token 携带的内容
 
-ID token 是 JWT，可在 [jwt.io](https://jwt.io)（离线）或
+ID 令牌是 JWT，可在 [jwt.io](https://jwt.io)（离线）或
 `portico client token`（本地）解码查看：
 
 | Claim | 含义 |
@@ -208,7 +208,7 @@ https://<host>/t/<code>/cas     ← 其他租户
 | 新建应用 | OIDC — 所有现代框架都有现成的库 |
 | 已有 SAML 支持的企业系统 | SAML 2.0 — 配置 metadata 即完成 |
 | 已在用 CAS 的大学门户或 Java 应用 | CAS — 迁移成本最低 |
-| 需要代表用户调用 API | OIDC — access token 正是 OAuth 2.1 的用途 |
+| 需要代表用户调用 API | OIDC — 访问令牌正是 OAuth 2.1 的用途 |
 | 文档写的是"OpenID Connect" | OIDC |
 | 文档只写"SSO"未说明协议 | 追问——通常指 SAML |
 
