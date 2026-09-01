@@ -96,6 +96,7 @@ var bodies = map[string]any{
 // There is no struct behind a multipart upload to compare against.
 var notJSON = map[string]bool{
 	"uploadApplicationLogo": true,
+	"uploadBrandingBgImage": true,
 	"importUsers":           true,
 	// A free-form object rather than a document with named fields: the keys
 	// are whatever attributes this tenant defined, so there is no struct to
