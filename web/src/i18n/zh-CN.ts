@@ -121,6 +121,8 @@ export const zhCN: Record<keyof typeof enUS, string> = {
   "register.confirmPassword": "确认密码",
   "register.phone": "手机号",
   "register.email": "邮箱",
+  "register.invitationCode": "邀请码",
+  "register.invitationCodeHint": "向邀请你的人索取这个邀请码。",
   "register.submit": "注册",
   "register.haveAccount": "已有账号？",
   "register.signIn": "去登录",
@@ -431,6 +433,9 @@ export const zhCN: Record<keyof typeof enUS, string> = {
   "settings.registrationVerification": "要求确认邮箱地址",
   "settings.registrationVerificationHelp":
     "自助注册的账号必须先打开发到所填地址的链接，才能登录。不开启的话，任何人都可以用同事的邮箱开户——而找回密码的链接正是发到那个地址。需要邮件中继，没有则保存会被拒绝。",
+  "settings.invitationOnlyRegistration": "要求邀请码",
+  "settings.invitationOnlyRegistrationHelp":
+    "即使注册是开放的，没有有效邀请码也无法注册。邀请码的发放与管理在「邀请码」页面。",
   "settings.lockoutLegend": "登录失败锁定",
   "settings.lockoutHelp":
     "连续输错密码后锁定账号。这不是限流——它防的是某一个账号的密码被猜中，对大量尝试给服务器带来的负载无能为力，反向代理的限流仍要保留。",
@@ -501,6 +506,7 @@ export const zhCN: Record<keyof typeof enUS, string> = {
   "groups.ofUser": "所属用户组",
   "groups.none": "无",
   "nav.groups": "用户组",
+  "nav.invitations": "邀请码",
 
   "webhooks.title": "事件订阅（Webhook）",
   "webhooks.subtitle":
@@ -1105,4 +1111,37 @@ export const zhCN: Record<keyof typeof enUS, string> = {
   "profile.unlink": "解除关联",
   "profile.unlinkConfirm":
     "解除与「{0}」的关联后就不能再通过它登录了。密码不受影响。",
+
+  "invitations.title": "邀请码",
+  "invitations.subtitle": "让用户凭码自助注册，而不必对公众开放注册。",
+  "invitations.guideTitle": "邀请码是怎么工作的",
+  "invitations.guideBody":
+    "发放一个邀请码给需要注册的人::每个邀请码有配额——达到配额后就不能再用它注册::邀请码可以绑定组织或用户组，注册成功后新账号会自动归属到那里::如果要求所有注册都必须带邀请码，在「系统设置」里开启「要求邀请码」",
+  "invitations.new": "新建邀请码",
+  "invitations.colCode": "邀请码",
+  "invitations.colQuota": "已用 / 配额",
+  "invitations.colScope": "归属",
+  "invitations.colExpires": "有效期",
+  "invitations.colStatus": "状态",
+  "invitations.neverExpires": "永不过期",
+  "invitations.noScope": "— 不绑定 —",
+  "invitations.terminal": "已禁用，请改发新邀请码",
+  "invitations.status.active": "生效中",
+  "invitations.status.exhausted": "已用尽",
+  "invitations.status.expired": "已过期",
+  "invitations.status.disabled": "已禁用",
+  "invitations.fieldCode": "邀请码",
+  "invitations.generate": "随机生成",
+  "invitations.fieldQuota": "配额",
+  "invitations.unlimited": "不限制次数",
+  "invitations.fieldExpires": "有效期（可选）",
+  "invitations.fieldExpiresHint": "留空表示永不过期。",
+  "invitations.fieldOrganization": "绑定组织（可选）",
+  "invitations.fieldGroup": "绑定用户组（可选）",
+  "invitations.noneOption": "— 不绑定 —",
+  "invitations.assignHint":
+    "凭此码注册成功后，新账号会直接归属到以上组织/用户组，无需之后手动分配。",
+  "invitations.disableTitle": "禁用邀请码",
+  "invitations.disableMessage":
+    "此操作不可撤销。{0} 会立即停止生效，且无法重新启用——如需继续发放，请创建新的邀请码。",
 };

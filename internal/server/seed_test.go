@@ -87,6 +87,7 @@ func seededCollections(t *testing.T, api *apiTest, admin string) []collection {
 		{path: "/api/v1/users?limit=20", screen: "Users"},
 		{path: "/api/v1/organizations", screen: "Organizations"},
 		{path: "/api/v1/groups", screen: "Groups"},
+		{path: "/api/v1/invitations", screen: "Invitations"},
 		{path: "/api/v1/applications/oauth-clients", screen: "Applications — OIDC"},
 		{path: "/api/v1/applications/saml-service-providers", screen: "Applications — SAML"},
 		{path: "/api/v1/applications/cas-services", screen: "Applications — CAS"},
@@ -314,7 +315,7 @@ func TestEverySeededCollectionIsAccountedFor(t *testing.T) {
 
 	covered := map[string]bool{}
 	for _, c := range []string{
-		"/api/v1/users", "/api/v1/organizations", "/api/v1/groups",
+		"/api/v1/users", "/api/v1/organizations", "/api/v1/groups", "/api/v1/invitations",
 		"/api/v1/applications/oauth-clients", "/api/v1/applications/saml-service-providers",
 		"/api/v1/applications/cas-services", "/api/v1/directories",
 		"/api/v1/directories/{id}/runs", "/api/v1/scim-credentials",

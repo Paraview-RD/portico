@@ -100,6 +100,11 @@ type registerRequest struct {
 	Password    string `json:"password"`
 	Phone       string `json:"phone"`
 	Email       string `json:"email"`
+	// InvitationCode is required when RegistrationStatus reported
+	// invitationOnly. It is still honored when registration is open —
+	// a valid code pre-assigns its organization and groups either way —
+	// see UserService.Register.
+	InvitationCode string `json:"invitationCode"`
 }
 
 // registerResponse is the new account, plus whether it can be used yet.
@@ -247,10 +252,14 @@ func (h *Handler) RegistrationStatus(w http.ResponseWriter, r *http.Request) {
 	// are administrator-only.
 	httpx.OK(w, map[string]any{
 		"registrationEnabled": settings.RegistrationEnabled,
-		"systemName":          settings.SystemName,
-		"tenant":              tenant.Code,
-		"tenantName":          tenant.Name,
-		"branding":            brandingOf(settings),
+		// invitationOnly tells the registration form whether to require the
+		// code field. It says nothing about whether registration is open at
+		// all — registrationEnabled is still that switch, checked first.
+		"invitationOnly": settings.InvitationOnlyRegistration,
+		"systemName":     settings.SystemName,
+		"tenant":         tenant.Code,
+		"tenantName":     tenant.Name,
+		"branding":       brandingOf(settings),
 	})
 }
 
@@ -483,11 +492,12 @@ func (h *Handler) CheckPermission(w http.ResponseWriter, r *http.Request) {
 
 func toRegisterInput(req registerRequest) service.RegisterInput {
 	return service.RegisterInput{
-		Username:    req.Username,
-		DisplayName: req.DisplayName,
-		Password:    req.Password,
-		Phone:       req.Phone,
-		Email:       req.Email,
+		Username:       req.Username,
+		DisplayName:    req.DisplayName,
+		Password:       req.Password,
+		Phone:          req.Phone,
+		Email:          req.Email,
+		InvitationCode: req.InvitationCode,
 	}
 }
 

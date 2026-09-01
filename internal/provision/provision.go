@@ -25,11 +25,12 @@ import (
 // Provisioner holds the services the command-line operations need. It opens
 // the database directly and never builds an HTTP stack.
 type Provisioner struct {
-	store   *store.Store
-	tenants *service.TenantService
-	users   *service.UserService
-	clients *service.OAuthClientService
-	keys    *service.SigningKeyService
+	store       *store.Store
+	tenants     *service.TenantService
+	users       *service.UserService
+	clients     *service.OAuthClientService
+	keys        *service.SigningKeyService
+	invitations *service.InvitationService
 
 	serviceProviders *service.SAMLServiceProviderService
 	samlKeys         *service.SAMLKeyService
@@ -56,11 +57,12 @@ func Open(cfg *config.Config) (*Provisioner, error) {
 	users := service.NewUserService(st, audit, settings, tokens, nil)
 
 	return &Provisioner{
-		store:   st,
-		tenants: service.NewTenantService(st),
-		users:   users,
-		clients: service.NewOAuthClientService(st, audit),
-		keys:    service.NewSigningKeyService(st),
+		store:       st,
+		tenants:     service.NewTenantService(st),
+		users:       users,
+		clients:     service.NewOAuthClientService(st, audit),
+		keys:        service.NewSigningKeyService(st),
+		invitations: service.NewInvitationService(st, audit),
 
 		serviceProviders: service.NewSAMLServiceProviderService(st, audit),
 		samlKeys:         service.NewSAMLKeyService(st),
@@ -168,6 +170,33 @@ func (p *Provisioner) SetClientStatus(ctx context.Context, tenantCode, clientID 
 		return model.OAuthClient{}, err
 	}
 	return p.clients.SetStatus(ctx, service.CommandLineActor(tenant.ID), clientID, status)
+}
+
+// CreateInvitation issues an invitation code in a tenant.
+func (p *Provisioner) CreateInvitation(ctx context.Context, tenantCode string, in service.CreateInvitationInput) (model.Invitation, error) {
+	tenant, err := p.tenants.Resolve(ctx, tenantCode)
+	if err != nil {
+		return model.Invitation{}, err
+	}
+	return p.invitations.Create(ctx, service.CommandLineActor(tenant.ID), in)
+}
+
+// ListInvitations returns every invitation code issued in a tenant.
+func (p *Provisioner) ListInvitations(ctx context.Context, tenantCode string) ([]model.Invitation, error) {
+	tenant, err := p.tenants.Resolve(ctx, tenantCode)
+	if err != nil {
+		return nil, err
+	}
+	return p.invitations.List(ctx, tenant.ID)
+}
+
+// DisableInvitation shuts off an invitation code. Terminal — see ADR-0001.
+func (p *Provisioner) DisableInvitation(ctx context.Context, tenantCode, invitationID string) (model.Invitation, error) {
+	tenant, err := p.tenants.Resolve(ctx, tenantCode)
+	if err != nil {
+		return model.Invitation{}, err
+	}
+	return p.invitations.Disable(ctx, service.CommandLineActor(tenant.ID), invitationID)
 }
 
 // RotateSigningKey retires a tenant's current signing key and generates a

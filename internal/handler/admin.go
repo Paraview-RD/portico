@@ -92,8 +92,11 @@ type updateSettingsRequest struct {
 	// Requiring a self-registered account to prove its address. Refused
 	// where this deployment has no way to send one, rather than accepted and
 	// then stranding every registration on a message that never arrives.
-	RegistrationVerification *bool   `json:"registrationVerification"`
-	SystemName               *string `json:"systemName"`
+	RegistrationVerification *bool `json:"registrationVerification"`
+	// Requiring a valid invitation code on top of RegistrationEnabled. See
+	// docs/adr/0001-invitation-code-lifecycle-and-authorization-model.md.
+	InvitationOnlyRegistration *bool   `json:"invitationOnlyRegistration"`
+	SystemName                 *string `json:"systemName"`
 
 	// Branding, all optional. Empty string is a real value here too — it
 	// means "not customized" and falls back to the default — so omitting
@@ -151,6 +154,7 @@ func (req updateSettingsRequest) applyTo(current service.Settings) service.Setti
 	overlayBool(&current.RegistrationEnabled, req.RegistrationEnabled)
 	overlayBool(&current.ShowGuides, req.ShowGuides)
 	overlayBool(&current.RegistrationVerification, req.RegistrationVerification)
+	overlayBool(&current.InvitationOnlyRegistration, req.InvitationOnlyRegistration)
 	if req.SystemName != nil {
 		current.SystemName = *req.SystemName
 	}

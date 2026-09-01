@@ -28,6 +28,7 @@ export type Route =
   | "/users"
   | "/organizations"
   | "/groups"
+  | "/invitations"
   | "/applications"
   | "/provisioning"
   | "/webhooks"
@@ -51,6 +52,7 @@ const routes: Route[] = [
   "/users",
   "/organizations",
   "/groups",
+  "/invitations",
   "/applications",
   "/provisioning",
   "/webhooks",

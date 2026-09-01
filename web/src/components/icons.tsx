@@ -59,6 +59,15 @@ export function GroupsIcon(props: IconProps) {
   );
 }
 
+export function InvitationsIcon(props: IconProps) {
+  return (
+    <Svg {...props}>
+      <rect x="3" y="5" width="18" height="14" rx="1.5" />
+      <path d="M3.5 6.5 12 13l8.5-6.5" />
+    </Svg>
+  );
+}
+
 export function OrganizationsIcon(props: IconProps) {
   return (
     <Svg {...props}>

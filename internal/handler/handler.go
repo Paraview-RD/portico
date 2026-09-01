@@ -44,6 +44,9 @@ type Handler struct {
 	externalIDP *service.ExternalIDPService
 	// Groups: sets of people, as distinct from the organization chart.
 	groups *service.GroupService
+	// Invitation codes: the administrative half of invitation-gated
+	// registration. Redemption itself happens inside UserService.Register.
+	invitations *service.InvitationService
 	// Uploaded pictures for application tiles.
 	logos *service.ApplicationLogoService
 	// The attributes a tenant defined for itself, and the catalogue of
@@ -87,6 +90,7 @@ func New(
 	webhooks *service.WebhookService,
 	externalIDP *service.ExternalIDPService,
 	groups *service.GroupService,
+	invitations *service.InvitationService,
 	logos *service.ApplicationLogoService,
 	attributes *service.UserAttributeService,
 	fields *service.FieldCatalogue,
@@ -104,7 +108,7 @@ func New(
 		clients:      clients, serviceProviders: serviceProviders,
 		samlKeys: samlKeys, casServices: casServices,
 		scimCredentials: scimCredentials, directories: directories,
-		webhooks: webhooks, externalIDP: externalIDP, groups: groups, logos: logos,
+		webhooks: webhooks, externalIDP: externalIDP, groups: groups, invitations: invitations, logos: logos,
 		attributes: attributes, fields: fields, fieldMappings: fieldMappings,
 		oidc: oidc, saml: samlProviders, cas: casServer,
 		trials: trials,

@@ -41,6 +41,12 @@ func main() {
 				os.Exit(1)
 			}
 			return
+		case "invitation":
+			if err := runInvitation(os.Args[2:]); err != nil {
+				fmt.Fprintln(os.Stderr, "portico:", err)
+				os.Exit(1)
+			}
+			return
 		case "sp":
 			if err := runSP(os.Args[2:]); err != nil {
 				fmt.Fprintln(os.Stderr, "portico:", err)
@@ -89,6 +95,9 @@ Usage:
   portico              start the server
   portico tenant ...   provision tenants (see: portico tenant --help)
   portico client ...   register OAuth/OIDC applications (see: portico client --help)
+  portico invitation ...
+                       issue invitation codes that gate self-registration
+                       (see: portico invitation --help)
   portico sp ...       register SAML service providers (see: portico sp --help)
   portico cas ...      register CAS services (see: portico cas --help)
   portico trial ...    look after tenants self-service trials created

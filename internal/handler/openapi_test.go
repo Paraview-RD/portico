@@ -66,6 +66,7 @@ var bodies = map[string]any{
 	"updateGroup":                     groupRequest{},
 	"addGroupMembers":                 membersRequest{},
 	"createOAuthClient":               createClientRequest{},
+	"createInvitation":                createInvitationRequest{},
 	"updateOAuthClient":               updateClientRequest{},
 	"createServiceProvider":           serviceProviderRequest{},
 	"updateServiceProvider":           serviceProviderRequest{},

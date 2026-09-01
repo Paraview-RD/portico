@@ -11,6 +11,7 @@ import {
   GroupsIcon,
   HomeIcon,
   IdentityProvidersIcon,
+  InvitationsIcon,
   OrganizationsIcon,
   ProfileIcon,
   ProvisioningIcon,
@@ -101,6 +102,15 @@ const navGroups: NavGroup[] = [
         route: "/groups",
         labelKey: "nav.groups",
         icon: GroupsIcon,
+        adminOnly: true,
+      },
+      {
+        // Who may join this tenant, which puts it beside who is already in
+        // it rather than under Settings — an administrator issuing a code
+        // is doing the same kind of thing as adding a person or a group.
+        route: "/invitations",
+        labelKey: "nav.invitations",
+        icon: InvitationsIcon,
         adminOnly: true,
       },
     ],

@@ -142,6 +142,22 @@ type GroupMember struct {
 	AddedAt  time.Time
 }
 
+type Invitation struct {
+	ID             string
+	TenantID       string
+	Code           string
+	OrganizationID *string
+	GroupIds       []string
+	Quota          int32
+	// Incremented atomically by the RedeemInvitation query, in the same transaction as the account it pays for. Never updated any other way.
+	UsedCount int32
+	ExpiresAt *time.Time
+	// ACTIVE or DISABLED only. Exhausted and expired are derived at validation time from used_count/quota and expires_at, not stored here.
+	Status    string
+	CreatedAt time.Time
+	UpdatedAt time.Time
+}
+
 type LdapSource struct {
 	ID                  string
 	TenantID            string

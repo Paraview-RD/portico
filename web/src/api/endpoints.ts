@@ -22,6 +22,7 @@ import type {
   GroupRef,
   ImportResult,
   IntegrationEndpoints,
+  Invitation,
   IssuedSCIMCredential,
   LDAPSource,
   LDAPSourceInput,
@@ -138,6 +139,12 @@ export const authApi = {
     password: string;
     phone?: string;
     email?: string;
+    /**
+     * Required when RegistrationStatus reported `invitationOnly`. Still
+     * honored when registration is open — a valid code pre-assigns its
+     * organization and groups either way.
+     */
+    invitationCode?: string;
   }) =>
     request<User & { verificationRequired?: boolean }>("/auth/register", {
       method: "POST",
@@ -993,6 +1000,37 @@ export const webhooksApi = {
 
   remove: (id: string) =>
     request<void>(`/webhooks/${segment(id)}`, { method: "DELETE" }),
+};
+
+/**
+ * Invitation codes: administrator-issued, quota-limited credentials that
+ * let self-registration stay closed to the public while still admitting
+ * specific people.
+ *
+ * There is no `enable`. Disabling is terminal — see
+ * docs/adr/0001-invitation-code-lifecycle-and-authorization-model.md — an
+ * administrator who wants the same access available again issues a new
+ * code rather than reviving an old one.
+ */
+export const invitationsApi = {
+  list: () => request<Invitation[]>("/invitations"),
+
+  create: (input: {
+    code: string;
+    organizationId?: string;
+    groupIds?: string[];
+    quota: number;
+    expiresAt?: string;
+  }) =>
+    request<Invitation>("/invitations", {
+      method: "POST",
+      body: input,
+    }),
+
+  disable: (id: string) =>
+    request<Invitation>(`/invitations/${segment(id)}/disable`, {
+      method: "POST",
+    }),
 };
 
 /**

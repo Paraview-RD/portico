@@ -235,6 +235,7 @@ func TestEverySchemaNamesTheFieldsItsTypeSends(t *testing.T) {
 		{"SAMLServiceProvider", model.SAMLServiceProvider{}},
 		{"CASService", model.CASService{}},
 		{"OAuthClient", model.OAuthClient{}},
+		{"Invitation", model.Invitation{}},
 		{"LDAPSource", model.LDAPSource{}},
 		{"LDAPSyncRun", model.LDAPSyncRun{}},
 		// Not every response type is a model type. These are the service
