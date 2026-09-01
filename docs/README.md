@@ -9,9 +9,21 @@
 - **[access-guide.md](access-guide.md)** — entry points, where credentials
   come from, what each role can do, and how to put Portico behind a reverse
   proxy. Start here to deploy it.
+- **[cli.md](cli.md)** — every `portico` subcommand: creating tenants,
+  registering applications, issuing invitation codes, and the rest of what
+  runs from a terminal rather than the console.
+- **[sso-protocols.md](sso-protocols.md)** — what OIDC, SAML 2.0 and CAS
+  actually are and what happens during a sign-in, for whoever has to decide
+  which one an application needs. Read this before [federation.md](federation.md),
+  which is how to configure the one you picked.
 - **[federation.md](federation.md)** — signing an application in through
   Portico: issuers, registering a client, what the tokens carry, and exactly
   what revocation can and cannot reach. Read this before integrating.
+- **[integration-guides.md](integration-guides.md)** — step-by-step
+  configuration for specific applications, assuming Portico is already
+  running and you have administrator access.
+- **[troubleshooting.md](troubleshooting.md)** — errors that come up during
+  integration and what to do about them.
 - **[backup-and-restore.md](backup-and-restore.md)** — what to copy, why a
   database dump on its own is not a backup of this system, and the three
   things a point-in-time restore does that nobody expects.
@@ -37,6 +49,8 @@
 - **[deployment.md](deployment.md)** — running in production: which probe
   points at which endpoint, whether you may run more than one instance, what
   an upgrade does, and the Kubernetes manifests in `deploy/k8s/`.
+- **[configuration.md](configuration.md)** — every environment variable
+  Portico reads at startup, with its default.
 - **[public-demo.md](public-demo.md)** — putting a demonstration where
   strangers can use it: a domain, mail that reaches other people's inboxes,
   self-service trials, and the four steps whose failure mode is a deployment
