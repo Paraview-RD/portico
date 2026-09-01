@@ -123,6 +123,7 @@ export const errorsZhCN: Record<keyof typeof errorsEnUS, string> = {
   UNSUPPORTED_IMAGE:
     "该文件不是 PNG 或 JPEG 图片。SVG 不能上传——它是可以携带脚本的文档，而且会由本服务器自己的地址提供。",
   LOGO_TOO_LARGE: "图片太大。磁贴图片最多 512 KiB，且边长不超过 1024 像素。",
+  BG_IMAGE_TOO_LARGE: "图片太大。背景图片最多 4 MiB，且边长不超过 2560 像素。",
   LOGO_NOT_FOUND: "该图片已不在此处存储。",
   IMPORT_FAILED: "导入未能完成。",
 

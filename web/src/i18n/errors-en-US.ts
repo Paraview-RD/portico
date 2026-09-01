@@ -162,6 +162,8 @@ export const errorsEnUS = {
     "That file is not a PNG or JPEG image. An SVG cannot be uploaded — it is a document that can carry script, and it would be served from this server's own address.",
   LOGO_TOO_LARGE:
     "That image is too large. A tile needs at most 512 KiB and 1024 pixels on a side.",
+  BG_IMAGE_TOO_LARGE:
+    "That image is too large. A background needs at most 4 MiB and 2560 pixels on a side.",
   LOGO_NOT_FOUND: "That image is no longer stored here.",
   IMPORT_FAILED: "The import could not be completed.",
 
