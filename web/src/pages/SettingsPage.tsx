@@ -339,6 +339,31 @@ export function SettingsPage() {
                     </span>
                   </span>
                 </label>
+
+                {/* Same nesting as verification above, for the same
+                    reason: meaningless without registration switched on. */}
+                <label className="ml-6 flex items-start gap-2.5">
+                  <input
+                    type="checkbox"
+                    className="mt-1"
+                    disabled={!settings.registrationEnabled}
+                    checked={settings.invitationOnlyRegistration}
+                    onChange={(e) =>
+                      setSettings({
+                        ...settings,
+                        invitationOnlyRegistration: e.target.checked,
+                      })
+                    }
+                  />
+                  <span>
+                    <span className="block font-[weight:var(--font-weight-medium)] text-[var(--color-fg)]">
+                      {t("settings.invitationOnlyRegistration")}
+                    </span>
+                    <span className="block text-[length:var(--font-size-sm)] text-[var(--color-fg-muted)]">
+                      {t("settings.invitationOnlyRegistrationHelp")}
+                    </span>
+                  </span>
+                </label>
               </div>
             </Card>
 

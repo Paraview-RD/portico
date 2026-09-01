@@ -88,6 +88,7 @@ func report(s seed.Summary, password string) {
   accounts       %d
   organizations  %d
   groups         %d
+  invitations    %d
   applications   %d
   directories    %d
   subscriptions  %d
@@ -103,7 +104,7 @@ Sign in as any seeded account with the password %q — %q in the default
 tenant, or the same name in tenant %q, which is a different person entirely
 and shows how little carries across.
 `,
-		s.Tenants, s.Users, s.Organizations, s.Groups, s.Applications,
+		s.Tenants, s.Users, s.Organizations, s.Groups, s.Invitations, s.Applications,
 		s.Directories, s.Subscriptions, s.FieldMappings,
 		s.IdentityProviders, s.ExternalIdentities, s.AuditEntries, s.Sessions,
 		s.Deliveries, s.SyncRuns,

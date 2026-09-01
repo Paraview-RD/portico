@@ -299,6 +299,12 @@ export interface Settings {
    * sign in. Turning it on is refused where the deployment cannot send one.
    */
   registrationVerification: boolean;
+  /**
+   * Requires a valid invitation code on every self-registration, on top of
+   * registrationEnabled. Meaningless on its own if registrationEnabled is
+   * off — that switch still refuses registration outright.
+   */
+  invitationOnlyRegistration: boolean;
   systemName: string;
 
   /**
@@ -412,6 +418,12 @@ export type RecoveryChannel = "EMAIL" | "SMS";
 
 export interface RegistrationStatus {
   registrationEnabled: boolean;
+  /**
+   * Whether the registration form must collect an invitation code. Says
+   * nothing about whether registration is open at all — registrationEnabled
+   * is still that switch.
+   */
+  invitationOnly: boolean;
   systemName: string;
   /** The tenant the answer is about, resolved from the request. */
   tenant: string;
@@ -506,6 +518,32 @@ export interface OAuthClient {
   postLogoutRedirectUris: string[];
   grantTypes: string[];
   scopes: string[];
+  status: Status;
+  createdAt: string;
+  updatedAt: string;
+}
+
+/**
+ * An administrator-issued, quota-limited code that gates self-registration.
+ *
+ * `status` is ACTIVE or DISABLED only. "Exhausted" (`usedCount >= quota`)
+ * and "expired" (past `expiresAt`) are not stored — they are derived from
+ * the fields below, the same way the server derives them at redemption
+ * time. A code showing ACTIVE after its quota is spent is correct: this
+ * field says whether an administrator has disabled it, not whether it
+ * currently has anything left to give.
+ */
+export interface Invitation {
+  id: string;
+  tenantId: string;
+  code: string;
+  /** Empty when the code assigns no organization. */
+  organizationId: string;
+  groupIds: string[];
+  quota: number;
+  usedCount: number;
+  /** Undefined for a code that never expires. */
+  expiresAt?: string;
   status: Status;
   createdAt: string;
   updatedAt: string;

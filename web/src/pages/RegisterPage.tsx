@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 
 import { tenantStore } from "../api/client";
 import { authApi } from "../api/endpoints";
@@ -21,14 +21,19 @@ export function RegisterPage() {
       tenantStore.get() ??
       "",
   );
-  const [form, setForm] = useState({
+  const [form, setForm] = useState(() => ({
     username: "",
     displayName: "",
     password: "",
     confirmPassword: "",
     phone: "",
     email: "",
-  });
+    // Carried over from a ?code= link, the same way ?tenant= carries the
+    // tenant above — an administrator hands out one link rather than a
+    // tenant and a code to be typed separately.
+    invitationCode:
+      new URLSearchParams(window.location.search).get("code") ?? "",
+  }));
   const [error, setError] = useState("");
   const [done, setDone] = useState(false);
   // Whether this tenant makes the address prove itself before the account
@@ -36,10 +41,31 @@ export function RegisterPage() {
   // and cannot read the tenant's settings.
   const [mustConfirm, setMustConfirm] = useState(false);
   const [submitting, setSubmitting] = useState(false);
+  // Whether this tenant requires an invitation code on every registration.
+  // Answered by the server for the same reason as mustConfirm above: this
+  // screen is anonymous and cannot read the tenant's settings directly.
+  // Re-asked when the tenant field changes, since the answer belongs to
+  // whichever tenant is currently named there.
+  const [invitationOnly, setInvitationOnly] = useState(false);
 
   function set(field: keyof typeof form, value: string) {
     setForm((previous) => ({ ...previous, [field]: value }));
   }
+
+  function checkInvitationRequirement(forTenant: string) {
+    tenantStore.set(forTenant);
+    authApi
+      .registrationStatus()
+      .then((status) => setInvitationOnly(status.invitationOnly))
+      .catch(() => setInvitationOnly(false));
+  }
+
+  // Only on mount: the tenant field re-checks itself on blur (below), which
+  // is when somebody has actually finished typing a different one rather
+  // than on every keystroke. checkInvitationRequirement reads `tenant` from
+  // the render it was defined in, which is what makes that the right thing
+  // to skip on rather than a bug.
+  useEffect(() => checkInvitationRequirement(tenant), []); // eslint-disable-line react-hooks/exhaustive-deps
 
   async function handleSubmit(event: React.FormEvent) {
     event.preventDefault();
@@ -62,6 +88,7 @@ export function RegisterPage() {
         password: form.password,
         phone: form.phone,
         email: form.email,
+        invitationCode: form.invitationCode || undefined,
       });
       // The server says whether this tenant requires the address to be
       // confirmed. Reading it from the response rather than from the
@@ -106,10 +133,28 @@ export function RegisterPage() {
             <Input
               value={tenant}
               onChange={(e) => setTenant(e.target.value)}
+              onBlur={(e) => checkInvitationRequirement(e.target.value)}
               autoComplete="organization"
               placeholder="default"
             />
           </Field>
+
+          {/* Shown only where the tenant requires it — a field that always
+              appeared would ask most deployments' registrants for something
+              that does not exist. */}
+          {invitationOnly && (
+            <Field
+              label={t("register.invitationCode")}
+              hint={t("register.invitationCodeHint")}
+              required
+            >
+              <Input
+                value={form.invitationCode}
+                onChange={(e) => set("invitationCode", e.target.value)}
+                required
+              />
+            </Field>
+          )}
 
           <Field label={t("login.username")} required>
             <Input

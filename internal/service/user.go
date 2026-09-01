@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"net/mail"
 	"strings"
+	"time"
 
 	"github.com/google/uuid"
 
@@ -69,6 +70,18 @@ var (
 		"This account has been disabled.")
 	ErrRegistrationDisabled = httpx.UnprocessableEntity("REGISTRATION_DISABLED",
 		"Self-service registration is currently closed.")
+	// ErrInvitationRequired is returned when a tenant requires an invitation
+	// code for registration and none was given.
+	ErrInvitationRequired = httpx.BadRequest("INVITATION_REQUIRED",
+		"An invitation code is required to register.")
+	// ErrInvitationNotUsable covers every reason a code cannot be redeemed —
+	// nonexistent, disabled, expired, or out of quota — as a single message.
+	// Distinguishing them in the response would let a code be probed:
+	// "expired" confirms the code once existed, "disabled" confirms an
+	// administrator acted on it. None of that is anyone's business but the
+	// administrator who issued it.
+	ErrInvitationNotUsable = httpx.BadRequest("INVITATION_INVALID",
+		"This invitation code is not valid.")
 )
 
 // UserService owns account lifecycle and credentials.
@@ -358,11 +371,27 @@ type CreateUserInput struct {
 	Email          string
 	Role           model.Role
 	OrganizationID string
-	Source         model.UserSource
+	// GroupIDs are written as memberships in the same transaction as the
+	// account itself — see docs/adr/0001-invitation-code-lifecycle-and-authorization-model.md.
+	// Nil or empty writes nothing, which is every caller but invitation
+	// redemption today. Unlike OrganizationID, an unknown or cross-tenant
+	// group id fails the whole creation rather than being silently ignored
+	// or resolved to nothing: a group is never optional the way "no
+	// organization" is, so a bad id is a caller bug worth surfacing.
+	GroupIDs []string
+	Source   model.UserSource
 	// MustChangePassword refuses this account at sign-in until the password
 	// is replaced. Set for a bootstrap administrator that took the documented
 	// default; nothing in the API offers it yet.
 	MustChangePassword bool
+
+	// invitationID, when set, is redeemed in the same transaction as the
+	// account it pays for. Unexported: only UserService.Register (same
+	// package, same file's neighbor) may set it. A caller outside this
+	// package has no way to spend an invitation except by going through
+	// Register, which is the whole point — redemption and validation belong
+	// together, not split across a public field anyone could set directly.
+	invitationID string
 }
 
 // Create adds an account to a tenant. The caller is responsible for having
@@ -399,9 +428,10 @@ func (s *UserService) Create(ctx context.Context, tenantID string, in CreateUser
 		return model.User{}, err
 	}
 
-	q := s.store.ForTenant(tenantID)
-
-	orgID, err := s.resolveAssignableOrganization(ctx, q, in.OrganizationID)
+	// Resolved before the transaction opens: this failure has nothing to do
+	// with concurrency, and there is no reason to hold a transaction open
+	// while a validation that could have run outside one runs anyway.
+	orgID, err := s.resolveAssignableOrganization(ctx, s.store.ForTenant(tenantID), in.OrganizationID)
 	if err != nil {
 		return model.User{}, err
 	}
@@ -413,8 +443,60 @@ func (s *UserService) Create(ctx context.Context, tenantID string, in CreateUser
 
 	now := store.Now()
 	id := uuid.NewString()
-	err = q.CreateUser(ctx, sqlcgen.CreateUserParams{
+	err = s.store.WithTx(func(tx *sqlcgen.Queries) error {
+		return s.createUserTx(ctx, tx, tenantID, id, now, in, orgID, hash, policy)
+	})
+	if err != nil {
+		// The unique indexes are the only thing that actually guarantees
+		// uniqueness — a check-then-insert would still lose a race — so the
+		// conflict is recognized here rather than pre-empted.
+		if taken := takenFieldError(err); taken != nil {
+			return model.User{}, taken
+		}
+		var httpErr *httpx.Error
+		if errors.As(err, &httpErr) {
+			return model.User{}, err
+		}
+		return model.User{}, fmt.Errorf("create user: %w", err)
+	}
+
+	created, err := s.Get(ctx, tenantID, id)
+	if err != nil {
+		return model.User{}, err
+	}
+	s.publish(ctx, tenantID, webhook.EventUserCreated, created)
+	return created, nil
+}
+
+// createUserTx does the writes that must commit or roll back together: the
+// account row, its first password-history entry, and — when the caller
+// supplied any — its group memberships. A group that does not exist in this
+// tenant fails the whole transaction, so an invitation code pointing at a
+// group that was deleted after the code was issued never creates a
+// half-provisioned account.
+func (s *UserService) createUserTx(
+	ctx context.Context, tx *sqlcgen.Queries, tenantID, id string, now time.Time,
+	in CreateUserInput, orgID *string, hash string, policy PasswordPolicy,
+) error {
+	if in.invitationID != "" {
+		// The check and the increment happen in the same statement — see
+		// the comment on sqlcgen.RedeemInvitation — so this is what makes
+		// two concurrent registrations against a quota=1 code unable to
+		// both succeed: whichever loses finds no row here and the whole
+		// transaction, including the CreateUser below, rolls back.
+		if _, err := tx.RedeemInvitation(ctx, sqlcgen.RedeemInvitationParams{
+			TenantID: tenantID, ID: in.invitationID, UpdatedAt: now,
+		}); err != nil {
+			if store.IsNoRows(err) {
+				return ErrInvitationNotUsable
+			}
+			return fmt.Errorf("redeem invitation: %w", err)
+		}
+	}
+
+	if err := tx.CreateUser(ctx, sqlcgen.CreateUserParams{
 		ID:             id,
+		TenantID:       tenantID,
 		Username:       in.Username,
 		DisplayName:    in.DisplayName,
 		PasswordHash:   hash,
@@ -431,33 +513,46 @@ func (s *UserService) Create(ctx context.Context, tenantID string, in CreateUser
 		MustChangePassword: in.MustChangePassword,
 		CreatedAt:          now,
 		UpdatedAt:          now,
-	})
-	if err == nil {
-		// The password an account is created with goes into its history too.
-		// Without this the very first password is the one value that can
-		// always be set again — and it is the likeliest one to be tried,
-		// because it is usually the temporary password an administrator
-		// handed over, which the person then "changes" straight back to.
-		if err := s.rememberPassword(ctx, q, id, hash, policy); err != nil {
-			return model.User{}, err
-		}
-	}
-	if err != nil {
-		// The unique indexes are the only thing that actually guarantees
-		// uniqueness — a check-then-insert would still lose a race — so the
-		// conflict is recognized here rather than pre-empted.
-		if taken := takenFieldError(err); taken != nil {
-			return model.User{}, taken
-		}
-		return model.User{}, fmt.Errorf("create user: %w", err)
+	}); err != nil {
+		return err
 	}
 
-	created, err := s.Get(ctx, tenantID, id)
-	if err != nil {
-		return model.User{}, err
+	// The password an account is created with goes into its history too.
+	// Without this the very first password is the one value that can always
+	// be set again — and it is the likeliest one to be tried, because it is
+	// usually the temporary password an administrator handed over, which the
+	// person then "changes" straight back to.
+	if policy.HistoryDepth > 0 {
+		if err := tx.RecordPasswordInHistory(ctx, sqlcgen.RecordPasswordInHistoryParams{
+			ID: uuid.NewString(), TenantID: tenantID, UserID: id,
+			PasswordHash: hash, CreatedAt: now,
+		}); err != nil {
+			return fmt.Errorf("record password history: %w", err)
+		}
+		if err := tx.TrimPasswordHistory(ctx, sqlcgen.TrimPasswordHistoryParams{
+			TenantID: tenantID, UserID: id, Limit: policy.historyDepth(),
+		}); err != nil {
+			return fmt.Errorf("trim password history: %w", err)
+		}
 	}
-	s.publish(ctx, tenantID, webhook.EventUserCreated, created)
-	return created, nil
+
+	for _, groupID := range in.GroupIDs {
+		// Groups have no status column (unlike organizations), so existence
+		// in this tenant is the whole check — see the ADR.
+		if _, err := tx.GetGroup(ctx, sqlcgen.GetGroupParams{TenantID: tenantID, ID: groupID}); err != nil {
+			if store.IsNoRows(err) {
+				return httpx.BadRequest("GROUP_NOT_FOUND",
+					"One of the groups on this invitation no longer exists.")
+			}
+			return fmt.Errorf("get group %s: %w", groupID, err)
+		}
+		if err := tx.AddGroupMember(ctx, sqlcgen.AddGroupMemberParams{
+			TenantID: tenantID, GroupID: groupID, UserID: id, AddedAt: now,
+		}); err != nil {
+			return fmt.Errorf("add group member %s: %w", groupID, err)
+		}
+	}
+	return nil
 }
 
 // UpdateUserInput changes an account's profile. Password and status have

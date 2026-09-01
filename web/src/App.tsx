@@ -15,6 +15,7 @@ import { LandingPage } from "./pages/LandingPage";
 import { LoginPage } from "./pages/LoginPage";
 import { GroupsPage } from "./pages/GroupsPage";
 import { IdentityProvidersPage } from "./pages/IdentityProvidersPage";
+import { InvitationsPage } from "./pages/InvitationsPage";
 import { OrganizationsPage } from "./pages/OrganizationsPage";
 import { PortalPage } from "./pages/PortalPage";
 import { ProfilePage } from "./pages/ProfilePage";
@@ -212,6 +213,8 @@ function AuthenticatedRoute({
       return <OrganizationsPage />;
     case "/groups":
       return <GroupsPage />;
+    case "/invitations":
+      return <InvitationsPage />;
     case "/applications":
       return <ApplicationsPage />;
     case "/provisioning":

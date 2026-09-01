@@ -118,6 +118,14 @@ export const errorsEnUS = {
     "This is the tenant's last active administrator. Promote another account first.",
   REGISTRATION_DISABLED: "Sign-up is closed on this deployment.",
 
+  // --- Invitation codes ---
+  INVITATION_REQUIRED: "An invitation code is required to register.",
+  INVITATION_INVALID:
+    "That invitation code is not valid. Check for typos, or ask whoever gave it to you for a new one.",
+  INVITATION_NOT_FOUND: "No such invitation.",
+  INVALID_QUOTA: "Quota must be at least 1.",
+  CODE_TAKEN: "That invitation code is already in use.",
+
   // --- Organizations ---
   ORGANIZATION_NOT_FOUND: "No such organization.",
   ORGANIZATION_DISABLED: "That organization has been disabled.",

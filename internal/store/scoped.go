@@ -385,6 +385,41 @@ func (s *Scoped) DeleteExpiredSigningKeys(ctx context.Context, before time.Time)
 		sqlcgen.DeleteExpiredSigningKeysParams{TenantID: s.tenantID, RetiredAt: &before})
 }
 
+// CreateInvitation registers an invitation code for self-registration.
+func (s *Scoped) CreateInvitation(ctx context.Context, arg sqlcgen.CreateInvitationParams) error {
+	arg.TenantID = s.tenantID
+	return s.q.CreateInvitation(ctx, arg)
+}
+
+// GetInvitation returns an invitation by its id.
+func (s *Scoped) GetInvitation(ctx context.Context, id string) (sqlcgen.Invitation, error) {
+	return s.q.GetInvitation(ctx, sqlcgen.GetInvitationParams{TenantID: s.tenantID, ID: id})
+}
+
+// GetInvitationByCode returns an invitation by the code presented at
+// registration.
+func (s *Scoped) GetInvitationByCode(ctx context.Context, code string) (sqlcgen.Invitation, error) {
+	return s.q.GetInvitationByCode(ctx,
+		sqlcgen.GetInvitationByCodeParams{TenantID: s.tenantID, Code: code})
+}
+
+// ListInvitations returns every invitation code issued in this tenant.
+func (s *Scoped) ListInvitations(ctx context.Context) ([]sqlcgen.Invitation, error) {
+	return s.q.ListInvitations(ctx, s.tenantID)
+}
+
+// UpdateInvitationStatus disables an invitation code. There is no path back
+// to ACTIVE: disabling is a terminal decision (see ADR-0001).
+func (s *Scoped) UpdateInvitationStatus(ctx context.Context, id, status string, now time.Time) error {
+	return s.q.UpdateInvitationStatus(ctx, sqlcgen.UpdateInvitationStatusParams{
+		TenantID: s.tenantID, ID: id, Status: status, UpdatedAt: now,
+	})
+}
+
+// RedeemInvitation is deliberately not exposed here — see the comment on
+// sqlcgen.RedeemInvitation. It must only be called on a *sqlcgen.Queries
+// bound to the same transaction as the account creation it pays for.
+
 // CreateOAuthClient registers a relying party.
 func (s *Scoped) CreateOAuthClient(ctx context.Context, arg sqlcgen.CreateOAuthClientParams) error {
 	arg.TenantID = s.tenantID

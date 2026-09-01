@@ -74,6 +74,13 @@ const (
 	// without it. Turning it on is refused where no channel can deliver —
 	// see SettingsService.Update.
 	SettingRegistrationVerification = "registration_verification"
+	// SettingInvitationOnlyRegistration requires a valid invitation code on
+	// every self-registration, on top of whatever SettingRegistrationEnabled
+	// says. RegistrationEnabled stays the overall switch — turning it off
+	// still refuses every registration regardless of this — so a deployment
+	// can move from closed to invitation-only to fully open without a gap
+	// where the two settings disagree about which one wins.
+	SettingInvitationOnlyRegistration = "invitation_only_registration"
 	// SettingSystemName is shown in the UI header.
 	SettingSystemName = "system_name"
 	// SettingLockoutThreshold is how many consecutive failed sign-ins lock
@@ -170,8 +177,13 @@ type Settings struct {
 	// its email address or phone number before it can sign in. Without it
 	// somebody can open an account under a colleague's address — and that
 	// address is where a password-reset link would be sent.
-	RegistrationVerification bool   `json:"registrationVerification"`
-	SystemName               string `json:"systemName"`
+	RegistrationVerification bool `json:"registrationVerification"`
+	// InvitationOnlyRegistration requires a valid invitation code on every
+	// self-registration. Meaningless on its own if RegistrationEnabled is
+	// false — that switch is still the one that refuses registration
+	// outright.
+	InvitationOnlyRegistration bool   `json:"invitationOnlyRegistration"`
+	SystemName                 string `json:"systemName"`
 
 	// Branding. All empty by default; each is "not customized" until an
 	// administrator sets it. See the SettingBranding* keys above for what
@@ -603,6 +615,8 @@ func (s *SettingsService) Get(ctx context.Context, tenantID string) (Settings, e
 			loaded.ShowGuides = row.Value == "true"
 		case SettingRegistrationVerification:
 			loaded.RegistrationVerification = row.Value == "true"
+		case SettingInvitationOnlyRegistration:
+			loaded.InvitationOnlyRegistration = row.Value == "true"
 		case SettingSystemName:
 			loaded.SystemName = row.Value
 		case SettingBrandingLogoURL:
@@ -822,14 +836,15 @@ func (s *SettingsService) Update(ctx context.Context, tenantID string, next Sett
 	}
 
 	values := map[string]string{
-		SettingTokenTTLMinutes:           strconv.Itoa(next.TokenTTLMinutes),
-		SettingOIDCAccessTokenTTLMinutes: strconv.Itoa(next.OIDCAccessTokenTTLMinutes),
-		SettingOIDCRefreshTokenTTLDays:   strconv.Itoa(next.OIDCRefreshTokenTTLDays),
-		SettingOIDCSessionMaxAgeDays:     strconv.Itoa(next.OIDCSessionMaxAgeDays),
-		SettingRegistrationEnabled:       strconv.FormatBool(next.RegistrationEnabled),
-		SettingShowGuides:                strconv.FormatBool(next.ShowGuides),
-		SettingRegistrationVerification:  strconv.FormatBool(next.RegistrationVerification),
-		SettingSystemName:                next.SystemName,
+		SettingTokenTTLMinutes:            strconv.Itoa(next.TokenTTLMinutes),
+		SettingOIDCAccessTokenTTLMinutes:  strconv.Itoa(next.OIDCAccessTokenTTLMinutes),
+		SettingOIDCRefreshTokenTTLDays:    strconv.Itoa(next.OIDCRefreshTokenTTLDays),
+		SettingOIDCSessionMaxAgeDays:      strconv.Itoa(next.OIDCSessionMaxAgeDays),
+		SettingRegistrationEnabled:        strconv.FormatBool(next.RegistrationEnabled),
+		SettingShowGuides:                 strconv.FormatBool(next.ShowGuides),
+		SettingRegistrationVerification:   strconv.FormatBool(next.RegistrationVerification),
+		SettingInvitationOnlyRegistration: strconv.FormatBool(next.InvitationOnlyRegistration),
+		SettingSystemName:                 next.SystemName,
 
 		SettingBrandingLogoURL:           next.BrandingLogoURL,
 		SettingBrandingProductName:       next.BrandingProductName,
@@ -881,6 +896,16 @@ func (s *SettingsService) RegistrationEnabled(ctx context.Context, tenantID stri
 		return false, err
 	}
 	return settings.RegistrationEnabled, nil
+}
+
+// InvitationOnlyRegistration is a convenience read used by the registration
+// path, alongside RegistrationEnabled.
+func (s *SettingsService) InvitationOnlyRegistration(ctx context.Context, tenantID string) (bool, error) {
+	settings, err := s.Get(ctx, tenantID)
+	if err != nil {
+		return false, err
+	}
+	return settings.InvitationOnlyRegistration, nil
 }
 
 // localeList renders the locales this build ships, for an error message that

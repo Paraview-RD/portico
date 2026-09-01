@@ -698,6 +698,12 @@ type RegisterInput struct {
 	Password    string
 	Phone       string
 	Email       string
+	// InvitationCode is required when the tenant's InvitationOnlyRegistration
+	// setting is on, and optional otherwise. A code that resolves
+	// successfully pre-assigns its organization and groups to the new
+	// account — see docs/adr/0001-invitation-code-lifecycle-and-authorization-model.md
+	// for why that is allowed to bypass the "left empty" rule below.
+	InvitationCode string
 }
 
 // Register creates an account from a public sign-up request, in the tenant
@@ -706,7 +712,8 @@ type RegisterInput struct {
 // The role is always USER and is never taken from the request: letting a
 // caller pick their own role would make the whole permission model
 // meaningless. Organization is left empty for an administrator to fill in
-// later (§3.4.2).
+// later (§3.4.2) — unless an invitation code says otherwise, in which case
+// that code's own organization and groups are used instead.
 func (s *UserService) Register(ctx context.Context, tenantID string, in RegisterInput, ip string) (model.User, error) {
 	enabled, err := s.settings.RegistrationEnabled(ctx, tenantID)
 	if err != nil {
@@ -716,7 +723,7 @@ func (s *UserService) Register(ctx context.Context, tenantID string, in Register
 		return model.User{}, ErrRegistrationDisabled
 	}
 
-	user, err := s.Create(ctx, tenantID, CreateUserInput{
+	create := CreateUserInput{
 		Username:    in.Username,
 		DisplayName: in.DisplayName,
 		Password:    in.Password,
@@ -724,7 +731,39 @@ func (s *UserService) Register(ctx context.Context, tenantID string, in Register
 		Email:       in.Email,
 		Role:        model.RoleUser,
 		Source:      model.SourceRegistration,
-	})
+	}
+
+	code := strings.TrimSpace(in.InvitationCode)
+	if code == "" {
+		invitationOnly, err := s.settings.InvitationOnlyRegistration(ctx, tenantID)
+		if err != nil {
+			return model.User{}, err
+		}
+		if invitationOnly {
+			return model.User{}, ErrInvitationRequired
+		}
+	} else {
+		// A fast pre-check outside any transaction: an obviously dead code
+		// (wrong, disabled, expired) fails here without opening one. Quota
+		// is deliberately not re-verified here — RedeemInvitation checks
+		// and spends it atomically inside the transaction below, which is
+		// the only place that check can be race-free.
+		row, err := s.store.ForTenant(tenantID).GetInvitationByCode(ctx, code)
+		if err != nil {
+			if store.IsNoRows(err) {
+				return model.User{}, ErrInvitationNotUsable
+			}
+			return model.User{}, fmt.Errorf("get invitation: %w", err)
+		}
+		if err := invitationUsable(row, store.Now()); err != nil {
+			return model.User{}, err
+		}
+		create.invitationID = row.ID
+		create.OrganizationID = deref(row.OrganizationID)
+		create.GroupIDs = row.GroupIds
+	}
+
+	user, err := s.Create(ctx, tenantID, create)
 	if err != nil {
 		return model.User{}, err
 	}

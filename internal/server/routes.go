@@ -300,6 +300,12 @@ func (s *Server) routes() http.Handler {
 					h.ReplaceFieldMappings(service.RecipientOAuthClient, "clientID"))
 			})
 
+			r.Route("/invitations", func(r chi.Router) {
+				r.Get("/", h.ListInvitations)
+				r.Post("/", h.CreateInvitation)
+				r.Post("/{invitationID}/disable", h.DisableInvitation)
+			})
+
 			// These two are addressed by the registration's own id, not by
 			// its entity id or URL prefix. Those are a URI and a URL, so
 			// putting one in a path segment means percent-encoding its

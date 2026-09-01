@@ -90,6 +90,13 @@ export const errorsZhCN: Record<keyof typeof errorsEnUS, string> = {
   LAST_ADMIN: "这是本租户最后一名在用管理员，请先指定另一名管理员。",
   REGISTRATION_DISABLED: "本部署未开放自主注册。",
 
+  // --- 邀请码 ---
+  INVITATION_REQUIRED: "注册需要填写邀请码。",
+  INVITATION_INVALID: "邀请码无效，请检查是否输入有误，或联系发放人重新获取。",
+  INVITATION_NOT_FOUND: "邀请码不存在。",
+  INVALID_QUOTA: "配额至少为 1。",
+  CODE_TAKEN: "该邀请码已被占用。",
+
   // --- 组织 ---
   ORGANIZATION_NOT_FOUND: "组织不存在。",
   ORGANIZATION_DISABLED: "该组织已被停用。",

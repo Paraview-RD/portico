@@ -67,6 +67,10 @@ tags:
       a directory. Membership grants nothing.
   - name: Applications
     description: The systems that sign in through Portico.
+  - name: Invitations
+    description: |
+      Administrator-issued, quota-limited codes that let self-registration
+      stay closed to the public while admitting specific people.
   - name: Provisioning
     description: The credentials a directory authenticates to SCIM with.
   - name: Directories
@@ -211,6 +215,13 @@ paths:
                 phone: { type: string }
                 email: { type: string, format: email }
                 tenant: { type: string }
+                invitationCode:
+                  type: string
+                  description: |
+                    Required when the tenant's registration status reports
+                    invitationOnly. A valid code pre-assigns its organization
+                    and groups to the new account, whether or not
+                    invitationOnly is on.
       responses:
         "200":
           description: Registered.
@@ -2408,6 +2419,88 @@ paths:
               schema: { $ref: "#/components/schemas/FieldMappingListEnvelope" }
         "400":
           $ref: "#/components/responses/ValidationFailed"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+
+  /api/v1/invitations:
+    get:
+      tags: [Invitations]
+      operationId: listInvitations
+      summary: Issued invitation codes.
+      responses:
+        "200":
+          description: The invitation codes.
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/InvitationListEnvelope" }
+        "403":
+          $ref: "#/components/responses/Forbidden"
+    post:
+      tags: [Invitations]
+      operationId: createInvitation
+      summary: Issue an invitation code.
+      description: |
+        Organization and groups, if given, must exist in this tenant now —
+        and are checked again when the code is redeemed, since either could
+        be removed in between.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [code, quota]
+              properties:
+                code: { type: string }
+                organizationId:
+                  type: string
+                  description: Optional. Applied to the new account at redemption.
+                groupIds:
+                  type: array
+                  items: { type: string }
+                  description: Optional. Applied to the new account at redemption.
+                quota:
+                  type: integer
+                  description: Maximum number of successful registrations. At least 1.
+                expiresAt:
+                  type: string
+                  format: date-time
+                  description: Optional. Omitted or null means the code never expires.
+      responses:
+        "200":
+          description: Issued.
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/InvitationEnvelope" }
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "409":
+          $ref: "#/components/responses/Conflict"
+        "422":
+          $ref: "#/components/responses/ValidationFailed"
+
+  /api/v1/invitations/{invitationID}/disable:
+    post:
+      tags: [Invitations]
+      operationId: disableInvitation
+      summary: Shut off an invitation code.
+      description: |
+        Terminal: there is no operation that returns a code to ACTIVE. An
+        administrator who wants the same access available again issues a
+        new code.
+      parameters:
+        - name: invitationID
+          in: path
+          required: true
+          schema: { type: string }
+      responses:
+        "200":
+          description: Disabled.
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/InvitationEnvelope" }
         "403":
           $ref: "#/components/responses/Forbidden"
         "404":
@@ -4781,6 +4874,13 @@ components:
             Requires a self-registered account to confirm its email address
             or phone number before it can sign in. Turning it on is refused
             where the deployment has no way to send one.
+        invitationOnlyRegistration:
+          type: boolean
+          description: |
+            Requires a valid invitation code on every self-registration, on
+            top of registrationEnabled. registrationEnabled is still the
+            overall switch: turning it off refuses registration regardless
+            of this.
         brandingLogoUrl:
           type: string
           description: |
@@ -4954,6 +5054,12 @@ components:
             Requires a self-registered account to confirm its email address
             or phone number before it can sign in. Turning it on is refused
             where the deployment has no way to send one.
+        invitationOnly:
+          type: boolean
+          description: |
+            Whether the registration form must collect an invitation code.
+            Says nothing about whether registration is open at all —
+            registrationEnabled is still that switch.
         systemName: { type: string }
         tenant: { type: string }
         tenantName: { type: string }
@@ -6000,6 +6106,51 @@ components:
             data:
               type: array
               items: { $ref: "#/components/schemas/OAuthClient" }
+
+    Invitation:
+      type: object
+      properties:
+        id: { type: string }
+        tenantId: { type: string }
+        code: { type: string }
+        organizationId:
+          type: string
+          description: Empty when the code assigns no organization.
+        groupIds: { type: array, items: { type: string } }
+        quota: { type: integer }
+        usedCount: { type: integer }
+        expiresAt:
+          type: string
+          format: date-time
+          description: Absent for a code that never expires.
+        status:
+          type: string
+          enum: [ACTIVE, DISABLED]
+          description: |
+            ACTIVE or DISABLED only. "Exhausted" (usedCount reached quota)
+            and "expired" (past expiresAt) are not stored here — a client
+            derives them from the fields above, the same way the server does
+            at redemption time. A code showing ACTIVE after its quota is
+            spent is correct: this field says whether an administrator has
+            disabled it, not whether it currently has anything left to give.
+        createdAt: { type: string, format: date-time }
+        updatedAt: { type: string, format: date-time }
+
+    InvitationEnvelope:
+      allOf:
+        - $ref: "#/components/schemas/Envelope"
+        - type: object
+          properties:
+            data: { $ref: "#/components/schemas/Invitation" }
+
+    InvitationListEnvelope:
+      allOf:
+        - $ref: "#/components/schemas/Envelope"
+        - type: object
+          properties:
+            data:
+              type: array
+              items: { $ref: "#/components/schemas/Invitation" }
 
     RegisteredClientEnvelope:
       allOf:

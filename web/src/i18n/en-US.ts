@@ -139,6 +139,8 @@ export const enUS = {
   "register.confirmPassword": "Confirm password",
   "register.phone": "Phone",
   "register.email": "Email",
+  "register.invitationCode": "Invitation code",
+  "register.invitationCodeHint": "Ask whoever invited you for this code.",
   "register.submit": "Create account",
   "register.haveAccount": "Already have an account?",
   "register.signIn": "Sign in",
@@ -459,6 +461,9 @@ export const enUS = {
   "settings.registrationVerification": "Require a confirmed email address",
   "settings.registrationVerificationHelp":
     "A self-registered account cannot sign in until it opens a link sent to the address it gave. Without this, somebody can open an account under a colleague's address — and that address is where a password-reset link would be sent. Needs a mail relay; saving is refused without one.",
+  "settings.invitationOnlyRegistration": "Require an invitation code",
+  "settings.invitationOnlyRegistrationHelp":
+    "Nobody can register without a valid code, even though registration is open. Issue and manage codes from Invitations.",
   "settings.lockoutLegend": "Failed sign-in lockout",
   "settings.lockoutHelp":
     "Locks an account after repeated wrong passwords. This is not a rate limit — it stops one account's password being guessed, and does nothing about the load a flood of attempts puts on the server. Keep the reverse proxy throttle as well.",
@@ -533,6 +538,7 @@ export const enUS = {
   "groups.ofUser": "Groups",
   "groups.none": "None",
   "nav.groups": "Groups",
+  "nav.invitations": "Invitations",
 
   "webhooks.title": "Event subscriptions (webhooks)",
   "webhooks.subtitle":
@@ -1189,6 +1195,40 @@ export const enUS = {
   "profile.unlink": "Unlink",
   "profile.unlinkConfirm":
     "Unlinking {0} means you can no longer sign in through it. Your password still works.",
+
+  "invitations.title": "Invitations",
+  "invitations.subtitle":
+    "Codes that let people register themselves without opening registration to the public.",
+  "invitations.guideTitle": "How invitation codes work",
+  "invitations.guideBody":
+    'Issue a code and give it to whoever should be able to register::A code has a quota — once that many accounts have registered with it, it stops working::Bind a code to an organization or group and every account it creates is placed there automatically::To require a code on every registration, turn on "Require an invitation code" in Settings',
+  "invitations.new": "New invitation",
+  "invitations.colCode": "Code",
+  "invitations.colQuota": "Used / quota",
+  "invitations.colScope": "Assigns",
+  "invitations.colExpires": "Expires",
+  "invitations.colStatus": "Status",
+  "invitations.neverExpires": "Never",
+  "invitations.noScope": "— none —",
+  "invitations.terminal": "Disabled — issue a new code instead",
+  "invitations.status.active": "Active",
+  "invitations.status.exhausted": "Exhausted",
+  "invitations.status.expired": "Expired",
+  "invitations.status.disabled": "Disabled",
+  "invitations.fieldCode": "Code",
+  "invitations.generate": "Generate",
+  "invitations.fieldQuota": "Quota",
+  "invitations.unlimited": "No limit",
+  "invitations.fieldExpires": "Expires (optional)",
+  "invitations.fieldExpiresHint": "Leave empty for a code that never expires.",
+  "invitations.fieldOrganization": "Assign to organization (optional)",
+  "invitations.fieldGroup": "Assign to group (optional)",
+  "invitations.noneOption": "— none —",
+  "invitations.assignHint":
+    "Anyone who registers with this code is placed there automatically — no manual assignment afterwards.",
+  "invitations.disableTitle": "Disable invitation",
+  "invitations.disableMessage":
+    "This is permanent. {0} will stop working immediately, and there is no way to re-enable it — issue a new code instead.",
 } as const;
 
 export type TranslationKey = keyof typeof enUS;

@@ -166,6 +166,7 @@ func New(cfg *config.Config, opts ...Option) (*Server, error) {
 	casServer := casp.New(cfg.PublicURL, tenants, casServices, fields, fieldMappings, audit)
 
 	groups := service.NewGroupService(st, audit)
+	invitations := service.NewInvitationService(st, audit)
 	logos := service.NewApplicationLogoService(st)
 	attributes := service.NewUserAttributeService(st, audit)
 	webhooks := service.NewWebhookService(st, audit).WithFieldMappings(fields, fieldMappings)
@@ -219,7 +220,7 @@ func New(cfg *config.Config, opts ...Option) (*Server, error) {
 		store: st,
 		handler: handler.New(users, orgs, audit, settings, tenants, recovery, verification, sessions,
 			clients, serviceProviders, samlKeys, casServices, scimCredentials,
-			directories, webhooks, externalIDP, groups, logos, attributes, fields, fieldMappings,
+			directories, webhooks, externalIDP, groups, invitations, logos, attributes, fields, fieldMappings,
 			providers, samlProviders, casServer, trials),
 		middleware:    auth.NewMiddleware(tokens, users, sessions),
 		metrics:       registry,

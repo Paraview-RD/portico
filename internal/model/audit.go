@@ -276,6 +276,12 @@ const (
 	// that happened, and six entries describing it row by row would be six
 	// entries about one decision.
 	ActionFieldMappingReplace = "FIELD_MAPPING_REPLACE"
+
+	// Invitation codes. There is no ACTION_INVITATION_ENABLE to pair with
+	// disable — disabling is terminal (see ADR-0001), so the audit trail
+	// only ever needs to say a code was created or shut off, never restored.
+	ActionInvitationCreate  = "INVITATION_CREATE"
+	ActionInvitationDisable = "INVITATION_DISABLE"
 )
 
 // There is deliberately no verb for a downstream synchronisation.

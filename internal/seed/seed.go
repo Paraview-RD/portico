@@ -52,20 +52,21 @@ import (
 type Seeder struct {
 	store *store.Store
 
-	tenants  *service.TenantService
-	settings *service.SettingsService
-	users    *service.UserService
-	orgs     *service.OrganizationService
-	groups   *service.GroupService
-	clients  *service.OAuthClientService
-	sps      *service.SAMLServiceProviderService
-	cas      *service.CASService
-	scim     *service.SCIMCredentialService
-	webhooks *service.WebhookService
-	dirs     *service.DirectoryService
-	attrs    *service.UserAttributeService
-	mappings *service.FieldMappingService
-	audit    *service.AuditService
+	tenants     *service.TenantService
+	settings    *service.SettingsService
+	users       *service.UserService
+	orgs        *service.OrganizationService
+	groups      *service.GroupService
+	clients     *service.OAuthClientService
+	sps         *service.SAMLServiceProviderService
+	cas         *service.CASService
+	scim        *service.SCIMCredentialService
+	webhooks    *service.WebhookService
+	dirs        *service.DirectoryService
+	attrs       *service.UserAttributeService
+	mappings    *service.FieldMappingService
+	audit       *service.AuditService
+	invitations *service.InvitationService
 
 	// password is Options.Password, resolved once at the start of Run so that
 	// every account created below gets the same one without threading it
@@ -163,22 +164,23 @@ func New(st *store.Store, cfg *config.Config) *Seeder {
 	}
 
 	return &Seeder{
-		store:    st,
-		tenants:  service.NewTenantService(st),
-		settings: settings,
-		users:    users,
-		orgs:     service.NewOrganizationService(st, audit),
-		groups:   service.NewGroupService(st, audit),
-		clients:  service.NewOAuthClientService(st, audit),
-		sps:      service.NewSAMLServiceProviderService(st, audit),
-		cas:      service.NewCASService(st, users, audit),
-		scim:     service.NewSCIMCredentialService(st, audit),
-		webhooks: webhooks,
-		dirs:     service.NewDirectoryService(st, users, audit, webhooks, vault),
-		attrs:    service.NewUserAttributeService(st, audit),
-		mappings: mappings,
-		audit:    audit,
-		canSeal:  vault != nil,
+		store:       st,
+		tenants:     service.NewTenantService(st),
+		settings:    settings,
+		users:       users,
+		orgs:        service.NewOrganizationService(st, audit),
+		groups:      service.NewGroupService(st, audit),
+		clients:     service.NewOAuthClientService(st, audit),
+		sps:         service.NewSAMLServiceProviderService(st, audit),
+		cas:         service.NewCASService(st, users, audit),
+		scim:        service.NewSCIMCredentialService(st, audit),
+		webhooks:    webhooks,
+		dirs:        service.NewDirectoryService(st, users, audit, webhooks, vault),
+		attrs:       service.NewUserAttributeService(st, audit),
+		mappings:    mappings,
+		audit:       audit,
+		invitations: service.NewInvitationService(st, audit),
+		canSeal:     vault != nil,
 	}
 }
 
@@ -209,6 +211,7 @@ type Summary struct {
 	Sessions           int
 	Deliveries         int
 	SyncRuns           int
+	Invitations        int
 }
 
 // ErrNotEmpty is returned when the database already holds accounts and Force
@@ -249,6 +252,7 @@ func (s *Seeder) Run(ctx context.Context, opts Options) (Summary, error) {
 		{"tenants and settings", s.seedTenants},
 		{"organizations", s.seedOrganizations},
 		{"groups", s.seedGroups},
+		{"invitations", s.seedInvitations},
 		{"accounts", s.seedUsers},
 		{"applications", s.seedApplications},
 		{"integrations", s.seedIntegrations},
