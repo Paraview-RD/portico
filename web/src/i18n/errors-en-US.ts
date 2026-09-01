@@ -257,6 +257,8 @@ export const errorsEnUS = {
   INVALID_LAUNCH_URL: "A launch address must be an http or https URL.",
   INVALID_LOGO_URI:
     "A logo address must be an http or https URL, or a path on this server such as /icons/wiki.svg.",
+  INVALID_FOOTER_LINK_URI:
+    "A footer link must be an http or https URL, or a mailto: address.",
   INVALID_NAME: "A name is required.",
   INVALID_SETTINGS: "Those settings are not valid.",
   INVALID_LOG_KIND: "That is not a valid log type.",
