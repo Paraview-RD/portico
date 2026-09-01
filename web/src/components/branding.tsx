@@ -65,7 +65,19 @@ export function brandingStyle(branding: Branding): CSSProperties {
     style["--color-primary-soft-hover"] =
       `color-mix(in srgb, ${branding.colorPrimary} 25%, white)`;
   }
-  if (branding.fontFamily) style["--font-family"] = branding.fontFamily;
+  if (branding.fontFamily) {
+    // Setting only the custom property does nothing here: theme.css
+    // declares `font-family: var(--font-family)` exactly once, on <html>,
+    // far above this subtree — every element below inherits *that*
+    // resolved value, not a live re-read of --font-family at this deeper
+    // scope. (Colour works the opposite way: every component references
+    // var(--color-primary) at its own call site, so overriding the
+    // variable here is enough.) The real `font-family` property has to be
+    // set directly so normal CSS inheritance carries the actual font down
+    // to every descendant that does not specify its own.
+    style["--font-family"] = branding.fontFamily;
+    style.fontFamily = branding.fontFamily;
+  }
   return style as CSSProperties;
 }
 
