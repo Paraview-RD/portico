@@ -2,8 +2,9 @@ import { useEffect, useState } from "react";
 
 import { ApiError, tenantStore } from "../api/client";
 import { authApi, trialApi } from "../api/endpoints";
-import type { ExternalSignInOption } from "../api/types";
+import type { Branding, ExternalSignInOption } from "../api/types";
 import { AuthLink, AuthShell } from "../components/AuthShell";
+import { noBranding } from "../components/branding";
 import { Alert, Button, Field, Input } from "../components/ui";
 import { useErrorMessage, useT } from "../i18n";
 import { useRouter } from "../router";
@@ -84,13 +85,15 @@ export function LoginPage() {
   const mustReplacePassword = replaceReason !== "";
   const [newPassword, setNewPassword] = useState("");
   const [systemName, setSystemName] = useState("Portico");
-  // The one copy override branding has, and it belongs to this screen
-  // specifically — AuthShell fetches branding for the logo, colour and
-  // footer it renders on all five unauthenticated screens, but a heading
-  // override is meaningful only for the screen that has a heading to
-  // replace, so it is read from this component's own registration-status
-  // call rather than threaded through AuthShell as a sixth prop.
-  const [loginHeading, setLoginHeading] = useState("");
+  // Passed down to AuthShell rather than left for it to fetch on its own.
+  // This screen already calls registrationStatus below — for
+  // systemName/registrationEnabled, which are tenant-specific — and
+  // re-fetches it whenever the tenant field settles on a new value. If
+  // AuthShell fetched branding independently, switching tenants here would
+  // update the heading and registration link but leave the logo, colour
+  // and footer showing the previous tenant's — sharing one fetch is what
+  // keeps them from disagreeing.
+  const [branding, setBranding] = useState<Branding>(noBranding);
 
   // A 404 is the answer on every ordinary installation, and it means "no"
   // rather than "something went wrong" — the routes are not registered unless
@@ -117,16 +120,16 @@ export function LoginPage() {
       .then((status) => {
         setRegistrationOpen(status.registrationEnabled);
         setSystemName(status.systemName);
-        setLoginHeading(status.branding.loginHeading);
+        setBranding(status.branding);
       })
       .catch(() => {
         // An unknown tenant lands here. Sign-in will say so plainly, which
         // is more useful than an error under a field they may not have
         // finished filling in — but the header must not keep showing the
-        // previous tenant's name as though this one existed.
+        // previous tenant's name, mark or colour as though this one existed.
         setRegistrationOpen(false);
         setSystemName("Portico");
-        setLoginHeading("");
+        setBranding(noBranding);
       });
 
     // Which buttons this tenant offers, asked in the same breath and for the
@@ -218,7 +221,8 @@ export function LoginPage() {
 
   return (
     <AuthShell
-      title={loginHeading || t("login.title")}
+      title={branding.loginHeading || t("login.title")}
+      branding={branding}
       subtitle={
         // Which tenant is being signed in to, once the server has resolved
         // one. A deployment with only the default tenant never sees this,

@@ -38,6 +38,7 @@ export function AuthShell({
   children,
   footer,
   wide = false,
+  branding: brandingOverride,
 }: {
   title: string;
   subtitle?: string;
@@ -50,22 +51,42 @@ export function AuthShell({
    * it labels.
    */
   wide?: boolean;
+  /**
+   * Supplied by LoginPage, which fetches registrationStatus itself already
+   * (for systemName/registrationEnabled) and re-fetches it whenever the
+   * person typing in the tenant field settles on a new one. Branding rides
+   * along on that same, already-tenant-aware request rather than this
+   * component fetching a second, independent copy on mount — which would
+   * both duplicate the request and, worse, never update when the tenant
+   * changes after the first render, showing one tenant's heading beside
+   * another tenant's mark and colour.
+   *
+   * The other four screens have no tenant switcher, so they omit this and
+   * fall back to fetching once on mount, below.
+   */
+  branding?: Branding;
 }) {
   const t = useT();
 
-  // Fetched here, once, rather than in each of the five screens that render
-  // through this shell — the same reasoning the class comment above gives
-  // for the lockup itself: a per-screen fetch is a per-screen chance to
-  // drift, or to simply be forgotten on the next new screen.
-  const [branding, setBranding] = useState<Branding>(noBranding);
+  // Fetched here, once, rather than in each of the four screens that would
+  // otherwise need their own copy — the same reasoning the class comment
+  // above gives for the lockup itself: a per-screen fetch is a per-screen
+  // chance to drift, or to simply be forgotten on the next new screen.
+  // Skipped entirely when the caller already supplies branding (LoginPage).
+  const [fetchedBranding, setFetchedBranding] = useState<Branding>(noBranding);
   useEffect(() => {
+    if (brandingOverride) return;
     const controller = new AbortController();
     authApi
       .registrationStatus(controller.signal)
-      .then((status) => setBranding(status.branding))
-      .catch(() => setBranding(noBranding));
+      .then((status) => setFetchedBranding(status.branding))
+      .catch(() => setFetchedBranding(noBranding));
     return () => controller.abort();
+    // Whether a screen passes branding at all is fixed for that screen —
+    // it never starts undefined and later gains a value — so this effect
+    // only needs to run once per mount, same as before.
   }, []);
+  const branding = brandingOverride ?? fetchedBranding;
 
   return (
     <div

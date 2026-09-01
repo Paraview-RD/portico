@@ -16,7 +16,7 @@
  * actually seen at most of the time.
  */
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 
 interface MarkProps {
   size?: number;
@@ -97,6 +97,14 @@ export function BrandLockup({
   logoSrc?: string;
 }) {
   const [logoFailed, setLogoFailed] = useState(false);
+  // Reset when the address itself changes, not just once per mount. The
+  // live branding preview re-renders this component on every keystroke
+  // with a new logoSrc — without this, typing a broken URL first and then
+  // correcting it would leave the fallback glyph showing forever, telling
+  // whoever is editing the field their working logo is still broken.
+  useEffect(() => {
+    setLogoFailed(false);
+  }, [logoSrc]);
 
   return (
     <div className="flex items-center gap-2.5">

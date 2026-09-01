@@ -164,6 +164,22 @@ func TestBrandingRejectsAFooterLink(t *testing.T) {
 	}
 }
 
+// TestBrandingRejectsAnEmptyLinkAddress proves mode "link" cannot be saved
+// with no address — that would render a footer link with href="" on the
+// sign-in screen, which reloads the page instead of going anywhere.
+func TestBrandingRejectsAnEmptyLinkAddress(t *testing.T) {
+	api := newAPITest(t)
+	admin := api.adminToken()
+
+	res := setBranding(t, api, admin, map[string]any{
+		"brandingFooterPrivacyMode": "link",
+		"brandingFooterPrivacyUrl":  "",
+	})
+	if res.Status != http.StatusBadRequest {
+		t.Errorf("empty address in link mode: got %d, want 400", res.Status)
+	}
+}
+
 // TestBrandingFooterModeSwitchClearsTheOtherField proves the row a link
 // stops in is never ambiguous: switching a slot from a link to inline text,
 // or turning it off, does not leave the previous mode's value sitting in

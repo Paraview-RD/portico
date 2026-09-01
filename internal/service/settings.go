@@ -360,6 +360,17 @@ func normalizeFooterLink(name string, mode, url, text *string) error {
 		if err != nil {
 			return err
 		}
+		// Empty passes normalizeFooterLinkURI — that function is also used
+		// to clear a field, where empty is the point. Here the mode itself
+		// says this slot is shown as a link, and a link with no address
+		// renders as href="", which reloads the page rather than going
+		// anywhere. Refused rather than silently hidden: an administrator
+		// who chose "link" and forgot to fill it in should see that in the
+		// form, not discover a dead link on the sign-in screen.
+		if normalized == "" {
+			return httpx.BadRequest("INVALID_SETTINGS",
+				fmt.Sprintf("The %s address is required when shown as a link.", name))
+		}
 		*url = normalized
 		*text = ""
 	case "text":
