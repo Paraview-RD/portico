@@ -62,6 +62,45 @@ portico tenant disable --code <code>
 
 ---
 
+## portico invitation
+
+发放和管理用来控制自助注册的邀请码。控制台能做的这里都能做——用于还没有人登录的
+首次部署、用于脚本化操作、也用于控制台连不上的时候。
+
+```
+portico invitation create  --code <code> --quota <n> [--tenant <code>]
+                            [--organization-id <id>] [--group-id <id>]
+                            [--expires-in <duration>]
+portico invitation list    [--tenant <code>]
+portico invitation disable --id <invitation-id> [--tenant <code>]
+```
+
+### invitation create
+
+| 参数 | 必填 | 说明 |
+|---|---|---|
+| `--code` | 是 | 注册时输入的邀请码 |
+| `--quota` | 是 | 最多能促成的注册次数。大于 1 是常见用法——一个码一次性发出去，给多个人用 |
+| `--tenant` | 否 | 租户代码（默认为默认租户） |
+| `--organization-id` | 否 | 兑换成功后新账号归属的组织 |
+| `--group-id` | 否，可重复 | 兑换成功后新账号加入的用户组 |
+| `--expires-in` | 否 | 有效期，如 `720h`；留空表示永不过期 |
+
+### invitation list
+
+列出该租户下发放的所有邀请码：id、码、配额、已促成的注册次数、状态和有效期。
+
+### invitation disable
+
+| 参数 | 必填 | 说明 |
+|---|---|---|
+| `--id` | 是 | 邀请码 id |
+| `--tenant` | 否 | 租户代码 |
+
+停用是不可逆的：没有让邀请码恢复生效的命令，只能发一个新的。
+
+---
+
 ## portico client
 
 注册和管理通过 Portico 登录的 OIDC/OAuth 2.1 应用。控制台也能完成这些操作；CLI

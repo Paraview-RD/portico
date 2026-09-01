@@ -401,6 +401,26 @@ Somebody refused for an unconfirmed address is told so at sign-in and can ask
 for another message from that screen — they have to type the address rather
 than the username, because that is where it goes.
 
+**A third, independent gate: invitation-only registration.** Settings →
+Require an invitation code refuses every registration that doesn't carry a
+valid one, checked after the two settings above — turning registration off
+still refuses everything regardless of this.
+
+Codes are managed on their own **Invitations** page, administrators only.
+Each has a quota — how many accounts it can create, not how many people can
+share it once; a quota of ten issued once and handed to ten people is the
+normal case — and an optional expiry, and can be bound to an organization
+and/or groups so a redemption is placed there automatically. Disabling a
+code is permanent: there is no operation that returns it to active, only
+issuing a new one. "Exhausted" and "expired" are never stored — they're
+computed from the same used-count/quota and expiry fields everywhere they're
+shown, including in this list.
+
+A link can carry the code — `/register?code=WELCOME-TECH` fills the field
+the way `?tenant=` fills the tenant above it — and the same three operations
+are available before anybody has signed in, from
+`portico invitation create|list|disable` (see [cli.md](cli.md)).
+
 ## Self-service trials — a demonstration only
 
 `PORTICO_TRIAL_SIGNUP=true` adds three endpoints and a form that let somebody
