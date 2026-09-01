@@ -172,11 +172,22 @@ func ClientIP(r *http.Request) string {
 //
 // img-src admits https, not only this origin and data: URIs, because an
 // application's logo, a branding logo, and a branding background image
-// are all addresses a form accepts as an external https URL —
-// normalizeLogoURI and its siblings already refuse plain http for the
-// same reason everything else external here is https-only. Without this,
-// a browser draws the address this server was handed and then silently
-// refuses to render it: the form saves, and the picture never appears.
+// are all addresses a form accepts as an external https URL. Without
+// this, a browser draws the address this server was handed and then
+// silently refuses to render it: the form saves, and the picture never
+// appears.
+//
+// http is deliberately left out even though normalizeLogoURI accepts a
+// plain http logo address — that acceptance exists for an intranet
+// application no public certificate could ever cover (see
+// TestLogoAddressAcceptsOnlyPicturesThisServerWillVouchFor), not as a
+// promise that http will render. It never has: img-src admitted neither
+// scheme before this change, so a plain-http logo has always saved and
+// never rendered, and widening only https here does not touch that.
+// Whether to also admit http — for that intranet case — is a policy call
+// of its own, not a consequence of this one, and is left to a separate
+// decision.
+//
 // No per-image referrerpolicy compensates for the wider img-src — the
 // Referrer-Policy header below is "no-referrer" for every response,
 // which already governs every subresource request the page makes,

@@ -124,9 +124,13 @@ func TestClientIPUsesForwardingHeadersWhenTrusted(t *testing.T) {
 // logo, can be hosted anywhere — img-src has to admit https, not just
 // this origin and data: URIs, or the address a form accepts is one a
 // browser then silently refuses to draw. http is deliberately left out:
-// everything else this server accepts as an external address is
-// https-only (see normalizeLogoURI, normalizeFooterLinkURI), and img-src
-// widened to plain http would be the one exception.
+// normalizeLogoURI accepts a plain http logo address for an intranet
+// application no public certificate could cover
+// (TestLogoAddressAcceptsOnlyPicturesThisServerWillVouchFor in
+// internal/server), but img-src has never admitted http either, so that
+// address has always saved and never rendered — widening only https
+// here does not change that, and is not a claim that this project treats
+// external addresses as https-only in general.
 //
 // No compensating referrerpolicy is needed here for a CSS
 // background-image the way AppIcon sets one on an <img> element — this
@@ -137,6 +141,19 @@ func TestImgSrcAdmitsHTTPSButNotPlainHTTP(t *testing.T) {
 	csp := httpx.ContentSecurityPolicy()
 	if !contains(csp, "img-src 'self' data: https:") {
 		t.Errorf("img-src does not admit https: %s", csp)
+	}
+
+	imgSrc := ""
+	for _, directive := range strings.Split(csp, ";") {
+		directive = strings.TrimSpace(directive)
+		if strings.HasPrefix(directive, "img-src") {
+			imgSrc = directive
+		}
+	}
+	for _, source := range strings.Fields(imgSrc) {
+		if source == "http:" {
+			t.Errorf("img-src admits plain http, which this server cannot serve safely: %s", csp)
+		}
 	}
 }
 

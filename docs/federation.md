@@ -187,10 +187,12 @@ stored blob that is only safe because of how something happens to render it is a
 trap for whoever changes that component.
 
 The third form has a consequence worth knowing before you use it: the
-`Content-Security-Policy` this server sends allows images from itself and from
-`data:` only, so **an absolute address on another host will not render in a
-browser** even though it is accepted on registration. The first two forms are
-same-origin and unaffected.
+`Content-Security-Policy` this server sends allows images from itself,
+`data:`, and `https:` — so **an absolute `https` address renders**. A plain
+`http` address is still accepted on registration, for an intranet
+application no public certificate could ever cover, but **will not render**:
+the policy admits `https:`, not `http:`. The first two forms are same-origin
+and unaffected either way.
 
 Uploads that no application ends up referencing are removed a day later. The
 upload has to happen before the form is saved, so a cancelled form leaves a
