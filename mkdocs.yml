@@ -97,6 +97,22 @@ theme:
 extra_css:
   - stylesheets/portico.css
 
+# Self-hosted, pinned to a specific release. Material's own bundle draws a
+# Mermaid diagram by fetching https://unpkg.com/mermaid@<major>/... at
+# runtime if window.mermaid is not already defined — which this manual's
+# own script-src (self plus the hashes of its own inline scripts,
+# internal/docs/embed.go) refuses, so every diagram silently failed to
+# render. Loading this file first defines that global before Material's
+# bundle looks for it, so the fetch it would otherwise make never happens
+# — no CSP exception needed, and no page load depends on a third party
+# staying up. The version is pinned rather than left as "whatever unpkg
+# currently resolves @11 to" for the same reason the rest of this manual's
+# script-src is hashes rather than 'unsafe-inline': what renders here
+# should be exactly what was reviewed, not whatever a remote host answers
+# with today.
+extra_javascript:
+  - javascripts/mermaid.min.js
+
 plugins:
   - search
   # Suffix structure: ldap.md and ldap.zh.md sit side by side.
