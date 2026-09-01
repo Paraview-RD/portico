@@ -401,10 +401,13 @@ Somebody refused for an unconfirmed address is told so at sign-in and can ask
 for another message from that screen — they have to type the address rather
 than the username, because that is where it goes.
 
-**A third, independent gate: invitation-only registration.** Settings →
+**A second, independent gate: invitation-only registration.** Settings →
 Require an invitation code refuses every registration that doesn't carry a
-valid one, checked after the two settings above — turning registration off
-still refuses everything regardless of this.
+valid one, checked right after the registration switch above — turning
+registration off still refuses everything regardless of this. It has
+nothing to do with the confirmed-address setting: that one decides whether a
+newly created account can sign in yet, not whether the registration itself
+is accepted.
 
 Codes are managed on their own **Invitations** page, administrators only.
 Each has a quota — how many accounts it can create, not how many people can
