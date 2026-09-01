@@ -13,7 +13,7 @@ Portico 在启动时读取的所有环境变量及其默认值。
 | `PORTICO_DB_DSN` | *(必填)* | PostgreSQL 连接字符串。URL 格式：`postgres://user:pass@host:5432/db?sslmode=disable`，也支持 keyword 格式。 |
 | `PORTICO_ADDR` | `:8410` | HTTP 服务监听的 TCP 地址。 |
 | `PORTICO_PUBLIC_URL` | `http://localhost:8410` | 用户访问本次部署的 URL，用于构建邮件中的链接。生产环境未设置时，密码重置链接将指向 localhost。 |
-| `PORTICO_JWT_SECRET` | *(随机)* | 用于签发和验证 access token，至少 32 字节。未设置时每次进程启动生成一个随机值——重启后会话失效，其他实例也会拒绝该实例签发的 token。生成命令：`openssl rand -hex 32`。 |
+| `PORTICO_JWT_SECRET` | *(随机)* | 用于签发和验证访问令牌（access token），至少 32 字节。未设置时每次进程启动生成一个随机值——重启后会话失效，其他实例也会拒绝该实例签发的 token。生成命令：`openssl rand -hex 32`。 |
 | `PORTICO_ENCRYPTION_KEY` | *(未设置)* | 32 字节十六进制 key，保护 LDAP bind 密码在数据库中的存储。未设置时拒绝保存目录连接器的凭证。必须与 `PORTICO_JWT_SECRET` 不同。生成命令：`openssl rand -hex 32`。 |
 | `PORTICO_LOG_LEVEL` | `info` | 日志详细程度。可选值：`debug`、`info`、`warn`、`error`。 |
 
