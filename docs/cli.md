@@ -66,6 +66,49 @@ undone with `enable`.
 
 ---
 
+## portico invitation
+
+Issues and manages the codes that gate self-registration. The console can do
+all of this too; this is the command-line equivalent — for a first
+deployment before anybody has signed in, for scripting, and for when the
+console cannot be reached.
+
+```
+portico invitation create  --code <code> --quota <n> [--tenant <code>]
+                            [--organization-id <id>] [--group-id <id>]
+                            [--expires-in <duration>]
+portico invitation list    [--tenant <code>]
+portico invitation disable --id <invitation-id> [--tenant <code>]
+```
+
+### invitation create
+
+| Flag | Required | Description |
+|---|---|---|
+| `--code` | yes | The code somebody types at registration |
+| `--quota` | yes | Maximum number of successful registrations. A quota greater than one is the normal case — one code, issued once, handed to several people |
+| `--tenant` | no | Tenant code (defaults to the default tenant) |
+| `--organization-id` | no | Organization assigned to the account on redemption |
+| `--group-id` | no, repeatable | Group assigned to the account on redemption |
+| `--expires-in` | no | How long the code stays valid, e.g. `720h`. Empty never expires |
+
+### invitation list
+
+Lists every code issued in the tenant: id, code, quota, how many
+registrations it has produced, status, and expiry.
+
+### invitation disable
+
+| Flag | Required | Description |
+|---|---|---|
+| `--id` | yes | Invitation id |
+| `--tenant` | no | Tenant code |
+
+Disabling is terminal: there is no command that returns a code to active.
+Issue a new one instead.
+
+---
+
 ## portico client
 
 Registers and manages the OIDC/OAuth 2.1 applications that sign in through
