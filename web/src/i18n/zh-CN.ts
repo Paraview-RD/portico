@@ -460,9 +460,13 @@ export const zhCN: Record<keyof typeof enUS, string> = {
   "branding.colorPrimary": "主色",
   "branding.colorPrimaryHelp": "6 位十六进制颜色值，如 #2563eb。",
   "branding.fontFamily": "字体",
-  "branding.fontFamilyHelp": "CSS font-family 取值。",
-  "branding.bgImageUrl": "背景图片地址",
-  "branding.bgImageUrlHelp": "http(s) 地址，留空则不设置。",
+  "branding.fontFamilyHelp": "从内置字体中选择——登录页不会加载外部字体文件。",
+  "branding.fontFamilyOptionDefault": "跟随系统默认",
+  "branding.fontFamilyOptionSerif": "衬线",
+  "branding.fontFamilyOptionMono": "等宽",
+  "branding.bgImageUrl": "背景图片",
+  "branding.bgImageUrlHelp":
+    "PNG 或 JPEG，最大 4MB，最长边不超过 2560px；也可以直接填写完整地址，留空则不设置。",
   "branding.footerPrivacy": "隐私政策",
   "branding.footerTerms": "服务条款",
   "branding.footerSupport": "支持联系方式",
@@ -473,7 +477,8 @@ export const zhCN: Record<keyof typeof enUS, string> = {
   "branding.footerLinkAddress": "地址",
   "branding.footerLinkHelp": "http(s) 地址，或 mailto: 地址。",
   "branding.footerLinkText": "正文",
-  "branding.footerTextHelp": "纯文本，空行分段，不支持其它排版。",
+  "branding.footerTextHelp":
+    "支持 **加粗**、*斜体*、- 列表，空行分段；不支持链接。",
 
   "common.delete": "删除",
 

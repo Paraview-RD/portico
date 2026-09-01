@@ -38,6 +38,18 @@ const (
 	MaxLogoPixels = 1024
 )
 
+// Bounds on an uploaded branding background image.
+//
+// A background fills the whole sign-in screen rather than a small tile, so
+// the logo's caps above would leave it visibly blurry — these are wider for
+// the same reasons the logo's are what they are: the byte cap bounds what a
+// hostile administrator can put in a backup, and the pixel cap catches a
+// highly compressible decompression bomb that a byte cap alone would miss.
+const (
+	MaxBgImageBytes  = 4 << 20 // 4 MiB
+	MaxBgImagePixels = 2560
+)
+
 // ErrUnsupportedImage is a file that will not be stored as a logo.
 //
 // One code for every rejection about the file's own content, with the specific
@@ -51,6 +63,11 @@ var ErrUnsupportedImage = httpx.BadRequest("UNSUPPORTED_IMAGE",
 var ErrLogoTooLarge = httpx.BadRequest("LOGO_TOO_LARGE",
 	fmt.Sprintf("A logo must be under %d KiB and no more than %d pixels on a side.",
 		MaxLogoBytes>>10, MaxLogoPixels))
+
+// ErrBgImageTooLarge is a background image past the size or pixel bound.
+var ErrBgImageTooLarge = httpx.BadRequest("BG_IMAGE_TOO_LARGE",
+	fmt.Sprintf("A background image must be under %d MiB and no more than %d pixels on a side.",
+		MaxBgImageBytes>>20, MaxBgImagePixels))
 
 // ApplicationLogoService stores and serves the pictures on application tiles.
 type ApplicationLogoService struct {
@@ -137,14 +154,32 @@ func decodedBounds(content []byte) (width, height int, err error) {
 func (s *ApplicationLogoService) Upload(
 	ctx context.Context, actor auth.Principal, file io.Reader,
 ) (string, error) {
+	return s.upload(ctx, actor, file, MaxLogoBytes, MaxLogoPixels, ErrLogoTooLarge)
+}
+
+// UploadBgImage validates and stores a branding background image, returning
+// its id. Same table, same validation, same /t/<tenant>/logos/<id> serving
+// path as Upload — a background image is not a distinct kind of row, only a
+// different field ends up pointing at it. Only the size and pixel bounds
+// differ, because a background fills the whole screen rather than a tile.
+func (s *ApplicationLogoService) UploadBgImage(
+	ctx context.Context, actor auth.Principal, file io.Reader,
+) (string, error) {
+	return s.upload(ctx, actor, file, MaxBgImageBytes, MaxBgImagePixels, ErrBgImageTooLarge)
+}
+
+func (s *ApplicationLogoService) upload(
+	ctx context.Context, actor auth.Principal, file io.Reader,
+	maxBytes, maxPixels int, tooLarge error,
+) (string, error) {
 	// One byte past the cap, so a file exactly at the limit is accepted and
 	// anything larger is detected rather than silently truncated.
-	content, err := io.ReadAll(io.LimitReader(file, MaxLogoBytes+1))
+	content, err := io.ReadAll(io.LimitReader(file, int64(maxBytes)+1))
 	if err != nil {
-		return "", fmt.Errorf("read logo: %w", err)
+		return "", fmt.Errorf("read upload: %w", err)
 	}
-	if len(content) > MaxLogoBytes {
-		return "", ErrLogoTooLarge
+	if len(content) > maxBytes {
+		return "", tooLarge
 	}
 	if len(content) == 0 {
 		return "", ErrUnsupportedImage
@@ -159,8 +194,8 @@ func (s *ApplicationLogoService) Upload(
 	if err != nil {
 		return "", err
 	}
-	if width > MaxLogoPixels || height > MaxLogoPixels {
-		return "", ErrLogoTooLarge
+	if width > maxPixels || height > maxPixels {
+		return "", tooLarge
 	}
 
 	sum := sha256.Sum256(content)
@@ -172,11 +207,11 @@ func (s *ApplicationLogoService) Upload(
 			ContentType: contentType,
 			Bytes:       content,
 			Sha256:      hex.EncodeToString(sum[:]),
-			ByteSize:    int32(len(content)), // #nosec G115 -- bounded by MaxLogoBytes above
+			ByteSize:    int32(len(content)), // #nosec G115 -- bounded by maxBytes above
 			CreatedAt:   store.Now(),
 		})
 	if err != nil {
-		return "", fmt.Errorf("store logo: %w", err)
+		return "", fmt.Errorf("store upload: %w", err)
 	}
 
 	return id, nil

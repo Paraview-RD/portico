@@ -11,7 +11,7 @@
  * per-screen logo position is precisely the drift").
  */
 
-import { useState, type CSSProperties } from "react";
+import { useState, type CSSProperties, type ReactNode } from "react";
 
 import { Modal } from "./ui";
 import type { Branding } from "../api/types";
@@ -92,14 +92,140 @@ export function brandingBackgroundStyle(branding: Branding): CSSProperties {
   };
 }
 
-/** Splits plain text into paragraphs on blank-line boundaries. No
- * Markdown, no HTML — see docs/settings.md#branding for why the four
- * unauthenticated screens have no renderer for either. */
-function paragraphs(text: string): string[] {
+/**
+ * A very small, safe markup subset for the three footer text fields —
+ * bold, italic, and lists, and nothing else. See docs/settings.md#branding
+ * for the reasoning; the summary: this text renders on the four
+ * unauthenticated screens (sign-in, register, forgot-password, authorize),
+ * so nothing an administrator pastes in may ever become an executable
+ * action in a visitor's session. A link's href is the one part of
+ * Markdown that can carry one — javascript: schemes, open redirects —
+ * bold/italic/lists cannot, which is why those render and links do not.
+ * Footer *links* already exist as their own mechanism (mode "link", a
+ * validated address) — this does not duplicate or extend that.
+ *
+ * The other half of the safety story is that this never touches
+ * dangerouslySetInnerHTML. Parsing stops at plain data — ParagraphBlock /
+ * ListBlock / InlineToken below — and renderBrandingText turns that data
+ * into real React elements. There is no HTML string at any point for
+ * something pasted in to break out of, so there is nothing to sanitize:
+ * the safety property holds by construction, not by escaping.
+ */
+
+export type InlineToken =
+  { type: "text"; value: string } | { type: "bold" | "italic"; value: string };
+
+/**
+ * Tokenizes one line (or paragraph) of text into bold/italic/plain runs.
+ *
+ * Left to right, no nesting: the first `**…**` or `*…*` found closes at
+ * the next matching delimiter, full stop. An admin writing
+ * "*a **b** c*" gets a defensible-but-unspecified split rather than
+ * recursion — deliberately, since nesting bold inside italic buys a footer
+ * blurb nothing and the extra parser complexity is exactly where a subtle
+ * bug would hide.
+ */
+export function tokenizeInline(text: string): InlineToken[] {
+  const tokens: InlineToken[] = [];
+  let buffer = "";
+  const flush = () => {
+    if (buffer) tokens.push({ type: "text", value: buffer });
+    buffer = "";
+  };
+
+  let i = 0;
+  while (i < text.length) {
+    if (text.startsWith("**", i)) {
+      const end = text.indexOf("**", i + 2);
+      if (end > i + 2) {
+        flush();
+        tokens.push({ type: "bold", value: text.slice(i + 2, end) });
+        i = end + 2;
+        continue;
+      }
+    } else if (text[i] === "*") {
+      const end = text.indexOf("*", i + 1);
+      if (end > i + 1) {
+        flush();
+        tokens.push({ type: "italic", value: text.slice(i + 1, end) });
+        i = end + 1;
+        continue;
+      }
+    }
+    buffer += text[i];
+    i++;
+  }
+  flush();
+  return tokens;
+}
+
+export type TextBlock =
+  { type: "paragraph"; text: string } | { type: "list"; items: string[] };
+
+/**
+ * Splits text into paragraph and list blocks on blank-line boundaries. A
+ * block renders as a list only when every one of its lines starts with
+ * "- " or "* " — anything else, including a mix, stays one paragraph, so a
+ * stray "-" at the start of a sentence never turns it into a list item.
+ */
+export function parseTextBlocks(text: string): TextBlock[] {
   return text
     .split(/\n\s*\n/)
-    .map((p) => p.trim())
-    .filter(Boolean);
+    .map((block) => block.trim())
+    .filter(Boolean)
+    .map((block): TextBlock => {
+      const lines = block
+        .split("\n")
+        .map((line) => line.trim())
+        .filter(Boolean);
+      const isList =
+        lines.length > 0 &&
+        lines.every((line) => line.startsWith("- ") || line.startsWith("* "));
+      if (isList) {
+        return { type: "list", items: lines.map((line) => line.slice(2)) };
+      }
+      return { type: "paragraph", text: block };
+    });
+}
+
+function renderInline(text: string): ReactNode[] {
+  return tokenizeInline(text).map((token, i) => {
+    switch (token.type) {
+      case "bold":
+        return <strong key={i}>{token.value}</strong>;
+      case "italic":
+        return <em key={i}>{token.value}</em>;
+      default:
+        return token.value;
+    }
+  });
+}
+
+/** Turns footer text into the elements above, for the modal both the real
+ * screens and the branding preview share. */
+function renderBrandingText(text: string): ReactNode {
+  return parseTextBlocks(text).map((block, i) => {
+    if (block.type === "list") {
+      return (
+        <ul
+          key={i}
+          className="mb-3 list-disc pl-5 text-[length:var(--font-size-sm)] text-[var(--color-fg)] last:mb-0"
+        >
+          {block.items.map((item, j) => (
+            <li key={j}>{renderInline(item)}</li>
+          ))}
+        </ul>
+      );
+    }
+    return (
+      <p
+        key={i}
+        className="mb-3 text-[length:var(--font-size-sm)] text-[var(--color-fg)] last:mb-0"
+      >
+        {renderInline(block.text)}
+      </p>
+    );
+  });
 }
 
 type FooterSlot = "privacy" | "terms" | "support";
@@ -181,15 +307,7 @@ export function BrandingFooterLinks({ branding }: { branding: Branding }) {
         title={openSlot?.label ?? ""}
         onClose={() => setOpen("")}
       >
-        {openSlot &&
-          paragraphs(openSlot.text).map((p, i) => (
-            <p
-              key={i}
-              className="mb-3 text-[length:var(--font-size-sm)] text-[var(--color-fg)] last:mb-0"
-            >
-              {p}
-            </p>
-          ))}
+        {openSlot && renderBrandingText(openSlot.text)}
       </Modal>
     </>
   );

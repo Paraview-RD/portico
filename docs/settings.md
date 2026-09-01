@@ -114,8 +114,8 @@ default, matching how `System name` already behaves.
 | Logo | The mark beside the product name. Accepts an uploaded picture (through the same PNG/JPEG pipeline application tiles use) or a path on this server. |
 | Product name | Replaces "Portico" in the header. |
 | Primary colour | A 6-digit hex colour. Buttons and links on these four screens follow it; the console's own palette does not. |
-| Font family | A CSS `font-family` value. |
-| Background image | Behind the sign-in card. |
+| Font family | One of a short list of built-in stacks — not free text. The `Content-Security-Policy` this server sends is `font-src 'self'`, so an external font file can never load here; a free-text field would mostly let somebody type something that silently did nothing. |
+| Background image | Behind the sign-in card. Accepts an uploaded picture (same pipeline as the logo, wider limits — see below) or a full `https` address. |
 | Footer links | Three named slots — privacy policy, terms of service, support contact. Each is off, an external address, or plain text shown on this page — not an open list, and not a page of its own. |
 | Sign-in heading | Replaces the default heading on the sign-in screen specifically; the other three screens keep their own. |
 
@@ -134,10 +134,16 @@ existing dialog component rather than a new public page, so there is
 nothing to route to and nothing new to keep reachable across a redeploy.
 The trade taken deliberately: that text cannot be linked to or shared on
 its own. A deployment that needs a linkable policy page uses the external
-address instead. The text itself is plain — a blank line starts a new
-paragraph, and nothing else is applied; there is no Markdown or HTML
-renderer on any of the four screens, on purpose, so nothing an
-administrator pastes in ever executes.
+address instead. The text supports a small, deliberately incomplete markup
+subset: `**bold**`, `*italic*`, `- ` lists, and a blank line starts a new
+paragraph. **Link syntax is not recognised, on any of the four screens, on
+purpose** — a link's address is the one part of this text that becomes an
+executable action (a `javascript:` scheme, an open redirect), and
+bold/italic/lists cannot carry one. A footer *link* already exists as its
+own mechanism (the "external link" mode above, a validated address) — this
+does not duplicate or extend that. The renderer never builds an HTML
+string from this text; it parses it into React elements directly, so there
+is no injection surface to sanitize in the first place.
 
 **The sign-in heading is one field, not an open text-override layer.**
 Every other string on these screens is translated and compile-time
@@ -152,6 +158,11 @@ refused — an SVG is a document that can carry a script, and one served back
 from this origin and opened directly carries this origin's session with
 it). It is not a new upload path with its own rules to keep in sync with
 the first one.
+
+**The background image reuses the same upload machinery** — same storage,
+same `/t/<tenant>/logos/<id>` serving path, same format check — with wider
+limits (4 MiB, 2560 pixels on a side) than the logo's, because a background
+fills the whole screen rather than a small tile.
 
 How a save reaches a visitor who has not signed in:
 

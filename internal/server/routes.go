@@ -268,6 +268,12 @@ func (s *Server) routes() http.Handler {
 			r.Get("/settings", h.GetSettings)
 			r.Put("/settings", h.UpdateSettings)
 
+			// Uploading the branding background image. Not nested under
+			// /settings — it stores a picture the same way the tile logos
+			// below do, and has to happen before the form referencing its
+			// path is saved.
+			r.Post("/branding/bg-image", h.UploadBrandingBgImage)
+
 			// Application management, one group per protocol. Everything an
 			// integrator needs from this end is at /integration-endpoints,
 			// derived from what the server actually serves rather than

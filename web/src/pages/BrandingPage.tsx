@@ -8,6 +8,7 @@ import {
   brandingStyle,
 } from "../components/branding";
 import { BrandLockup } from "../components/brand";
+import { BgImageField } from "../components/BgImageField";
 import { LogoField } from "../components/LogoField";
 import {
   Alert,
@@ -21,6 +22,18 @@ import {
   Textarea,
 } from "../components/ui";
 import { useErrorMessage, useT } from "../i18n";
+
+/**
+ * The curated font choices. Not a free-text field: the CSP this server sends
+ * is font-src 'self', so an external font file (Google Fonts and the like)
+ * can never load here regardless of what an administrator types — free text
+ * mostly let somebody type something that silently did nothing. These three
+ * are stacks this server can actually render, `""` matching the unbranded
+ * default already in theme.css's --font-family.
+ */
+const FONT_FAMILY_SERIF = "Georgia, 'Songti SC', serif";
+const FONT_FAMILY_MONO =
+  "ui-monospace, 'SFMono-Regular', Menlo, Consolas, 'Courier New', monospace";
 
 /**
  * Its own screen rather than a card on Settings — the same move already
@@ -193,32 +206,33 @@ export function BrandingPage() {
               label={t("branding.fontFamily")}
               hint={t("branding.fontFamilyHelp")}
             >
-              <Input
+              <Select
                 value={settings.brandingFontFamily}
-                placeholder="'Inter', sans-serif"
                 onChange={(e) =>
                   setSettings({
                     ...settings,
                     brandingFontFamily: e.target.value,
                   })
                 }
-              />
+              >
+                <option value="">
+                  {t("branding.fontFamilyOptionDefault")}
+                </option>
+                <option value={FONT_FAMILY_SERIF}>
+                  {t("branding.fontFamilyOptionSerif")}
+                </option>
+                <option value={FONT_FAMILY_MONO}>
+                  {t("branding.fontFamilyOptionMono")}
+                </option>
+              </Select>
             </Field>
 
-            <Field
-              label={t("branding.bgImageUrl")}
-              hint={t("branding.bgImageUrlHelp")}
-            >
-              <Input
-                value={settings.brandingBgImageUrl}
-                onChange={(e) =>
-                  setSettings({
-                    ...settings,
-                    brandingBgImageUrl: e.target.value,
-                  })
-                }
-              />
-            </Field>
+            <BgImageField
+              value={settings.brandingBgImageUrl}
+              onChange={(brandingBgImageUrl) =>
+                setSettings({ ...settings, brandingBgImageUrl })
+              }
+            />
 
             <FooterLinkFields
               legend={t("branding.footerPrivacy")}

@@ -19,6 +19,10 @@ import (
 // to be a denial of service from being read at all.
 const maxLogoUploadBytes = service.MaxLogoBytes + (64 << 10)
 
+// maxBgImageUploadBytes caps the request body for a branding background
+// image, the same margin above the service's own cap as maxLogoUploadBytes.
+const maxBgImageUploadBytes = service.MaxBgImageBytes + (64 << 10)
+
 // UploadApplicationLogo stores a picture and returns the path to reference it
 // by.
 //
@@ -49,6 +53,48 @@ func (h *Handler) UploadApplicationLogo(w http.ResponseWriter, r *http.Request) 
 	defer func() { _ = file.Close() }()
 
 	id, err := h.logos.Upload(r.Context(), principal, file)
+	if err != nil {
+		httpx.Fail(w, r, err)
+		return
+	}
+
+	tenant, err := h.tenants.Get(r.Context(), principal.TenantID)
+	if err != nil {
+		httpx.Fail(w, r, err)
+		return
+	}
+
+	httpx.OK(w, map[string]string{
+		"path": service.ApplicationLogoPath(tenant.Code, id),
+	})
+}
+
+// UploadBrandingBgImage stores a branding background image and returns the
+// path to reference it by. Same shape as UploadApplicationLogo, same
+// storage, same serving path — see service.ApplicationLogoService.UploadBgImage
+// for why a background image is not a distinct kind of row.
+func (h *Handler) UploadBrandingBgImage(w http.ResponseWriter, r *http.Request) {
+	principal := auth.MustPrincipal(r.Context())
+
+	r.Body = http.MaxBytesReader(w, r.Body, maxBgImageUploadBytes)
+	// #nosec G120 -- the body is already capped by the MaxBytesReader above;
+	// this argument is the in-memory buffer size, not a limit.
+	if err := r.ParseMultipartForm(1 << 20); err != nil {
+		httpx.Fail(w, r, httpx.BadRequest("INVALID_UPLOAD",
+			"Send the image as multipart/form-data in a field named \"file\"."))
+		return
+	}
+	defer func() { _ = r.MultipartForm.RemoveAll() }()
+
+	file, _, err := r.FormFile("file")
+	if err != nil {
+		httpx.Fail(w, r, httpx.BadRequest("MISSING_FILE",
+			"No file was uploaded in the \"file\" field."))
+		return
+	}
+	defer func() { _ = file.Close() }()
+
+	id, err := h.logos.UploadBgImage(r.Context(), principal, file)
 	if err != nil {
 		httpx.Fail(w, r, err)
 		return

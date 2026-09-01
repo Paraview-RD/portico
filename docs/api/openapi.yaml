@@ -2093,6 +2093,55 @@ paths:
         "422":
           $ref: "#/components/responses/ValidationFailed"
 
+  /api/v1/branding/bg-image:
+    post:
+      tags: [Settings]
+      operationId: uploadBrandingBgImage
+      summary: Store a branding background image.
+      description: |
+        Returns the path to reference the stored file by, which goes into
+        `brandingBgImageUrl`. Same storage and the same serving path as
+        `/applications/logos` — a background image is not a distinct kind of
+        row, only a different field ends up pointing at it. The bounds are
+        wider than a tile logo's, because a background fills the whole
+        sign-in screen rather than a small tile.
+
+        **PNG and JPEG only, and the format is decided by the file's own
+        bytes**, for the same reason as an application logo upload — see
+        `/applications/logos`.
+
+        An upload that no setting ends up referencing is removed a day
+        later.
+      requestBody:
+        required: true
+        content:
+          multipart/form-data:
+            schema:
+              type: object
+              required: [file]
+              properties:
+                file:
+                  type: string
+                  format: binary
+                  description: |
+                    A PNG or JPEG, at most 4 MiB and 2560 pixels a side.
+      responses:
+        "200":
+          description: The path the picture is served from.
+          content:
+            application/json:
+              schema:
+                { $ref: "#/components/schemas/ApplicationLogoEnvelope" }
+        "400":
+          description: |
+            The file is not a PNG or JPEG (`UNSUPPORTED_IMAGE`), or is past
+            the size or pixel bound (`BG_IMAGE_TOO_LARGE`).
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Envelope" }
+        "403":
+          $ref: "#/components/responses/Forbidden"
+
   /api/v1/applications/integration-endpoints:
     get:
       tags: [Applications]

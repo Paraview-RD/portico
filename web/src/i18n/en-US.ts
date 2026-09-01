@@ -490,9 +490,14 @@ export const enUS = {
   "branding.colorPrimary": "Primary colour",
   "branding.colorPrimaryHelp": "A 6-digit hex colour, like #2563eb.",
   "branding.fontFamily": "Font family",
-  "branding.fontFamilyHelp": "A CSS font-family value.",
-  "branding.bgImageUrl": "Background image URL",
-  "branding.bgImageUrlHelp": "An http(s) address. Leave empty for none.",
+  "branding.fontFamilyHelp":
+    "Chosen from what ships with this server — the sign-in screen never loads an external font file.",
+  "branding.fontFamilyOptionDefault": "System default",
+  "branding.fontFamilyOptionSerif": "Serif",
+  "branding.fontFamilyOptionMono": "Monospace",
+  "branding.bgImageUrl": "Background image",
+  "branding.bgImageUrlHelp":
+    "PNG or JPEG, up to 4MB, no more than 2560px on the long side. Or paste a full address. Leave empty for none.",
   "branding.footerPrivacy": "Privacy policy",
   "branding.footerTerms": "Terms of service",
   "branding.footerSupport": "Support contact",
@@ -504,7 +509,7 @@ export const enUS = {
   "branding.footerLinkHelp": "An http(s) address, or a mailto: address.",
   "branding.footerLinkText": "Text",
   "branding.footerTextHelp":
-    "Plain text. A blank line starts a new paragraph — no other formatting is applied.",
+    "Supports **bold**, *italic*, and - lists. A blank line starts a new paragraph. Links are not supported.",
 
   "common.delete": "Delete",
 

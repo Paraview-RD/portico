@@ -649,6 +649,14 @@ export const settingsApi = {
   get: () => request<Settings>("/settings"),
   update: (settings: Settings) =>
     request<Settings>("/settings", { method: "PUT", body: settings }),
+
+  /**
+   * Stores a branding background image and returns the path to reference it
+   * by. Same storage and serving path as applicationApi.uploadLogo — see
+   * there for why the response is a path rather than an id.
+   */
+  uploadBgImage: (file: File) =>
+    upload<{ path: string }>("/branding/bg-image", file),
 };
 
 export const oauthApi = {
