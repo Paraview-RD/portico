@@ -1116,7 +1116,7 @@ export const zhCN: Record<keyof typeof enUS, string> = {
   "invitations.subtitle": "让用户凭码自助注册，而不必对公众开放注册。",
   "invitations.guideTitle": "邀请码是怎么工作的",
   "invitations.guideBody":
-    "发放一个邀请码给需要注册的人::每个邀请码有配额——达到配额后就不能再用它注册::邀请码可以绑定组织或用户组，注册成功后新账号会自动归属到那里::如果要求所有注册都必须带邀请码，在「系统设置」里开启「要求邀请码」",
+    "发放一个邀请码给需要注册的人。\n配额::每个邀请码有使用上限——达到配额后就不能再用它注册\n归属::邀请码可以绑定组织或用户组，注册成功后新账号会自动归属到那里\n强制要求::如果要求所有注册都必须带邀请码，在「系统设置」里开启「要求邀请码」",
   "invitations.new": "新建邀请码",
   "invitations.colCode": "邀请码",
   "invitations.colQuota": "已用 / 配额",

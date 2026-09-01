@@ -1201,7 +1201,7 @@ export const enUS = {
     "Codes that let people register themselves without opening registration to the public.",
   "invitations.guideTitle": "How invitation codes work",
   "invitations.guideBody":
-    'Issue a code and give it to whoever should be able to register::A code has a quota — once that many accounts have registered with it, it stops working::Bind a code to an organization or group and every account it creates is placed there automatically::To require a code on every registration, turn on "Require an invitation code" in Settings',
+    'Issue a code and give it to whoever should be able to register.\nQuota::A code has a limit — once that many accounts have registered with it, it stops working\nAssignment::Bind a code to an organization or group and every account it creates is placed there automatically\nEnforcement::To require a code on every registration, turn on "Require an invitation code" in Settings',
   "invitations.new": "New invitation",
   "invitations.colCode": "Code",
   "invitations.colQuota": "Used / quota",

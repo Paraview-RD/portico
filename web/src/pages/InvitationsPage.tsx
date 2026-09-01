@@ -125,7 +125,10 @@ export function InvitationsPage() {
 
   const [creating, setCreating] = useState(false);
   const [code, setCode] = useState(randomCode());
-  const [quota, setQuota] = useState("100");
+  // Defaults to a single use: the common case is "give this code to one
+  // person," and a default that already covers the group case would make
+  // the one-person case the one somebody has to remember to lock down.
+  const [quota, setQuota] = useState("1");
   const [unlimited, setUnlimited] = useState(false);
   const [organizationId, setOrganizationId] = useState("");
   const [groupId, setGroupId] = useState("");
@@ -156,7 +159,7 @@ export function InvitationsPage() {
 
   function openCreate() {
     setCode(randomCode());
-    setQuota("100");
+    setQuota("1");
     setUnlimited(false);
     setOrganizationId("");
     setGroupId("");
