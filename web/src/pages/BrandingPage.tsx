@@ -111,12 +111,12 @@ export function BrandingPage() {
       <PageHeader
         title={t("branding.title")}
         subtitle={t("branding.subtitle")}
-        actions={<DocsLink page="settings/#branding" />}
+        actions={<DocsLink page="settings/" />}
       />
 
       <form
         onSubmit={handleSubmit}
-        className="grid items-start gap-4 lg:grid-cols-[minmax(0,var(--prose-form-width)),minmax(0,1fr)]"
+        className="grid items-start gap-4 lg:grid-cols-[minmax(0,var(--prose-form-width))_minmax(0,1fr)]"
       >
         <Card title={t("branding.fieldsLegend")}>
           <div className="flex flex-col gap-4">
