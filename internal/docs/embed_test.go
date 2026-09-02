@@ -94,6 +94,38 @@ func TestTheChineseManualIsServedUnderItsOwnPrefix(t *testing.T) {
 	}
 }
 
+// BrandingPage's "view docs" link jumps straight to the section rather
+// than the top of settings/ — see the doc comment on DocsLink in
+// web/src/components/ui.tsx. mkdocs slugifies a heading into that
+// heading's own text, so the id it produces for a Chinese "## 品牌定制"
+// is 品牌定制, not branding, and the two ids are two literal strings in a
+// TSX file with no compiler check tying them to what a build actually
+// produces — this is the second time that link has silently gone stale;
+// the first time it carried an English id into the Chinese build.
+// Fragments never leave the browser, so the check is the same as a
+// reader's: does the page this loads actually contain that id anywhere.
+func TestTheBrandingDocsLinkAnchorsExistInBothLanguages(t *testing.T) {
+	if !docs.Available() {
+		t.Skip("manual not built; run ./hack/build-docs.sh")
+	}
+
+	cases := map[string]string{
+		docs.Prefix + "/settings/":    `id="branding"`,
+		docs.Prefix + "/zh/settings/": `id="品牌定制"`,
+	}
+	for path, want := range cases {
+		rec := get(t, path)
+		if rec.Code != http.StatusOK {
+			t.Fatalf("%s: status = %d, want 200", path, rec.Code)
+		}
+		if !strings.Contains(rec.Body.String(), want) {
+			t.Errorf("%s does not contain %s — the branding page's "+
+				"\"view docs\" link for this language lands on the page "+
+				"top instead of the section", path, want)
+		}
+	}
+}
+
 func TestLocalePathSendsAReaderToTheirOwnLanguage(t *testing.T) {
 	cases := map[string]string{
 		"zh-CN":   docs.Prefix + "/zh/",

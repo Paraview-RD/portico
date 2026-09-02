@@ -124,7 +124,12 @@ export function BrandingPage() {
       <PageHeader
         title={t("branding.title")}
         subtitle={t("branding.subtitle")}
-        actions={<DocsLink page="settings/" />}
+        actions={
+          <DocsLink
+            page="settings/"
+            anchor={{ "en-US": "branding", "zh-CN": "品牌定制" }}
+          />
+        }
       />
 
       <form
