@@ -31,7 +31,7 @@ import {
   useState,
 } from "react";
 
-import { docsUrl, useLanguage, useT, type Language } from "../i18n";
+import { docsUrl, useLanguage, useT } from "../i18n";
 import { formatInstant } from "../i18n/format";
 import { useOptionalSession } from "../session";
 import { ChevronRightIcon, CloseIcon, GuideIcon } from "./icons";
@@ -1162,29 +1162,21 @@ function tileColour(name: string): number {
  * The reader's own language, and the manual falls back to English with a
  * notice on pages that have not been translated yet.
  *
- * `anchor`, when given, is keyed by language rather than a single string —
- * mkdocs slugifies a heading into that heading's own text, so a Chinese
- * "## 品牌定制" becomes id="品牌定制" and not id="branding". A caller
- * linking into a specific section has to give the id each language's build
- * actually produced; anything else silently lands on the section anyway
- * for whichever language it happens to match and the top of the page for
- * every other one. A language missing from the map falls back to the page
- * itself with no anchor, same as omitting the prop.
+ * Always the page root, never an anchor into it. mkdocs slugifies a
+ * heading into that heading's own text, so a Chinese "## 品牌定制" becomes
+ * id="品牌定制" and not id="branding" — a hardcoded anchor is therefore
+ * one language's id carried into a build where it is not, and it has gone
+ * stale silently twice already. Linking a screen to a specific section of
+ * the manual belongs to that section having its own page, not to this
+ * component knowing what a build called it.
  */
-export function DocsLink({
-  page,
-  anchor,
-}: {
-  page: string;
-  anchor?: Record<Language, string>;
-}) {
+export function DocsLink({ page }: { page: string }) {
   const t = useT();
   const { language } = useLanguage();
-  const suffix = anchor?.[language] ? `#${anchor[language]}` : "";
 
   return (
     <a
-      href={docsUrl(language, page) + suffix}
+      href={docsUrl(language, page)}
       target="_blank"
       rel="noreferrer"
       className={cx(

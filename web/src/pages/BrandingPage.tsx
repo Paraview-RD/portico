@@ -14,6 +14,7 @@ import {
   Alert,
   Button,
   Card,
+  ConfirmDialog,
   DocsLink,
   Field,
   Input,
@@ -56,6 +57,7 @@ export function BrandingPage() {
   const [error, setError] = useState("");
   const [saved, setSaved] = useState(false);
   const [submitting, setSubmitting] = useState(false);
+  const [confirmingReset, setConfirmingReset] = useState(false);
 
   useEffect(() => {
     settingsApi
@@ -78,6 +80,35 @@ export function BrandingPage() {
     } finally {
       setSubmitting(false);
     }
+  }
+
+  // Clears every branding field back to what a tenant that has never
+  // touched this screen already has — there is no shipped default image
+  // or colour, only absence, so "reset" and "clear" are the same act. Not
+  // sent anywhere: like every other edit here, it only takes effect once
+  // Save is pressed, so a reset an operator did not mean to do is still
+  // recoverable right up until then.
+  function handleReset() {
+    if (!settings) return;
+    setSettings({
+      ...settings,
+      brandingLogoUrl: "",
+      brandingProductName: "",
+      brandingLoginHeading: "",
+      brandingColorPrimary: "",
+      brandingFontFamily: "",
+      brandingBgImageUrl: "",
+      brandingFooterPrivacyMode: "",
+      brandingFooterPrivacyUrl: "",
+      brandingFooterPrivacyText: "",
+      brandingFooterTermsMode: "",
+      brandingFooterTermsUrl: "",
+      brandingFooterTermsText: "",
+      brandingFooterSupportMode: "",
+      brandingFooterSupportUrl: "",
+      brandingFooterSupportText: "",
+    });
+    setConfirmingReset(false);
   }
 
   if (!settings) {
@@ -124,12 +155,7 @@ export function BrandingPage() {
       <PageHeader
         title={t("branding.title")}
         subtitle={t("branding.subtitle")}
-        actions={
-          <DocsLink
-            page="settings/"
-            anchor={{ "en-US": "branding", "zh-CN": "品牌定制" }}
-          />
-        }
+        actions={<DocsLink page="branding/" />}
       />
 
       <form
@@ -299,9 +325,16 @@ export function BrandingPage() {
             </div>
           )}
 
-          <div className="mt-4">
+          <div className="mt-4 flex gap-2">
             <Button type="submit" disabled={submitting}>
               {t("common.save")}
+            </Button>
+            <Button
+              type="button"
+              variant="secondary"
+              onClick={() => setConfirmingReset(true)}
+            >
+              {t("branding.reset")}
             </Button>
           </div>
         </Card>
@@ -344,6 +377,14 @@ export function BrandingPage() {
           </Card>
         </div>
       </form>
+
+      <ConfirmDialog
+        open={confirmingReset}
+        title={t("branding.reset")}
+        message={t("branding.resetConfirm")}
+        onConfirm={handleReset}
+        onCancel={() => setConfirmingReset(false)}
+      />
     </>
   );
 }

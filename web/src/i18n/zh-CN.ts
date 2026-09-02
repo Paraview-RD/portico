@@ -479,6 +479,9 @@ export const zhCN: Record<keyof typeof enUS, string> = {
   "branding.footerLinkText": "正文",
   "branding.footerTextHelp":
     "支持 **加粗**、*斜体*、- 列表，空行分段；不支持链接。",
+  "branding.reset": "恢复默认",
+  "branding.resetConfirm":
+    "把这一屏所有字段清空回未定制状态——图标、颜色、页脚正文全部清除。按下保存前不会发送到服务器。",
 
   "common.delete": "删除",
 

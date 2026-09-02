@@ -510,6 +510,9 @@ export const enUS = {
   "branding.footerLinkText": "Text",
   "branding.footerTextHelp":
     "Supports **bold**, *italic*, and - lists. A blank line starts a new paragraph. Links are not supported.",
+  "branding.reset": "Reset to defaults",
+  "branding.resetConfirm":
+    "Clears every field on this screen back to unbranded — the logo, colours, and all footer text. Not sent anywhere until you press Save.",
 
   "common.delete": "Delete",
 

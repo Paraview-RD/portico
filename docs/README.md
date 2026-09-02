@@ -43,9 +43,12 @@
 - **[field-mappings.md](field-mappings.md)** — renaming, suppressing and
   adding the attributes a recipient receives, for all four kinds of recipient
   at once.
-- **[settings.md](settings.md)** — the per-tenant settings and the audit
-  trail: what each one changes, and which of them affect people who are
-  already signed in.
+- **[settings.md](settings.md)** — the per-tenant settings: what each one
+  changes, and which of them affect people who are already signed in.
+- **[branding.md](branding.md)** — overriding Portico's own name, mark and
+  colour on the four unauthenticated screens, and nowhere else.
+- **[audit-logs.md](audit-logs.md)** — what gets recorded, what it will
+  never tell you, and why entries are never edited.
 - **[deployment.md](deployment.md)** — running in production: which probe
   points at which endpoint, whether you may run more than one instance, what
   an upgrade does, and the Kubernetes manifests in `deploy/k8s/`.

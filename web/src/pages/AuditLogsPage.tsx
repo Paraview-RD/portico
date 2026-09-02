@@ -95,12 +95,12 @@ export function AuditLogsPage() {
       <PageHeader
         title={t("auditLogs.title")}
         subtitle={t("auditLogs.subtitle")}
-        actions={<DocsLink page="settings/" />}
+        actions={<DocsLink page="audit-logs/" />}
       />
 
       <GuidePanel
         id="auditLogs"
-        docsPage="settings/"
+        docsPage="audit-logs/"
         title={t("auditLogs.guideTitle")}
       >
         {t("auditLogs.guideBody")}
