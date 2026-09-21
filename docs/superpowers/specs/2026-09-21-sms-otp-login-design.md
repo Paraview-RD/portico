@@ -78,14 +78,39 @@
 
 租户级设置 `SMSLoginEnabled bool`（默认 `false`），且部署侧配置了真实短信发送器（非 `notify.NotConfiguredSMS`）时，登录页才展示这个入口。管理员在设置页手动开启。
 
-## 4. 阿里云短信 transport
+## 4. `SMSSender` 接口改造 + 阿里云 transport
+
+### 4.1 接口改造（影响既有调用点）
+
+现有 `SMSSender.Send(ctx, phone, text string) error` 是一段拼好的自由文本——密码找回/注册验证目前就是把"点击这个链接，30 分钟内有效"整句渲染成字符串塞进去。阿里云短信要求走**审核过的模板**：固定文案 + 有限几个具名变量（比如"您的验证码是`${code}`，`${minute}`分钟内有效"），不接受任意自由文本，模板审核也是按这个变量结构过的。所以接口要改成"用途 + 具名变量"：
+
+```go
+// SMSKind is which template a purpose maps to. Each transport that needs a
+// real template (Aliyun) is configured with one template code per kind;
+// a transport with no such requirement is free to ignore it.
+type SMSKind string
+
+const (
+	SMSKindLoginCode    SMSKind = "login_code"    // {"Code": "...", "Minutes": "..."}
+	SMSKindRecovery     SMSKind = "recovery"      // {"Link": "...", "Minutes": "..."}
+	SMSKindVerification SMSKind = "verification"  // {"Link": "...", "Minutes": "..."}
+)
+
+type SMSSender interface {
+	Send(ctx context.Context, phone string, kind SMSKind, params map[string]string) error
+}
+```
+
+这个改动同时改掉 `RecoveryService`、`VerificationService` 现有调用 `.Send(ctx, phone, text)` 的两处：不再自己拼好整句 text，而是把渲染用的原始变量（`Link`、`Minutes`）连同 `SMSKindRecovery`/`SMSKindVerification` 一起传给 `Send`。`NotConfiguredSMS.Send` 签名同步改，行为不变（永远返回 `ErrNotConfigured`）。
+
+### 4.2 阿里云 transport
 
 参照 `internal/notify` 里 `Mailer`/`ResendConfig` 的风格：原生 HTTP + 手写签名，不引入阿里云官方 SDK。
 
-- `notify.AliyunSMSConfig{AccessKeyID, AccessKeySecret, SignName, TemplateCode, Endpoint}`，`Endpoint` 留空用默认域名，测试可覆盖。
+- `notify.AliyunSMSConfig{AccessKeyID, AccessKeySecret, SignName, TemplateCodes map[SMSKind]string, Endpoint}`——`TemplateCodes` 按用途配置各自的模板码（登录验证码、密码找回、注册验证三个模板需要在阿里云控制台分别报备，参数名要跟审核通过的模板占位符一致）；`Endpoint` 留空用默认域名，测试可覆盖。
 - 签名用 Dysmsapi 的 RPC 风格（HMAC-SHA1，查询参数带 `Signature`）——手写 `crypto/hmac` + `crypto/sha1`，实现前对照阿里云当前文档核对签名步骤，不凭记忆写。
-- `NewAliyunSMSSender(cfg)` 返回 `notify.SMSSender` 实现，跟 `NotConfiguredSMS` 并列；四个字段缺一不可，在构造时就报错，不等到发送才发现。
-- 验证码走审核过的短信模板，验证码作为模板变量传入，不拼自由文本。
+- `NewAliyunSMSSender(cfg)` 返回 `notify.SMSSender` 实现，跟 `NotConfiguredSMS` 并列；`AccessKeyID`/`AccessKeySecret`/`SignName` 缺一不可，在构造时就报错；`TemplateCodes` 缺某个 kind 时，`Send` 遇到那个 kind 才报错（一个部署可能只想开登录验证码，不想让密码找回也走短信）。
+- `Send` 把 `params` 序列化成阿里云要求的 `TemplateParam`（JSON 字符串），连同对应 kind 的模板码一起发出。
 - 单测用 fake sender（跟 Mailer 测试同一手法），不需要真实密钥。
 
 ## 5. API / OpenAPI
@@ -106,8 +131,8 @@
 
 ## 7. i18n / 文档 / 测试义务（同一提交内）
 
-- 新增短信模板消息 key（参照现有 `i18n.KeyRecoverySMS` 模式），中英文都要有
-- 登录页新增文案（切换链接、手机号/验证码字段、倒计时按钮）中英文都要有
+- **短信正文本身不再经过 `internal/i18n`**：§4.1 改成模板+具名变量之后，短信的实际文案是在阿里云控制台报备、审核通过的固定文案，Go 这边只负责把 `Code`/`Link`/`Minutes` 之类的变量填进去，不再有"中英文两份短信文案"这件事——阿里云的模板审核是按中国大陆短信合规走的，这个项目目前也没有第二个地区的短信网关。`i18n.KeyRecoverySMS`/`KeyVerificationSMS` 这两个现有 key 和它们在 `mail.json` 里的值，随着 §4.1 的接口改造一起删除（连同调用它们 `Render` 的那两行）——它们渲染出的字符串不再有地方可用。
+- 登录页新增文案（切换链接、手机号/验证码字段、倒计时按钮）中英文都要有——这部分是页面 UI 文案，跟上面短信正文的问题无关，仍然走 `internal/i18n`
 - `docs/integrations.md` 新增阿里云短信条目：用途、认证方式、账号负责人、费用、相关环境变量
 - `.env.example` + `docs/ops/environment-variables.md` 新增环境变量说明
 - 新迁移脚本遵守本仓库现有的 goose 命名规范（`migrations/NNNNN_description.sql`，`-- +goose Up` / `-- +goose Down`）
