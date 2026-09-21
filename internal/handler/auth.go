@@ -260,6 +260,11 @@ func (h *Handler) RegistrationStatus(w http.ResponseWriter, r *http.Request) {
 		"tenant":         tenant.Code,
 		"tenantName":     tenant.Name,
 		"branding":       brandingOf(settings),
+		// The sign-in screen needs to know whether to offer the SMS-code
+		// tab, the same as it already needs registrationEnabled for its
+		// own tab. Both conditions matter: the tenant switched it on AND
+		// this deployment can actually send SMS.
+		"smsLoginEnabled": settings.SMSLoginEnabled && h.settings.CanDeliverSMS(),
 	})
 }
 

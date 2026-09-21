@@ -44,6 +44,8 @@ var bodies = map[string]any{
 	"resendVerification":              resendVerificationRequest{},
 	"requestPasswordRecovery":         recoveryRequest{},
 	"confirmPasswordRecovery":         recoveryConfirmRequest{},
+	"requestSMSLoginCode":             smsLoginCodeRequest{},
+	"loginWithSMSCode":                smsLoginRequest{},
 	"updateOwnProfile":                updateProfileRequest{},
 	"closeOwnAccount":                 closeAccountRequest{},
 	"changeOwnPassword":               changePasswordRequest{},

@@ -109,6 +109,13 @@ func (s *Server) routes() http.Handler {
 		r.Post("/auth/password-recovery", h.RequestPasswordRecovery)
 		r.Post("/auth/password-recovery/confirm", h.ConfirmPasswordRecovery)
 
+		// Standalone phone-number + SMS-code login (§2 of
+		// docs/superpowers/specs/2026-09-21-sms-otp-login-design.md). Both
+		// public for the same reason password recovery is: the caller cannot
+		// sign in, which is the entire point.
+		r.Post("/auth/sms/code", h.RequestSMSLoginCode)
+		r.Post("/auth/sms/login", h.LoginWithSMSCode)
+
 		// Also public by necessity: the caller cannot sign in, because
 		// Login refuses an expired password rather than issuing a token
 		// and trusting the client to act on a flag. It takes the current

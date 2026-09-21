@@ -69,6 +69,8 @@ type Handler struct {
 	// either — see internal/service/trial.go for why this one is different
 	// from everything above it.
 	trials *service.TrialService
+	// The standalone phone-number + SMS-code login method.
+	smsLogin *service.SMSLoginService
 }
 
 // New returns a Handler backed by the given services.
@@ -99,6 +101,7 @@ func New(
 	samlProviders *samlp.Providers,
 	casServer *casp.Server,
 	trials *service.TrialService,
+	smsLogin *service.SMSLoginService,
 ) *Handler {
 	return &Handler{
 		users: users, orgs: orgs, audit: audit,
@@ -111,6 +114,7 @@ func New(
 		webhooks: webhooks, externalIDP: externalIDP, groups: groups, invitations: invitations, logos: logos,
 		attributes: attributes, fields: fields, fieldMappings: fieldMappings,
 		oidc: oidc, saml: samlProviders, cas: casServer,
-		trials: trials,
+		trials:   trials,
+		smsLogin: smsLogin,
 	}
 }

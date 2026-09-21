@@ -81,6 +81,16 @@ func WithSMSSender(sender notify.SMSSender) Option {
 	return func(d *dependencies) { d.sms = sender }
 }
 
+// smsSenderFromConfig builds the SMS sender this deployment asked for.
+// An empty AccessKeyID means "not configured," same as an unset
+// PORTICO_SMTP_HOST does for mail -- see notify.NotConfiguredSMS.
+func smsSenderFromConfig(cfg notify.AliyunSMSConfig) (notify.SMSSender, error) {
+	if cfg.AccessKeyID == "" {
+		return notify.NotConfiguredSMS{}, nil
+	}
+	return notify.NewAliyunSMSSender(cfg)
+}
+
 // New builds a Server from cfg, opening the database and applying any
 // pending migrations. The caller must call Close when done.
 func New(cfg *config.Config, opts ...Option) (*Server, error) {
@@ -114,8 +124,12 @@ func New(cfg *config.Config, opts ...Option) (*Server, error) {
 		_ = st.Close()
 		return nil, err
 	}
-	// V0.1 ships the SMS interface and no provider; see internal/notify.
-	deps := dependencies{mailer: mailer, sms: notify.NotConfiguredSMS{}}
+	defaultSMS, err := smsSenderFromConfig(cfg.SMS)
+	if err != nil {
+		_ = st.Close()
+		return nil, err
+	}
+	deps := dependencies{mailer: mailer, sms: defaultSMS}
 	for _, opt := range opts {
 		opt(&deps)
 	}
@@ -131,6 +145,9 @@ func New(cfg *config.Config, opts ...Option) (*Server, error) {
 
 	verification := service.NewVerificationService(
 		st, users, settings, audit, deps.mailer, deps.sms, cfg.PublicURL)
+
+	smsLogin := service.NewSMSLoginService(
+		st, users, settings, audit, registry, deps.sms, cfg.SMSLoginDeploymentDailyCap)
 
 	// Self-service trials. Constructed whether or not they are enabled — the
 	// service refuses every call when they are not, and the routes are not
@@ -221,7 +238,7 @@ func New(cfg *config.Config, opts ...Option) (*Server, error) {
 		handler: handler.New(users, orgs, audit, settings, tenants, recovery, verification, sessions,
 			clients, serviceProviders, samlKeys, casServices, scimCredentials,
 			directories, webhooks, externalIDP, groups, invitations, logos, attributes, fields, fieldMappings,
-			providers, samlProviders, casServer, trials),
+			providers, samlProviders, casServer, trials, smsLogin),
 		middleware:    auth.NewMiddleware(tokens, users, sessions),
 		metrics:       registry,
 		scim:          scimHandler,

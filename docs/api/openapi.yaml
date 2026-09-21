@@ -589,6 +589,112 @@ paths:
         "404":
           $ref: "#/components/responses/TenantNotFound"
 
+  /api/v1/auth/sms/code:
+    post:
+      tags: [Authentication]
+      operationId: requestSMSLoginCode
+      summary: Ask for a login code to be sent to a phone number.
+      description: |
+        The standalone phone-number + SMS-code sign-in method. Answers 200
+        whether or not the number is bound to an account, for the same
+        reason `/api/v1/auth/password-recovery` does — anything else makes
+        this an oracle for whether a number has an account.
+      security: []
+      parameters:
+        - $ref: "#/components/parameters/TenantHeader"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [phone]
+              properties:
+                phone: { type: string }
+                tenant:
+                  type: string
+                  description: |
+                    Tenant code. Omit for the default tenant. The caller
+                    cannot sign in — that is why they are here — so there is
+                    no token to take it from, and this or the header is the
+                    only way to say which tenant the account is in.
+      responses:
+        "200":
+          description: Accepted, whether or not a code was actually sent.
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/MessageEnvelope" }
+        "403":
+          $ref: "#/components/responses/TenantDisabled"
+        "404":
+          $ref: "#/components/responses/TenantNotFound"
+        "429":
+          description: Too many requests for this phone number, IP, or deployment today.
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Envelope" }
+        "503":
+          description: |
+            SMS login is off for this tenant, or this deployment has no way
+            to send SMS at all. Reported with `SMS_LOGIN_UNAVAILABLE` rather
+            than answered with a success the caller would wait on forever.
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Envelope" }
+
+  /api/v1/auth/sms/login:
+    post:
+      tags: [Authentication]
+      operationId: loginWithSMSCode
+      summary: Sign in with a phone number and the code just sent to it.
+      description: |
+        The endpoint that issues the credential for this method, the same
+        as `/api/v1/auth/login` does for a password.
+      security: []
+      parameters:
+        - $ref: "#/components/parameters/TenantHeader"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [phone, code]
+              properties:
+                phone: { type: string }
+                code: { type: string }
+                tenant:
+                  type: string
+                  description: |
+                    Tenant code. Omit for the default tenant. As above,
+                    there is no token to take it from.
+      responses:
+        "200":
+          description: Signed in.
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/SessionEnvelope" }
+        "401":
+          description: |
+            `INVALID_SMS_CODE` covers every way this can be refused: wrong
+            code, expired code, or a code already spent — the same
+            deliberate non-disclosure as `/api/v1/auth/login`'s
+            `INVALID_CREDENTIALS`.
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Envelope" }
+        "403":
+          $ref: "#/components/responses/TenantDisabled"
+        "404":
+          $ref: "#/components/responses/TenantNotFound"
+        "503":
+          description: |
+            SMS login is off for this tenant, or this deployment has no way
+            to send SMS at all.
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Envelope" }
+
   /api/v1/auth/password/expired:
     post:
       tags: [Authentication]
@@ -5119,6 +5225,12 @@ components:
         tenant: { type: string }
         tenantName: { type: string }
         branding: { $ref: "#/components/schemas/Branding" }
+        smsLoginEnabled:
+          type: boolean
+          description: |
+            Whether the sign-in screen should offer the phone-number +
+            SMS-code tab. True only when the tenant turned it on AND this
+            deployment can actually send SMS.
 
     Branding:
       type: object
