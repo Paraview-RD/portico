@@ -623,7 +623,7 @@ paths:
           description: Accepted, whether or not a code was actually sent.
           content:
             application/json:
-              schema: { $ref: "#/components/schemas/MessageEnvelope" }
+              schema: { $ref: "#/components/schemas/SMSCodeSentEnvelope" }
         "403":
           $ref: "#/components/responses/TenantDisabled"
         "404":
@@ -5649,6 +5649,21 @@ components:
               type: object
               properties:
                 message: { type: string }
+
+    SMSCodeSentEnvelope:
+      allOf:
+        - $ref: "#/components/schemas/Envelope"
+        - type: object
+          properties:
+            data:
+              type: object
+              properties:
+                sent:
+                  type: boolean
+                  description: |
+                    Always true when this response is returned -- present so
+                    the shape matches the handler's actual output, not a
+                    signal that a real message was sent to a real number.
 
     ReauthenticationEnvelope:
       allOf:
