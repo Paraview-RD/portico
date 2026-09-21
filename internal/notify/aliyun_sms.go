@@ -74,7 +74,9 @@ func NewAliyunSMSSender(cfg AliyunSMSConfig) (SMSSender, error) {
 	return &aliyunSMSSender{cfg: cfg, client: cfg.client}, nil
 }
 
-// Send posts one message through Dysmsapi's SendSms action.
+// Send posts one message through Dysmsapi's SendSms action, as a POST with
+// the signed params in the request body (see the comment above the POST
+// request construction below for why not the URL).
 func (a *aliyunSMSSender) Send(ctx context.Context, phone string, kind SMSKind, params map[string]string) error {
 	templateCode, ok := a.cfg.TemplateCodes[kind]
 	if !ok {
@@ -105,12 +107,20 @@ func (a *aliyunSMSSender) Send(ctx context.Context, phone string, kind SMSKind, 
 		"Timestamp":        {time.Now().UTC().Format("2006-01-02T15:04:05Z")},
 		"Version":          {"2017-05-25"},
 	}
-	query.Set("Signature", a.sign(http.MethodGet, query))
+	query.Set("Signature", a.sign(http.MethodPost, query))
 
-	req, err := http.NewRequestWithContext(ctx, http.MethodGet, a.cfg.Endpoint+"?"+query.Encode(), nil)
+	// Sent as a POST with the params in the body, not the URL: this is what
+	// Aliyun's own SendSms V2 example does, and it matters here beyond
+	// following the reference -- the query includes the plaintext OTP
+	// (TemplateParam) and the AccessKeyId. A failed request's error wraps
+	// Go's *url.Error, which embeds the request URL; with those in the URL
+	// that error would leak both. See resend.go's equivalent reasoning
+	// around not putting the API key where an error can echo it.
+	req, err := http.NewRequestWithContext(ctx, http.MethodPost, a.cfg.Endpoint, strings.NewReader(query.Encode()))
 	if err != nil {
 		return fmt.Errorf("build Aliyun SMS request: %w", err)
 	}
+	req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
 
 	res, err := a.client.Do(req)
 	if err != nil {
@@ -131,19 +141,31 @@ func (a *aliyunSMSSender) Send(ctx context.Context, phone string, kind SMSKind, 
 	return nil
 }
 
-// sign computes Dysmsapi's RPC-style signature: HMAC-SHA1 over
+// sign computes Dysmsapi's RPC-style V2 signature: HMAC-SHA1 over
 // "<method>&<percent-encoded '/'>&<percent-encoded, sorted query string>",
 // keyed by "<AccessKeySecret>&".
 //
-// Verified 2026-09-21 against Alibaba Cloud's current "Request syntax and
-// signature method V2 for RPC APIs" documentation
+// Verified 2026-09-21 against Alibaba Cloud's "Request syntax and signature
+// method V2 for RPC APIs" documentation
 // (https://www.alibabacloud.com/help/en/sdk/product-overview/rpc-mechanism):
 // StringToSign = percentEncode(HTTPMethod) + "&" + percentEncode("/") + "&"
 // + percentEncode(CanonicalizedQueryString), HMAC-SHA1 keyed by
-// "<AccessKeySecret>&", Base64-encoded. That page notes signature method V2
-// itself is deprecated in favor of V3, but Dysmsapi's SendSms action (and
-// its official SDKs) still use this HMAC-SHA1 query-signing scheme as of
-// this writing.
+// "<AccessKeySecret>&", Base64-encoded. Cross-checked against Aliyun's own
+// published known-answer vector for this scheme (see
+// TestAliyunSignatureMatchesAliyunsPublishedVector) and, independently,
+// against a from-scratch Python re-implementation -- both byte-exact.
+//
+// This is deliberately V2, not V3. As of this writing Aliyun's current
+// Dysmsapi SendSms API reference documents only the V3 scheme (header-based
+// HMAC-SHA256, with a signed x-acs-date and a body content-sha256), and the
+// V2 signing-mechanism page above is itself titled "(Not recommended)" and
+// banners that V2 is discontinued in favor of V3. This implementation
+// targets V2 anyway because that same V2 page (last updated Jul 2026)
+// still carries a live, worked SendSms example, and V2 requests to SendSms
+// are still accepted. Migrating this to V3 -- a materially different
+// scheme, not a tweak to this function -- is out of scope here and would
+// be its own follow-up task, not something this comment should be read as
+// having already handled.
 func (a *aliyunSMSSender) sign(method string, query url.Values) string {
 	keys := make([]string, 0, len(query))
 	for k := range query {

@@ -25,7 +25,10 @@ func TestNewAliyunSMSSenderRequiresCoreFields(t *testing.T) {
 func TestAliyunSMSSenderSendsTheConfiguredTemplate(t *testing.T) {
 	var gotQuery url.Values
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		gotQuery = r.URL.Query()
+		if err := r.ParseForm(); err != nil {
+			t.Fatalf("ParseForm: %v", err)
+		}
+		gotQuery = r.Form
 		w.Header().Set("Content-Type", "application/json")
 		_ = json.NewEncoder(w).Encode(map[string]string{"Code": "OK", "Message": "OK"})
 	}))
@@ -104,5 +107,22 @@ func TestAliyunSMSSenderReportsAGatewayError(t *testing.T) {
 		map[string]string{"Code": "123456"})
 	if err == nil {
 		t.Fatal("want an error when Aliyun's Code is not OK")
+	}
+}
+
+func TestAliyunSignatureMatchesAliyunsPublishedVector(t *testing.T) {
+	s, _ := NewAliyunSMSSender(AliyunSMSConfig{
+		AccessKeyID: "testid", AccessKeySecret: "testsecret", SignName: "x",
+	})
+	q := url.Values{
+		"AccessKeyId": {"testid"}, "Action": {"DescribeDedicatedHosts"},
+		"Format": {"JSON"}, "RegionId": {"cn-beijing"},
+		"SignatureMethod":  {"HMAC-SHA1"},
+		"SignatureNonce":   {"edb2b34af0af9a6d14deaf7c1a5315eb"},
+		"SignatureVersion": {"1.0"}, "Timestamp": {"2023-03-13T08:34:30Z"},
+		"Version": {"2014-05-26"},
+	}
+	if got := s.(*aliyunSMSSender).sign("GET", q); got != "9NaGiOspFP5UPcwX8Iwt2YJXXuk=" {
+		t.Errorf("signature = %q, want the value Aliyun's own documentation publishes for this input", got)
 	}
 }
