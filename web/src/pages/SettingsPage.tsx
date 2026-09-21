@@ -19,9 +19,21 @@ import { locales, useErrorMessage, useT } from "../i18n";
  * The grid this screen's content sits in, named because two things have to
  * agree on it: the cards, and the guide above them. Written out twice, they
  * drift, and the way that shows up is one row ending short of another.
+ *
+ * items-stretch, not items-start: a grid row is sized to its tallest cell,
+ * and reordering the cards (see the comment above the cards grid below)
+ * gets the two closest-in-height cards into each row, but "closest" is not
+ * "equal" — Basics still runs noticeably longer than Password policy once
+ * the SMS login toggle is in it. items-start would leave that difference as
+ * plain page background under the shorter card, which is the same kind of
+ * defect the row-alignment check exists to catch, just smaller and below
+ * the check's resolution (it verifies row width, not how a row is filled
+ * vertically). Stretching turns that gap into the shorter card's own
+ * bordered box growing to match, which reads as "this card has some empty
+ * room at the bottom" rather than "the page forgot to put something here."
  */
 const settingsColumns =
-  "grid items-start gap-4 lg:grid-cols-[repeat(2,minmax(0,var(--prose-form-width)))]";
+  "grid items-stretch gap-4 lg:grid-cols-[repeat(2,minmax(0,var(--prose-form-width)))]";
 
 export function SettingsPage() {
   const t = useT();
@@ -132,7 +144,24 @@ export function SettingsPage() {
               ends, and the two stop overlapping — the row-alignment check
               read that as a mistake, correctly. A grid instead sizes each
               row to its tallest cell, so the second row starts at the same
-              line in both columns no matter how tall either card gets. */}
+              line in both columns no matter how tall either card gets.
+
+              And the ORDER they are written in here is not incidental
+              either, because auto-placement fills the grid row by row in
+              document order: basics, then password, then lockout, then
+              audit — so the first pair to share a row is (basics, password)
+              and the second is (lockout, audit). Both are the two closest
+              in height of any pairing of these four (basics is the tallest,
+              paired with password, the second tallest; lockout and audit
+              are the two shortest). Written in the other order — basics,
+              lockout, password, audit — the same grid would instead pair
+              the tallest card with the shortest, leaving roughly 480px of
+              plain page background below the short one before the next row
+              starts: correct horizontally (same row width, which is all the
+              browser suite checks) and wrong to look at. Reordering, not
+              stretching the short card to match, was chosen because a
+              stretched card would show as visibly empty space still, just
+              inside a border instead of on the page background. */}
           <div className="lg:col-span-2">
             {/* Its own card rather than three more fields under "basics",
                   because the distinction these three need to carry is that they
@@ -399,57 +428,6 @@ export function SettingsPage() {
             </div>
           </Card>
 
-          {/* The card carries the heading; the fieldset stays because it
-                is what tells a screen reader these controls are one group,
-                and a card is a box, not a grouping. Hence the legend, read
-                but not shown. */}
-          <Card title={t("settings.lockoutLegend")}>
-            <fieldset className="flex flex-col gap-4">
-              <legend className="sr-only">{t("settings.lockoutLegend")}</legend>
-
-              <p className="text-[length:var(--font-size-sm)] text-[var(--color-fg-muted)]">
-                {t("settings.lockoutHelp")}
-              </p>
-
-              <Field
-                label={t("settings.lockoutThreshold")}
-                hint={t("settings.lockoutThresholdHelp")}
-              >
-                <Input
-                  type="number"
-                  min={0}
-                  max={100}
-                  value={settings.lockoutThreshold}
-                  onChange={(e) =>
-                    setSettings({
-                      ...settings,
-                      lockoutThreshold: Number(e.target.value),
-                    })
-                  }
-                />
-              </Field>
-
-              <Field
-                label={t("settings.lockoutDuration")}
-                hint={t("settings.lockoutDurationHelp")}
-              >
-                <Input
-                  type="number"
-                  min={1}
-                  max={1440}
-                  value={settings.lockoutDurationMinutes}
-                  disabled={settings.lockoutThreshold === 0}
-                  onChange={(e) =>
-                    setSettings({
-                      ...settings,
-                      lockoutDurationMinutes: Number(e.target.value),
-                    })
-                  }
-                />
-              </Field>
-            </fieldset>
-          </Card>
-
           <Card title={t("settings.passwordLegend")}>
             <fieldset className="flex flex-col gap-4">
               <legend className="sr-only">
@@ -539,6 +517,57 @@ export function SettingsPage() {
                     setSettings({
                       ...settings,
                       passwordMaxAgeDays: Number(e.target.value),
+                    })
+                  }
+                />
+              </Field>
+            </fieldset>
+          </Card>
+
+          {/* The card carries the heading; the fieldset stays because it
+                is what tells a screen reader these controls are one group,
+                and a card is a box, not a grouping. Hence the legend, read
+                but not shown. */}
+          <Card title={t("settings.lockoutLegend")}>
+            <fieldset className="flex flex-col gap-4">
+              <legend className="sr-only">{t("settings.lockoutLegend")}</legend>
+
+              <p className="text-[length:var(--font-size-sm)] text-[var(--color-fg-muted)]">
+                {t("settings.lockoutHelp")}
+              </p>
+
+              <Field
+                label={t("settings.lockoutThreshold")}
+                hint={t("settings.lockoutThresholdHelp")}
+              >
+                <Input
+                  type="number"
+                  min={0}
+                  max={100}
+                  value={settings.lockoutThreshold}
+                  onChange={(e) =>
+                    setSettings({
+                      ...settings,
+                      lockoutThreshold: Number(e.target.value),
+                    })
+                  }
+                />
+              </Field>
+
+              <Field
+                label={t("settings.lockoutDuration")}
+                hint={t("settings.lockoutDurationHelp")}
+              >
+                <Input
+                  type="number"
+                  min={1}
+                  max={1440}
+                  value={settings.lockoutDurationMinutes}
+                  disabled={settings.lockoutThreshold === 0}
+                  onChange={(e) =>
+                    setSettings({
+                      ...settings,
+                      lockoutDurationMinutes: Number(e.target.value),
                     })
                   }
                 />
