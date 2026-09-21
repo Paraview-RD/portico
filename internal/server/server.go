@@ -398,6 +398,7 @@ const (
 	passwordResetRetention = 30 * 24 * time.Hour
 	refreshTokenRetention  = 30 * 24 * time.Hour
 	sessionRetention       = 30 * 24 * time.Hour
+	smsLoginCodeRetention  = 30 * 24 * time.Hour
 )
 
 // sweepCredentialRemnants clears spent password resets and dead refresh
@@ -414,6 +415,9 @@ func (s *Server) sweepCredentialRemnants(ctx context.Context) error {
 
 		if err := q.DeleteExpiredPasswordResets(ctx, now.Add(-passwordResetRetention)); err != nil {
 			return fmt.Errorf("sweep password resets for tenant %s: %w", tenant.Code, err)
+		}
+		if err := q.DeleteExpiredSMSLoginCodes(ctx, now.Add(-smsLoginCodeRetention)); err != nil {
+			return fmt.Errorf("sweep sms login codes for tenant %s: %w", tenant.Code, err)
 		}
 		if err := q.DeleteDeadRefreshTokenChains(ctx, now.Add(-refreshTokenRetention)); err != nil {
 			return fmt.Errorf("sweep refresh tokens for tenant %s: %w", tenant.Code, err)
