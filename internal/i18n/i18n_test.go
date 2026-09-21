@@ -128,24 +128,6 @@ func TestEveryMessageRendersWithTheDataItIsGiven(t *testing.T) {
 	}
 }
 
-// The link is the entire purpose of the messages that carry one inside a
-// sentence. A translation that drops it delivers a polite note about a
-// password reset with no way to reset one, and every other assertion here
-// would still pass.
-//
-// Only the `.sms` keys now, and that is the shape of the rule rather than a
-// list: an SMS is one string holding a whole message, so the link is in it or
-// it is nowhere. The emails used to be `.body` keys of the same shape and are
-// not any more — they are assembled from parts by internal/mailfmt, which
-// places the address itself, as a button and as readable text. Requiring a
-// URL of every part would mean a label reading "Tenant" had to have one.
-//
-// So this guard no longer covers email, and the coverage did not evaporate:
-// it moved to internal/service, where each message is built and both of its
-// renderings are checked for the address. Deleting the last `.body` key
-// without moving that assertion would have left every test green and every
-// email linkless, which is why the count below is asserted rather than
-// assumed — a rule that silently matches nothing is not a rule.
 func TestResolveTakesTheMostSpecificPreferenceThatMeansAnything(t *testing.T) {
 	cases := []struct {
 		name                                      string
