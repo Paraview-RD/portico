@@ -53,6 +53,10 @@ export const errorsEnUS = {
     "This account is still on its default password, which must be replaced before signing in.",
   PASSWORD_NOT_EXPIRED:
     "This password has not expired. Sign in and change it from your profile.",
+  MISSING_PHONE: "A phone number is required.",
+  SMS_LOGIN_UNAVAILABLE:
+    "SMS login is not available. Ask an administrator to enable it, or sign in with a password.",
+  INVALID_SMS_CODE: "That code is incorrect or has expired.",
   // --- Webhook snapshots ---
   SNAPSHOT_IN_PROGRESS:
     "A snapshot for this subscription is still being delivered. Wait for it to finish, or disable the subscription to abandon it.",

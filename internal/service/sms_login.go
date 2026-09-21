@@ -104,7 +104,7 @@ var ErrSMSLoginUnavailable = httpx.NewError(503, "SMS_LOGIN_UNAVAILABLE",
 // expired code, too many wrong attempts, and no matching account. All four
 // return the identical sentinel deliberately -- see the doc comment on
 // LoginWithCode for why distinguishing them would be an enumeration oracle.
-var ErrInvalidSMSCode = httpx.Unauthorized("INVALID_CODE", "That code is incorrect or has expired.")
+var ErrInvalidSMSCode = httpx.Unauthorized("INVALID_SMS_CODE", "That code is incorrect or has expired.")
 
 // smsLoginDeliveryTimeout bounds the work that continues after the
 // response, same reasoning as recoveryDeliveryTimeout.

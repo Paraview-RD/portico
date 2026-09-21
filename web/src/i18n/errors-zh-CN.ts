@@ -35,6 +35,9 @@ export const errorsZhCN: Record<keyof typeof errorsEnUS, string> = {
   PASSWORD_EXPIRED: "该密码已过期，登录前必须先更换。",
   PASSWORD_CHANGE_REQUIRED: "该账号还在用默认密码，登录前必须先更换。",
   PASSWORD_NOT_EXPIRED: "该密码尚未过期。请登录后在个人中心修改。",
+  MISSING_PHONE: "需要提供手机号。",
+  SMS_LOGIN_UNAVAILABLE: "短信登录当前不可用，请联系管理员开启，或改用密码登录。",
+  INVALID_SMS_CODE: "验证码不正确或已过期。",
   SNAPSHOT_IN_PROGRESS:
     "这个订阅的快照还在投递中。等它结束，或者停用该订阅以放弃它。",
   SNAPSHOT_EMPTY_SCOPE: "这个订阅没有选中任何快照能填充的事件。",

@@ -366,3 +366,36 @@ func TestSMSLoginPerPhonePerDayCapSilentlyStopsAfterLimit(t *testing.T) {
 		t.Errorf("sent %d messages, want 0 -- the per-phone daily cap should have silently stopped delivery", got)
 	}
 }
+
+// TestSMSLoginAuditsFailedAttempts proves LoginWithCode's three
+// logLoginFailure calls actually reach the audit trail. There is no typed
+// Scoped query to read audit_logs back (no ListAuditLogs), so this queries
+// the table directly through the store's raw *sql.DB handle -- the same
+// test-only-hand-written-SQL pattern the tenancy guard's own test file
+// documents (querying tables the generated-query layer has no read path
+// for). AuditService.Record (called synchronously by logLoginFailure ->
+// audit.Log, no goroutine involved) has committed by the time
+// LoginWithCode returns, so no polling is needed here.
+func TestSMSLoginAuditsFailedAttempts(t *testing.T) {
+	svc, tenant, sms, existingPhone := newSMSLoginTestService(t)
+	if err := svc.RequestCode(context.Background(), tenant, existingPhone, "1.2.3.4"); err != nil {
+		t.Fatalf("RequestCode: %v", err)
+	}
+	waitForSMS(t, sms, 1)
+
+	_, err := svc.LoginWithCode(context.Background(), tenant, existingPhone, "000000", "1.2.3.4", "test-agent")
+	if !errors.Is(err, ErrInvalidSMSCode) {
+		t.Fatalf("LoginWithCode with a wrong code: %v", err)
+	}
+
+	var count int
+	row := svc.store.DB().QueryRow(
+		`SELECT COUNT(*) FROM audit_logs WHERE tenant_id = $1 AND action = $2 AND actor_username = $3`,
+		tenant.ID, model.ActionLoginFailure, existingPhone)
+	if err := row.Scan(&count); err != nil {
+		t.Fatalf("query audit_logs: %v", err)
+	}
+	if count == 0 {
+		t.Error("want at least one audit_logs row for the failed SMS login attempt, found none")
+	}
+}
