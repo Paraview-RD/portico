@@ -9,6 +9,7 @@ import (
 	"fmt"
 	"log/slog"
 	"net/url"
+	"strconv"
 	"strings"
 	"time"
 
@@ -335,11 +336,10 @@ func (s *VerificationService) deliver(ctx context.Context, tenant model.Tenant, 
 		msg.To = row.Email
 		return s.mailer.Send(ctx, msg)
 	case model.RecoverySMS:
-		text, err := s.messages.Render(locale, i18n.KeyVerificationSMS, data)
-		if err != nil {
-			return err
-		}
-		return s.sms.Send(ctx, row.Phone, text)
+		return s.sms.Send(ctx, row.Phone, notify.SMSKindVerification, map[string]string{
+			"Link":  link,
+			"Hours": strconv.Itoa(hours),
+		})
 	}
 	return ErrVerificationUnavailable
 }
