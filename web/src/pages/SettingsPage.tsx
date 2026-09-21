@@ -158,10 +158,16 @@ export function SettingsPage() {
               the tallest card with the shortest, leaving roughly 480px of
               plain page background below the short one before the next row
               starts: correct horizontally (same row width, which is all the
-              browser suite checks) and wrong to look at. Reordering, not
-              stretching the short card to match, was chosen because a
-              stretched card would show as visibly empty space still, just
-              inside a border instead of on the page background. */}
+              browser suite checks) and wrong to look at. items-stretch on
+              settingsColumns (see its own comment) is what actually closes
+              that gap, regardless of order — it works by growing the
+              shorter card's own box to fill the row instead of leaving the
+              difference as empty page background. This order is what makes
+              the amount it has to grow small: pairing the two tallest and
+              the two shortest cards, rather than a tall one with a short
+              one, keeps the leftover room inside each stretched card
+              modest instead of turning "Password policy" or "Audit log"
+              into a mostly-empty box. */}
           <div className="lg:col-span-2">
             {/* Its own card rather than three more fields under "basics",
                   because the distinction these three need to carry is that they
