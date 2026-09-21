@@ -41,6 +41,8 @@ func signInOutcome(err error) string {
 		return metrics.OutcomeSuccess
 	case errors.Is(err, ErrInvalidCredentials):
 		return metrics.OutcomeBadCredentials
+	case errors.Is(err, ErrInvalidSMSCode):
+		return metrics.OutcomeBadCredentials
 	case errors.Is(err, ErrAccountLocked):
 		return metrics.OutcomeLocked
 	case errors.Is(err, ErrAccountDisabled):

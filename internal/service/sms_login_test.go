@@ -11,11 +11,13 @@ package service
 import (
 	"context"
 	"errors"
+	"fmt"
 	"sync"
 	"testing"
 	"time"
 
 	"github.com/Paraview-RD/portico/internal/auth"
+	"github.com/Paraview-RD/portico/internal/httpx"
 	"github.com/Paraview-RD/portico/internal/metrics"
 	"github.com/Paraview-RD/portico/internal/model"
 	"github.com/Paraview-RD/portico/internal/notify"
@@ -205,8 +207,8 @@ func TestSMSLoginVerifyRefusesWithOneGenericErrorWhateverTheReason(t *testing.T)
 			t.Fatalf("test bug: %q accidentally uses the real code", c.name)
 		}
 		_, err := svc.LoginWithCode(context.Background(), tenant, c.phone, c.code, "1.2.3.4", "test-agent")
-		if !errors.Is(err, ErrInvalidCredentials) {
-			t.Errorf("%s: err = %v, want ErrInvalidCredentials", c.name, err)
+		if !errors.Is(err, ErrInvalidSMSCode) {
+			t.Errorf("%s: err = %v, want ErrInvalidSMSCode", c.name, err)
 		}
 	}
 
@@ -223,8 +225,8 @@ func TestSMSLoginVerifyRefusesWithOneGenericErrorWhateverTheReason(t *testing.T)
 	// And it is single-use: asking again with the same code fails now that
 	// it is consumed.
 	_, err = svc.LoginWithCode(context.Background(), tenant, existingPhone, code, "1.2.3.4", "test-agent")
-	if !errors.Is(err, ErrInvalidCredentials) {
-		t.Errorf("reusing a consumed code: err = %v, want ErrInvalidCredentials", err)
+	if !errors.Is(err, ErrInvalidSMSCode) {
+		t.Errorf("reusing a consumed code: err = %v, want ErrInvalidSMSCode", err)
 	}
 }
 
@@ -237,14 +239,14 @@ func TestSMSLoginLocksOutAfterFiveWrongAttempts(t *testing.T) {
 	code := sms.sent[0].params["Code"]
 
 	for i := 0; i < 5; i++ {
-		if _, err := svc.LoginWithCode(context.Background(), tenant, existingPhone, "000000", "1.2.3.4", "test-agent"); !errors.Is(err, ErrInvalidCredentials) {
+		if _, err := svc.LoginWithCode(context.Background(), tenant, existingPhone, "000000", "1.2.3.4", "test-agent"); !errors.Is(err, ErrInvalidSMSCode) {
 			t.Fatalf("wrong attempt %d: err = %v", i, err)
 		}
 	}
 	// The 6th attempt uses the *real* code, but the code should already be
 	// dead from too many wrong guesses.
-	if _, err := svc.LoginWithCode(context.Background(), tenant, existingPhone, code, "1.2.3.4", "test-agent"); !errors.Is(err, ErrInvalidCredentials) {
-		t.Errorf("real code after 5 wrong attempts: err = %v, want ErrInvalidCredentials (code should be dead)", err)
+	if _, err := svc.LoginWithCode(context.Background(), tenant, existingPhone, code, "1.2.3.4", "test-agent"); !errors.Is(err, ErrInvalidSMSCode) {
+		t.Errorf("real code after 5 wrong attempts: err = %v, want ErrInvalidSMSCode (code should be dead)", err)
 	}
 }
 
@@ -265,5 +267,102 @@ func TestSMSLoginCooldownIsPerPhoneAcrossTenants(t *testing.T) {
 	time.Sleep(300 * time.Millisecond) // give any (incorrect) async send a chance to land
 	if got := sms.len(); got != 1 {
 		t.Errorf("sent %d messages, want still 1 -- cooldown must be shared across tenants for the same phone", got)
+	}
+}
+
+// wantTooManyAttempts asserts err is an httpx.Error carrying the
+// TOO_MANY_ATTEMPTS code -- the synchronous refusal RequestCode gives for
+// the two checks that are safe to refuse distinctly (deployment/day,
+// IP/day; see RequestCode's doc comment).
+func wantTooManyAttempts(t *testing.T, err error) {
+	t.Helper()
+	var herr *httpx.Error
+	if !errors.As(err, &herr) {
+		t.Fatalf("err = %v (%T), want an *httpx.Error", err, err)
+	}
+	if herr.Code != "TOO_MANY_ATTEMPTS" {
+		t.Errorf("err code = %q, want TOO_MANY_ATTEMPTS", herr.Code)
+	}
+}
+
+// TestSMSLoginPerIPPerDayCapRefusesAfterLimit proves SMSLoginPerIPPerDay is
+// the actual threshold wired to RequestCode's synchronous IP check -- not
+// just that *a* limiter exists, but that it is configured with the
+// documented constant. Each call uses a fresh, never-before-seen phone
+// number so the per-phone cooldown/cap (checked asynchronously, and much
+// stricter -- SMSLoginCooldown is one per minute) cannot itself explain a
+// refusal; only the shared IP is held constant.
+func TestSMSLoginPerIPPerDayCapRefusesAfterLimit(t *testing.T) {
+	svc, tenant, _, _ := newSMSLoginTestService(t)
+	const ip = "203.0.113.9"
+
+	for i := 0; i < SMSLoginPerIPPerDay; i++ {
+		phone := fmt.Sprintf("+86138%08d", i)
+		if err := svc.RequestCode(context.Background(), tenant, phone, ip); err != nil {
+			t.Fatalf("request %d (within the per-IP limit): %v", i, err)
+		}
+	}
+
+	err := svc.RequestCode(context.Background(), tenant, "+8613800099999", ip)
+	wantTooManyAttempts(t, err)
+}
+
+// TestSMSLoginPerDeploymentPerDayCapRefusesAfterLimit proves
+// SMSLoginPerDeploymentPerDay is wired to RequestCode's synchronous
+// deployment-wide check. The default (1000) is too large to exercise
+// directly in a fast test, so this builds a second SMSLoginService sharing
+// the first one's store/users/settings/sms but constructed with a small
+// perDeploymentPerDay via NewSMSLoginService's own configuration knob --
+// exactly the mechanism a real deployment would use to tune it, which is
+// what makes this a wiring test rather than a reimplementation of
+// DayLimiter's own tests.
+func TestSMSLoginPerDeploymentPerDayCapRefusesAfterLimit(t *testing.T) {
+	svc, tenant, sms, _ := newSMSLoginTestService(t)
+	const deploymentCap = 3
+	capped := NewSMSLoginService(svc.store, svc.users, svc.settings, svc.audit, metrics.New(), sms, deploymentCap)
+
+	for i := 0; i < deploymentCap; i++ {
+		phone := fmt.Sprintf("+86139%08d", i)
+		ip := fmt.Sprintf("198.51.100.%d", i+1)
+		if err := capped.RequestCode(context.Background(), tenant, phone, ip); err != nil {
+			t.Fatalf("request %d (within the deployment cap): %v", i, err)
+		}
+	}
+
+	err := capped.RequestCode(context.Background(), tenant, "+8613900099999", "198.51.100.99")
+	wantTooManyAttempts(t, err)
+}
+
+// TestSMSLoginPerPhonePerDayCapSilentlyStopsAfterLimit proves
+// SMSLoginPerPhonePerDay is the threshold wired to the phone-scoped limiter
+// completeRequest checks. Unlike the IP and deployment caps, this one must
+// NOT surface as a synchronous refusal -- doing so would tell a caller "this
+// phone has received five codes today," which discloses the phone is bound
+// to an account (RequestCode's doc comment). So this test cannot drive the
+// limit through repeated RequestCode calls to the same phone either: the
+// much stricter per-phone cooldown (one per minute) would refuse every call
+// after the first, long before the daily cap of five is ever reached, and
+// waiting out the cooldown five times over is not a reasonable thing for a
+// fast test to do. Instead it exhausts the exact *httpx.DayLimiter instance
+// RequestCode's completeRequest checks (svc.perPhonePerDay, an unexported
+// field reachable because this test lives in the same package), which
+// proves the count and the key without needing the cooldown out of the way
+// first -- and then confirms a subsequent RequestCode for that phone still
+// answers success (anti-enumeration) while silently delivering nothing.
+func TestSMSLoginPerPhonePerDayCapSilentlyStopsAfterLimit(t *testing.T) {
+	svc, tenant, sms, existingPhone := newSMSLoginTestService(t)
+
+	for i := 0; i < SMSLoginPerPhonePerDay; i++ {
+		if !svc.perPhonePerDay.Allow(existingPhone) {
+			t.Fatalf("priming call %d unexpectedly refused -- SMSLoginPerPhonePerDay may not be %d", i, SMSLoginPerPhonePerDay)
+		}
+	}
+
+	if err := svc.RequestCode(context.Background(), tenant, existingPhone, "192.0.2.77"); err != nil {
+		t.Fatalf("RequestCode after exhausting the per-phone cap: %v (want nil -- must stay silent)", err)
+	}
+	time.Sleep(300 * time.Millisecond) // give a wrongly-sent message a chance to land
+	if got := sms.len(); got != 0 {
+		t.Errorf("sent %d messages, want 0 -- the per-phone daily cap should have silently stopped delivery", got)
 	}
 }

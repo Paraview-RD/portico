@@ -100,6 +100,12 @@ func NewSMSLoginService(
 var ErrSMSLoginUnavailable = httpx.NewError(503, "SMS_LOGIN_UNAVAILABLE",
 	"SMS login is not available. Ask an administrator to enable it, or sign in with a password.")
 
+// ErrInvalidSMSCode covers every way LoginWithCode can refuse: wrong code,
+// expired code, too many wrong attempts, and no matching account. All four
+// return the identical sentinel deliberately -- see the doc comment on
+// LoginWithCode for why distinguishing them would be an enumeration oracle.
+var ErrInvalidSMSCode = httpx.Unauthorized("INVALID_CODE", "That code is incorrect or has expired.")
+
 // smsLoginDeliveryTimeout bounds the work that continues after the
 // response, same reasoning as recoveryDeliveryTimeout.
 const smsLoginDeliveryTimeout = 30 * time.Second
@@ -129,13 +135,17 @@ func (s *SMSLoginService) RequestCode(ctx context.Context, tenant model.Tenant, 
 		return ErrSMSLoginUnavailable
 	}
 
-	if !s.perDeploymentPerDay.Allow(smsLoginBudgetKey) {
-		return httpx.TooManyRequests("TOO_MANY_ATTEMPTS",
-			"This deployment has reached its daily SMS limit. Try again tomorrow.")
-	}
+	// IP-scoped first: Allow both checks and consumes a token on success, so
+	// checking the deployment-wide budget first would let one abusive IP
+	// spend a shared token on every request even after its own cap should
+	// have refused it.
 	if !s.perIPPerDay.Allow(ip) {
 		return httpx.TooManyRequests("TOO_MANY_ATTEMPTS",
 			"Too many requests from this address today. Try again tomorrow.")
+	}
+	if !s.perDeploymentPerDay.Allow(smsLoginBudgetKey) {
+		return httpx.TooManyRequests("TOO_MANY_ATTEMPTS",
+			"This deployment has reached its daily SMS limit. Try again tomorrow.")
 	}
 
 	go s.completeRequest(context.WithoutCancel(ctx), tenant, phone, ip)
@@ -187,7 +197,7 @@ func (s *SMSLoginService) completeRequest(ctx context.Context, tenant model.Tena
 // account in.
 //
 // Wrong code, expired code, too-many-attempts, and no-such-phone all
-// return the same ErrInvalidCredentials (spec §2.1) -- see
+// return the same ErrInvalidSMSCode (spec §2.1) -- see
 // UserService.Login's doc comment for why a sign-in path answers this way.
 // Only once the code itself checks out does the account's own state
 // (locked/disabled/closed) get its own answer, through
@@ -207,7 +217,8 @@ func (s *SMSLoginService) LoginWithCode(ctx context.Context, tenant model.Tenant
 	row, err := q.GetLiveSMSLoginCode(ctx, phone, now)
 	if err != nil {
 		if store.IsNoRows(err) {
-			return Session{}, ErrInvalidCredentials
+			s.users.logLoginFailure(ctx, tenant.ID, "", phone, ip, "no live sms code")
+			return Session{}, ErrInvalidSMSCode
 		}
 		return Session{}, fmt.Errorf("look up sms login code: %w", err)
 	}
@@ -216,13 +227,15 @@ func (s *SMSLoginService) LoginWithCode(ctx context.Context, tenant model.Tenant
 		if row.Attempts < SMSLoginMaxAttempts {
 			_ = q.IncrementSMSLoginCodeAttempts(ctx, row.ID)
 		}
-		return Session{}, ErrInvalidCredentials
+		s.users.logLoginFailure(ctx, tenant.ID, "", phone, ip, "wrong sms code")
+		return Session{}, ErrInvalidSMSCode
 	}
 
 	user, err := q.GetUserByPhone(ctx, phone)
 	if err != nil {
 		if store.IsNoRows(err) {
-			return Session{}, ErrInvalidCredentials
+			s.users.logLoginFailure(ctx, tenant.ID, "", phone, ip, "sms code correct but no matching account")
+			return Session{}, ErrInvalidSMSCode
 		}
 		return Session{}, fmt.Errorf("look up user by phone: %w", err)
 	}
