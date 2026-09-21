@@ -108,7 +108,14 @@ export const test = base.extend<Fixtures>({
       // the way it is for the other controls.
       await page.getByLabel("Username, email, or phone").fill(username);
       await page.getByLabel("Password").fill(password);
-      await page.getByRole("button", { name: "Sign in" }).click();
+      // Exact: when SMS-code sign-in is enabled, the login screen also
+      // carries a "Sign in with a code instead" button, whose accessible
+      // name contains "Sign in" as a substring. Without `exact`, that
+      // toggle resolves alongside the submit button and this click throws
+      // a strict-mode violation instead of signing in.
+      await page
+        .getByRole("button", { name: "Sign in", exact: true })
+        .click();
       // Signing in is complete when the console is reachable, not when the
       // button was clicked. The navigation landmark only exists once
       // authenticated, which makes it the right thing to wait for.
