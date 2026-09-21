@@ -256,6 +256,17 @@ func TestSMSLoginRejectsAWrongCodeAgainstALiveOne(t *testing.T) {
 	if ok.Status != http.StatusOK {
 		t.Errorf("the correct code stopped working after one wrong guess: %d %s", ok.Status, ok.Message)
 	}
+
+	// And now that it has been spent once, the very same code must not work
+	// a second time -- a consumed code that stayed usable would let a
+	// leaked or shoulder-surfed code sign in indefinitely, not just once.
+	reused := api.do(http.MethodPost, "/api/v1/auth/sms/login", "", map[string]string{
+		"phone": phone, "code": sent.params["Code"],
+	})
+	if reused.Status != http.StatusUnauthorized || reused.Code != "INVALID_SMS_CODE" {
+		t.Errorf("reusing an already-consumed code = %d %s, want 401 INVALID_SMS_CODE",
+			reused.Status, reused.Code)
+	}
 }
 
 func TestSMSLoginRequestCodeDoesNotRevealWhetherThePhoneExists(t *testing.T) {
