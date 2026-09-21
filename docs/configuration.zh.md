@@ -41,6 +41,21 @@ Portico 在启动时读取的所有环境变量及其默认值。
 | `PORTICO_RESEND_API_KEY` | *(resend 必填)* | 来自 [resend.com](https://resend.com) 的 API key。 |
 | `PORTICO_MAIL_FROM` | *(resend 必填)* | 在 Resend 已验证域名下的发件人地址。 |
 
+## 阿里云短信
+
+未设置 `PORTICO_ALIYUN_SMS_ACCESS_KEY_ID` 时，短信登录、短信找回密码和短信注册验证均不可用。
+各模板互相独立、均为可选——某次部署可能只申请到了其中部分模板的审核通过，仍可只用已有的那些。
+
+| 变量 | 默认值 | 说明 |
+|---|---|---|
+| `PORTICO_ALIYUN_SMS_ACCESS_KEY_ID` | *(未设置)* | 阿里云 AccessKey ID。未设置时短信功能不可用。 |
+| `PORTICO_ALIYUN_SMS_ACCESS_KEY_SECRET` | *(未设置)* | 阿里云 AccessKey Secret。 |
+| `PORTICO_ALIYUN_SMS_SIGN_NAME` | *(未设置)* | 短信正文前展示的已审核签名，例如 `【Portico】`。 |
+| `PORTICO_ALIYUN_SMS_TEMPLATE_LOGIN_CODE` | *(未设置)* | 独立"手机号+验证码"登录场景的阿里云模板 Code。可选。 |
+| `PORTICO_ALIYUN_SMS_TEMPLATE_RECOVERY` | *(未设置)* | 短信发送密码重置链接场景的阿里云模板 Code。可选。 |
+| `PORTICO_ALIYUN_SMS_TEMPLATE_VERIFICATION` | *(未设置)* | 短信发送注册地址验证链接场景的阿里云模板 Code。可选。 |
+| `PORTICO_SMS_LOGIN_DEPLOYMENT_DAILY_CAP` | `1000` | 整个部署共用的短信登录验证码每日预算——短信不像邮件，每条都要花钱。 |
+
 ## Token 与会话
 
 | 变量 | 默认值 | 说明 |

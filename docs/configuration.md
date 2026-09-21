@@ -42,6 +42,23 @@ Used when `PORTICO_MAIL_TRANSPORT=resend`.
 | `PORTICO_RESEND_API_KEY` | *(required with resend)* | API key from [resend.com](https://resend.com). |
 | `PORTICO_MAIL_FROM` | *(required with resend)* | Sender address on a Resend-verified domain. |
 
+## Aliyun SMS
+
+Unset `PORTICO_ALIYUN_SMS_ACCESS_KEY_ID` and SMS login, password recovery
+over SMS, and registration verification over SMS are all unavailable.
+Templates are individually optional: a deployment may have Aliyun's
+approval for only some of them and still use the ones it has.
+
+| Variable | Default | Description |
+|---|---|---|
+| `PORTICO_ALIYUN_SMS_ACCESS_KEY_ID` | *(unset)* | Aliyun access key ID. Unset: SMS is not available. |
+| `PORTICO_ALIYUN_SMS_ACCESS_KEY_SECRET` | *(unset)* | Aliyun access key secret. |
+| `PORTICO_ALIYUN_SMS_SIGN_NAME` | *(unset)* | The approved SMS signature shown before the message body, e.g. `【Portico】`. |
+| `PORTICO_ALIYUN_SMS_TEMPLATE_LOGIN_CODE` | *(unset)* | Aliyun template code for a standalone phone+code sign-in. Optional. |
+| `PORTICO_ALIYUN_SMS_TEMPLATE_RECOVERY` | *(unset)* | Aliyun template code for a password-reset link sent over SMS. Optional. |
+| `PORTICO_ALIYUN_SMS_TEMPLATE_VERIFICATION` | *(unset)* | Aliyun template code for a registration address-proof link sent over SMS. Optional. |
+| `PORTICO_SMS_LOGIN_DEPLOYMENT_DAILY_CAP` | `1000` | The whole deployment's shared daily budget for SMS login codes, since SMS costs money per message in a way email does not. |
+
 ## Tokens and sessions
 
 | Variable | Default | Description |
