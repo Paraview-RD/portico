@@ -38,7 +38,7 @@ CREATE INDEX idx_sms_login_codes_tenant_phone ON sms_login_codes (tenant_id, pho
 CREATE INDEX idx_sms_login_codes_expires ON sms_login_codes (expires_at);
 
 COMMENT ON COLUMN sms_login_codes.code_hash IS
-    'sha256 of the 6-digit code. Not a password hash -- see the CREATE TABLE comment.';
+    'sha256 of the 6-digit code. Not a password hash; see the CREATE TABLE comment.';
 
 -- +goose Down
 DROP TABLE sms_login_codes;
