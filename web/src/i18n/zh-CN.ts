@@ -442,6 +442,9 @@ export const zhCN: Record<keyof typeof enUS, string> = {
   "settings.invitationOnlyRegistration": "要求邀请码",
   "settings.invitationOnlyRegistrationHelp":
     "即使注册是开放的，没有有效邀请码也无法注册。邀请码的发放与管理在「邀请码」页面。",
+  "settings.smsLoginEnabled": "允许使用短信验证码登录",
+  "settings.smsLoginEnabledHelp":
+    "允许绑定了手机号的账号用短信验证码代替密码登录。需要本部署配置了短信发送能力。",
   "settings.lockoutLegend": "登录失败锁定",
   "settings.lockoutHelp":
     "连续输错密码后锁定账号。这不是限流——它防的是某一个账号的密码被猜中，对大量尝试给服务器带来的负载无能为力，反向代理的限流仍要保留。",

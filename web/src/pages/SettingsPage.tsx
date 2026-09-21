@@ -364,6 +364,30 @@ export function SettingsPage() {
                     </span>
                   </span>
                 </label>
+
+                {/* Not nested under registration — SMS login is
+                    independent of it, unlike the two checkboxes above. */}
+                <label className="flex items-start gap-2.5">
+                  <input
+                    type="checkbox"
+                    className="mt-1"
+                    checked={settings.smsLoginEnabled}
+                    onChange={(e) =>
+                      setSettings({
+                        ...settings,
+                        smsLoginEnabled: e.target.checked,
+                      })
+                    }
+                  />
+                  <span>
+                    <span className="block font-[weight:var(--font-weight-medium)] text-[var(--color-fg)]">
+                      {t("settings.smsLoginEnabled")}
+                    </span>
+                    <span className="block text-[length:var(--font-size-sm)] text-[var(--color-fg-muted)]">
+                      {t("settings.smsLoginEnabledHelp")}
+                    </span>
+                  </span>
+                </label>
               </div>
             </Card>
 

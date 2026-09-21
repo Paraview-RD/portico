@@ -305,6 +305,12 @@ export interface Settings {
    * off — that switch still refuses registration outright.
    */
   invitationOnlyRegistration: boolean;
+  /**
+   * Lets anyone with a bound phone number sign in with a text-message code
+   * instead of a password. Independent of registration — turning it on is
+   * refused where the deployment cannot send SMS.
+   */
+  smsLoginEnabled: boolean;
   systemName: string;
 
   /**

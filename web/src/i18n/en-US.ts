@@ -470,6 +470,9 @@ export const enUS = {
   "settings.invitationOnlyRegistration": "Require an invitation code",
   "settings.invitationOnlyRegistrationHelp":
     "Nobody can register without a valid code, even though registration is open. Issue and manage codes from Invitations.",
+  "settings.smsLoginEnabled": "Allow signing in with an SMS code",
+  "settings.smsLoginEnabledHelp":
+    "Lets anyone with a bound phone number sign in with a text-message code instead of a password. Requires this deployment to have SMS configured.",
   "settings.lockoutLegend": "Failed sign-in lockout",
   "settings.lockoutHelp":
     "Locks an account after repeated wrong passwords. This is not a rate limit — it stops one account's password being guessed, and does nothing about the load a flood of attempts puts on the server. Keep the reverse proxy throttle as well.",
