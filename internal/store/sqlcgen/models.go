@@ -402,6 +402,19 @@ type Session struct {
 	RevokedAt  *time.Time
 }
 
+type SmsLoginCode struct {
+	ID       string
+	TenantID string
+	Phone    string
+	// sha256 of the 6-digit code. Not a password hash; see the CREATE TABLE comment.
+	CodeHash   string
+	Attempts   int32
+	ConsumedAt *time.Time
+	ExpiresAt  time.Time
+	CreatedAt  time.Time
+	Ip         string
+}
+
 type SystemSetting struct {
 	TenantID  string
 	Key       string

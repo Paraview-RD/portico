@@ -344,6 +344,40 @@ func (s *Scoped) SupersedePasswordResets(ctx context.Context, userID string, now
 		sqlcgen.SupersedePasswordResetsParams{TenantID: s.tenantID, UserID: userID, UsedAt: &now})
 }
 
+// --- sms login codes ------------------------------------------------------
+
+// CreateSMSLoginCode records an outstanding SMS login code.
+func (s *Scoped) CreateSMSLoginCode(ctx context.Context, arg sqlcgen.CreateSMSLoginCodeParams) error {
+	arg.TenantID = s.tenantID
+	return s.q.CreateSMSLoginCode(ctx, arg)
+}
+
+// GetLiveSMSLoginCode returns the newest unconsumed, unexpired code for this
+// tenant's phone number. A consumed or expired one is not returned at all.
+func (s *Scoped) GetLiveSMSLoginCode(ctx context.Context, phone string, now time.Time) (sqlcgen.SmsLoginCode, error) {
+	return s.q.GetLiveSMSLoginCode(ctx, sqlcgen.GetLiveSMSLoginCodeParams{
+		TenantID: s.tenantID, Phone: phone, ExpiresAt: now,
+	})
+}
+
+// IncrementSMSLoginCodeAttempts counts one more wrong guess against a code.
+func (s *Scoped) IncrementSMSLoginCodeAttempts(ctx context.Context, id string) error {
+	return s.q.IncrementSMSLoginCodeAttempts(ctx,
+		sqlcgen.IncrementSMSLoginCodeAttemptsParams{TenantID: s.tenantID, ID: id})
+}
+
+// ConsumeSMSLoginCode marks a code used, making it single-use.
+func (s *Scoped) ConsumeSMSLoginCode(ctx context.Context, id string, at time.Time) error {
+	return s.q.ConsumeSMSLoginCode(ctx,
+		sqlcgen.ConsumeSMSLoginCodeParams{TenantID: s.tenantID, ID: id, ConsumedAt: &at})
+}
+
+// DeleteExpiredSMSLoginCodes clears codes past the retention window.
+func (s *Scoped) DeleteExpiredSMSLoginCodes(ctx context.Context, before time.Time) error {
+	return s.q.DeleteExpiredSMSLoginCodes(ctx,
+		sqlcgen.DeleteExpiredSMSLoginCodesParams{TenantID: s.tenantID, ExpiresAt: before})
+}
+
 // --- federation -----------------------------------------------------------
 //
 // Every relying party, key, authorization request, and refresh token belongs
