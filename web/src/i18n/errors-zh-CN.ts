@@ -18,6 +18,8 @@ export const errorsZhCN: Record<keyof typeof errorsEnUS, string> = {
     "本部署要求新账号确认地址，但没有可用的发送渠道。需要管理员配置邮件中继，或关闭该要求。",
   NO_DELIVERY_CHANNEL:
     "要求确认地址需要有发送渠道。请先配置邮件中继，或保持关闭。",
+  NO_SMS_CHANNEL:
+    "短信登录需要能发送短信。请先配置阿里云短信通道，或保持短信登录关闭。",
   ACCOUNT_CLOSED: "该账号已由本人注销。如需恢复，请联系管理员。",
   ACCOUNT_LOCKED: "登录失败次数过多。请稍后再试，或联系管理员解锁账号。",
   MISSING_TOKEN: "尚未登录。",

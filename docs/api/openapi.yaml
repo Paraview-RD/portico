@@ -4930,6 +4930,12 @@ components:
             top of registrationEnabled. registrationEnabled is still the
             overall switch: turning it off refuses registration regardless
             of this.
+        smsLoginEnabled:
+          type: boolean
+          description: |
+            Lets an account with a bound phone number sign in with an
+            SMS code instead of a password. Turning it on is refused
+            where this deployment has no way to send SMS.
         brandingLogoUrl:
           type: string
           description: |

@@ -31,6 +31,8 @@ export const errorsEnUS = {
     "New accounts here must confirm an address, and this deployment cannot send one. An administrator has to configure a mail relay or switch the requirement off.",
   NO_DELIVERY_CHANNEL:
     "Requiring confirmation needs a way to send it. Configure a mail relay first, or leave it off.",
+  NO_SMS_CHANNEL:
+    "SMS login needs a way to send SMS. Configure the Aliyun SMS transport first, or leave SMS login off.",
   ACCOUNT_CLOSED:
     "This account was closed by its owner. An administrator can reinstate it.",
   ACCOUNT_LOCKED:
