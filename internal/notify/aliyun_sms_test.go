@@ -26,7 +26,8 @@ func TestAliyunSMSSenderSendsTheConfiguredTemplate(t *testing.T) {
 	var gotQuery url.Values
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		if err := r.ParseForm(); err != nil {
-			t.Fatalf("ParseForm: %v", err)
+			t.Errorf("ParseForm: %v", err)
+			return
 		}
 		gotQuery = r.Form
 		w.Header().Set("Content-Type", "application/json")

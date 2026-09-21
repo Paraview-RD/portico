@@ -109,13 +109,25 @@ func (a *aliyunSMSSender) Send(ctx context.Context, phone string, kind SMSKind, 
 	}
 	query.Set("Signature", a.sign(http.MethodPost, query))
 
-	// Sent as a POST with the params in the body, not the URL: this is what
-	// Aliyun's own SendSms V2 example does, and it matters here beyond
-	// following the reference -- the query includes the plaintext OTP
-	// (TemplateParam) and the AccessKeyId. A failed request's error wraps
-	// Go's *url.Error, which embeds the request URL; with those in the URL
-	// that error would leak both. See resend.go's equivalent reasoning
-	// around not putting the API key where an error can echo it.
+	// Sent as a POST with the params in a form-urlencoded body, not the
+	// query string Aliyun's own SendSms example uses (that example puts
+	// AccessKeyId, Signature, and everything else in the URL even for its
+	// POST case, and only attaches a body when it has one to send, which
+	// its SendSms example never does). This is a deliberate departure from
+	// that example, not a reproduction of it: the query would otherwise
+	// carry the AccessKeyId, the Signature, and TemplateParam -- which can
+	// contain the OTP itself -- and a failed request's error wraps Go's
+	// *url.Error, which embeds the request URL, so all three would leak
+	// into an error message on failure. See resend.go's equivalent
+	// reasoning around not putting the API key where an error can echo it.
+	//
+	// Not yet verified against Aliyun's live gateway. RPC-style signing
+	// APIs commonly accept parameters via either the query string or an
+	// equivalent-content-type body, and the signature computation is
+	// identical either way per Aliyun's docs, but this specific endpoint
+	// accepting a form body with real credentials has not been confirmed.
+	// Smoke-test against a real (sandbox is fine) Aliyun account before
+	// this ships to production.
 	req, err := http.NewRequestWithContext(ctx, http.MethodPost, a.cfg.Endpoint, strings.NewReader(query.Encode()))
 	if err != nil {
 		return fmt.Errorf("build Aliyun SMS request: %w", err)
