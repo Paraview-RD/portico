@@ -85,15 +85,40 @@ Both halves fail at startup rather than at the first message: asking for this
 transport without a key or a sender is a misconfiguration, not a deployment
 that chose to do without email.
 
-### SMS — optional
+### Aliyun SMS — optional
 
-Password recovery by phone needs an SMS gateway, and unlike email there is
-no universal protocol for one. Portico defines a small provider interface;
-a deployment supplies an implementation, or leaves SMS off and uses email
-only.
+SMS delivery for phone-based authentication: sign-in codes, password recovery
+links, and registration verification. This is a deployment-wide optional
+feature; if credentials are unset, sign-in and recovery default to email and
+recovery-code fallbacks, and SMS verification is unavailable.
 
-*Status: the interface and a no-op implementation exist; concrete providers
-are not yet written.*
+Set `PORTICO_ALIYUN_SMS_ACCESS_KEY_ID` and its corresponding secret to enable
+SMS delivery. Templates are individually optional — a deployment may have
+Aliyun's approval for only some message types and still use the ones it has.
+
+| Setting | Meaning |
+|---|---|
+| `PORTICO_ALIYUN_SMS_ACCESS_KEY_ID` | Aliyun account access key ID. Unset: SMS is not available. |
+| `PORTICO_ALIYUN_SMS_ACCESS_KEY_SECRET` | Corresponding access key secret for request signing (HMAC-SHA1). |
+| `PORTICO_ALIYUN_SMS_SIGN_NAME` | The SMS signature prefix approved by Aliyun, shown before message body (e.g. `【Portico】`). Required once credentials are set. |
+| `PORTICO_ALIYUN_SMS_TEMPLATE_LOGIN_CODE` | Aliyun template code for standalone phone+code sign-in messages. Optional. |
+| `PORTICO_ALIYUN_SMS_TEMPLATE_RECOVERY` | Aliyun template code for password-reset links sent over SMS. Optional. |
+| `PORTICO_ALIYUN_SMS_TEMPLATE_VERIFICATION` | Aliyun template code for address-proof links sent during registration. Optional. |
+| `PORTICO_SMS_LOGIN_DEPLOYMENT_DAILY_CAP` | Default `1000`. The whole deployment's shared daily quota for SMS login codes, enforced to bound costs. |
+
+- **Purpose**: delivering SMS sign-in codes, password-recovery links, and
+  registration-verification links to a user's registered phone.
+- **Auth**: Aliyun AccessKey ID/Secret pair, signing requests with HMAC-SHA1.
+  Keys are created in the Aliyun console and scoped to the specific SMS
+  sending application.
+- **Account owner**: TBD — assign a deployment owner to manage the Aliyun
+  account, API credentials, and message templates.
+- **Cost**: billed by Aliyun per SMS message sent, at rates that vary by
+  account, region, and current promotions. The deployment-wide daily cap
+  (`PORTICO_SMS_LOGIN_DEPLOYMENT_DAILY_CAP`, default 1000) controls the
+  maximum spend per day: once that limit is reached, SMS sign-in codes are
+  refused until the quota resets. Check your Aliyun account for
+  message-delivery costs and per-message pricing.
 
 ### Active Directory or OpenLDAP — optional, and the one Portico reaches out to
 
