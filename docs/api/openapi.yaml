@@ -629,7 +629,12 @@ paths:
         "404":
           $ref: "#/components/responses/TenantNotFound"
         "429":
-          description: Too many requests for this phone number, IP, or deployment today.
+          description: |
+            Too many requests from this IP address today, or this
+            deployment's shared daily SMS budget is exhausted. Per-phone
+            rate limiting also exists but is never reported synchronously --
+            see RequestCode's doc comment for why a distinct refusal there
+            would be an enumeration oracle.
           content:
             application/json:
               schema: { $ref: "#/components/schemas/Envelope" }

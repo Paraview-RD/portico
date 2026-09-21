@@ -89,8 +89,11 @@ that chose to do without email.
 
 SMS delivery for phone-based authentication: sign-in codes, password recovery
 links, and registration verification. This is a deployment-wide optional
-feature; if credentials are unset, sign-in and recovery default to email and
-recovery-code fallbacks, and SMS verification is unavailable.
+feature; if credentials are unset, standalone phone+code sign-in and the SMS
+password-recovery channel are simply unavailable. Password recovery over
+email is unaffected -- email and SMS are independent recovery channels, not
+a fallback chain, and the sign-in screen only offers whichever channels are
+actually configured.
 
 Set `PORTICO_ALIYUN_SMS_ACCESS_KEY_ID` and its corresponding secret to enable
 SMS delivery. Templates are individually optional — a deployment may have
