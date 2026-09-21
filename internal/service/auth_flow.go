@@ -265,6 +265,30 @@ func (s *UserService) IssueSessionForExternalIdentity(ctx context.Context, tenan
 		return Session{}, fmt.Errorf("look up user: %w", err)
 	}
 
+	return s.issueSessionForUser(ctx, tenant, row, ip, userAgent, "external identity provider")
+}
+
+// issueSessionForUser is everything a sign-in does once the credential
+// itself has already been checked by the caller: the account has to still
+// be usable, and then it gets a session.
+//
+// Shared between IssueSessionForExternalIdentity and SMSLoginService's
+// LoginWithCode, which check two different credentials (a provider's
+// word, a phone code) and agree on everything past that -- a disabled
+// account is disabled whoever vouched for it, and a locked one is locked.
+// A third copy of this chain, next to Login's, is exactly the shape of
+// thing that gets a check added to two of three paths and not the third.
+//
+// PasswordPolicy().Expired and MustChangePassword are deliberately absent,
+// same as in the caller this was extracted from: both are conditions on
+// the password, and neither caller is presenting one.
+//
+// The lockout counter (FailedLoginAttempts / LockedUntil) is not touched
+// here in either direction. It counts password guesses; a wrong SMS code
+// is counted by sms_login_codes.attempts instead, and a successful sign-in
+// through a different credential is not evidence that whoever was guessing
+// the password has stopped.
+func (s *UserService) issueSessionForUser(ctx context.Context, tenant model.Tenant, row sqlcgen.User, ip, userAgent, auditDetail string) (Session, error) {
 	if row.LockedUntil != nil && row.LockedUntil.After(store.Now()) {
 		s.logLoginFailure(ctx, tenant.ID, row.ID, row.Username, ip, "account locked")
 		return Session{}, ErrAccountLocked
@@ -288,6 +312,7 @@ func (s *UserService) IssueSessionForExternalIdentity(ctx context.Context, tenan
 		return Session{}, err
 	}
 
+	q := s.store.ForTenant(tenant.ID)
 	sessionID := uuid.NewString()
 	now := store.Now()
 	ttl := settings.TokenTTL()
@@ -305,15 +330,11 @@ func (s *UserService) IssueSessionForExternalIdentity(ctx context.Context, tenan
 	}
 	s.metrics.RecordTokenIssued(metrics.TokenSession)
 
-	// Recorded as a sign-in like any other. Which provider vouched belongs
-	// in the entry: "signed in" without it would make an external sign-in
-	// indistinguishable from a password one in the trail, and they are not
-	// the same event to somebody investigating.
 	s.audit.Log(ctx, tenant.ID, AuditEntry{
 		Kind: model.LogLogin, Action: model.ActionLoginSuccess,
 		Result:  model.LogSuccess,
 		ActorID: user.ID, ActorName: user.Username,
-		IP: ip, Detail: "external identity provider",
+		IP: ip, Detail: auditDetail,
 	})
 
 	return Session{Token: token, ExpiresAt: expiresAt, User: user}, nil
