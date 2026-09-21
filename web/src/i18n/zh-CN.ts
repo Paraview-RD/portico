@@ -104,6 +104,12 @@ export const zhCN: Record<keyof typeof enUS, string> = {
   "login.noAccount": "还没有账号？",
   "login.register": "立即注册",
   "login.sessionExpired": "登录状态已失效，请重新登录。",
+  "login.useSmsCode": "改用验证码登录",
+  "login.usePassword": "改用密码登录",
+  "login.phone": "手机号",
+  "login.smsCode": "验证码",
+  "login.smsSend": "发送验证码",
+  "login.smsResendIn": "{0} 秒后重新发送",
 
   "authorize.title": "正在登录",
   "authorize.redirecting": "正在返回应用…",

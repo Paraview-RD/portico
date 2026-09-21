@@ -117,6 +117,12 @@ export const enUS = {
   "login.noAccount": "Don't have an account?",
   "login.register": "Create one",
   "login.sessionExpired": "Your session ended. Please sign in again.",
+  "login.useSmsCode": "Sign in with a code instead",
+  "login.usePassword": "Sign in with a password instead",
+  "login.phone": "Phone number",
+  "login.smsCode": "Code",
+  "login.smsSend": "Send code",
+  "login.smsResendIn": "Resend in {0}s",
 
   // Signing in on behalf of an application, rather than to Portico itself.
   "authorize.title": "Signing you in",

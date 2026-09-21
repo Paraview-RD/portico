@@ -429,6 +429,11 @@ export interface RegistrationStatus {
   tenant: string;
   tenantName: string;
   branding: Branding;
+  /**
+   * Whether the sign-in screen may offer SMS-code login: the tenant's own
+   * setting ANDed with whether this deployment can actually send SMS.
+   */
+  smsLoginEnabled: boolean;
 }
 
 /**

@@ -13,7 +13,8 @@ import { useSession } from "../session";
 export function LoginPage() {
   const t = useT();
   const describeError = useErrorMessage();
-  const { signIn, signInWithReplacedPassword, expired } = useSession();
+  const { signIn, signInWithReplacedPassword, adoptIssuedSession, expired } =
+    useSession();
   const { navigate } = useRouter();
 
   // Remembered from the last sign-in, or taken from a ?tenant= link, so an
@@ -94,6 +95,25 @@ export function LoginPage() {
   // and footer showing the previous tenant's — sharing one fetch is what
   // keeps them from disagreeing.
   const [branding, setBranding] = useState<Branding>(noBranding);
+  // Whether this tenant offers SMS-code sign-in at all — the tenant's own
+  // setting ANDed with whether this deployment can send SMS, both baked
+  // into the one flag the server already sends back.
+  const [smsLoginEnabled, setSmsLoginEnabled] = useState(false);
+  const [mode, setMode] = useState<"password" | "sms">("password");
+  const [smsPhone, setSmsPhone] = useState("");
+  const [smsCode, setSmsCode] = useState("");
+  const [smsCooldown, setSmsCooldown] = useState(0);
+  const [smsSending, setSmsSending] = useState(false);
+
+  // Ticks the resend cooldown down to zero, a second at a time.
+  useEffect(() => {
+    if (smsCooldown <= 0) return;
+    const id = setInterval(
+      () => setSmsCooldown((s) => Math.max(0, s - 1)),
+      1000,
+    );
+    return () => clearInterval(id);
+  }, [smsCooldown]);
 
   // A 404 is the answer on every ordinary installation, and it means "no"
   // rather than "something went wrong" — the routes are not registered unless
@@ -121,6 +141,7 @@ export function LoginPage() {
         setRegistrationOpen(status.registrationEnabled);
         setSystemName(status.systemName);
         setBranding(status.branding);
+        setSmsLoginEnabled(status.smsLoginEnabled);
       })
       .catch(() => {
         // An unknown tenant lands here. Sign-in will say so plainly, which
@@ -130,6 +151,7 @@ export function LoginPage() {
         setRegistrationOpen(false);
         setSystemName("Portico");
         setBranding(noBranding);
+        setSmsLoginEnabled(false);
       });
 
     // Which buttons this tenant offers, asked in the same breath and for the
@@ -252,7 +274,7 @@ export function LoginPage() {
         </div>
       )}
 
-      <form onSubmit={handleSubmit} className="flex flex-col gap-4">
+      <div className="flex flex-col gap-4">
         <Field label={t("login.tenant")} hint={t("login.tenantHint")}>
           <Input
             value={tenant}
@@ -263,102 +285,199 @@ export function LoginPage() {
           />
         </Field>
 
-        <Field
-          label={t("login.identifier")}
-          hint={t("login.identifierHint")}
-          required
-        >
-          <Input
-            value={identifier}
-            onChange={(e) => setIdentifier(e.target.value)}
-            autoComplete="username"
-            autoFocus
-            required
-          />
-        </Field>
+        {/* Hidden while an application is waiting on this sign-in, for the
+            same reason the external-provider buttons below are: that
+            journey ends on a callback address this page must not replace,
+            and SMS sign-in is another full-page-replacing path. */}
+        {smsLoginEnabled && !completingAuthorization && (
+          <div className="text-center">
+            <AuthLink
+              onClick={() => setMode(mode === "password" ? "sms" : "password")}
+            >
+              {mode === "password"
+                ? t("login.useSmsCode")
+                : t("login.usePassword")}
+            </AuthLink>
+          </div>
+        )}
+      </div>
 
-        <Field
-          label={
-            mustReplacePassword
-              ? t("login.currentPassword")
-              : t("login.password")
-          }
-          required
+      {mode === "sms" ? (
+        <form
+          onSubmit={async (e) => {
+            e.preventDefault();
+            setError("");
+            setSubmitting(true);
+            try {
+              setLookedUpTenant(tenant.trim());
+              const session = await authApi.loginWithSMSCode(
+                smsPhone.trim(),
+                smsCode.trim(),
+                tenant.trim(),
+              );
+              await adoptIssuedSession(session.token, tenant.trim());
+              if (!completingAuthorization) navigate("/");
+            } catch (err) {
+              setError(describeError(err));
+            } finally {
+              setSubmitting(false);
+            }
+          }}
+          className="mt-4 flex flex-col gap-4"
         >
-          <Input
-            type="password"
-            value={password}
-            onChange={(e) => setPassword(e.target.value)}
-            autoComplete="current-password"
-            required
-          />
-        </Field>
-
-        {mustReplacePassword && (
-          <Field label={t("login.newPassword")} required>
+          <Field label={t("login.phone")} required>
             <Input
-              type="password"
-              value={newPassword}
-              onChange={(e) => setNewPassword(e.target.value)}
-              autoComplete="new-password"
+              value={smsPhone}
+              onChange={(e) => setSmsPhone(e.target.value)}
+              type="tel"
+              autoComplete="tel"
+              autoFocus
               required
             />
           </Field>
-        )}
-
-        {error && <Alert tone="danger">{error}</Alert>}
-
-        {unverified && !resent && (
-          // The address, asked for rather than taken from the field above.
-          //
-          // That field holds a username as often as an address, and the
-          // server resolves a resend against the contact columns only — so
-          // reusing it would produce a button that reports success and
-          // sends nothing. Widening the server's lookup instead would mean
-          // a username could name the account a message goes to, which is
-          // the shape of mistake password recovery deliberately avoids.
-          <Field
-            label={t("verify.resendAddress")}
-            hint={t("verify.resendAddressHelp")}
-          >
+          <Field label={t("login.smsCode")} required>
             <div className="flex gap-2">
               <Input
-                type="email"
-                value={resendTo}
-                onChange={(e) => setResendTo(e.target.value)}
-                autoComplete="email"
+                value={smsCode}
+                onChange={(e) => setSmsCode(e.target.value)}
+                inputMode="numeric"
+                autoComplete="one-time-code"
+                required
               />
               <Button
+                type="button"
                 variant="secondary"
-                disabled={resendTo.trim() === ""}
-                onClick={() => {
-                  // Fired and forgotten on purpose. The endpoint answers
-                  // the same thing whether or not the address belongs to
-                  // anybody, so there is nothing to report — and reporting
-                  // a failure would leak exactly what it refuses to.
-                  void authApi
-                    .resendVerification(resendTo.trim(), tenant.trim())
-                    .catch(() => undefined);
-                  setResent(true);
+                disabled={
+                  smsCooldown > 0 || smsSending || smsPhone.trim() === ""
+                }
+                onClick={async () => {
+                  setSmsSending(true);
+                  setError("");
+                  try {
+                    await authApi.requestSMSLoginCode(
+                      smsPhone.trim(),
+                      tenant.trim(),
+                    );
+                    setSmsCooldown(60);
+                  } catch (err) {
+                    setError(describeError(err));
+                  } finally {
+                    setSmsSending(false);
+                  }
                 }}
               >
-                {t("verify.resend")}
+                {smsCooldown > 0
+                  ? t("login.smsResendIn", smsCooldown)
+                  : t("login.smsSend")}
               </Button>
             </div>
           </Field>
-        )}
-        {resent && <Alert tone="success">{t("verify.resent")}</Alert>}
 
-        <Button type="submit" disabled={submitting}>
-          {submitting ? t("login.signingIn") : t("login.submit")}
-        </Button>
+          {error && <Alert tone="danger">{error}</Alert>}
 
-        <div className="text-center">
-          <AuthLink onClick={() => navigate("/forgot-password")}>
-            {t("login.forgotPassword")}
-          </AuthLink>
-        </div>
-      </form>
+          <Button type="submit" disabled={submitting}>
+            {submitting ? t("login.signingIn") : t("login.submit")}
+          </Button>
+        </form>
+      ) : (
+        <form onSubmit={handleSubmit} className="mt-4 flex flex-col gap-4">
+          <Field
+            label={t("login.identifier")}
+            hint={t("login.identifierHint")}
+            required
+          >
+            <Input
+              value={identifier}
+              onChange={(e) => setIdentifier(e.target.value)}
+              autoComplete="username"
+              autoFocus
+              required
+            />
+          </Field>
+
+          <Field
+            label={
+              mustReplacePassword
+                ? t("login.currentPassword")
+                : t("login.password")
+            }
+            required
+          >
+            <Input
+              type="password"
+              value={password}
+              onChange={(e) => setPassword(e.target.value)}
+              autoComplete="current-password"
+              required
+            />
+          </Field>
+
+          {mustReplacePassword && (
+            <Field label={t("login.newPassword")} required>
+              <Input
+                type="password"
+                value={newPassword}
+                onChange={(e) => setNewPassword(e.target.value)}
+                autoComplete="new-password"
+                required
+              />
+            </Field>
+          )}
+
+          {error && <Alert tone="danger">{error}</Alert>}
+
+          {unverified && !resent && (
+            // The address, asked for rather than taken from the field above.
+            //
+            // That field holds a username as often as an address, and the
+            // server resolves a resend against the contact columns only — so
+            // reusing it would produce a button that reports success and
+            // sends nothing. Widening the server's lookup instead would mean
+            // a username could name the account a message goes to, which is
+            // the shape of mistake password recovery deliberately avoids.
+            <Field
+              label={t("verify.resendAddress")}
+              hint={t("verify.resendAddressHelp")}
+            >
+              <div className="flex gap-2">
+                <Input
+                  type="email"
+                  value={resendTo}
+                  onChange={(e) => setResendTo(e.target.value)}
+                  autoComplete="email"
+                />
+                <Button
+                  variant="secondary"
+                  disabled={resendTo.trim() === ""}
+                  onClick={() => {
+                    // Fired and forgotten on purpose. The endpoint answers
+                    // the same thing whether or not the address belongs to
+                    // anybody, so there is nothing to report — and reporting
+                    // a failure would leak exactly what it refuses to.
+                    void authApi
+                      .resendVerification(resendTo.trim(), tenant.trim())
+                      .catch(() => undefined);
+                    setResent(true);
+                  }}
+                >
+                  {t("verify.resend")}
+                </Button>
+              </div>
+            </Field>
+          )}
+          {resent && <Alert tone="success">{t("verify.resent")}</Alert>}
+
+          <Button type="submit" disabled={submitting}>
+            {submitting ? t("login.signingIn") : t("login.submit")}
+          </Button>
+
+          <div className="text-center">
+            <AuthLink onClick={() => navigate("/forgot-password")}>
+              {t("login.forgotPassword")}
+            </AuthLink>
+          </div>
+        </form>
+      )}
 
       {/* Providers, under the password form rather than above it.
           A password is what almost everybody here uses, and a screen that
