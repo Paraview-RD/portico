@@ -30,20 +30,18 @@ func TestSMSLoginRoutesAnswerRatherThan500(t *testing.T) {
 			code.Status, code.Code)
 	}
 
-	// LoginWithCode does not check SMSLoginEnabled/CanDeliverSMS itself --
-	// see its doc comment in internal/service/sms_login.go. With the
-	// method unavailable no code could ever have been issued, so the code
-	// lookup finds nothing live and answers the same 401 INVALID_SMS_CODE
-	// it would for any other phone number with no pending code. Confirmed
-	// empirically here rather than assumed: an initial version of this test
-	// expected 503, and running it against the real handler is what showed
-	// the actual (and correct) behavior.
+	// LoginWithCode now re-checks SMSLoginEnabled/CanDeliverSMS itself,
+	// same as RequestCode -- see its doc comment in
+	// internal/service/sms_login.go. With the method unavailable, that
+	// check fires before any phone/code lookup, so this answers the same
+	// 503 SMS_LOGIN_UNAVAILABLE as /auth/sms/code above, not
+	// INVALID_SMS_CODE.
 	login := api.do(http.MethodPost, "/api/v1/auth/sms/login", "", map[string]string{
 		"phone": "+8613800000000",
 		"code":  "123456",
 	})
-	if login.Status != http.StatusUnauthorized || login.Code != "INVALID_SMS_CODE" {
-		t.Errorf("POST /auth/sms/login with no live code = %d %s, want 401 INVALID_SMS_CODE",
+	if login.Status != http.StatusServiceUnavailable || login.Code != "SMS_LOGIN_UNAVAILABLE" {
+		t.Errorf("POST /auth/sms/login with no SMS provider configured = %d %s, want 503 SMS_LOGIN_UNAVAILABLE",
 			login.Status, login.Code)
 	}
 }

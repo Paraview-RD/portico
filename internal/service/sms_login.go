@@ -6,6 +6,7 @@ import (
 	"crypto/sha256"
 	"encoding/hex"
 	"fmt"
+	"log/slog"
 	"math/big"
 	"strconv"
 	"strings"
@@ -184,13 +185,18 @@ func (s *SMSLoginService) completeRequest(ctx context.Context, tenant model.Tena
 		ID: uuid.NewString(), Phone: phone, CodeHash: hash,
 		ExpiresAt: now.Add(SMSLoginCodeTTL), CreatedAt: now, Ip: ip,
 	}); err != nil {
+		slog.ErrorContext(ctx, "failed to record an sms login code",
+			"tenant", tenant.Code, "error", err)
 		return
 	}
 
-	_ = s.sms.Send(ctx, phone, notify.SMSKindLoginCode, map[string]string{
+	if err := s.sms.Send(ctx, phone, notify.SMSKindLoginCode, map[string]string{
 		"Code":    code,
 		"Minutes": strconv.Itoa(int(SMSLoginCodeTTL.Minutes())),
-	})
+	}); err != nil {
+		slog.ErrorContext(ctx, "failed to deliver an sms login code",
+			"tenant", tenant.Code, "error", err)
+	}
 }
 
 // LoginWithCode verifies a code and, if it is right, signs the phone's
@@ -204,6 +210,14 @@ func (s *SMSLoginService) completeRequest(ctx context.Context, tenant model.Tena
 // UserService.issueSessionForUser.
 func (s *SMSLoginService) LoginWithCode(ctx context.Context, tenant model.Tenant, phone, code, ip, userAgent string) (session Session, err error) {
 	defer func() { s.metrics.RecordSignIn(signInOutcome(err)) }()
+
+	settings, err := s.settings.Get(ctx, tenant.ID)
+	if err != nil {
+		return Session{}, err
+	}
+	if !settings.SMSLoginEnabled || !s.settings.CanDeliverSMS() {
+		return Session{}, ErrSMSLoginUnavailable
+	}
 
 	phone = strings.TrimSpace(phone)
 	code = strings.TrimSpace(code)
