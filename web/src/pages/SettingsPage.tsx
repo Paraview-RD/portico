@@ -121,7 +121,18 @@ export function SettingsPage() {
               cards cannot pair, and the odd one out lands alone on a row half
               the width of every other row, which the browser suite reads as a
               mistake. Correctly: that is exactly what putting this card in the
-              left column did. Spanning keeps the count even. */}
+              left column did. Spanning keeps the count even.
+
+              The four cards are direct children of this grid rather than
+              being wrapped in a pair of flex columns, and that is load
+              bearing, not tidiness. Two independent flex columns stack
+              however tall their own content makes them; once one card grows
+              (basics, when the SMS login toggle was added), its column's
+              second card starts lower than the other column's second card
+              ends, and the two stop overlapping — the row-alignment check
+              read that as a mistake, correctly. A grid instead sizes each
+              row to its tallest cell, so the second row starts at the same
+              line in both columns no matter how tall either card gets. */}
           <div className="lg:col-span-2">
             {/* Its own card rather than three more fields under "basics",
                   because the distinction these three need to carry is that they
@@ -207,361 +218,353 @@ export function SettingsPage() {
             </Card>
           </div>
 
-          <div className="flex flex-col gap-4">
-            <Card title={t("settings.basicsLegend")}>
-              <div className="flex flex-col gap-4">
-                <Field label={t("settings.systemName")} required>
-                  <Input
-                    value={settings.systemName}
-                    onChange={(e) =>
-                      setSettings({ ...settings, systemName: e.target.value })
-                    }
-                    required
-                  />
-                </Field>
-
-                <Field
-                  label={t("settings.tokenTtl")}
-                  hint={t("settings.tokenTtlHelp")}
+          <Card title={t("settings.basicsLegend")}>
+            <div className="flex flex-col gap-4">
+              <Field label={t("settings.systemName")} required>
+                <Input
+                  value={settings.systemName}
+                  onChange={(e) =>
+                    setSettings({ ...settings, systemName: e.target.value })
+                  }
                   required
-                >
-                  <Input
-                    type="number"
-                    min={5}
-                    max={43200}
-                    value={settings.tokenTtlMinutes}
-                    onChange={(e) =>
-                      setSettings({
-                        ...settings,
-                        tokenTtlMinutes: Number(e.target.value),
-                      })
-                    }
-                    required
-                  />
-                </Field>
+                />
+              </Field>
 
-                {/* Not the console's language, which each reader picks for
+              <Field
+                label={t("settings.tokenTtl")}
+                hint={t("settings.tokenTtlHelp")}
+                required
+              >
+                <Input
+                  type="number"
+                  min={5}
+                  max={43200}
+                  value={settings.tokenTtlMinutes}
+                  onChange={(e) =>
+                    setSettings({
+                      ...settings,
+                      tokenTtlMinutes: Number(e.target.value),
+                    })
+                  }
+                  required
+                />
+              </Field>
+
+              {/* Not the console's language, which each reader picks for
                     themselves and which is remembered in their browser. This
                     is for the text that arrives where there is no menu — a
                     reset link, a confirmation. */}
-                <Field
-                  label={t("settings.defaultLocale")}
-                  hint={t("settings.defaultLocaleHelp")}
+              <Field
+                label={t("settings.defaultLocale")}
+                hint={t("settings.defaultLocaleHelp")}
+              >
+                <Select
+                  value={settings.defaultLocale}
+                  onChange={(e) =>
+                    setSettings({
+                      ...settings,
+                      defaultLocale: e.target.value,
+                    })
+                  }
                 >
-                  <Select
-                    value={settings.defaultLocale}
-                    onChange={(e) =>
-                      setSettings({
-                        ...settings,
-                        defaultLocale: e.target.value,
-                      })
-                    }
-                  >
-                    <option value="">
-                      {t("settings.defaultLocaleFollow")}
+                  <option value="">{t("settings.defaultLocaleFollow")}</option>
+                  {locales.map((locale) => (
+                    <option key={locale.code} value={locale.code}>
+                      {locale.name}
                     </option>
-                    {locales.map((locale) => (
-                      <option key={locale.code} value={locale.code}>
-                        {locale.name}
-                      </option>
-                    ))}
-                  </Select>
-                </Field>
+                  ))}
+                </Select>
+              </Field>
 
-                {/* Above registration rather than below the password
+              {/* Above registration rather than below the password
                     rules, because it is about this interface rather than
                     about who may sign in to it. */}
-                <label className="flex items-start gap-2.5">
-                  <input
-                    type="checkbox"
-                    className="mt-1"
-                    checked={settings.showGuides}
-                    onChange={(e) =>
-                      setSettings({ ...settings, showGuides: e.target.checked })
-                    }
-                  />
-                  <span>
-                    <span className="block font-[weight:var(--font-weight-medium)] text-[var(--color-fg)]">
-                      {t("settings.showGuides")}
-                    </span>
-                    <span className="block text-[length:var(--font-size-sm)] text-[var(--color-fg-muted)]">
-                      {t("settings.showGuidesHelp")}
-                    </span>
+              <label className="flex items-start gap-2.5">
+                <input
+                  type="checkbox"
+                  className="mt-1"
+                  checked={settings.showGuides}
+                  onChange={(e) =>
+                    setSettings({ ...settings, showGuides: e.target.checked })
+                  }
+                />
+                <span>
+                  <span className="block font-[weight:var(--font-weight-medium)] text-[var(--color-fg)]">
+                    {t("settings.showGuides")}
                   </span>
-                </label>
-
-                <label className="flex items-start gap-2.5">
-                  <input
-                    type="checkbox"
-                    className="mt-1"
-                    checked={settings.registrationEnabled}
-                    onChange={(e) =>
-                      setSettings({
-                        ...settings,
-                        registrationEnabled: e.target.checked,
-                      })
-                    }
-                  />
-                  <span>
-                    <span className="block font-[weight:var(--font-weight-medium)] text-[var(--color-fg)]">
-                      {t("settings.registrationEnabled")}
-                    </span>
-                    <span className="block text-[length:var(--font-size-sm)] text-[var(--color-fg-muted)]">
-                      {t("settings.registrationHelp")}
-                    </span>
+                  <span className="block text-[length:var(--font-size-sm)] text-[var(--color-fg-muted)]">
+                    {t("settings.showGuidesHelp")}
                   </span>
-                </label>
+                </span>
+              </label>
 
-                {/* Nested under registration because it is meaningless
+              <label className="flex items-start gap-2.5">
+                <input
+                  type="checkbox"
+                  className="mt-1"
+                  checked={settings.registrationEnabled}
+                  onChange={(e) =>
+                    setSettings({
+                      ...settings,
+                      registrationEnabled: e.target.checked,
+                    })
+                  }
+                />
+                <span>
+                  <span className="block font-[weight:var(--font-weight-medium)] text-[var(--color-fg)]">
+                    {t("settings.registrationEnabled")}
+                  </span>
+                  <span className="block text-[length:var(--font-size-sm)] text-[var(--color-fg-muted)]">
+                    {t("settings.registrationHelp")}
+                  </span>
+                </span>
+              </label>
+
+              {/* Nested under registration because it is meaningless
                     without it, and shown greyed rather than hidden when
                     registration is off — hiding it would make the setting
                     vanish and reappear as somebody toggles the box above,
                     which reads as a bug. */}
-                <label className="ml-6 flex items-start gap-2.5">
-                  <input
-                    type="checkbox"
-                    className="mt-1"
-                    disabled={!settings.registrationEnabled}
-                    checked={settings.registrationVerification}
-                    onChange={(e) =>
-                      setSettings({
-                        ...settings,
-                        registrationVerification: e.target.checked,
-                      })
-                    }
-                  />
-                  <span>
-                    <span className="block font-[weight:var(--font-weight-medium)] text-[var(--color-fg)]">
-                      {t("settings.registrationVerification")}
-                    </span>
-                    <span className="block text-[length:var(--font-size-sm)] text-[var(--color-fg-muted)]">
-                      {t("settings.registrationVerificationHelp")}
-                    </span>
+              <label className="ml-6 flex items-start gap-2.5">
+                <input
+                  type="checkbox"
+                  className="mt-1"
+                  disabled={!settings.registrationEnabled}
+                  checked={settings.registrationVerification}
+                  onChange={(e) =>
+                    setSettings({
+                      ...settings,
+                      registrationVerification: e.target.checked,
+                    })
+                  }
+                />
+                <span>
+                  <span className="block font-[weight:var(--font-weight-medium)] text-[var(--color-fg)]">
+                    {t("settings.registrationVerification")}
                   </span>
-                </label>
+                  <span className="block text-[length:var(--font-size-sm)] text-[var(--color-fg-muted)]">
+                    {t("settings.registrationVerificationHelp")}
+                  </span>
+                </span>
+              </label>
 
-                {/* Same nesting as verification above, for the same
+              {/* Same nesting as verification above, for the same
                     reason: meaningless without registration switched on. */}
-                <label className="ml-6 flex items-start gap-2.5">
-                  <input
-                    type="checkbox"
-                    className="mt-1"
-                    disabled={!settings.registrationEnabled}
-                    checked={settings.invitationOnlyRegistration}
-                    onChange={(e) =>
-                      setSettings({
-                        ...settings,
-                        invitationOnlyRegistration: e.target.checked,
-                      })
-                    }
-                  />
-                  <span>
-                    <span className="block font-[weight:var(--font-weight-medium)] text-[var(--color-fg)]">
-                      {t("settings.invitationOnlyRegistration")}
-                    </span>
-                    <span className="block text-[length:var(--font-size-sm)] text-[var(--color-fg-muted)]">
-                      {t("settings.invitationOnlyRegistrationHelp")}
-                    </span>
+              <label className="ml-6 flex items-start gap-2.5">
+                <input
+                  type="checkbox"
+                  className="mt-1"
+                  disabled={!settings.registrationEnabled}
+                  checked={settings.invitationOnlyRegistration}
+                  onChange={(e) =>
+                    setSettings({
+                      ...settings,
+                      invitationOnlyRegistration: e.target.checked,
+                    })
+                  }
+                />
+                <span>
+                  <span className="block font-[weight:var(--font-weight-medium)] text-[var(--color-fg)]">
+                    {t("settings.invitationOnlyRegistration")}
                   </span>
-                </label>
+                  <span className="block text-[length:var(--font-size-sm)] text-[var(--color-fg-muted)]">
+                    {t("settings.invitationOnlyRegistrationHelp")}
+                  </span>
+                </span>
+              </label>
 
-                {/* Not nested under registration — SMS login is
+              {/* Not nested under registration — SMS login is
                     independent of it, unlike the two checkboxes above. */}
-                <label className="flex items-start gap-2.5">
-                  <input
-                    type="checkbox"
-                    className="mt-1"
-                    checked={settings.smsLoginEnabled}
-                    onChange={(e) =>
-                      setSettings({
-                        ...settings,
-                        smsLoginEnabled: e.target.checked,
-                      })
-                    }
-                  />
-                  <span>
-                    <span className="block font-[weight:var(--font-weight-medium)] text-[var(--color-fg)]">
-                      {t("settings.smsLoginEnabled")}
-                    </span>
-                    <span className="block text-[length:var(--font-size-sm)] text-[var(--color-fg-muted)]">
-                      {t("settings.smsLoginEnabledHelp")}
-                    </span>
+              <label className="flex items-start gap-2.5">
+                <input
+                  type="checkbox"
+                  className="mt-1"
+                  checked={settings.smsLoginEnabled}
+                  onChange={(e) =>
+                    setSettings({
+                      ...settings,
+                      smsLoginEnabled: e.target.checked,
+                    })
+                  }
+                />
+                <span>
+                  <span className="block font-[weight:var(--font-weight-medium)] text-[var(--color-fg)]">
+                    {t("settings.smsLoginEnabled")}
                   </span>
-                </label>
-              </div>
-            </Card>
+                  <span className="block text-[length:var(--font-size-sm)] text-[var(--color-fg-muted)]">
+                    {t("settings.smsLoginEnabledHelp")}
+                  </span>
+                </span>
+              </label>
+            </div>
+          </Card>
 
-            {/* The card carries the heading; the fieldset stays because it
+          {/* The card carries the heading; the fieldset stays because it
                 is what tells a screen reader these controls are one group,
                 and a card is a box, not a grouping. Hence the legend, read
                 but not shown. */}
-            <Card title={t("settings.lockoutLegend")}>
-              <fieldset className="flex flex-col gap-4">
-                <legend className="sr-only">
-                  {t("settings.lockoutLegend")}
-                </legend>
+          <Card title={t("settings.lockoutLegend")}>
+            <fieldset className="flex flex-col gap-4">
+              <legend className="sr-only">{t("settings.lockoutLegend")}</legend>
 
-                <p className="text-[length:var(--font-size-sm)] text-[var(--color-fg-muted)]">
-                  {t("settings.lockoutHelp")}
-                </p>
+              <p className="text-[length:var(--font-size-sm)] text-[var(--color-fg-muted)]">
+                {t("settings.lockoutHelp")}
+              </p>
 
-                <Field
-                  label={t("settings.lockoutThreshold")}
-                  hint={t("settings.lockoutThresholdHelp")}
-                >
-                  <Input
-                    type="number"
-                    min={0}
-                    max={100}
-                    value={settings.lockoutThreshold}
-                    onChange={(e) =>
-                      setSettings({
-                        ...settings,
-                        lockoutThreshold: Number(e.target.value),
-                      })
-                    }
-                  />
-                </Field>
+              <Field
+                label={t("settings.lockoutThreshold")}
+                hint={t("settings.lockoutThresholdHelp")}
+              >
+                <Input
+                  type="number"
+                  min={0}
+                  max={100}
+                  value={settings.lockoutThreshold}
+                  onChange={(e) =>
+                    setSettings({
+                      ...settings,
+                      lockoutThreshold: Number(e.target.value),
+                    })
+                  }
+                />
+              </Field>
 
-                <Field
-                  label={t("settings.lockoutDuration")}
-                  hint={t("settings.lockoutDurationHelp")}
-                >
-                  <Input
-                    type="number"
-                    min={1}
-                    max={1440}
-                    value={settings.lockoutDurationMinutes}
-                    disabled={settings.lockoutThreshold === 0}
-                    onChange={(e) =>
-                      setSettings({
-                        ...settings,
-                        lockoutDurationMinutes: Number(e.target.value),
-                      })
-                    }
-                  />
-                </Field>
-              </fieldset>
-            </Card>
-          </div>
+              <Field
+                label={t("settings.lockoutDuration")}
+                hint={t("settings.lockoutDurationHelp")}
+              >
+                <Input
+                  type="number"
+                  min={1}
+                  max={1440}
+                  value={settings.lockoutDurationMinutes}
+                  disabled={settings.lockoutThreshold === 0}
+                  onChange={(e) =>
+                    setSettings({
+                      ...settings,
+                      lockoutDurationMinutes: Number(e.target.value),
+                    })
+                  }
+                />
+              </Field>
+            </fieldset>
+          </Card>
 
-          <div className="flex flex-col gap-4">
-            <Card title={t("settings.passwordLegend")}>
-              <fieldset className="flex flex-col gap-4">
-                <legend className="sr-only">
-                  {t("settings.passwordLegend")}
-                </legend>
+          <Card title={t("settings.passwordLegend")}>
+            <fieldset className="flex flex-col gap-4">
+              <legend className="sr-only">
+                {t("settings.passwordLegend")}
+              </legend>
 
-                {/* Said plainly rather than left for an operator to
+              {/* Said plainly rather than left for an operator to
                     discover: the composition rules below make passwords more
                     guessable, and are here for auditors rather than for
                     security. */}
-                <p className="text-[length:var(--font-size-sm)] text-[var(--color-fg-muted)]">
-                  {t("settings.passwordHelp")}
-                </p>
+              <p className="text-[length:var(--font-size-sm)] text-[var(--color-fg-muted)]">
+                {t("settings.passwordHelp")}
+              </p>
 
-                <Field
-                  label={t("settings.passwordMinLength")}
-                  hint={t("settings.passwordMinLengthHelp")}
-                  required
-                >
-                  <Input
-                    type="number"
-                    min={8}
-                    max={72}
-                    value={settings.passwordMinLength}
-                    onChange={(e) =>
-                      setSettings({
-                        ...settings,
-                        passwordMinLength: Number(e.target.value),
-                      })
-                    }
-                    required
-                  />
-                </Field>
-
-                <div className="flex flex-col gap-2">
-                  {(
-                    [
-                      ["passwordRequireUppercase", "settings.requireUppercase"],
-                      ["passwordRequireLowercase", "settings.requireLowercase"],
-                      ["passwordRequireDigit", "settings.requireDigit"],
-                      ["passwordRequireSymbol", "settings.requireSymbol"],
-                    ] as const
-                  ).map(([key, labelKey]) => (
-                    <label key={key} className="flex items-center gap-2.5">
-                      <input
-                        type="checkbox"
-                        checked={settings[key]}
-                        onChange={(e) =>
-                          setSettings({ ...settings, [key]: e.target.checked })
-                        }
-                      />
-                      <span className="text-[length:var(--font-size-sm)]">
-                        {t(labelKey)}
-                      </span>
-                    </label>
-                  ))}
-                </div>
-
-                <Field
-                  label={t("settings.passwordHistory")}
-                  hint={t("settings.passwordHistoryHelp")}
-                >
-                  <Input
-                    type="number"
-                    min={0}
-                    max={24}
-                    value={settings.passwordHistoryDepth}
-                    onChange={(e) =>
-                      setSettings({
-                        ...settings,
-                        passwordHistoryDepth: Number(e.target.value),
-                      })
-                    }
-                  />
-                </Field>
-
-                <Field
-                  label={t("settings.passwordMaxAge")}
-                  hint={t("settings.passwordMaxAgeHelp")}
-                >
-                  <Input
-                    type="number"
-                    min={0}
-                    max={3650}
-                    value={settings.passwordMaxAgeDays}
-                    onChange={(e) =>
-                      setSettings({
-                        ...settings,
-                        passwordMaxAgeDays: Number(e.target.value),
-                      })
-                    }
-                  />
-                </Field>
-              </fieldset>
-            </Card>
-
-            <Card title={t("settings.auditLegend")}>
               <Field
-                label={t("settings.auditRetention")}
-                hint={t("settings.auditRetentionHelp")}
+                label={t("settings.passwordMinLength")}
+                hint={t("settings.passwordMinLengthHelp")}
+                required
+              >
+                <Input
+                  type="number"
+                  min={8}
+                  max={72}
+                  value={settings.passwordMinLength}
+                  onChange={(e) =>
+                    setSettings({
+                      ...settings,
+                      passwordMinLength: Number(e.target.value),
+                    })
+                  }
+                  required
+                />
+              </Field>
+
+              <div className="flex flex-col gap-2">
+                {(
+                  [
+                    ["passwordRequireUppercase", "settings.requireUppercase"],
+                    ["passwordRequireLowercase", "settings.requireLowercase"],
+                    ["passwordRequireDigit", "settings.requireDigit"],
+                    ["passwordRequireSymbol", "settings.requireSymbol"],
+                  ] as const
+                ).map(([key, labelKey]) => (
+                  <label key={key} className="flex items-center gap-2.5">
+                    <input
+                      type="checkbox"
+                      checked={settings[key]}
+                      onChange={(e) =>
+                        setSettings({ ...settings, [key]: e.target.checked })
+                      }
+                    />
+                    <span className="text-[length:var(--font-size-sm)]">
+                      {t(labelKey)}
+                    </span>
+                  </label>
+                ))}
+              </div>
+
+              <Field
+                label={t("settings.passwordHistory")}
+                hint={t("settings.passwordHistoryHelp")}
+              >
+                <Input
+                  type="number"
+                  min={0}
+                  max={24}
+                  value={settings.passwordHistoryDepth}
+                  onChange={(e) =>
+                    setSettings({
+                      ...settings,
+                      passwordHistoryDepth: Number(e.target.value),
+                    })
+                  }
+                />
+              </Field>
+
+              <Field
+                label={t("settings.passwordMaxAge")}
+                hint={t("settings.passwordMaxAgeHelp")}
               >
                 <Input
                   type="number"
                   min={0}
                   max={3650}
-                  value={settings.auditRetentionDays}
+                  value={settings.passwordMaxAgeDays}
                   onChange={(e) =>
                     setSettings({
                       ...settings,
-                      auditRetentionDays: Number(e.target.value),
+                      passwordMaxAgeDays: Number(e.target.value),
                     })
                   }
                 />
               </Field>
-            </Card>
-          </div>
+            </fieldset>
+          </Card>
+
+          <Card title={t("settings.auditLegend")}>
+            <Field
+              label={t("settings.auditRetention")}
+              hint={t("settings.auditRetentionHelp")}
+            >
+              <Input
+                type="number"
+                min={0}
+                max={3650}
+                value={settings.auditRetentionDays}
+                onChange={(e) =>
+                  setSettings({
+                    ...settings,
+                    auditRetentionDays: Number(e.target.value),
+                  })
+                }
+              />
+            </Field>
+          </Card>
         </div>
 
         {/* Below both columns, full width. The save button belongs to the
