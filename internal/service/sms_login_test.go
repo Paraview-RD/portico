@@ -16,6 +16,8 @@ import (
 	"testing"
 	"time"
 
+	"github.com/google/uuid"
+
 	"github.com/Paraview-RD/portico/internal/auth"
 	"github.com/Paraview-RD/portico/internal/httpx"
 	"github.com/Paraview-RD/portico/internal/metrics"
@@ -367,35 +369,83 @@ func TestSMSLoginPerPhonePerDayCapSilentlyStopsAfterLimit(t *testing.T) {
 	}
 }
 
-// TestSMSLoginAuditsFailedAttempts proves LoginWithCode's three
-// logLoginFailure calls actually reach the audit trail. There is no typed
-// Scoped query to read audit_logs back (no ListAuditLogs), so this queries
-// the table directly through the store's raw *sql.DB handle -- the same
-// test-only-hand-written-SQL pattern the tenancy guard's own test file
-// documents (querying tables the generated-query layer has no read path
-// for). AuditService.Record (called synchronously by logLoginFailure ->
+// countAuditFailures reads the raw audit_logs table through the store's
+// *sql.DB handle rather than a typed Scoped query -- there is no
+// ListAuditLogs to read the trail back with, so this hand-writes the SQL,
+// the same test-only pattern the tenancy guard's own test file documents
+// for tables the generated-query layer has no read path for.
+func countAuditFailures(t *testing.T, svc *SMSLoginService, tenantID, actorUsername string) int {
+	t.Helper()
+	var count int
+	row := svc.store.DB().QueryRow(
+		`SELECT COUNT(*) FROM audit_logs WHERE tenant_id = $1 AND action = $2 AND actor_username = $3`,
+		tenantID, model.ActionLoginFailure, actorUsername)
+	if err := row.Scan(&count); err != nil {
+		t.Fatalf("query audit_logs: %v", err)
+	}
+	return count
+}
+
+// TestSMSLoginAuditsFailedAttempts proves each of LoginWithCode's three
+// logLoginFailure call sites actually reaches the audit trail -- not just
+// that *a* call happens somewhere in the function, but that all three
+// distinct failure branches are individually covered. An earlier version
+// of this test only exercised the "wrong code" branch; deleting either of
+// the other two logLoginFailure calls still left the whole suite green,
+// which is exactly the false-confidence a bug-fix test is supposed to
+// prevent. The three cases below correspond 1:1 to LoginWithCode's three
+// failure returns:
+//
+//  1. "wrong code": a live code exists for the phone, but the submitted
+//     code does not match it.
+//  2. "no live code": GetLiveSMSLoginCode finds nothing at all for the
+//     phone -- covered here by a phone that never had RequestCode called
+//     for it, so no row was ever created.
+//  3. "code correct but no matching account": the rarer data-integrity
+//     case from the brief -- a live sms_login_codes row exists and its
+//     hash matches the submitted code, but GetUserByPhone finds no user.
+//     Built directly with CreateSMSLoginCode for a phone with no bound
+//     account, using a plaintext code this test controls (mirroring what
+//     completeRequest itself does, minus the user-creation step).
+//
+// AuditService.Record (called synchronously by logLoginFailure ->
 // audit.Log, no goroutine involved) has committed by the time
-// LoginWithCode returns, so no polling is needed here.
+// LoginWithCode returns, so no polling is needed for any of the three.
 func TestSMSLoginAuditsFailedAttempts(t *testing.T) {
 	svc, tenant, sms, existingPhone := newSMSLoginTestService(t)
+
+	// Case 1 setup: a live code for existingPhone, then submit the wrong one.
 	if err := svc.RequestCode(context.Background(), tenant, existingPhone, "1.2.3.4"); err != nil {
 		t.Fatalf("RequestCode: %v", err)
 	}
 	waitForSMS(t, sms, 1)
 
-	_, err := svc.LoginWithCode(context.Background(), tenant, existingPhone, "000000", "1.2.3.4", "test-agent")
-	if !errors.Is(err, ErrInvalidSMSCode) {
-		t.Fatalf("LoginWithCode with a wrong code: %v", err)
+	// Case 3 setup: a live code for a phone with no bound account at all.
+	orphanPhone := "+8613800004444"
+	orphanCode := "654321"
+	if err := svc.store.ForTenant(tenant.ID).CreateSMSLoginCode(context.Background(), sqlcgen.CreateSMSLoginCodeParams{
+		ID: uuid.NewString(), Phone: orphanPhone, CodeHash: hashSMSLoginCode(orphanCode),
+		ExpiresAt: store.Now().Add(SMSLoginCodeTTL), CreatedAt: store.Now(), Ip: "9.9.9.9",
+	}); err != nil {
+		t.Fatalf("seed orphan sms login code: %v", err)
 	}
 
-	var count int
-	row := svc.store.DB().QueryRow(
-		`SELECT COUNT(*) FROM audit_logs WHERE tenant_id = $1 AND action = $2 AND actor_username = $3`,
-		tenant.ID, model.ActionLoginFailure, existingPhone)
-	if err := row.Scan(&count); err != nil {
-		t.Fatalf("query audit_logs: %v", err)
+	cases := []struct {
+		name  string
+		phone string
+		code  string
+	}{
+		{"wrong code", existingPhone, "000000"},
+		{"no live code", "+8613800005555", "000000"}, // RequestCode never called for this phone
+		{"code correct but no matching account", orphanPhone, orphanCode},
 	}
-	if count == 0 {
-		t.Error("want at least one audit_logs row for the failed SMS login attempt, found none")
+	for _, c := range cases {
+		_, err := svc.LoginWithCode(context.Background(), tenant, c.phone, c.code, "1.2.3.4", "test-agent")
+		if !errors.Is(err, ErrInvalidSMSCode) {
+			t.Fatalf("%s: LoginWithCode err = %v, want ErrInvalidSMSCode", c.name, err)
+		}
+		if got := countAuditFailures(t, svc, tenant.ID, c.phone); got == 0 {
+			t.Errorf("%s: want at least one audit_logs row, found none", c.name)
+		}
 	}
 }
