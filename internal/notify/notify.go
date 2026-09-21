@@ -94,13 +94,40 @@ func NewMailer(cfg MailConfig) (Mailer, error) {
 	}
 }
 
-// SMSSender sends a text message.
+// SMSKind is which purpose a message serves, and therefore which template a
+// provider that requires one (Aliyun) sends it through.
+//
+// A provider that has no such requirement is free to ignore this and treat
+// every kind the same; the type exists for the providers that cannot.
+type SMSKind string
+
+const (
+	// SMSKindLoginCode is a standalone phone+code sign-in. Params: "Code",
+	// "Minutes".
+	SMSKindLoginCode SMSKind = "login_code"
+	// SMSKindRecovery is a password-reset link sent over SMS. Params:
+	// "Link", "Minutes".
+	SMSKindRecovery SMSKind = "recovery"
+	// SMSKindVerification is a registration address-proof link sent over
+	// SMS. Params: "Link", "Hours".
+	SMSKindVerification SMSKind = "verification"
+)
+
+// SMSSender sends a text message of one of the kinds above.
 //
 // Every provider has its own API, so this is the seam rather than a
 // half-hearted attempt at a common one. Implementing it against a provider
 // means one type with one method; nothing above this interface changes.
+//
+// Params rather than a rendered string: providers that require an
+// approved template (Aliyun, and every mainland Chinese carrier gateway)
+// cannot send arbitrary text -- they send a fixed, reviewed template with
+// named variables filled in, and reviewing a template with a raw URL or an
+// unbounded sentence in it is not something a provider grants. A sender
+// that has no such requirement (there is none yet) is free to render these
+// into a sentence of its own.
 type SMSSender interface {
-	Send(ctx context.Context, phone, text string) error
+	Send(ctx context.Context, phone string, kind SMSKind, params map[string]string) error
 }
 
 // NotConfiguredMailer is the Mailer a deployment has when PORTICO_SMTP_HOST
@@ -121,4 +148,6 @@ func (NotConfiguredMailer) Send(context.Context, Message) error { return ErrNotC
 type NotConfiguredSMS struct{}
 
 // Send always fails with ErrNotConfigured.
-func (NotConfiguredSMS) Send(context.Context, string, string) error { return ErrNotConfigured }
+func (NotConfiguredSMS) Send(context.Context, string, SMSKind, map[string]string) error {
+	return ErrNotConfigured
+}
