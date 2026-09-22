@@ -442,6 +442,8 @@ export const zhCN: Record<keyof typeof enUS, string> = {
   "settings.invitationOnlyRegistration": "要求邀请码",
   "settings.invitationOnlyRegistrationHelp":
     "即使注册是开放的，没有有效邀请码也无法注册。邀请码的发放与管理在「邀请码」页面。",
+  "settings.authMethodsLegend": "认证方式",
+  "settings.authMethodsHelp": "除用户名+密码之外，还允许哪些方式登录。",
   "settings.smsLoginEnabled": "允许使用短信验证码登录",
   "settings.smsLoginEnabledHelp":
     "允许绑定了手机号的账号用短信验证码代替密码登录。需要本部署配置了短信发送能力。",

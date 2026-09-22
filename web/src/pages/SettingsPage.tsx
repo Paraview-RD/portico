@@ -23,9 +23,9 @@ import { locales, useErrorMessage, useT } from "../i18n";
  * items-stretch, not items-start: a grid row is sized to its tallest cell,
  * and reordering the cards (see the comment above the cards grid below)
  * gets the two closest-in-height cards into each row, but "closest" is not
- * "equal" — Basics still runs noticeably longer than Password policy once
- * the SMS login toggle is in it. items-start would leave that difference as
- * plain page background under the shorter card, which is the same kind of
+ * "equal" — Basics still runs a little longer than Password policy. items-
+ * start would leave that difference as plain page background under the
+ * shorter card, which is the same kind of
  * defect the row-alignment check exists to catch, just smaller and below
  * the check's resolution (it verifies row width, not how a row is filled
  * vertically). Stretching turns that gap into the shorter card's own
@@ -139,10 +139,10 @@ export function SettingsPage() {
               being wrapped in a pair of flex columns, and that is load
               bearing, not tidiness. Two independent flex columns stack
               however tall their own content makes them; once one card grows
-              (basics, when the SMS login toggle was added), its column's
-              second card starts lower than the other column's second card
-              ends, and the two stop overlapping — the row-alignment check
-              read that as a mistake, correctly. A grid instead sizes each
+              taller than its neighbour, its column's second card starts
+              lower than the other column's second card ends, and the two
+              stop overlapping — the row-alignment check read that as a
+              mistake, correctly. A grid instead sizes each
               row to its tallest cell, so the second row starts at the same
               line in both columns no matter how tall either card gets.
 
@@ -249,6 +249,52 @@ export function SettingsPage() {
                     />
                   </Field>
                 </div>
+              </fieldset>
+            </Card>
+          </div>
+
+          {/* Its own full-width row for the same reason the OIDC tokens
+                card above is one: this is about how somebody signs in, which
+                every other card on this screen assumes has already
+                happened. Keeping it out of the two-column pairing also
+                means the four cards below stay a clean quartet, so adding
+                a login method here never disturbs their row-height
+                pairing (see the long comment on the grid below). */}
+          <div className="lg:col-span-2">
+            <Card title={t("settings.authMethodsLegend")}>
+              <fieldset className="flex flex-col gap-4">
+                <legend className="sr-only">
+                  {t("settings.authMethodsLegend")}
+                </legend>
+
+                <p className="text-[length:var(--font-size-sm)] text-[var(--color-fg-muted)]">
+                  {t("settings.authMethodsHelp")}
+                </p>
+
+                {/* Not nested under registration — SMS login is
+                      independent of it, unlike the invitation-code and
+                      email-confirmation checkboxes above. */}
+                <label className="flex items-start gap-2.5">
+                  <input
+                    type="checkbox"
+                    className="mt-1"
+                    checked={settings.smsLoginEnabled}
+                    onChange={(e) =>
+                      setSettings({
+                        ...settings,
+                        smsLoginEnabled: e.target.checked,
+                      })
+                    }
+                  />
+                  <span>
+                    <span className="block font-[weight:var(--font-weight-medium)] text-[var(--color-fg)]">
+                      {t("settings.smsLoginEnabled")}
+                    </span>
+                    <span className="block text-[length:var(--font-size-sm)] text-[var(--color-fg-muted)]">
+                      {t("settings.smsLoginEnabledHelp")}
+                    </span>
+                  </span>
+                </label>
               </fieldset>
             </Card>
           </div>
@@ -404,30 +450,6 @@ export function SettingsPage() {
                   </span>
                   <span className="block text-[length:var(--font-size-sm)] text-[var(--color-fg-muted)]">
                     {t("settings.invitationOnlyRegistrationHelp")}
-                  </span>
-                </span>
-              </label>
-
-              {/* Not nested under registration — SMS login is
-                    independent of it, unlike the two checkboxes above. */}
-              <label className="flex items-start gap-2.5">
-                <input
-                  type="checkbox"
-                  className="mt-1"
-                  checked={settings.smsLoginEnabled}
-                  onChange={(e) =>
-                    setSettings({
-                      ...settings,
-                      smsLoginEnabled: e.target.checked,
-                    })
-                  }
-                />
-                <span>
-                  <span className="block font-[weight:var(--font-weight-medium)] text-[var(--color-fg)]">
-                    {t("settings.smsLoginEnabled")}
-                  </span>
-                  <span className="block text-[length:var(--font-size-sm)] text-[var(--color-fg-muted)]">
-                    {t("settings.smsLoginEnabledHelp")}
                   </span>
                 </span>
               </label>

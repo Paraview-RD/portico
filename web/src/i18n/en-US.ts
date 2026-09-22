@@ -470,6 +470,9 @@ export const enUS = {
   "settings.invitationOnlyRegistration": "Require an invitation code",
   "settings.invitationOnlyRegistrationHelp":
     "Nobody can register without a valid code, even though registration is open. Issue and manage codes from Invitations.",
+  "settings.authMethodsLegend": "Authentication methods",
+  "settings.authMethodsHelp":
+    "Ways someone can sign in besides a username and password.",
   "settings.smsLoginEnabled": "Allow signing in with an SMS code",
   "settings.smsLoginEnabledHelp":
     "Lets anyone with a bound phone number sign in with a text-message code instead of a password. Requires this deployment to have SMS configured.",
