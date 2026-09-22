@@ -4,6 +4,7 @@ import { authApi, myExternalIdentitiesApi, userApi } from "../api/endpoints";
 import type {
   ExternalIdentity,
   ExternalSignInOption,
+  User,
   UserSession,
 } from "../api/types";
 import {
@@ -170,7 +171,6 @@ function ProfileDetailsForm({ onSaved }: { onSaved: () => Promise<void> }) {
 
   const [form, setForm] = useState({
     displayName: user?.displayName ?? "",
-    phone: user?.phone ?? "",
     email: user?.email ?? "",
   });
   const [error, setError] = useState("");
@@ -181,6 +181,7 @@ function ProfileDetailsForm({ onSaved }: { onSaved: () => Promise<void> }) {
   // but it is what lets the account facts below be read without a `?.` on
   // every one, and `role.undefined` is not a translation key.
   if (!user) return null;
+  const currentPhone = user.phone;
 
   async function handleSubmit(event: React.FormEvent) {
     event.preventDefault();
@@ -188,7 +189,11 @@ function ProfileDetailsForm({ onSaved }: { onSaved: () => Promise<void> }) {
     setSaved(false);
     setSubmitting(true);
     try {
-      await userApi.updateOwnProfile(form);
+      // Phone travels through PhoneField's own flow, never through here —
+      // see UpdateOwnProfile's ErrPhoneChangeRequiresVerification. Sending
+      // the account's own current number is what keeps this a no-op for it
+      // rather than a value the server would refuse.
+      await userApi.updateOwnProfile({ ...form, phone: currentPhone });
       // Refresh rather than trusting the local copy: the server trims and
       // may reject in ways the form does not model, so what it stored is the
       // only accurate answer.
@@ -253,15 +258,6 @@ function ProfileDetailsForm({ onSaved }: { onSaved: () => Promise<void> }) {
           />
         </Field>
 
-        <Field label={t("profile.phone")} hint={t("profile.contactHint")}>
-          <Input
-            type="tel"
-            value={form.phone}
-            onChange={(e) => setForm({ ...form, phone: e.target.value })}
-            autoComplete="tel"
-          />
-        </Field>
-
         {error && <Alert tone="danger">{error}</Alert>}
         {saved && <Alert tone="success">{t("profile.detailsSaved")}</Alert>}
 
@@ -271,7 +267,187 @@ function ProfileDetailsForm({ onSaved }: { onSaved: () => Promise<void> }) {
           </Button>
         </div>
       </form>
+
+      {/* Its own border-topped block rather than a field in the form above,
+          because it is not that form's kind of change: nothing here is
+          saved by the button above, and a phone number sits in the middle
+          of a two-step exchange with a text message that a single submit
+          cannot represent. */}
+      <div className="mt-5 border-t border-[var(--color-border)] pt-5">
+        <PhoneField user={user} onChanged={onSaved} />
+      </div>
     </Card>
+  );
+}
+
+/**
+ * The phone number, and the only field on this screen with its own
+ * request/confirm exchange rather than a save button.
+ *
+ * UpdateOwnProfile refuses a new number outright
+ * (PHONE_CHANGE_REQUIRES_VERIFICATION) — proving it here first is not a
+ * nicety, it is the only path that writes one at all. Clearing an existing
+ * number is the one exception and stays a plain save, because removing a
+ * contact method proves nothing that needs proving.
+ */
+function PhoneField({
+  user,
+  onChanged,
+}: {
+  user: User;
+  onChanged: () => Promise<void>;
+}) {
+  const t = useT();
+  const describeError = useErrorMessage();
+
+  const [pendingPhone, setPendingPhone] = useState("");
+  const [code, setCode] = useState("");
+  const [step, setStep] = useState<"idle" | "code">("idle");
+  const [error, setError] = useState("");
+  const [busy, setBusy] = useState(false);
+  const [removing, setRemoving] = useState(false);
+
+  async function sendCode(event: React.FormEvent) {
+    event.preventDefault();
+    setError("");
+    setBusy(true);
+    try {
+      await userApi.requestPhoneVerification(pendingPhone);
+      setStep("code");
+    } catch (err) {
+      setError(describeError(err));
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  async function confirmCode(event: React.FormEvent) {
+    event.preventDefault();
+    setError("");
+    setBusy(true);
+    try {
+      await userApi.confirmPhoneVerification(pendingPhone, code);
+      await onChanged();
+      setStep("idle");
+      setPendingPhone("");
+      setCode("");
+    } catch (err) {
+      setError(describeError(err));
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  async function removePhone() {
+    setError("");
+    setBusy(true);
+    try {
+      await userApi.updateOwnProfile({
+        displayName: user.displayName,
+        email: user.email,
+        phone: "",
+      });
+      await onChanged();
+      setRemoving(false);
+    } catch (err) {
+      setError(describeError(err));
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  // No channel to prove a number over: offering the field at all would be
+  // asking for something this deployment cannot then verify. Removing an
+  // existing number needs no such channel, so that action survives even
+  // here.
+  if (!user.smsAvailable) {
+    return (
+      <div>
+        <span className="block text-[length:var(--font-size-sm)] font-[weight:var(--font-weight-medium)] text-[var(--color-fg)]">
+          {t("profile.phone")}
+        </span>
+        <span className="mt-1 block text-[var(--color-fg-muted)]">
+          {user.phone || t("profile.phoneNotSet")}
+        </span>
+        <span className="mt-1 block text-[length:var(--font-size-xs)] text-[var(--color-fg-muted)]">
+          {t("profile.phoneUnavailableHelp")}
+        </span>
+      </div>
+    );
+  }
+
+  if (step === "code") {
+    return (
+      <form onSubmit={confirmCode} className="flex flex-col gap-4">
+        <p className="text-[length:var(--font-size-sm)] text-[var(--color-fg-muted)]">
+          {t("profile.phoneCodeSentTo", pendingPhone)}
+        </p>
+        <Field label={t("profile.phoneCode")} required>
+          <Input
+            value={code}
+            onChange={(e) => setCode(e.target.value)}
+            autoComplete="one-time-code"
+            inputMode="numeric"
+            required
+          />
+        </Field>
+        {error && <Alert tone="danger">{error}</Alert>}
+        <div className="flex gap-2">
+          <Button type="submit" disabled={busy}>
+            {t("profile.phoneConfirm")}
+          </Button>
+          <Button
+            variant="secondary"
+            disabled={busy}
+            onClick={() => {
+              setStep("idle");
+              setCode("");
+              setError("");
+            }}
+          >
+            {t("common.cancel")}
+          </Button>
+        </div>
+      </form>
+    );
+  }
+
+  return (
+    <form onSubmit={sendCode} className="flex flex-col gap-4">
+      <Field label={t("profile.phone")} hint={t("profile.phoneVerifyHint")}>
+        <Input
+          type="tel"
+          value={pendingPhone}
+          onChange={(e) => setPendingPhone(e.target.value)}
+          autoComplete="tel"
+          placeholder={user.phone || undefined}
+        />
+      </Field>
+      {error && <Alert tone="danger">{error}</Alert>}
+      <div className="flex flex-wrap items-center gap-2">
+        <Button type="submit" disabled={busy || pendingPhone.trim() === ""}>
+          {t("profile.phoneSendCode")}
+        </Button>
+        {user.phone && (
+          <Button
+            variant="secondary"
+            disabled={busy}
+            onClick={() => setRemoving(true)}
+          >
+            {t("profile.phoneRemove")}
+          </Button>
+        )}
+      </div>
+
+      <ConfirmDialog
+        open={removing}
+        title={t("profile.phoneRemove")}
+        message={t("profile.phoneRemoveConfirm", user.phone)}
+        destructive
+        onConfirm={() => void removePhone()}
+        onCancel={() => setRemoving(false)}
+      />
+    </form>
   );
 }
 

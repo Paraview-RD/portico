@@ -224,6 +224,14 @@ type Config struct {
 	// not available here — the binary must run with no environment at all.
 	Mail notify.MailConfig
 
+	// SMS is the Aliyun transport config. Empty AccessKeyID means "not
+	// configured" -- server.New falls back to notify.NotConfiguredSMS, same
+	// as an unset PORTICO_SMTP_HOST falls back for mail.
+	SMS notify.AliyunSMSConfig
+	// SMSLoginDeploymentDailyCap overrides
+	// service.SMSLoginPerDeploymentPerDay. Zero means use the default.
+	SMSLoginDeploymentDailyCap int
+
 	// DefaultLocale is the language of a message sent to somebody whose own
 	// preference and whose tenant's default both say nothing.
 	//
@@ -375,6 +383,38 @@ func Load() (*Config, error) {
 			"PORTICO_MAIL_TRANSPORT is %q; it must be one of smtp, resend",
 			cfg.Mail.Transport)
 	}
+
+	// SMS, unlike mail, has exactly one transport today -- there is no
+	// transport-selecting environment variable because there is nothing to
+	// switch between yet. An empty PORTICO_ALIYUN_SMS_ACCESS_KEY_ID means
+	// this deployment has not configured SMS at all, which is a valid,
+	// common state (see notify.NotConfiguredSMS) rather than an error.
+	if accessKeyID := os.Getenv("PORTICO_ALIYUN_SMS_ACCESS_KEY_ID"); accessKeyID != "" {
+		cfg.SMS = notify.AliyunSMSConfig{
+			AccessKeyID:     accessKeyID,
+			AccessKeySecret: os.Getenv("PORTICO_ALIYUN_SMS_ACCESS_KEY_SECRET"),
+			SignName:        os.Getenv("PORTICO_ALIYUN_SMS_SIGN_NAME"),
+			TemplateCodes:   map[notify.SMSKind]string{},
+		}
+		if code := os.Getenv("PORTICO_ALIYUN_SMS_TEMPLATE_LOGIN_CODE"); code != "" {
+			cfg.SMS.TemplateCodes[notify.SMSKindLoginCode] = code
+		}
+		if code := os.Getenv("PORTICO_ALIYUN_SMS_TEMPLATE_RECOVERY"); code != "" {
+			cfg.SMS.TemplateCodes[notify.SMSKindRecovery] = code
+		}
+		if code := os.Getenv("PORTICO_ALIYUN_SMS_TEMPLATE_VERIFICATION"); code != "" {
+			cfg.SMS.TemplateCodes[notify.SMSKindVerification] = code
+		}
+		if code := os.Getenv("PORTICO_ALIYUN_SMS_TEMPLATE_PHONE_VERIFICATION"); code != "" {
+			cfg.SMS.TemplateCodes[notify.SMSKindPhoneVerification] = code
+		}
+	}
+
+	smsCap, err := envInt("PORTICO_SMS_LOGIN_DEPLOYMENT_DAILY_CAP", 0)
+	if err != nil {
+		return nil, err
+	}
+	cfg.SMSLoginDeploymentDailyCap = smsCap
 
 	ttl, err := envDuration("PORTICO_TOKEN_TTL", 2*time.Hour)
 	if err != nil {

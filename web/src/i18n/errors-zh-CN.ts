@@ -18,6 +18,8 @@ export const errorsZhCN: Record<keyof typeof errorsEnUS, string> = {
     "本部署要求新账号确认地址，但没有可用的发送渠道。需要管理员配置邮件中继，或关闭该要求。",
   NO_DELIVERY_CHANNEL:
     "要求确认地址需要有发送渠道。请先配置邮件中继，或保持关闭。",
+  NO_SMS_CHANNEL:
+    "短信登录需要能发送短信。请先配置阿里云短信通道，或保持短信登录关闭。",
   ACCOUNT_CLOSED: "该账号已由本人注销。如需恢复，请联系管理员。",
   ACCOUNT_LOCKED: "登录失败次数过多。请稍后再试，或联系管理员解锁账号。",
   MISSING_TOKEN: "尚未登录。",
@@ -33,6 +35,17 @@ export const errorsZhCN: Record<keyof typeof errorsEnUS, string> = {
   PASSWORD_EXPIRED: "该密码已过期，登录前必须先更换。",
   PASSWORD_CHANGE_REQUIRED: "该账号还在用默认密码，登录前必须先更换。",
   PASSWORD_NOT_EXPIRED: "该密码尚未过期。请登录后在个人中心修改。",
+  MISSING_PHONE: "需要提供手机号。",
+  SMS_LOGIN_UNAVAILABLE:
+    "短信登录当前不可用，请联系管理员开启，或改用密码登录。",
+  INVALID_SMS_CODE: "验证码不正确或已过期。",
+  PHONE_VERIFICATION_UNAVAILABLE:
+    "手机号验证当前不可用，请联系管理员配置短信发送能力。",
+  INVALID_PHONE_VERIFICATION_CODE: "验证码不正确或已过期。",
+  PHONE_UNCHANGED: "这已经是本账号当前的手机号。",
+  PHONE_CHANGE_REQUIRES_VERIFICATION:
+    "请先用发到该号码的验证码完成验证，才能保存。",
+  MISSING_CODE: "需要提供手机号和验证码。",
   SNAPSHOT_IN_PROGRESS:
     "这个订阅的快照还在投递中。等它结束，或者停用该订阅以放弃它。",
   SNAPSHOT_EMPTY_SCOPE: "这个订阅没有选中任何快照能填充的事件。",

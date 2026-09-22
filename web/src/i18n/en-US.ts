@@ -117,6 +117,12 @@ export const enUS = {
   "login.noAccount": "Don't have an account?",
   "login.register": "Create one",
   "login.sessionExpired": "Your session ended. Please sign in again.",
+  "login.useSmsCode": "Sign in with a code instead",
+  "login.usePassword": "Sign in with a password instead",
+  "login.phone": "Phone number",
+  "login.smsCode": "Code",
+  "login.smsSend": "Send code",
+  "login.smsResendIn": "Resend in {0}s",
 
   // Signing in on behalf of an application, rather than to Portico itself.
   "authorize.title": "Signing you in",
@@ -464,6 +470,12 @@ export const enUS = {
   "settings.invitationOnlyRegistration": "Require an invitation code",
   "settings.invitationOnlyRegistrationHelp":
     "Nobody can register without a valid code, even though registration is open. Issue and manage codes from Invitations.",
+  "settings.authMethodsLegend": "Authentication methods",
+  "settings.authMethodsHelp":
+    "Ways someone can sign in besides a username and password.",
+  "settings.smsLoginEnabled": "Allow signing in with an SMS code",
+  "settings.smsLoginEnabledHelp":
+    "Lets anyone with a bound phone number sign in with a text-message code instead of a password. Requires this deployment to have SMS configured.",
   "settings.lockoutLegend": "Failed sign-in lockout",
   "settings.lockoutHelp":
     "Locks an account after repeated wrong passwords. This is not a rate limit — it stops one account's password being guessed, and does nothing about the load a flood of attempts puts on the server. Keep the reverse proxy throttle as well.",
@@ -820,6 +832,18 @@ export const enUS = {
   "profile.phone": "Phone",
   "profile.contactHint":
     "Also works as a sign-in identifier, and is where a reset link would go.",
+  "profile.phoneNotSet": "Not set",
+  "profile.phoneUnavailableHelp":
+    "This deployment has not configured SMS delivery, so a phone number cannot be verified here. Ask an administrator.",
+  "profile.phoneVerifyHint":
+    "A code is sent to this number before it is saved — see below. Also works as a sign-in identifier.",
+  "profile.phoneSendCode": "Send code",
+  "profile.phoneCode": "Code",
+  "profile.phoneCodeSentTo": "A code was sent to {0}.",
+  "profile.phoneConfirm": "Confirm",
+  "profile.phoneRemove": "Remove phone number",
+  "profile.phoneRemoveConfirm":
+    "Remove {0} from this account? Nobody will be able to sign in with it afterwards.",
   "verify.title": "Confirm your account",
   "verify.subtitle": "Finishing the sign-up you started.",
   "verify.working": "Confirming…",

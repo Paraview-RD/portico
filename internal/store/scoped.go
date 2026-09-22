@@ -344,6 +344,84 @@ func (s *Scoped) SupersedePasswordResets(ctx context.Context, userID string, now
 		sqlcgen.SupersedePasswordResetsParams{TenantID: s.tenantID, UserID: userID, UsedAt: &now})
 }
 
+// --- sms login codes ------------------------------------------------------
+
+// CreateSMSLoginCode records an outstanding SMS login code.
+func (s *Scoped) CreateSMSLoginCode(ctx context.Context, arg sqlcgen.CreateSMSLoginCodeParams) error {
+	arg.TenantID = s.tenantID
+	return s.q.CreateSMSLoginCode(ctx, arg)
+}
+
+// GetLiveSMSLoginCode returns the newest unconsumed, unexpired code for this
+// tenant's phone number. A consumed or expired one is not returned at all.
+func (s *Scoped) GetLiveSMSLoginCode(ctx context.Context, phone string, now time.Time) (sqlcgen.SmsLoginCode, error) {
+	return s.q.GetLiveSMSLoginCode(ctx, sqlcgen.GetLiveSMSLoginCodeParams{
+		TenantID: s.tenantID, Phone: phone, ExpiresAt: now,
+	})
+}
+
+// IncrementSMSLoginCodeAttempts counts one more wrong guess against a code.
+func (s *Scoped) IncrementSMSLoginCodeAttempts(ctx context.Context, id string) error {
+	return s.q.IncrementSMSLoginCodeAttempts(ctx,
+		sqlcgen.IncrementSMSLoginCodeAttemptsParams{TenantID: s.tenantID, ID: id})
+}
+
+// ConsumeSMSLoginCode marks a code used, making it single-use.
+func (s *Scoped) ConsumeSMSLoginCode(ctx context.Context, id string, at time.Time) error {
+	return s.q.ConsumeSMSLoginCode(ctx,
+		sqlcgen.ConsumeSMSLoginCodeParams{TenantID: s.tenantID, ID: id, ConsumedAt: &at})
+}
+
+// DeleteExpiredSMSLoginCodes clears codes past the retention window.
+func (s *Scoped) DeleteExpiredSMSLoginCodes(ctx context.Context, before time.Time) error {
+	return s.q.DeleteExpiredSMSLoginCodes(ctx,
+		sqlcgen.DeleteExpiredSMSLoginCodesParams{TenantID: s.tenantID, ExpiresAt: before})
+}
+
+// --- phone verification codes ----------------------------------------------
+
+// CreatePhoneVerificationCode records an outstanding phone-ownership code.
+func (s *Scoped) CreatePhoneVerificationCode(ctx context.Context, arg sqlcgen.CreatePhoneVerificationCodeParams) error {
+	arg.TenantID = s.tenantID
+	return s.q.CreatePhoneVerificationCode(ctx, arg)
+}
+
+// GetLivePhoneVerificationCode returns the newest unconsumed, unexpired code
+// this user has been sent for this candidate phone.
+func (s *Scoped) GetLivePhoneVerificationCode(ctx context.Context, userID, phone string, now time.Time) (sqlcgen.PhoneVerificationCode, error) {
+	return s.q.GetLivePhoneVerificationCode(ctx, sqlcgen.GetLivePhoneVerificationCodeParams{
+		TenantID: s.tenantID, UserID: userID, Phone: phone, ExpiresAt: now,
+	})
+}
+
+// IncrementPhoneVerificationCodeAttempts counts one more wrong guess against
+// a code.
+func (s *Scoped) IncrementPhoneVerificationCodeAttempts(ctx context.Context, id string) error {
+	return s.q.IncrementPhoneVerificationCodeAttempts(ctx,
+		sqlcgen.IncrementPhoneVerificationCodeAttemptsParams{TenantID: s.tenantID, ID: id})
+}
+
+// ConsumePhoneVerificationCode marks a code used, making it single-use.
+func (s *Scoped) ConsumePhoneVerificationCode(ctx context.Context, id string, at time.Time) error {
+	return s.q.ConsumePhoneVerificationCode(ctx,
+		sqlcgen.ConsumePhoneVerificationCodeParams{TenantID: s.tenantID, ID: id, ConsumedAt: &at})
+}
+
+// CountRecentPhoneVerificationCodes is how many codes this user has been
+// sent since since, for RequestPhoneChange's per-account daily cap.
+func (s *Scoped) CountRecentPhoneVerificationCodes(ctx context.Context, userID string, since time.Time) (int64, error) {
+	return s.q.CountRecentPhoneVerificationCodes(ctx, sqlcgen.CountRecentPhoneVerificationCodesParams{
+		TenantID: s.tenantID, UserID: userID, CreatedAt: since,
+	})
+}
+
+// DeleteExpiredPhoneVerificationCodes clears codes past the retention
+// window.
+func (s *Scoped) DeleteExpiredPhoneVerificationCodes(ctx context.Context, before time.Time) error {
+	return s.q.DeleteExpiredPhoneVerificationCodes(ctx,
+		sqlcgen.DeleteExpiredPhoneVerificationCodesParams{TenantID: s.tenantID, ExpiresAt: before})
+}
+
 // --- federation -----------------------------------------------------------
 //
 // Every relying party, key, authorization request, and refresh token belongs

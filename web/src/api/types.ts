@@ -93,6 +93,17 @@ export interface User {
    */
   tenantCode?: string;
   tenantName?: string;
+
+  /**
+   * Whether this deployment can send SMS at all. Present only on
+   * `/users/me`.
+   *
+   * Not the same question as SMS login being turned on — that is a
+   * per-tenant decision this field says nothing about. My profile uses this
+   * alone to decide whether binding a phone number is offered at all:
+   * verifying one is meaningless with no channel to prove it over.
+   */
+  smsAvailable?: boolean;
 }
 
 /**
@@ -305,6 +316,12 @@ export interface Settings {
    * off — that switch still refuses registration outright.
    */
   invitationOnlyRegistration: boolean;
+  /**
+   * Lets anyone with a bound phone number sign in with a text-message code
+   * instead of a password. Independent of registration — turning it on is
+   * refused where the deployment cannot send SMS.
+   */
+  smsLoginEnabled: boolean;
   systemName: string;
 
   /**
@@ -429,6 +446,11 @@ export interface RegistrationStatus {
   tenant: string;
   tenantName: string;
   branding: Branding;
+  /**
+   * Whether the sign-in screen may offer SMS-code login: the tenant's own
+   * setting ANDed with whether this deployment can actually send SMS.
+   */
+  smsLoginEnabled: boolean;
 }
 
 /**

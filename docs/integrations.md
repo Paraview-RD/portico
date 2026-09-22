@@ -85,15 +85,63 @@ Both halves fail at startup rather than at the first message: asking for this
 transport without a key or a sender is a misconfiguration, not a deployment
 that chose to do without email.
 
-### SMS — optional
+### Aliyun SMS — optional
 
-Password recovery by phone needs an SMS gateway, and unlike email there is
-no universal protocol for one. Portico defines a small provider interface;
-a deployment supplies an implementation, or leaves SMS off and uses email
-only.
+SMS delivery for phone-based authentication: sign-in codes, password recovery
+links, registration verification, and the code sent to a phone number before
+a signed-in user may bind it to their own profile. This is a deployment-wide
+optional feature; if credentials are unset, standalone phone+code sign-in,
+the SMS password-recovery channel, and self-service phone binding are simply
+unavailable (My profile hides the phone field in that case). Password
+recovery over email is unaffected -- email and SMS are independent recovery
+channels, not a fallback chain, and the sign-in screen only offers whichever
+channels are actually configured.
 
-*Status: the interface and a no-op implementation exist; concrete providers
-are not yet written.*
+Set `PORTICO_ALIYUN_SMS_ACCESS_KEY_ID` and its corresponding secret to enable
+SMS delivery. Templates are individually optional — a deployment may have
+Aliyun's approval for only some message types and still use the ones it has.
+
+| Setting | Meaning |
+|---|---|
+| `PORTICO_ALIYUN_SMS_ACCESS_KEY_ID` | Aliyun account access key ID. Unset: SMS is not available. |
+| `PORTICO_ALIYUN_SMS_ACCESS_KEY_SECRET` | Corresponding access key secret for request signing (HMAC-SHA1). |
+| `PORTICO_ALIYUN_SMS_SIGN_NAME` | The SMS signature prefix approved by Aliyun, shown before message body (e.g. `【Portico】`). Required once credentials are set. |
+| `PORTICO_ALIYUN_SMS_TEMPLATE_LOGIN_CODE` | Aliyun template code for standalone phone+code sign-in messages. Optional. |
+| `PORTICO_ALIYUN_SMS_TEMPLATE_RECOVERY` | Aliyun template code for password-reset links sent over SMS. Optional. |
+| `PORTICO_ALIYUN_SMS_TEMPLATE_VERIFICATION` | Aliyun template code for address-proof links sent during registration. Optional. |
+| `PORTICO_ALIYUN_SMS_TEMPLATE_PHONE_VERIFICATION` | Aliyun template code for the code sent to a phone number before a user binds it to their own profile. Optional. |
+| `PORTICO_SMS_LOGIN_DEPLOYMENT_DAILY_CAP` | Default `1000`. The whole deployment's shared daily quota for SMS login codes, enforced to bound costs. |
+
+- **Purpose**: delivering SMS sign-in codes, password-recovery links,
+  registration-verification links, and phone-ownership codes to a user's
+  registered (or about-to-be-registered) phone.
+- **Auth**: Aliyun AccessKey ID/Secret pair, signing requests with HMAC-SHA1.
+  Keys are created in the Aliyun console and scoped to the specific SMS
+  sending application.
+- **Account owner**: TBD — assign a deployment owner to manage the Aliyun
+  account, API credentials, and message templates.
+- **Cost**: billed by Aliyun per SMS message sent, at rates that vary by
+  account, region, and current promotions. The deployment-wide daily cap
+  (`PORTICO_SMS_LOGIN_DEPLOYMENT_DAILY_CAP`, default 1000) controls the
+  maximum spend per day: once that limit is reached, SMS sign-in codes are
+  refused until the quota resets. Check your Aliyun account for
+  message-delivery costs and per-message pricing.
+
+**Message templates to submit for Aliyun's approval.** Each corresponds to
+one `PORTICO_ALIYUN_SMS_TEMPLATE_*` variable above; variable names must
+match exactly (Aliyun's placeholder syntax is `${Name}`).
+
+| Purpose | Env var | Variables | Suggested content |
+|---|---|---|---|
+| Sign-in code | `..._LOGIN_CODE` | `Code`, `Minutes` | Your sign-in code is `${Code}`. It expires in `${Minutes}` minutes. Do not share it with anyone. |
+| Password reset | `..._RECOVERY` | `Link`, `Minutes` | Reset your password using this link: `${Link}` (expires in `${Minutes}` minutes). If you didn't request this, ignore this message. |
+| Registration verification | `..._VERIFICATION` | `Link`, `Hours` | Confirm your phone number to finish registration: `${Link}` (expires in `${Hours}` hours). |
+| Phone binding | `..._PHONE_VERIFICATION` | `Code`, `Minutes` | Your verification code is `${Code}`. It expires in `${Minutes}` minutes. Do not share it with anyone. |
+
+Aliyun bills a message that exceeds 70 characters as multiple messages, and
+a link template's actual length depends on the URL Portico builds — measure
+the real, final text (with a short-link service if one is used) before
+submitting a template for review, not the sample above.
 
 ### Active Directory or OpenLDAP — optional, and the one Portico reaches out to
 

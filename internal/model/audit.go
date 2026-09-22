@@ -102,6 +102,11 @@ const (
 	ActionVerificationSent    = "REGISTRATION_VERIFY_SENT"
 	ActionVerificationConfirm = "REGISTRATION_VERIFY_CONFIRM"
 
+	// A signed-in user proving they control a phone number before it
+	// replaces users.phone. Same two-verb reasoning as the pair above.
+	ActionPhoneVerificationSent    = "PHONE_VERIFY_SENT"
+	ActionPhoneVerificationConfirm = "PHONE_VERIFY_CONFIRM"
+
 	ActionOrgCreate  = "ORG_CREATE"
 	ActionOrgUpdate  = "ORG_UPDATE"
 	ActionOrgEnable  = "ORG_ENABLE"

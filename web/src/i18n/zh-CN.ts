@@ -104,6 +104,12 @@ export const zhCN: Record<keyof typeof enUS, string> = {
   "login.noAccount": "还没有账号？",
   "login.register": "立即注册",
   "login.sessionExpired": "登录状态已失效，请重新登录。",
+  "login.useSmsCode": "改用验证码登录",
+  "login.usePassword": "改用密码登录",
+  "login.phone": "手机号",
+  "login.smsCode": "验证码",
+  "login.smsSend": "发送验证码",
+  "login.smsResendIn": "{0} 秒后重新发送",
 
   "authorize.title": "正在登录",
   "authorize.redirecting": "正在返回应用…",
@@ -436,6 +442,11 @@ export const zhCN: Record<keyof typeof enUS, string> = {
   "settings.invitationOnlyRegistration": "要求邀请码",
   "settings.invitationOnlyRegistrationHelp":
     "即使注册是开放的，没有有效邀请码也无法注册。邀请码的发放与管理在「邀请码」页面。",
+  "settings.authMethodsLegend": "认证方式",
+  "settings.authMethodsHelp": "除用户名+密码之外，还允许哪些方式登录。",
+  "settings.smsLoginEnabled": "允许使用短信验证码登录",
+  "settings.smsLoginEnabledHelp":
+    "允许绑定了手机号的账号用短信验证码代替密码登录。需要本部署配置了短信发送能力。",
   "settings.lockoutLegend": "登录失败锁定",
   "settings.lockoutHelp":
     "连续输错密码后锁定账号。这不是限流——它防的是某一个账号的密码被猜中，对大量尝试给服务器带来的负载无能为力，反向代理的限流仍要保留。",
@@ -770,6 +781,18 @@ export const zhCN: Record<keyof typeof enUS, string> = {
   "profile.email": "邮箱",
   "profile.phone": "手机号",
   "profile.contactHint": "同时可作为登录账号，找回密码的链接也发送到这里。",
+  "profile.phoneNotSet": "未设置",
+  "profile.phoneUnavailableHelp":
+    "本部署未配置短信发送能力，这里无法验证手机号。请联系管理员。",
+  "profile.phoneVerifyHint":
+    "保存前会先给这个号码发一条验证码——见下方。同时可作为登录账号。",
+  "profile.phoneSendCode": "发送验证码",
+  "profile.phoneCode": "验证码",
+  "profile.phoneCodeSentTo": "验证码已发送到 {0}。",
+  "profile.phoneConfirm": "确认",
+  "profile.phoneRemove": "移除手机号",
+  "profile.phoneRemoveConfirm":
+    "确定从本账号移除 {0} 吗？移除后将无法再用它登录。",
   "verify.title": "确认账号",
   "verify.subtitle": "完成你刚才的注册。",
   "verify.working": "确认中…",

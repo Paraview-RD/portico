@@ -75,6 +75,9 @@ var publicAPIRoutes = map[string]string{
 	"POST /api/v1/auth/password-recovery":         "the same",
 	"POST /api/v1/auth/password-recovery/confirm": "redeems a token sent out of band; that token is the credential",
 
+	"POST /api/v1/auth/sms/code":  "asks for a code before anybody has signed in",
+	"POST /api/v1/auth/sms/login": "the endpoint that issues the credential for this method, same as /auth/login",
+
 	"POST /api/v1/auth/password/expired": "login refuses an expired password rather than issuing a token, so this cannot require one; it takes the current password and refuses if it has not expired",
 
 	"POST /api/v1/auth/register/verify":        "proves an address before the account may sign in",
@@ -98,6 +101,8 @@ var selfServiceAPIRoutes = map[string]string{
 	"PUT /api/v1/users/me":                                 "your own account",
 	"PUT /api/v1/users/me/profile":                         "your own descriptive attributes; it cannot reach role, status, or organization",
 	"POST /api/v1/users/me/password":                       "your own password",
+	"POST /api/v1/users/me/phone/verification-code":        "proving you control a phone number before it becomes your own",
+	"POST /api/v1/users/me/phone/confirm":                  "the same, completing it",
 	"POST /api/v1/users/me/close":                          "the one sanctioned way to disable yourself",
 	"GET /api/v1/users/me/groups":                          "your own memberships",
 	"GET /api/v1/users/me/sessions":                        "your own sessions",

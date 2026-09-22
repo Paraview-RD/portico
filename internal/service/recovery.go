@@ -9,6 +9,7 @@ import (
 	"fmt"
 	"log/slog"
 	"net/url"
+	"strconv"
 	"strings"
 	"time"
 
@@ -441,11 +442,12 @@ func (s *RecoveryService) deliver(ctx context.Context, tenant model.Tenant, chan
 		msg.To = row.Email
 		err = s.mailer.Send(ctx, msg)
 	case model.RecoverySMS:
-		text, renderErr := s.messages.Render(locale, i18n.KeyRecoverySMS, data)
-		if renderErr != nil {
-			return renderErr
-		}
-		err = s.sms.Send(ctx, row.Phone, text)
+		// No i18n.Render here: the message text lives in Aliyun's approved
+		// template now, not in this codebase -- see notify.SMSKind.
+		err = s.sms.Send(ctx, row.Phone, notify.SMSKindRecovery, map[string]string{
+			"Link":    link,
+			"Minutes": strconv.Itoa(int(RecoveryTokenTTL.Minutes())),
+		})
 	}
 
 	// The token is already recorded, so a delivery failure leaves an unusable

@@ -324,6 +324,19 @@ type PasswordReset struct {
 	CreatedAt time.Time
 }
 
+type PhoneVerificationCode struct {
+	ID       string
+	TenantID string
+	UserID   string
+	Phone    string
+	// sha256 of the 6-digit code. Not a password hash; see the CREATE TABLE comment.
+	CodeHash   string
+	Attempts   int32
+	ConsumedAt *time.Time
+	ExpiresAt  time.Time
+	CreatedAt  time.Time
+}
+
 // Outstanding address-verification requests from self-registration. Rows survive use as part of the trail; expiry and used_at are what make a token unusable, not deletion.
 type RegistrationVerification struct {
 	ID        string
@@ -400,6 +413,19 @@ type Session struct {
 	LastSeenAt time.Time
 	ExpiresAt  time.Time
 	RevokedAt  *time.Time
+}
+
+type SmsLoginCode struct {
+	ID       string
+	TenantID string
+	Phone    string
+	// sha256 of the 6-digit code. Not a password hash; see the CREATE TABLE comment.
+	CodeHash   string
+	Attempts   int32
+	ConsumedAt *time.Time
+	ExpiresAt  time.Time
+	CreatedAt  time.Time
+	Ip         string
 }
 
 type SystemSetting struct {

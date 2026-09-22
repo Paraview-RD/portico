@@ -85,6 +85,26 @@ export const authApi = {
     }),
 
   /**
+   * Sends a one-time sign-in code to a phone number. Always answers
+   * `{ sent: true }` whether or not the number belongs to an account —
+   * same enumeration-safety rule as `requestPasswordRecovery`.
+   */
+  requestSMSLoginCode: (phone: string, tenant: string) =>
+    request<{ sent: boolean }>("/auth/sms/code", {
+      method: "POST",
+      body: { phone, tenant },
+      anonymous: true,
+    }),
+
+  /** Signs in with a one-time code sent by `requestSMSLoginCode`. */
+  loginWithSMSCode: (phone: string, code: string, tenant: string) =>
+    request<Session>("/auth/sms/login", {
+      method: "POST",
+      body: { phone, code, tenant },
+      anonymous: true,
+    }),
+
+  /**
    * The buttons a tenant's sign-in screen offers.
    *
    * Asked unconditionally and answered with an empty list where nothing is
@@ -367,6 +387,25 @@ export const userApi = {
     phone: string;
     email: string;
   }) => request<User>("/users/me", { method: "PUT", body: input }),
+
+  /**
+   * Sends a code proving the caller controls phone -- the first half of
+   * binding it via `confirmPhoneVerification`. Unlike `requestSMSLoginCode`,
+   * a failure here is a real error: the caller is already signed in, so
+   * there is nothing gained by pretending it succeeded.
+   */
+  requestPhoneVerification: (phone: string) =>
+    request<{ sent: boolean }>("/users/me/phone/verification-code", {
+      method: "POST",
+      body: { phone },
+    }),
+
+  /** Confirms the code `requestPhoneVerification` sent and binds phone. */
+  confirmPhoneVerification: (phone: string, code: string) =>
+    request<User>("/users/me/phone/confirm", {
+      method: "POST",
+      body: { phone, code },
+    }),
 
   /** The caller's own live sessions, most recently used first. */
   ownSessions: () => request<UserSession[]>("/users/me/sessions"),

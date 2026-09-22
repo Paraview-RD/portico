@@ -82,6 +82,20 @@ export default defineConfig({
       PORTICO_INITIAL_ADMIN_USERNAME: "admin",
       PORTICO_INITIAL_ADMIN_PASSWORD: adminPassword,
       PORTICO_LOG_LEVEL: "warn",
+      // Fake, throwaway Aliyun credentials. Their only purpose is to make
+      // SettingsService.CanDeliverSMS() report true, so a test can turn
+      // Settings.SMSLoginEnabled on at all -- see
+      // internal/service/settings.go's refusal at "next.SMSLoginEnabled &&
+      // !s.CanDeliverSMS()". Nothing here ever has to actually reach
+      // Aliyun successfully: sms-login.spec.ts never types a phone number
+      // bound to a real account, so SMSLoginService.completeRequest returns
+      // at the "no such phone" branch before it calls SMSSender.Send, and no
+      // network request happens. If a future test needs a bound phone,
+      // that guarantee no longer holds and this comment (and the constant
+      // it documents) needs revisiting.
+      PORTICO_ALIYUN_SMS_ACCESS_KEY_ID: "e2e-fake-access-key-id",
+      PORTICO_ALIYUN_SMS_ACCESS_KEY_SECRET: "e2e-fake-access-key-secret",
+      PORTICO_ALIYUN_SMS_SIGN_NAME: "e2e-fake-sign-name",
     },
   },
 });
