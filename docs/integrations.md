@@ -127,6 +127,22 @@ Aliyun's approval for only some message types and still use the ones it has.
   refused until the quota resets. Check your Aliyun account for
   message-delivery costs and per-message pricing.
 
+**Message templates to submit for Aliyun's approval.** Each corresponds to
+one `PORTICO_ALIYUN_SMS_TEMPLATE_*` variable above; variable names must
+match exactly (Aliyun's placeholder syntax is `${Name}`).
+
+| Purpose | Env var | Variables | Suggested content |
+|---|---|---|---|
+| Sign-in code | `..._LOGIN_CODE` | `Code`, `Minutes` | Your sign-in code is `${Code}`. It expires in `${Minutes}` minutes. Do not share it with anyone. |
+| Password reset | `..._RECOVERY` | `Link`, `Minutes` | Reset your password using this link: `${Link}` (expires in `${Minutes}` minutes). If you didn't request this, ignore this message. |
+| Registration verification | `..._VERIFICATION` | `Link`, `Hours` | Confirm your phone number to finish registration: `${Link}` (expires in `${Hours}` hours). |
+| Phone binding | `..._PHONE_VERIFICATION` | `Code`, `Minutes` | Your verification code is `${Code}`. It expires in `${Minutes}` minutes. Do not share it with anyone. |
+
+Aliyun bills a message that exceeds 70 characters as multiple messages, and
+a link template's actual length depends on the URL Portico builds — measure
+the real, final text (with a short-link service if one is used) before
+submitting a template for review, not the sample above.
+
 ### Active Directory or OpenLDAP — optional, and the one Portico reaches out to
 
 A directory connector reads accounts out of an AD or OpenLDAP. It is the only
