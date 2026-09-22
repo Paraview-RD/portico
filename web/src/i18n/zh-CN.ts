@@ -781,6 +781,18 @@ export const zhCN: Record<keyof typeof enUS, string> = {
   "profile.email": "邮箱",
   "profile.phone": "手机号",
   "profile.contactHint": "同时可作为登录账号，找回密码的链接也发送到这里。",
+  "profile.phoneNotSet": "未设置",
+  "profile.phoneUnavailableHelp":
+    "本部署未配置短信发送能力，这里无法验证手机号。请联系管理员。",
+  "profile.phoneVerifyHint":
+    "保存前会先给这个号码发一条验证码——见下方。同时可作为登录账号。",
+  "profile.phoneSendCode": "发送验证码",
+  "profile.phoneCode": "验证码",
+  "profile.phoneCodeSentTo": "验证码已发送到 {0}。",
+  "profile.phoneConfirm": "确认",
+  "profile.phoneRemove": "移除手机号",
+  "profile.phoneRemoveConfirm":
+    "确定从本账号移除 {0} 吗？移除后将无法再用它登录。",
   "verify.title": "确认账号",
   "verify.subtitle": "完成你刚才的注册。",
   "verify.working": "确认中…",

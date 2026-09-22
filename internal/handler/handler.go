@@ -71,6 +71,9 @@ type Handler struct {
 	trials *service.TrialService
 	// The standalone phone-number + SMS-code login method.
 	smsLogin *service.SMSLoginService
+	// Proving a signed-in user controls a phone number before it replaces
+	// their profile's.
+	phoneVerification *service.PhoneVerificationService
 }
 
 // New returns a Handler backed by the given services.
@@ -102,6 +105,7 @@ func New(
 	casServer *casp.Server,
 	trials *service.TrialService,
 	smsLogin *service.SMSLoginService,
+	phoneVerification *service.PhoneVerificationService,
 ) *Handler {
 	return &Handler{
 		users: users, orgs: orgs, audit: audit,
@@ -114,7 +118,8 @@ func New(
 		webhooks: webhooks, externalIDP: externalIDP, groups: groups, invitations: invitations, logos: logos,
 		attributes: attributes, fields: fields, fieldMappings: fieldMappings,
 		oidc: oidc, saml: samlProviders, cas: casServer,
-		trials:   trials,
-		smsLogin: smsLogin,
+		trials:            trials,
+		smsLogin:          smsLogin,
+		phoneVerification: phoneVerification,
 	}
 }

@@ -88,12 +88,14 @@ that chose to do without email.
 ### Aliyun SMS — optional
 
 SMS delivery for phone-based authentication: sign-in codes, password recovery
-links, and registration verification. This is a deployment-wide optional
-feature; if credentials are unset, standalone phone+code sign-in and the SMS
-password-recovery channel are simply unavailable. Password recovery over
-email is unaffected -- email and SMS are independent recovery channels, not
-a fallback chain, and the sign-in screen only offers whichever channels are
-actually configured.
+links, registration verification, and the code sent to a phone number before
+a signed-in user may bind it to their own profile. This is a deployment-wide
+optional feature; if credentials are unset, standalone phone+code sign-in,
+the SMS password-recovery channel, and self-service phone binding are simply
+unavailable (My profile hides the phone field in that case). Password
+recovery over email is unaffected -- email and SMS are independent recovery
+channels, not a fallback chain, and the sign-in screen only offers whichever
+channels are actually configured.
 
 Set `PORTICO_ALIYUN_SMS_ACCESS_KEY_ID` and its corresponding secret to enable
 SMS delivery. Templates are individually optional — a deployment may have
@@ -107,10 +109,12 @@ Aliyun's approval for only some message types and still use the ones it has.
 | `PORTICO_ALIYUN_SMS_TEMPLATE_LOGIN_CODE` | Aliyun template code for standalone phone+code sign-in messages. Optional. |
 | `PORTICO_ALIYUN_SMS_TEMPLATE_RECOVERY` | Aliyun template code for password-reset links sent over SMS. Optional. |
 | `PORTICO_ALIYUN_SMS_TEMPLATE_VERIFICATION` | Aliyun template code for address-proof links sent during registration. Optional. |
+| `PORTICO_ALIYUN_SMS_TEMPLATE_PHONE_VERIFICATION` | Aliyun template code for the code sent to a phone number before a user binds it to their own profile. Optional. |
 | `PORTICO_SMS_LOGIN_DEPLOYMENT_DAILY_CAP` | Default `1000`. The whole deployment's shared daily quota for SMS login codes, enforced to bound costs. |
 
-- **Purpose**: delivering SMS sign-in codes, password-recovery links, and
-  registration-verification links to a user's registered phone.
+- **Purpose**: delivering SMS sign-in codes, password-recovery links,
+  registration-verification links, and phone-ownership codes to a user's
+  registered (or about-to-be-registered) phone.
 - **Auth**: Aliyun AccessKey ID/Secret pair, signing requests with HMAC-SHA1.
   Keys are created in the Aliyun console and scoped to the specific SMS
   sending application.

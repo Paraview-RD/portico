@@ -67,12 +67,39 @@ Amazon SES、Postmark、Resend，或者一个本地 Postfix。
 两个配置项都在启动时校验：选了这个通道却没给 key 或发件人，是配错了，而不是"这个部署
 选择不发邮件"。
 
-### 短信 —— 可选
+### 阿里云短信 —— 可选
 
-用手机号找回密码需要一个短信网关，而与邮件不同，它没有一个通用协议。Portico 定义了
-一个小的 provider 接口；由部署方提供实现，或者干脆关掉短信、只用邮件。
+面向手机号登录相关场景的短信发送：登录验证码、短信找回密码链接、注册短信验证，
+以及在已登录用户把某个手机号绑定到自己账号之前，先发一条验证码确认本人持有该号码。
+这是整个部署级别的可选功能；未设置凭据时，独立的"手机号+验证码"登录、短信找回密码
+渠道、以及个人资料页的手机号自助绑定都会不可用（"我的资料"会直接隐藏手机号那个字
+段）。邮件找回密码不受影响——邮件和短信是两条互相独立的找回渠道，不是互为兜底，
+登录页只会展示当前实际配置了的那些渠道。
 
-*状态：接口和一个空实现存在；具体的 provider 尚未编写。*
+设置 `PORTICO_ALIYUN_SMS_ACCESS_KEY_ID` 及其对应的 secret 即可启用短信发送。各模板
+互相独立、均为可选——某次部署可能只申请到了其中部分模板的审核通过，仍可只用已有
+的那些。
+
+| 变量 | 说明 |
+|---|---|
+| `PORTICO_ALIYUN_SMS_ACCESS_KEY_ID` | 阿里云账号 AccessKey ID。未设置时短信功能不可用。 |
+| `PORTICO_ALIYUN_SMS_ACCESS_KEY_SECRET` | 对应的 AccessKey Secret，用于请求签名（HMAC-SHA1）。 |
+| `PORTICO_ALIYUN_SMS_SIGN_NAME` | 短信正文前展示的已审核签名，例如 `【Portico】`。一旦设置了凭据即为必填。 |
+| `PORTICO_ALIYUN_SMS_TEMPLATE_LOGIN_CODE` | 独立"手机号+验证码"登录场景的阿里云模板 Code。可选。 |
+| `PORTICO_ALIYUN_SMS_TEMPLATE_RECOVERY` | 短信发送密码重置链接场景的阿里云模板 Code。可选。 |
+| `PORTICO_ALIYUN_SMS_TEMPLATE_VERIFICATION` | 短信发送注册地址验证链接场景的阿里云模板 Code。可选。 |
+| `PORTICO_ALIYUN_SMS_TEMPLATE_PHONE_VERIFICATION` | 在用户把某个手机号绑定到自己账号之前发送验证码场景的阿里云模板 Code。可选。 |
+| `PORTICO_SMS_LOGIN_DEPLOYMENT_DAILY_CAP` | 默认 `1000`。整个部署共用的短信登录验证码每日预算，用来控制成本上限。 |
+
+- **用途**：向用户已登记（或即将登记）的手机号发送登录验证码、密码找回链接、
+  注册验证链接，以及手机号绑定前的所有权验证码。
+- **鉴权**：阿里云 AccessKey ID/Secret 密钥对，用 HMAC-SHA1 给请求签名。密钥在阿里云
+  控制台创建，建议只授予短信发送这一项应用所需的权限范围。
+- **账号归属**：待定——需要指定一个人负责这个阿里云账号、API 凭据以及短信模板的维护。
+- **成本**：按阿里云实际发送的短信条数计费，具体费率随账号、地域和当前促销活动变化。
+  部署级每日上限（`PORTICO_SMS_LOGIN_DEPLOYMENT_DAILY_CAP`，默认 1000）控制的是每日
+  最大花费——一旦触顶，短信登录验证码会被拒绝直到配额重置。具体计费请以阿里云账号
+  里的实际价格为准。
 
 ### Active Directory / OpenLDAP
 

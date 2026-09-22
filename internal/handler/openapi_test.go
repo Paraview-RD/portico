@@ -47,6 +47,8 @@ var bodies = map[string]any{
 	"requestSMSLoginCode":             smsLoginCodeRequest{},
 	"loginWithSMSCode":                smsLoginRequest{},
 	"updateOwnProfile":                updateProfileRequest{},
+	"requestPhoneVerification":        requestPhoneVerificationRequest{},
+	"confirmPhoneVerification":        confirmPhoneVerificationRequest{},
 	"closeOwnAccount":                 closeAccountRequest{},
 	"changeOwnPassword":               changePasswordRequest{},
 	"setOwnProfileAttributes":         profileRequest{},

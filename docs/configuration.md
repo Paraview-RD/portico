@@ -45,7 +45,8 @@ Used when `PORTICO_MAIL_TRANSPORT=resend`.
 ## Aliyun SMS
 
 Unset `PORTICO_ALIYUN_SMS_ACCESS_KEY_ID` and SMS login, password recovery
-over SMS, and registration verification over SMS are all unavailable.
+over SMS, registration verification over SMS, and proving a user controls a
+phone number before it is bound to their profile are all unavailable.
 Templates are individually optional: a deployment may have Aliyun's
 approval for only some of them and still use the ones it has.
 
@@ -57,6 +58,7 @@ approval for only some of them and still use the ones it has.
 | `PORTICO_ALIYUN_SMS_TEMPLATE_LOGIN_CODE` | *(unset)* | Aliyun template code for a standalone phone+code sign-in. Optional. |
 | `PORTICO_ALIYUN_SMS_TEMPLATE_RECOVERY` | *(unset)* | Aliyun template code for a password-reset link sent over SMS. Optional. |
 | `PORTICO_ALIYUN_SMS_TEMPLATE_VERIFICATION` | *(unset)* | Aliyun template code for a registration address-proof link sent over SMS. Optional. |
+| `PORTICO_ALIYUN_SMS_TEMPLATE_PHONE_VERIFICATION` | *(unset)* | Aliyun template code for the code sent to a phone number before it is bound to a profile, in Settings > My profile. Optional. |
 | `PORTICO_SMS_LOGIN_DEPLOYMENT_DAILY_CAP` | `1000` | The whole deployment's shared daily budget for SMS login codes, since SMS costs money per message in a way email does not. |
 
 ## Tokens and sessions

@@ -388,6 +388,25 @@ export const userApi = {
     email: string;
   }) => request<User>("/users/me", { method: "PUT", body: input }),
 
+  /**
+   * Sends a code proving the caller controls phone -- the first half of
+   * binding it via `confirmPhoneVerification`. Unlike `requestSMSLoginCode`,
+   * a failure here is a real error: the caller is already signed in, so
+   * there is nothing gained by pretending it succeeded.
+   */
+  requestPhoneVerification: (phone: string) =>
+    request<{ sent: boolean }>("/users/me/phone/verification-code", {
+      method: "POST",
+      body: { phone },
+    }),
+
+  /** Confirms the code `requestPhoneVerification` sent and binds phone. */
+  confirmPhoneVerification: (phone: string, code: string) =>
+    request<User>("/users/me/phone/confirm", {
+      method: "POST",
+      body: { phone, code },
+    }),
+
   /** The caller's own live sessions, most recently used first. */
   ownSessions: () => request<UserSession[]>("/users/me/sessions"),
 

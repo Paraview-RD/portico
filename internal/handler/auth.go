@@ -353,6 +353,14 @@ type meResponse struct {
 	// a menu that flickers, and a 404 is deliberately indistinguishable from
 	// a deployment that has no such feature.
 	MayManageTenants bool `json:"mayManageTenants"`
+
+	// SMSAvailable is whether this deployment can actually send SMS at all
+	// -- not whether SMS login is turned on, which is a separate, tenant-
+	// level decision that says nothing about phone verification. My profile
+	// uses this alone to decide whether to offer binding a phone number:
+	// verifying one is meaningless without a channel to prove it over,
+	// regardless of whether this tenant also uses SMS to sign in.
+	SMSAvailable bool `json:"smsAvailable"`
 }
 
 // Me returns the caller's own profile.
@@ -387,6 +395,7 @@ func (h *Handler) Me(w http.ResponseWriter, r *http.Request) {
 		TenantCode:        code,
 		TenantName:        name,
 		MayManageTenants:  h.mayManageTenants(r, principal),
+		SMSAvailable:      h.settings.CanDeliverSMS(),
 	})
 }
 

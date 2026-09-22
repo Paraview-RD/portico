@@ -93,6 +93,17 @@ export interface User {
    */
   tenantCode?: string;
   tenantName?: string;
+
+  /**
+   * Whether this deployment can send SMS at all. Present only on
+   * `/users/me`.
+   *
+   * Not the same question as SMS login being turned on — that is a
+   * per-tenant decision this field says nothing about. My profile uses this
+   * alone to decide whether binding a phone number is offered at all:
+   * verifying one is meaningless with no channel to prove it over.
+   */
+  smsAvailable?: boolean;
 }
 
 /**

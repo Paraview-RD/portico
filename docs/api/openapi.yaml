@@ -1136,6 +1136,125 @@ paths:
         "422":
           $ref: "#/components/responses/ValidationFailed"
 
+  /api/v1/users/me/phone/verification-code:
+    post:
+      tags: [Self-service]
+      operationId: requestPhoneVerification
+      summary: Ask for a code proving the caller controls a phone number.
+      description: |
+        The first half of binding a phone number to your own profile.
+        `PUT /api/v1/users/me` refuses a phone number that differs from the
+        one already on file (`PHONE_CHANGE_REQUIRES_VERIFICATION`) unless it
+        has been proven here first, then confirmed at
+        `/api/v1/users/me/phone/confirm`.
+
+        Unlike `/api/v1/auth/sms/code`, this answers directly rather than
+        always with `{"sent": true}` -- the caller is already signed in, so
+        there is no enumeration concern in reporting a send failure or that
+        the number already belongs to another account.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [phone]
+              properties:
+                phone: { type: string }
+      responses:
+        "200":
+          description: Sent.
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: "#/components/schemas/Envelope"
+                  - type: object
+                    properties:
+                      data:
+                        type: object
+                        properties:
+                          sent: { type: boolean }
+        "400":
+          description: |
+            `MISSING_PHONE` (no phone submitted), `INVALID_PHONE` (fails the
+            same format check `PUT /api/v1/users/me` uses), or
+            `PHONE_UNCHANGED` (this is already the account's own number).
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Envelope" }
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "409":
+          description: That phone number already belongs to another account (`PHONE_TAKEN`).
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Envelope" }
+        "429":
+          description: |
+            This account has requested too many verification codes today
+            (`TOO_MANY_ATTEMPTS`) -- a per-account daily cap, since every
+            code here goes to a number nobody has claimed yet and the cap is
+            what stops one account nuisance-texting arbitrary strangers.
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Envelope" }
+        "503":
+          description: This deployment has no way to send SMS at all (`PHONE_VERIFICATION_UNAVAILABLE`).
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Envelope" }
+
+  /api/v1/users/me/phone/confirm:
+    post:
+      tags: [Self-service]
+      operationId: confirmPhoneVerification
+      summary: Confirm a code and bind the phone number it was sent to.
+      description: |
+        The second half of the flow `/api/v1/users/me/phone/verification-code`
+        starts. Once this succeeds, the number is what `GET /api/v1/users/me`
+        reports.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [phone, code]
+              properties:
+                phone: { type: string }
+                code: { type: string }
+      responses:
+        "200":
+          description: Confirmed and bound.
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/UserEnvelope" }
+        "400":
+          description: No phone number or code submitted (`MISSING_CODE`).
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Envelope" }
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "409":
+          description: |
+            Another account claimed this number between the code being sent
+            and confirmed (`PHONE_TAKEN`).
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Envelope" }
+        "422":
+          description: |
+            `INVALID_PHONE_VERIFICATION_CODE` covers every way this can be
+            refused: wrong code, expired code, or a code already spent --
+            there is no enumeration concern to justify distinguishing them,
+            but a caller correcting a typo does not need to know which one
+            happened.
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Envelope" }
+
   /api/v1/users/me/groups:
     get:
       tags: [Self-service]
@@ -5777,6 +5896,15 @@ components:
                 need not discover it by calling that endpoint and reading a
                 404 — which is deliberately indistinguishable from a
                 deployment that has no such feature.
+            smsAvailable:
+              type: boolean
+              description: |
+                Whether this deployment can send SMS at all -- not whether
+                SMS login is turned on, which is a separate, tenant-level
+                decision. My profile uses this alone to decide whether to
+                offer binding a phone number: verifying one is meaningless
+                without a channel to prove it over, regardless of whether
+                this tenant also uses SMS to sign in.
 
     MeEnvelope:
       allOf:

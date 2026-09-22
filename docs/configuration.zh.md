@@ -43,7 +43,7 @@ Portico 在启动时读取的所有环境变量及其默认值。
 
 ## 阿里云短信
 
-未设置 `PORTICO_ALIYUN_SMS_ACCESS_KEY_ID` 时，短信登录、短信找回密码和短信注册验证均不可用。
+未设置 `PORTICO_ALIYUN_SMS_ACCESS_KEY_ID` 时，短信登录、短信找回密码、短信注册验证，以及"手机号绑定前验证本人"均不可用。
 各模板互相独立、均为可选——某次部署可能只申请到了其中部分模板的审核通过，仍可只用已有的那些。
 
 | 变量 | 默认值 | 说明 |
@@ -54,6 +54,7 @@ Portico 在启动时读取的所有环境变量及其默认值。
 | `PORTICO_ALIYUN_SMS_TEMPLATE_LOGIN_CODE` | *(未设置)* | 独立"手机号+验证码"登录场景的阿里云模板 Code。可选。 |
 | `PORTICO_ALIYUN_SMS_TEMPLATE_RECOVERY` | *(未设置)* | 短信发送密码重置链接场景的阿里云模板 Code。可选。 |
 | `PORTICO_ALIYUN_SMS_TEMPLATE_VERIFICATION` | *(未设置)* | 短信发送注册地址验证链接场景的阿里云模板 Code。可选。 |
+| `PORTICO_ALIYUN_SMS_TEMPLATE_PHONE_VERIFICATION` | *(未设置)* | "个人资料"页绑定手机号前发送验证码场景的阿里云模板 Code。可选。 |
 | `PORTICO_SMS_LOGIN_DEPLOYMENT_DAILY_CAP` | `1000` | 整个部署共用的短信登录验证码每日预算——短信不像邮件，每条都要花钱。 |
 
 ## Token 与会话

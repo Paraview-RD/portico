@@ -101,6 +101,8 @@ var selfServiceAPIRoutes = map[string]string{
 	"PUT /api/v1/users/me":                                 "your own account",
 	"PUT /api/v1/users/me/profile":                         "your own descriptive attributes; it cannot reach role, status, or organization",
 	"POST /api/v1/users/me/password":                       "your own password",
+	"POST /api/v1/users/me/phone/verification-code":        "proving you control a phone number before it becomes your own",
+	"POST /api/v1/users/me/phone/confirm":                  "the same, completing it",
 	"POST /api/v1/users/me/close":                          "the one sanctioned way to disable yourself",
 	"GET /api/v1/users/me/groups":                          "your own memberships",
 	"GET /api/v1/users/me/sessions":                        "your own sessions",

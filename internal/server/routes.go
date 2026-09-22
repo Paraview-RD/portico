@@ -160,6 +160,10 @@ func (s *Server) routes() http.Handler {
 			// see the handler for why that makes it safe to expose.
 			r.Put("/users/me/profile", h.SetOwnProfileAttributes)
 			r.Post("/users/me/password", h.ChangeOwnPassword)
+			// Proving a phone number before UpdateOwnProfile above will
+			// bind it — see self_service.go's ErrPhoneChangeRequiresVerification.
+			r.Post("/users/me/phone/verification-code", h.RequestPhoneVerification)
+			r.Post("/users/me/phone/confirm", h.ConfirmPhoneVerification)
 			// The one sanctioned way to disable yourself. Everywhere else
 			// that is refused; see the handler for why this is not an
 			// exception to that rule but the case it was never about.

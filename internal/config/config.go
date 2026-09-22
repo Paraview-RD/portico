@@ -405,6 +405,9 @@ func Load() (*Config, error) {
 		if code := os.Getenv("PORTICO_ALIYUN_SMS_TEMPLATE_VERIFICATION"); code != "" {
 			cfg.SMS.TemplateCodes[notify.SMSKindVerification] = code
 		}
+		if code := os.Getenv("PORTICO_ALIYUN_SMS_TEMPLATE_PHONE_VERIFICATION"); code != "" {
+			cfg.SMS.TemplateCodes[notify.SMSKindPhoneVerification] = code
+		}
 	}
 
 	smsCap, err := envInt("PORTICO_SMS_LOGIN_DEPLOYMENT_DAILY_CAP", 0)

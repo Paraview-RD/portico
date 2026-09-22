@@ -111,6 +111,13 @@ const (
 	// SMSKindVerification is a registration address-proof link sent over
 	// SMS. Params: "Link", "Hours".
 	SMSKindVerification SMSKind = "verification"
+	// SMSKindPhoneVerification proves a signed-in user controls a phone
+	// number before it is bound to their account (self_service.go's
+	// RequestPhoneChange). Params: "Code", "Minutes". Same shape as
+	// SMSKindLoginCode -- a short code entered inline rather than a link --
+	// but its own kind: the two are read by different people in different
+	// contexts, and Aliyun reviews them as separate templates regardless.
+	SMSKindPhoneVerification SMSKind = "phone_verification"
 )
 
 // SMSSender sends a text message of one of the kinds above.

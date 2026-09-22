@@ -197,6 +197,9 @@ Configuration is entirely environment variables:
   PORTICO_ALIYUN_SMS_TEMPLATE_VERIFICATION
                                    a deployment may have Aliyun
                                    approval for only some
+  PORTICO_ALIYUN_SMS_TEMPLATE_PHONE_VERIFICATION
+                                   template code for the code sent
+                                   before a phone number is bound
   PORTICO_SMS_LOGIN_DEPLOYMENT_DAILY_CAP
                                    default 1000; the whole deployment's
                                    shared daily SMS login code budget

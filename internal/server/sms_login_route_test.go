@@ -8,6 +8,7 @@ import (
 	"time"
 
 	"github.com/Paraview-RD/portico/internal/config"
+	"github.com/Paraview-RD/portico/internal/model"
 	"github.com/Paraview-RD/portico/internal/notify"
 	"github.com/Paraview-RD/portico/internal/server"
 	"github.com/Paraview-RD/portico/internal/testdb"
@@ -165,9 +166,22 @@ func newSMSLoginTest(t *testing.T, phone string) (*apiTest, *recordingSMS) {
 	}
 
 	if phone != "" {
-		if res := api.do(http.MethodPut, "/api/v1/users/me", admin, map[string]string{
+		// Through the administrator's own endpoint, not /users/me: binding
+		// a fresh number through self-service now requires the
+		// PhoneVerificationService round trip (see
+		// self_service.go's ErrPhoneChangeRequiresVerification), which is
+		// its own coverage elsewhere. This fixture only needs a phone
+		// bound to sign in with, and an administrator setting one directly
+		// -- on any account, including their own -- is exempt from that by
+		// design.
+		var me struct {
+			ID string `json:"id"`
+		}
+		api.do(http.MethodGet, "/api/v1/users/me", admin, nil).into(t, &me)
+		if res := api.do(http.MethodPut, "/api/v1/users/"+me.ID, admin, map[string]string{
 			"displayName": "Admin",
 			"phone":       phone,
+			"role":        string(model.RoleSuperAdmin),
 		}); res.Status != http.StatusOK {
 			t.Fatalf("bind phone to admin: %d %s %s", res.Status, res.Code, res.Message)
 		}

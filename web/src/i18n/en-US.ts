@@ -832,6 +832,18 @@ export const enUS = {
   "profile.phone": "Phone",
   "profile.contactHint":
     "Also works as a sign-in identifier, and is where a reset link would go.",
+  "profile.phoneNotSet": "Not set",
+  "profile.phoneUnavailableHelp":
+    "This deployment has not configured SMS delivery, so a phone number cannot be verified here. Ask an administrator.",
+  "profile.phoneVerifyHint":
+    "A code is sent to this number before it is saved — see below. Also works as a sign-in identifier.",
+  "profile.phoneSendCode": "Send code",
+  "profile.phoneCode": "Code",
+  "profile.phoneCodeSentTo": "A code was sent to {0}.",
+  "profile.phoneConfirm": "Confirm",
+  "profile.phoneRemove": "Remove phone number",
+  "profile.phoneRemoveConfirm":
+    "Remove {0} from this account? Nobody will be able to sign in with it afterwards.",
   "verify.title": "Confirm your account",
   "verify.subtitle": "Finishing the sign-up you started.",
   "verify.working": "Confirming…",

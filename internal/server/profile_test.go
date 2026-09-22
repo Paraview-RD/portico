@@ -7,6 +7,12 @@ import (
 )
 
 // A user maintains their own details without an administrator (§3.5).
+//
+// Phone is deliberately absent from this request: unlike email, a self-
+// service phone change that differs from what is on file is refused outright
+// (ErrPhoneChangeRequiresVerification) -- see
+// TestUpdateOwnProfileRefusesAnUnverifiedPhoneChange and
+// TestPhoneVerificationEndToEnd in phone_verification_route_test.go.
 func TestUpdateOwnProfile(t *testing.T) {
 	api := newAPITest(t)
 	admin := api.adminToken()
@@ -17,7 +23,6 @@ func TestUpdateOwnProfile(t *testing.T) {
 	res := api.do(http.MethodPut, "/api/v1/users/me", token, map[string]string{
 		"displayName": "Mallory Renamed",
 		"email":       "mallory@example.com",
-		"phone":       "13800002222",
 	})
 	if res.Status != http.StatusOK {
 		t.Fatalf("update profile: %d %s %s", res.Status, res.Code, res.Message)
@@ -27,7 +32,6 @@ func TestUpdateOwnProfile(t *testing.T) {
 	var profile struct {
 		DisplayName string `json:"displayName"`
 		Email       string `json:"email"`
-		Phone       string `json:"phone"`
 		Role        string `json:"role"`
 	}
 	me.into(t, &profile)
@@ -35,8 +39,8 @@ func TestUpdateOwnProfile(t *testing.T) {
 	if profile.DisplayName != "Mallory Renamed" {
 		t.Errorf("displayName = %q", profile.DisplayName)
 	}
-	if profile.Email != "mallory@example.com" || profile.Phone != "13800002222" {
-		t.Errorf("contact details did not stick: %+v", profile)
+	if profile.Email != "mallory@example.com" {
+		t.Errorf("email did not stick: %+v", profile)
 	}
 
 	// The address is now a working sign-in identifier.

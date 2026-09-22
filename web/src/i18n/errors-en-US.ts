@@ -57,6 +57,13 @@ export const errorsEnUS = {
   SMS_LOGIN_UNAVAILABLE:
     "SMS login is not available. Ask an administrator to enable it, or sign in with a password.",
   INVALID_SMS_CODE: "That code is incorrect or has expired.",
+  PHONE_VERIFICATION_UNAVAILABLE:
+    "Verifying a phone number is not available. Ask an administrator to configure SMS delivery.",
+  INVALID_PHONE_VERIFICATION_CODE: "That code is incorrect or has expired.",
+  PHONE_UNCHANGED: "That is already this account's phone number.",
+  PHONE_CHANGE_REQUIRES_VERIFICATION:
+    "Verify this phone number first, using the code sent to it, before it can be saved.",
+  MISSING_CODE: "A phone number and code are required.",
   // --- Webhook snapshots ---
   SNAPSHOT_IN_PROGRESS:
     "A snapshot for this subscription is still being delivered. Wait for it to finish, or disable the subscription to abandon it.",

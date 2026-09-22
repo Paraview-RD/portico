@@ -39,6 +39,13 @@ export const errorsZhCN: Record<keyof typeof errorsEnUS, string> = {
   SMS_LOGIN_UNAVAILABLE:
     "短信登录当前不可用，请联系管理员开启，或改用密码登录。",
   INVALID_SMS_CODE: "验证码不正确或已过期。",
+  PHONE_VERIFICATION_UNAVAILABLE:
+    "手机号验证当前不可用，请联系管理员配置短信发送能力。",
+  INVALID_PHONE_VERIFICATION_CODE: "验证码不正确或已过期。",
+  PHONE_UNCHANGED: "这已经是本账号当前的手机号。",
+  PHONE_CHANGE_REQUIRES_VERIFICATION:
+    "请先用发到该号码的验证码完成验证，才能保存。",
+  MISSING_CODE: "需要提供手机号和验证码。",
   SNAPSHOT_IN_PROGRESS:
     "这个订阅的快照还在投递中。等它结束，或者停用该订阅以放弃它。",
   SNAPSHOT_EMPTY_SCOPE: "这个订阅没有选中任何快照能填充的事件。",
