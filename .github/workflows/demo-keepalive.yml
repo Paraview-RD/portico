@@ -2,73 +2,87 @@
 #
 # Render spins a free web service down after 15 minutes without inbound
 # traffic, and the next visitor waits out a cold start. This asks it for its
-# health endpoint, often, during the hours somebody is likely to arrive.
+# health endpoint every five minutes, during the hours somebody is likely to
+# arrive.
 #
-# What this is not: a fix, and the first version of this comment understated
-# by how much. It said the scheduler "runs late" and guessed 20 minutes.
-# Measured on this repository over one ordinary day: 12 runs against the 66
-# the cron below asks for, shortest gap 27 minutes, longest 69 — not one of
-# them inside the 15 this is trying to stay under. The next morning the
-# window opened at 00:03 UTC and nothing had fired by 00:52.
+# The pinging happens inside one long run, not one run per ping, because
+# GitHub's scheduler cannot be trusted with the interval. The first version
+# of this file asked cron for a run every ten minutes and got, measured: 12
+# runs a day against the 66 asked for, gaps of 27 to 69 minutes. By October
+# 2026 it was three a day, some landing hours after the window had closed.
+# None of that was ever going to stay under 15 minutes.
 #
-# So it does not keep the service awake. It raises the chance that a visitor
-# during the working day meets a warm one, which is worth having for free and
-# is not the same claim. The honest fixes are Render's $7/month tier, or an
-# external probe on a five-minute interval — that one fits inside the 15, at
-# the price of another account and another credential. docs/integrations.md
-# says the same to whoever is deciding, and README tells a visitor plainly
-# that the first request may wait out a cold start.
+# What a late scheduler cannot spoil is a `sleep` inside a job that is
+# already running. So the schedule now only has to *start* a run, and an
+# hourly cron with thirteen chances a day does that reliably even when most
+# of them arrive late or never. The run then pings on its own clock until
+# the window closes, or until it nears the six-hour limit GitHub puts on a
+# job — at which point the next scheduled run, already queued behind it by
+# the concurrency group below, picks up where it stopped.
 #
 # Free for this repository: Actions minutes are unmetered on public
-# repositories, so the only cost is the noise in the run list.
+# repositories. A run sleeping for most of six hours costs nothing but a
+# runner nobody else was waiting for.
 #
 # It runs during the working day only, and that is not a saving of Actions
-# minutes — those are free — but of Render's. A free workspace gets 750
-# instance hours a calendar month and a service kept awake around the clock
-# spends about 730 of them: it works, and it works by consuming very nearly
-# the whole allowance, leaving nothing for a second free service and no margin
-# for a month with a redeploy in it. Eleven hours a day is roughly 340, which
-# is the same demonstration for less than half the budget.
+# minutes but of Render's. A free workspace gets 750 instance hours a
+# calendar month and a service kept awake around the clock spends about 730
+# of them: it works, and it works by consuming very nearly the whole
+# allowance, leaving nothing for a second free service and no margin for a
+# month with a redeploy in it. Eleven hours a day is roughly 340.
+#
+# A red run here means the demo did not answer. That is worth looking at:
+# when the free Render Postgres expired in October 2026, this went red within
+# hours and stayed red for a week while nobody read it.
 #
 # Turning it off: set the repository variable DEMO_KEEPALIVE to `off`. The
 # schedule then does nothing until it is removed. Running it by hand still
-# works — checking whether the demo is up is the one thing you want while the
+# works — and checks once rather than settling in for the day, since
+# checking whether the demo is up is the one thing you want while the
 # keepalive is off. Disabling the workflow in the Actions tab stops both.
 name: Demo keepalive
 
 on:
   schedule:
-    # 00:03–10:53 UTC, every ten minutes, offset off the hour because
-    # scheduled jobs across GitHub pile onto :00 and that is exactly when the
-    # scheduler is slowest.
+    # Hourly, at seven past, from 22:07 to 10:07 UTC. Each of these is a
+    # chance to start the run that does the pinging, not a ping: whichever
+    # arrives first starts it, and the rest queue behind it or find the
+    # window closed and leave. Seven past because scheduled jobs across
+    # GitHub pile onto :00, which is exactly when the scheduler is slowest.
     #
-    # GitHub cron is UTC and says so nowhere in a run's output, which makes a
-    # window like this the easiest thing in the file to get quietly wrong. In
-    # +08 this is 08:03–18:53, for a demonstration meant to be awake from 09
-    # to 19. Somewhere else, move the hours; the minutes can stay.
+    # The window itself is WINDOW_OPEN / WINDOW_CLOSE below, in UTC — GitHub
+    # cron is UTC and says so nowhere in a run's output. 00:00–11:00 UTC is
+    # 08:00–19:00 in +08, for a demonstration meant to be awake from 09 to 19.
+    # It starts an hour early on purpose: a first poke at 09:00 would leave
+    # whoever arrives then waiting out precisely the cold start this exists
+    # to prevent.
     #
-    # It starts an hour early on purpose. A first poke at 09:03 would leave
-    # whoever arrives at 09:00 waiting out precisely the cold start this
-    # exists to prevent, so the warming happens before the day does.
-    - cron: "3,13,23,33,43,53 0-10 * * *"
-  # For checking by hand whether the address is up at all.
+    # The two chances before midnight are there because the first one inside
+    # the window can arrive an hour or more late. A run that starts early
+    # waits for the window to open, so the warming is on time however late
+    # the scheduler is, within two hours.
+    - cron: "7 22,23,0-10 * * *"
+  # For checking by hand whether the address is up at all. Pings once.
   workflow_dispatch:
 
-# One at a time. A backlog of pokes after an outage would all arrive at once
-# and tell us nothing extra.
+# The scheduled runs queue rather than cancel: a new one arriving while the
+# day's run is pinging must wait behind it, not kill it. GitHub keeps one
+# pending run per group and drops older pending ones, so the queue never
+# grows past one. A run by hand has its own group so that it answers now
+# instead of waiting hours behind the day's run.
 concurrency:
-  group: demo-keepalive
-  cancel-in-progress: true
+  group: demo-keepalive-${{ github.event_name }}
+  cancel-in-progress: false
 
 permissions: {}
 
 jobs:
   poke:
     runs-on: ubuntu-latest
-    # A cold start on the free tier can take most of a minute, and the
-    # request that triggers it is the one that waits. Nothing here should
-    # ever approach this; it exists so a hung request cannot hold a runner.
-    timeout-minutes: 5
+    # GitHub's ceiling for a job on a hosted runner is 360 minutes. The loop
+    # stops itself at 345 (MAX_RUN below), so this is only ever reached by a
+    # run that hung.
+    timeout-minutes: 360
     steps:
       # DEMO_URL is a variable rather than a secret: it is a public address,
       # and a secret would be redacted out of the logs that are the only
@@ -81,6 +95,15 @@ jobs:
           # for the schedule; somebody who came here and pressed the button
           # wants an answer, and "the keepalive is off" is not one.
           BY_HAND: ${{ github.event_name == 'workflow_dispatch' }}
+          WINDOW_OPEN: "00:00"
+          WINDOW_CLOSE: "11:00"
+          # Five minutes leaves room for one ping to be lost inside the 15
+          # Render waits before putting the service to sleep.
+          EVERY_SECONDS: "300"
+          MAX_RUN_MINUTES: "345"
+          # One failed ping is a blip; this many in a row is an outage, and
+          # the run goes red so somebody sees it.
+          FAILURES_TO_REPORT: "3"
         run: |
           # The off switch. Unset means on, so a repository that never heard
           # of this variable behaves as it always did — and `on` means on too,
@@ -98,26 +121,74 @@ jobs:
               ;;
           esac
 
-          # Not an error. This runs every ten minutes on every fork of this
-          # repository, and most of them publish no demo — failing there would
-          # be a red cross every ten minutes for something nobody asked for,
-          # which is how a repository teaches people to ignore its Actions
-          # tab. Nothing to poke is nothing to do.
+          # Not an error. This runs on every fork of this repository, and
+          # most of them publish no demo — failing there would be a red cross
+          # every hour for something nobody asked for, which is how a
+          # repository teaches people to ignore its Actions tab. Nothing to
+          # poke is nothing to do.
           if [ -z "$DEMO_URL" ]; then
             echo "DEMO_URL is not set — no demo to keep awake."
             echo "To publish one, see docs/access-guide.md."
             exit 0
           fi
 
+          url="${DEMO_URL%/}/api/v1/health"
+
           # --max-time generously: this request is often the one paying for
           # the cold start, and treating that as a failure would report an
           # outage every time the service had been asleep — the one case
           # where it worked exactly as intended.
-          code=$(curl -sS -o /dev/null -w '%{http_code}' --max-time 120 \
-            "${DEMO_URL%/}/api/v1/health") || code=000
+          ping() {
+            code=$(curl -sS -o /dev/null -w '%{http_code}' --max-time 120 "$url") || code=000
+            echo "$(date -u +%H:%M:%S) GET $url -> $code"
+            # 200 only. A 502 from Render's edge means the instance is not
+            # answering, which is worth a red run rather than a quiet pass.
+            [ "$code" = "200" ]
+          }
 
-          echo "GET ${DEMO_URL%/}/api/v1/health -> $code"
+          if [ "$BY_HAND" = "true" ]; then
+            ping
+            exit
+          fi
 
-          # 200 only. A 502 from Render's edge means the instance is not
-          # answering, which is worth a red run rather than a quiet pass.
-          [ "$code" = "200" ]
+          # Today's window, or tomorrow's if today's has already closed —
+          # which is what a run started at 22:07 or 23:07 finds.
+          now=$(date -u +%s)
+          day=$(date -u +%F)
+          if [ "$now" -ge "$(date -u -d "$day $WINDOW_CLOSE" +%s)" ]; then
+            day=$(date -u -d "$day + 1 day" +%F)
+          fi
+          open=$(date -u -d "$day $WINDOW_OPEN" +%s)
+          close=$(date -u -d "$day $WINDOW_CLOSE" +%s)
+          stop=$(( now + MAX_RUN_MINUTES * 60 ))
+          [ "$close" -lt "$stop" ] && stop=$close
+
+          # A run the scheduler delivered hours late lands after the close,
+          # and tomorrow's window is too far off to wait for inside one job:
+          # it would sleep into the timeout and report an outage that is not
+          # there. The 22:07 and 23:07 runs are tomorrow's; this one leaves.
+          if [ "$now" -ge "$stop" ] || [ "$open" -ge "$stop" ]; then
+            echo "Outside the window ($WINDOW_OPEN–$WINDOW_CLOSE UTC) and too"
+            echo "far from the next one to wait for. Leaving."
+            exit 0
+          fi
+          if [ "$now" -lt "$open" ]; then
+            echo "Window opens at $WINDOW_OPEN UTC; waiting $(( (open - now) / 60 )) minutes."
+            sleep $(( open - now ))
+          fi
+
+          echo "Pinging every $EVERY_SECONDS seconds until $(date -u -d "@$stop" +%H:%M) UTC."
+          failures=0
+          while [ "$(date -u +%s)" -lt "$stop" ]; do
+            if ping; then
+              failures=0
+            else
+              failures=$(( failures + 1 ))
+              if [ "$failures" -ge "$FAILURES_TO_REPORT" ]; then
+                echo "$failures failures in a row — the demo is down."
+                exit 1
+              fi
+            fi
+            sleep "$EVERY_SECONDS"
+          done
+          echo "Done for this run."

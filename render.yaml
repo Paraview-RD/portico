@@ -16,13 +16,12 @@
 # here because it cannot be:
 #
 #   - The web service spins down after 15 minutes without inbound traffic.
-#     .github/workflows/demo-keepalive.yml pokes it during the working day,
-#     which helps and does not fix it: outside that window it sleeps on
-#     purpose — a free workspace has 750 instance hours a month and staying
-#     awake around the clock spends nearly all of them — and inside it,
-#     GitHub's scheduler runs late under load. So the first visitor sometimes
-#     waits out a cold start either way. Paid is $7/month and removes the
-#     whole problem.
+#     .github/workflows/demo-keepalive.yml pings it every five minutes
+#     during the working day, 08:00–19:00 in +08. Outside that window it
+#     sleeps on purpose — a free workspace has 750 instance hours a month and
+#     staying awake around the clock spends nearly all of them — so the first
+#     visitor of an evening waits out a cold start. Paid is $7/month and
+#     removes the whole problem.
 #
 # Seven values are not written here. Render asks for each of them at apply time
 # — see docs/public-demo.md for what to put in them, and

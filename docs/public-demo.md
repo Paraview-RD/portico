@@ -252,16 +252,18 @@ Add `DEMO_URL` as an Actions **variable** — not a secret — set to the public
 address. Without it `.github/workflows/demo-keepalive.yml` runs and does
 nothing, which looks exactly like running.
 
-Then know what the keepalive does not do. A free Render instance sleeps after
-fifteen minutes without traffic, and the keepalive **does not prevent that**
-— it improves the odds during the day and nothing more. GitHub's scheduler
-delivers a ten-minute cron at roughly forty-five minutes, which is longer than
-the fifteen it takes to fall asleep;
-[integrations.md](integrations.md#render--the-public-demo-free-tier)
-has a day of measurements. Expect cold starts of around fifty seconds, and say
-so to anybody you send the address to. The window is limited on purpose
-besides: 750 instance hours a month is not enough to stay awake around the
-clock.
+A free Render instance sleeps after fifteen minutes without traffic. The
+keepalive pings it every five minutes from 08:00 to 19:00 in +08, from inside
+one long run rather than one run per ping, because GitHub's scheduler is
+hours late often enough that cron alone never kept it awake;
+[integrations.md](integrations.md#render--the-public-demo-free-tier) has the
+measurements. Outside the window it sleeps on purpose — 750 instance hours a
+month is not enough to stay awake around the clock — so expect a cold start
+of around fifty seconds in the evening, and say so to anybody you send the
+address to.
+
+A red keepalive run means the demo stopped answering. Make sure the
+notification for it reaches somebody.
 
 ### 9. Test it as somebody who is not you
 
