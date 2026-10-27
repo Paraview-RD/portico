@@ -1,11 +1,19 @@
 # The public demonstration, on Render's free tier.
 #
 # A Blueprint rather than clicking through the dashboard: what the demo is
-# configured with is then reviewable, and rebuilding it after the free
-# database expires is one button rather than remembering nine fields.
+# configured with is then reviewable, and rebuilding it is one button rather
+# than remembering nine fields.
 #
-# Free tier, deliberately and with two consequences that are not worked
-# around here because they cannot be:
+# The database is not here. Render's free Postgres expires thirty days after
+# it is created — fourteen more of grace, then it is deleted, and nothing
+# short of a paid plan reads it in between — which made the demo something
+# to rebuild every month rather than something that runs. It lives on Neon's
+# free plan instead, which has no expiry: a Postgres that suspends after five
+# idle minutes and wakes on the next connection, in the same AWS region as
+# this service. See PORTICO_DB_DSN below.
+#
+# Free tier, deliberately and with one consequence that is not worked around
+# here because it cannot be:
 #
 #   - The web service spins down after 15 minutes without inbound traffic.
 #     .github/workflows/demo-keepalive.yml pokes it during the working day,
@@ -15,13 +23,8 @@
 #     GitHub's scheduler runs late under load. So the first visitor sometimes
 #     waits out a cold start either way. Paid is $7/month and removes the
 #     whole problem.
-#   - **A free Postgres expires after 30 days, plus a 14-day grace
-#     period.** Nothing prevents that.
-#     Every trial tenant and everything in them goes with it, and the
-#     Blueprint has to be applied again to get a new one. Put a reminder
-#     somewhere that is not this file.
 #
-# Six values are not written here. Render asks for each of them at apply time
+# Seven values are not written here. Render asks for each of them at apply time
 # — see docs/public-demo.md for what to put in them, and
 # deploy/demo-values.example.env for the list to keep, since a rebuild asks
 # again.
@@ -56,10 +59,17 @@ services:
       - key: PORT
         value: "8410"
 
+      # Neon's *direct* connection string — Connect → Connection pooling off,
+      # so no `-pooler` in the hostname. Migrations run at start and hold a
+      # session for it, which a transaction-mode pooler does not promise.
+      # Keep the `sslmode=require` it comes with: this crosses the public
+      # internet, unlike the internal string fromDatabase used to hand over.
+      #
+      # Create the Neon project in AWS Asia Pacific (Singapore), beside the
+      # service. Any region works; a far one adds its round trip to every
+      # query on every page.
       - key: PORTICO_DB_DSN
-        fromDatabase:
-          name: portico-demo-db
-          property: connectionString
+        sync: false
 
       # Believe the forwarding headers, because on this platform there is
       # always something in front: Render routes every request through its
@@ -203,38 +213,12 @@ services:
       # How many trial tenants may exist at once. Reached, the form says so
       # rather than queueing.
       #
-      # Fifty is bounded by attention rather than by disk — see the note on
-      # the database below.
+      # Fifty is bounded by attention rather than by disk. Measured on a
+      # development database holding the full development seed — two
+      # tenants, fifty-five accounts, ninety days of audit trail — plus four
+      # trial tenants, the whole thing is 11MB; a trial tenant is a rounding
+      # error beside that. Fifty of them do not approach the 1GB a free Neon
+      # project holds.
       - key: PORTICO_TRIAL_MAX_TENANTS
         value: "50"
 
-# Free Postgres: 1GB, expiring after 30 days plus a 14-day grace period.
-#
-# Disk is not the constraint, which is worth writing down because this file
-# used to guess that it was. Measured on a development database holding the
-# full development seed — two tenants, fifty-five accounts, ninety days of
-# audit trail, sessions and webhook deliveries — plus four trial tenants: the
-# whole thing is 11MB. A trial tenant is fifteen accounts, eight or nine
-# organizations and about forty audit entries, which is a rounding error
-# beside the seed. Fifty of them do not approach 1GB.
-#
-# The expiry at the top of this file is the limit that matters.
-databases:
-  - name: portico-demo-db
-    plan: free
-    # The same region as the service above, stated rather than left to the
-    # workspace default — and this is not tidiness.
-    #
-    # fromDatabase hands the service the *internal* connection string, whose
-    # hostname is a bare `dpg-…-a` resolvable only from inside that region.
-    # A database in one region and a service in another therefore fail at
-    # `no such host` on the first connection, which reads as a database that
-    # was never created rather than as two things in different places. The
-    # build succeeds, the image is fine, and the deploy exits 1.
-    #
-    # Left unspecified, the region is whatever the workspace defaults to, so
-    # whether this works at all depended on where the person applying the
-    # Blueprint happened to be set up. It did not work.
-    region: singapore
-    databaseName: portico
-    user: portico

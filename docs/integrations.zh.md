@@ -115,11 +115,11 @@ Amazon SES、Postmark、Resend，或者一个本地 Postfix。
 
 | | |
 |---|---|
-| 用来做什么 | `render.yaml`：一个由 `deploy/Dockerfile` 构建的 web 服务，加一个 Postgres |
+| 用来做什么 | `render.yaml`：一个由 `deploy/Dockerfile` 构建的 web 服务。数据库在 Neon，见下一节 |
 | 认证方式 | 持有这份 Blueprint 的 Render 账号。本仓库里不存任何 token |
 | 归属 | 仓库所有者 |
-| 成本 | **$0。** 代价是下面那两条 |
-| 环境变量 | `PORTICO_DB_DSN`（取自数据库）、`PORTICO_JWT_SECRET`（自动生成），以及需要手填的 `PORTICO_ENCRYPTION_KEY` / `PORTICO_PUBLIC_URL` —— 见 `render.yaml` 里的注释 |
+| 成本 | **$0。** 代价是下面那一条 |
+| 环境变量 | `PORTICO_JWT_SECRET`（自动生成），以及需要手填的 `PORTICO_DB_DSN` / `PORTICO_ENCRYPTION_KEY` / `PORTICO_PUBLIC_URL` —— 见 `render.yaml` 里的注释 |
 
 **免费的 web 服务在 15 分钟无流量后会休眠。**
 `.github/workflows/demo-keepalive.yml` 每十分钟问它一次 `/api/v1/health`，
@@ -146,8 +146,24 @@ workspace 每个日历月有 750 实例小时，而**一个 24 小时不睡的�
 
 `DEMO_KEEPALIVE=off` 可以停掉这个定时任务；**手动触发该工作流仍然会去检查。**
 
-**免费的 Postgres 30 天后过期，另有 14 天宽限期。** 这一条没有任何绕法。演示环境连
-里面的东西一起消失，只能重新应用一次 Blueprint。
+### Neon —— 公开演示环境的数据库，免费版
+
+| | |
+|---|---|
+| 用来做什么 | Render 服务背后的 Postgres，通过 `PORTICO_DB_DSN` 连接 |
+| 认证方式 | 持有该项目的 Neon 账号。连接串存在 Render 面板里，不在本仓库 |
+| 归属 | 仓库所有者 |
+| 成本 | **$0。** 每个项目 1GB 存储、每月 100 计算小时 |
+
+不用 Render 自带的 Postgres：它的免费版创建三十天后过期，过期后除非升级，否则读不
+了 —— `pg_dump` 也不行 —— 再过十四天就被删除。所以演示环境以前每个月要重建一次，
+每次都丢光所有数据。Neon 的免费版不会过期。
+
+它的代价是空闲五分钟后挂起，下一次连接时一秒内唤醒 —— 和服务自己的冷启动相比可以
+忽略。挂起的时间不计入计算小时，所以每月的额度只在有人使用演示环境时消耗。
+
+项目在 AWS Asia Pacific (Singapore)，与服务同区；用的是直连串而不是连接池串：服务
+启动时跑迁移，需要一个独占的会话。
 
 ### GitHub Actions
 

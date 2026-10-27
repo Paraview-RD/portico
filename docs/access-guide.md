@@ -181,16 +181,22 @@ Portico's:
 A Codespace is yours alone — its forwarded ports authenticate against your own
 GitHub session, and it stops when you stop using it. For an address that can
 be handed to somebody else, `render.yaml` in the repository root is a Render
-Blueprint: one web service built from `deploy/Dockerfile`, one Postgres.
+Blueprint: one web service built from `deploy/Dockerfile`, pointed at a free
+Neon Postgres you create first.
 
 Read the free-tier consequences in
 [integrations.md](integrations.md#render--the-public-demo-free-tier) before
-starting — the service sleeps, and the database expires after thirty days.
+starting — the service sleeps, and the database is not Render's because
+Render's free one expires after thirty days.
 
-1. **Apply the Blueprint.** Render → New → Blueprint, pointed at the fork you
+1. **Create the database.** A free project at [neon.com](https://neon.com) —
+   its own sign-up, not part of the AWS console — in AWS Asia Pacific
+   (Singapore). Connect, with Connection pooling **off**, and copy the string.
+2. **Apply the Blueprint.** Render → New → Blueprint, pointed at the fork you
    want to publish. Change `region` first if Singapore is not the nearest one:
    a service cannot be moved afterwards.
-2. **Fill the three values it cannot know.** `PORTICO_ENCRYPTION_KEY` — 32
+3. **Fill the four values it cannot know.** `PORTICO_DB_DSN` — the Neon
+   string from step 1. `PORTICO_ENCRYPTION_KEY` — 32
    bytes as hex, from `openssl rand -hex 32`.
    `PORTICO_INITIAL_ADMIN_PASSWORD` — the password `admin` is created with,
    and asked for here because there is no later: the service is reachable from
@@ -203,11 +209,11 @@ starting — the service sleeps, and the database expires after thirty days.
    and SAML metadata are built from it, so a wrong value gives a console that
    works perfectly and every federation flow sending the browser somewhere
    unreachable.
-3. **Keep it awake.** Add `DEMO_URL` as an Actions *variable* — not a secret —
+4. **Keep it awake.** Add `DEMO_URL` as an Actions *variable* — not a secret —
    set to the public address. Without it `demo-keepalive.yml` runs and does
    nothing, which looks exactly like running.
-4. **Sign in** at `https://<your-service>.onrender.com/login` as `admin` with
-   the password from step 2.
+5. **Sign in** at `https://<your-service>.onrender.com/login` as `admin` with
+   the password from step 3.
 
 This deployment is not seeded, and that is the intended shape rather than a
 missing step. The example people described above — `admin`, `zhangwei`,

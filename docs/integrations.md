@@ -145,11 +145,11 @@ attached to and who can reach the database.
 
 | | |
 |---|---|
-| For | `render.yaml`: one web service built from `deploy/Dockerfile`, one Postgres |
+| For | `render.yaml`: one web service built from `deploy/Dockerfile`. The database is on Neon, below |
 | Auth | The Render account owning the Blueprint. No token is stored in this repository |
 | Owner | The repository owner |
-| Cost | **$0.** Two consequences below, both of them the price of that |
-| Variables | `PORTICO_DB_DSN` (from the database), `PORTICO_JWT_SECRET` (generated), and `PORTICO_ENCRYPTION_KEY` / `PORTICO_PUBLIC_URL` entered by hand — see the comments in `render.yaml` |
+| Cost | **$0.** The consequence below is the price of that |
+| Variables | `PORTICO_JWT_SECRET` (generated), and `PORTICO_DB_DSN` / `PORTICO_ENCRYPTION_KEY` / `PORTICO_PUBLIC_URL` entered by hand — see the comments in `render.yaml` |
 
 **A free web service sleeps after 15 minutes without traffic.**
 `.github/workflows/demo-keepalive.yml` asks it for `/api/v1/health` every ten
@@ -185,9 +185,28 @@ credential to keep.
 `DEMO_KEEPALIVE=off` stops the schedule; running the workflow by hand still
 checks the demo.
 
-**A free Postgres expires after 30 days, with a 14-day grace period.** Nothing
-works around that. The demo and everything in it goes, and the Blueprint has
-to be applied again.
+### Neon — the public demo's database, free plan
+
+| | |
+|---|---|
+| For | The Postgres behind the Render service, reached through `PORTICO_DB_DSN` |
+| Auth | The Neon account owning the project. The connection string lives in the Render dashboard, not in this repository |
+| Owner | The repository owner |
+| Cost | **$0.** 1GB of storage and 100 compute-hours a month per project |
+
+Not Render's own Postgres, which on the free plan expires thirty days after it
+is created. Expired, it is unreadable until upgraded — `pg_dump` included —
+and deleted fourteen days later, so the demo used to be rebuilt monthly and
+lost everything each time. Neon's free plan does not expire.
+
+What it does instead is suspend after five idle minutes and wake on the next
+connection, in well under a second — invisible beside the service's own cold
+start. Suspended time is not counted against the compute hours, so the
+monthly allowance is spent only while somebody is using the demo.
+
+The project is in AWS Asia Pacific (Singapore), beside the service, and the
+string is the direct one rather than the pooled one: migrations run at start
+and want a session of their own.
 
 ### GitHub Actions — the two jobs Render's free tier cannot run
 

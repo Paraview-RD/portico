@@ -69,7 +69,19 @@
 DMARC 从 `p=none` 开始。它只索取报告，不要求接收方拒收 —— 这正是一个从没发过信的
 域名需要的：在一个配置还不对的域名上写 `reject`，拒掉的是你自己的邮件。
 
-### 3. Apply Blueprint
+### 3. 先建数据库，再 Apply Blueprint
+
+**数据库不用 Render 的。** Render 的免费 Postgres 创建三十天后过期，过期之后除了升
+级付费，什么都读不了它 —— 连导出都不行。所以演示环境的数据库是一个免费的
+[Neon](https://neon.com) 项目，它不会过期。Neon 是一家独立的公司，在 neon.com 注
+册；它跑在 AWS 上，但不在 AWS 控制台里。
+
+在 **AWS Asia Pacific (Singapore)** 建项目，或者选和你的 Render 区域相邻的 AWS 区
+域。然后点 Connect，**关掉 Connection pooling**，复制连接串 —— 主机名里不能有
+`-pooler`。服务启动时会跑迁移，迁移需要一个独占的会话，事务模式的连接池不保证这一
+点。连接串自带的 `sslmode=require` 保留。
+
+项目空闲五分钟后挂起，下一次连接时一秒内唤醒，这点时间淹没在服务自己的冷启动里。
 
 Render → New → Blueprint，指向你的 fork，`render.yaml` 在仓库根。如果新加坡不是
 最近的区域，**先改 `region`** —— 服务建好之后无法迁移。
@@ -83,12 +95,10 @@ Render → New → Blueprint，指向你的 fork，`render.yaml` 在仓库根。
 `portico-demo-a1b2.onrender.com`。**先去服务页面读出真实地址**，再填任何引用它的
 东西。
 
-**数据库必须和服务在同一个 region。** `fromDatabase` 交给服务的是**内部**连接
-串，它的主机名只在自己那个 region 内可解析，所以库在别处时第一次连接就会
-`no such host` ——而这发生在构建成功之后，读起来像是数据库从来没被创建。region
-和数据库都不能事后迁移：只能删掉，让 Blueprint 重新建一个。
+**连接串必须是直连的那一个。** 走连接池的连接串能连上、能打开头几个页面，然后在
+之后某个时刻出错，而错误看起来像是应用的问题，不像是连接的问题。
 
-Render 会问三个值。`PORTICO_ENCRYPTION_KEY` 是 32 字节十六进制，`openssl rand
+Render 会问四个值。`PORTICO_DB_DSN` 是上面那个 Neon 连接串。`PORTICO_ENCRYPTION_KEY` 是 32 字节十六进制，`openssl rand
 -hex 32` 生成。`PORTICO_INITIAL_ADMIN_PASSWORD` 是不可延迟填写的值 —— 地址从部署那
 一刻起就是公开的，而不填就意味着 `admin` 账号是用手册里公开写着的那个密码创建
 的。`PORTICO_PUBLIC_URL` 先填 Render 给的 `onrender.com` 地址，第 5 步再换成真的。
@@ -160,13 +170,13 @@ PORTICO_TENANT_CONSOLE   true
 `deploy/demo-values.example.env` 列出了重建时会被重新问一遍的每一个值。**复制一份到
 工作树之外**填好，密钥另外再进密码管理器 —— 一台笔记本不是备份。
 
-这不是整齐问题。免费 Postgres 每月过期，所以只要这个 demo 还在，Blueprint 就会被
-反复 apply，而每次 apply 问的都是仓库里没有的值。有一个测试把这份模板对着
+这不是整齐问题。数据库不再过期之后，重建变得很少见，而**很少见恰恰是没人记得当初
+填了什么的时候** —— 每次 apply 问的又都是仓库里没有的值。有一个测试把这份模板对着
 `render.yaml` 校验，所以**新增一个提示项不可能不出现在清单上**。
 
 **要填完。** 这份文件通常处在「填了一半」的状态，而那恰恰是危险的状态，因为它**看
 起来是填好的** —— 部署相关的事实会在新实例还摆在眼前时顺手写下，密钥则留到以后，因
-为它们在面板里已经好好地工作着。等到数据库过期那天，一份缺了 `PORTICO_ENCRYPTION_KEY`
+为它们在面板里已经好好地工作着。等到服务需要重建那天，一份缺了 `PORTICO_ENCRYPTION_KEY`
 的文件和没有这份文件是一回事：Render 不会把一个它被要求隐藏的值再显示给你，而 demo
 只能用你还拿得出来的东西重建。
 
@@ -185,7 +195,7 @@ grep -nE '^[A-Z][A-Z_]*=$' ~/.portico/demo-values.env
 `.github/workflows/demo-keepalive.yml` 会照常运行并且什么都不做 —— 那看起来和正常
 运行一模一样。
 
-然后在**不是这个仓库**的地方记两个日期：
+然后要清楚保活**做不到**什么：
 
 - 免费 Render 实例十五分钟无流量就休眠，而保活**并不能阻止这件事** —— 它只是提高
   白天撞上热实例的概率。GitHub 的调度器把一个「每十分钟」的 cron 实际交付成大约
@@ -193,8 +203,6 @@ grep -nE '^[A-Z][A-Z_]*=$' ~/.portico/demo-values.env
   [集成文档](integrations.md#render--公开演示环境免费层)里有一整天的实测数据。
   **要预期约五十秒的冷启动**，并且在把地址发给别人时说明这一点。窗口本身也是刻意
   限制的：一个月 750 实例小时不够全天候醒着。
-- **免费 Postgres 在创建三十天后过期，另加十四天宽限期。** 所有试用租户连同里面
-  的一切一起消失，Blueprint 要重新 apply 一遍。**没有任何东西会提醒你。**
 
 ### 9. 验证流程
 

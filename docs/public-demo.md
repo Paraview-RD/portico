@@ -93,7 +93,24 @@ reject anything, which is what you want from a domain that has never sent
 mail: a policy of `reject` on a misconfigured domain rejects your own
 messages.
 
-### 3. Apply the Blueprint
+### 3. Create the database, then apply the Blueprint
+
+The database is not Render's. A free Render Postgres expires thirty days after
+it is created, and once it has, nothing short of a paid plan reads it — not
+even to export what was in it. So the demo's database is a free
+[Neon](https://neon.com) project instead, which does not expire. Neon is its
+own company, signed up for at neon.com; it runs on AWS but is not in the AWS
+console.
+
+Create a project in **AWS Asia Pacific (Singapore)**, or whichever AWS region
+is beside the Render one you choose. Then Connect, turn **Connection pooling
+off**, and copy the connection string — the hostname must not contain
+`-pooler`. Migrations run when the server starts, and they want a session of
+their own that a transaction-mode pooler does not promise. Leave
+`sslmode=require` in it.
+
+The project suspends after five idle minutes and wakes on the next connection
+in well under a second, which disappears inside the service's own cold start.
 
 Render → New → Blueprint, pointed at your fork, with `render.yaml` in the
 repository root. Change `region` first if Singapore is not the nearest one; a
@@ -110,14 +127,12 @@ Render appends a suffix, so the service answers at
 `portico-demo-a1b2.onrender.com`. Read the real one off the service page
 before filling anything in that refers to it.
 
-And the database must be in the same region as the service. `fromDatabase`
-hands over the *internal* connection string, whose hostname resolves only
-from inside its own region, so a database elsewhere fails at `no such host`
-on the first connection — after a successful build, which reads as a database
-that was never created. Neither a region nor a database can be moved
-afterwards: the fix is to delete it and let the Blueprint make another.
+And the connection string must be the direct one. A pooled string connects,
+serves the first few pages, and fails later in ways that look like the
+application rather than the connection.
 
-Render asks for three values. `PORTICO_ENCRYPTION_KEY` is 32 bytes as hex,
+Render asks for four values. `PORTICO_DB_DSN` is the Neon string from above.
+`PORTICO_ENCRYPTION_KEY` is 32 bytes as hex,
 from `openssl rand -hex 32`. `PORTICO_INITIAL_ADMIN_PASSWORD` is the one that
 cannot wait — the address is public from the moment it deploys, and an unset
 value means the `admin` account is created with the password published in the
@@ -208,17 +223,18 @@ tenant.
 Copy it outside the working tree, fill it in, and keep the secrets in a
 password manager as well — a laptop is not a backup.
 
-This is not tidiness. A free Postgres expires monthly, so the Blueprint is
-applied again for as long as the demo exists, and each apply asks for values
-nothing in the repository holds. A test holds the template against
-render.yaml, so a new prompt cannot appear without appearing on the list.
+This is not tidiness. A rebuild is rare now that the database does not
+expire, and rare is exactly when nobody remembers what went in — while each
+apply asks for values nothing in the repository holds. A test holds the
+template against render.yaml, so a new prompt cannot appear without appearing
+on the list.
 
 **Finish filling it.** Partly filled is the state this file is usually found
 in, and it is the dangerous one, because it looks done — the deployment facts
 get written down while the fresh instance is in front of you, and the secrets
 get left for later because they are already working in the dashboard. On the
-day the database expires, a file missing `PORTICO_ENCRYPTION_KEY` is the same
-as no file: Render will not show you a value it was told to hide, and the demo
+day the service has to be rebuilt, a file missing `PORTICO_ENCRYPTION_KEY` is
+the same as no file: Render will not show you a value it was told to hide, and the demo
 is rebuilt from whatever you can still produce.
 
 Check it by looking for lines with nothing to the right of the `=`:
@@ -230,26 +246,22 @@ grep -nE '^[A-Z][A-Z_]*=$' ~/.portico/demo-values.env
 An empty `PORTICO_RESEND_API_KEY=` is also the record that step 6's rotation
 has not happened yet. That is the file doing its job, not a gap in it.
 
-### 8. Keep it awake, and know when it dies
+### 8. Keep it awake
 
 Add `DEMO_URL` as an Actions **variable** — not a secret — set to the public
 address. Without it `.github/workflows/demo-keepalive.yml` runs and does
 nothing, which looks exactly like running.
 
-Then put two dates in a calendar somewhere that is not this repository:
-
-- A free Render instance sleeps after fifteen minutes without traffic, and the
-  keepalive **does not prevent that** — it improves the odds during the day
-  and nothing more. GitHub's scheduler delivers a ten-minute cron at roughly
-  forty-five minutes, which is longer than the fifteen it takes to fall
-  asleep; [integrations.md](integrations.md#render--the-public-demo-free-tier)
-  has a day of measurements. Expect cold starts of around fifty seconds, and
-  say so to anybody you send the address to. The window is limited on purpose
-  besides: 750 instance hours a month is not enough to stay awake around the
-  clock.
-- **A free Postgres expires thirty days after creation, plus a fourteen-day
-  grace period.** Every trial tenant and everything in them goes with it, and
-  the Blueprint has to be applied again. Nothing warns you.
+Then know what the keepalive does not do. A free Render instance sleeps after
+fifteen minutes without traffic, and the keepalive **does not prevent that**
+— it improves the odds during the day and nothing more. GitHub's scheduler
+delivers a ten-minute cron at roughly forty-five minutes, which is longer than
+the fifteen it takes to fall asleep;
+[integrations.md](integrations.md#render--the-public-demo-free-tier)
+has a day of measurements. Expect cold starts of around fifty seconds, and say
+so to anybody you send the address to. The window is limited on purpose
+besides: 750 instance hours a month is not enough to stay awake around the
+clock.
 
 ### 9. Test it as somebody who is not you
 

@@ -155,15 +155,20 @@ Provider、微信或钉钉——但**永远不能以此创建账号**：见下�
 
 Codespace 只属于你一个人 —— 它转发的端口认的是你自己的 GitHub 会话，而且你一停用
 它就停。要一个能发给别人的地址，仓库根目录的 `render.yaml` 是一份 Render
-Blueprint：一个由 `deploy/Dockerfile` 构建的 web 服务，加一个 Postgres。
+Blueprint：一个由 `deploy/Dockerfile` 构建的 web 服务，连到你事先建好的一个免费
+Neon Postgres。
 
 **开始之前先读免费层的两条代价**，见
-[集成文档](integrations.md#render--公开演示环境免费层) —— 服务会休眠，数据库 30
-天后过期（另有 14 天宽限期）。
+[集成文档](integrations.md#render--公开演示环境免费层) —— 服务会休眠；数据库不用
+Render 的，因为 Render 的免费库 30 天后就过期。
 
-1. **应用这份 Blueprint。** Render → New → Blueprint，指向你要发布的那个仓库。如
+1. **先建数据库。** 在 [neon.com](https://neon.com) 建一个免费项目 —— 单独注册，
+   不在 AWS 控制台里 —— 区域选 AWS Asia Pacific (Singapore)。点 Connect，**关掉**
+   Connection pooling，复制连接串。
+2. **应用这份 Blueprint。** Render → New → Blueprint，指向你要发布的那个仓库。如
    果新加坡不是离你最近的区域，**先改 `region`** —— 服务建好之后不能迁移。
-2. **填三个它不可能知道的值。** `PORTICO_ENCRYPTION_KEY` —— 32 字节的十六进制，
+3. **填四个它不可能知道的值。** `PORTICO_DB_DSN` —— 第 1 步的 Neon 连接串。
+   `PORTICO_ENCRYPTION_KEY` —— 32 字节的十六进制，
    用 `openssl rand -hex 32` 生成。`PORTICO_INITIAL_ADMIN_PASSWORD` —— `admin`
    账号被创建时用的密码，在这里问是因为**没有「之后」**：服务从部署那一刻起就可以
    访问，账号从第一次启动那一刻起就存在。不填的话，账号拿到的是本文里写着的那个默
@@ -172,10 +177,10 @@ Blueprint：一个由 `deploy/Dockerfile` 构建的 web 服务，加一个 Postg
    填再重新部署**。它不是装饰：OpenID
    Connect 的回跳和 SAML 元数据都由它拼出来，填错会得到一个用起来完全正常的控制
    台，和每一次都把浏览器送去打不开的地方的单点登录。
-3. **让它别睡。** 把 `DEMO_URL` 加成 Actions 的**变量**（不是 secret），值为公网
+4. **让它别睡。** 把 `DEMO_URL` 加成 Actions 的**变量**（不是 secret），值为公网
    地址。没有它，`demo-keepalive.yml` 会照常运行并且什么都不做 —— 那看起来和正常
    运行一模一样。
-4. **登录**：`https://<你的服务名>.onrender.com/login`，用 `admin` 和第 2 步那个
+5. **登录**：`https://<你的服务名>.onrender.com/login`，用 `admin` 和第 3 步那个
    密码。
 
 **这套部署不灌种子**，而这是刻意的形状，不是漏了一步。上面说的那几个示例人物 ——
