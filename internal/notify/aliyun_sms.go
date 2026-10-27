@@ -1,0 +1,224 @@
+package notify
+
+import (
+	"context"
+	"crypto/hmac"
+	"crypto/rand"
+	"crypto/sha1" //nolint:gosec // required by Aliyun's Dysmsapi V2 RPC signing scheme (HMAC-SHA1); not our choice.
+	"encoding/base64"
+	"encoding/json"
+	"fmt"
+	"net/http"
+	"net/url"
+	"sort"
+	"strings"
+	"time"
+)
+
+const aliyunSMSEndpoint = "https://dysmsapi.aliyuncs.com/"
+
+// AliyunSMSConfig describes sending SMS through Alibaba Cloud's Dysmsapi.
+//
+// Every message this project sends over SMS goes through a template Aliyun
+// has reviewed and approved in advance -- see the SMSKind doc comment on
+// why. TemplateCodes is therefore a map rather than one field: a login code,
+// a recovery link, and a verification link are three different reviewed
+// templates with three different variable names, and a deployment may have
+// approval for only some of them.
+type AliyunSMSConfig struct {
+	AccessKeyID     string
+	AccessKeySecret string
+	// SignName is the approved SMS signature shown before the message body,
+	// e.g. "【Portico】". Required by Aliyun on every send.
+	SignName string
+	// TemplateCodes maps each SMSKind this deployment can send to the
+	// template code Aliyun issued for it. A kind absent from this map is
+	// refused at Send time, not at construction: a deployment may have
+	// approval for the login-code template only, and still is not asking
+	// this to fail before it ever tries to use the one it has.
+	TemplateCodes map[SMSKind]string
+	// Endpoint overrides the API address; empty means Aliyun's default.
+	// Set by tests.
+	Endpoint string
+	// client is the HTTP client, overridden by tests.
+	client *http.Client
+}
+
+type aliyunSMSSender struct {
+	cfg    AliyunSMSConfig
+	client *http.Client
+}
+
+// NewAliyunSMSSender builds an SMSSender backed by Alibaba Cloud's
+// Dysmsapi.
+//
+// The three account-identifying fields are required and checked here,
+// reported at startup rather than at the first sign-in. TemplateCodes is
+// allowed to be a subset of SMSKind -- see the field's doc comment.
+func NewAliyunSMSSender(cfg AliyunSMSConfig) (SMSSender, error) {
+	if cfg.AccessKeyID == "" {
+		return nil, fmt.Errorf("notify: PORTICO_ALIYUN_SMS_ACCESS_KEY_ID is required")
+	}
+	if cfg.AccessKeySecret == "" {
+		return nil, fmt.Errorf("notify: PORTICO_ALIYUN_SMS_ACCESS_KEY_SECRET is required")
+	}
+	if cfg.SignName == "" {
+		return nil, fmt.Errorf("notify: PORTICO_ALIYUN_SMS_SIGN_NAME is required")
+	}
+	if cfg.Endpoint == "" {
+		cfg.Endpoint = aliyunSMSEndpoint
+	}
+	if cfg.client == nil {
+		cfg.client = &http.Client{Timeout: 10 * time.Second}
+	}
+	return &aliyunSMSSender{cfg: cfg, client: cfg.client}, nil
+}
+
+// Send posts one message through Dysmsapi's SendSms action, as a POST with
+// the signed params in the request body (see the comment above the POST
+// request construction below for why not the URL).
+func (a *aliyunSMSSender) Send(ctx context.Context, phone string, kind SMSKind, params map[string]string) error {
+	templateCode, ok := a.cfg.TemplateCodes[kind]
+	if !ok {
+		return fmt.Errorf("notify: no Aliyun template configured for SMS kind %q", kind)
+	}
+
+	paramJSON, err := json.Marshal(params)
+	if err != nil {
+		return fmt.Errorf("marshal template params: %w", err)
+	}
+
+	nonce, err := randomNonce()
+	if err != nil {
+		return err
+	}
+
+	query := url.Values{
+		"AccessKeyId":      {a.cfg.AccessKeyID},
+		"Action":           {"SendSms"},
+		"Format":           {"JSON"},
+		"PhoneNumbers":     {phone},
+		"SignName":         {a.cfg.SignName},
+		"SignatureMethod":  {"HMAC-SHA1"},
+		"SignatureNonce":   {nonce},
+		"SignatureVersion": {"1.0"},
+		"TemplateCode":     {templateCode},
+		"TemplateParam":    {string(paramJSON)},
+		"Timestamp":        {time.Now().UTC().Format("2006-01-02T15:04:05Z")},
+		"Version":          {"2017-05-25"},
+	}
+	query.Set("Signature", a.sign(http.MethodPost, query))
+
+	// Sent as a POST with the params in a form-urlencoded body, not the
+	// query string Aliyun's own SendSms example uses (that example puts
+	// AccessKeyId, Signature, and everything else in the URL even for its
+	// POST case, and only attaches a body when it has one to send, which
+	// its SendSms example never does). This is a deliberate departure from
+	// that example, not a reproduction of it: the query would otherwise
+	// carry the AccessKeyId, the Signature, and TemplateParam -- which can
+	// contain the OTP itself -- and a failed request's error wraps Go's
+	// *url.Error, which embeds the request URL, so all three would leak
+	// into an error message on failure. See resend.go's equivalent
+	// reasoning around not putting the API key where an error can echo it.
+	//
+	// Not yet verified against Aliyun's live gateway. RPC-style signing
+	// APIs commonly accept parameters via either the query string or an
+	// equivalent-content-type body, and the signature computation is
+	// identical either way per Aliyun's docs, but this specific endpoint
+	// accepting a form body with real credentials has not been confirmed.
+	// Smoke-test against a real (sandbox is fine) Aliyun account before
+	// this ships to production.
+	req, err := http.NewRequestWithContext(ctx, http.MethodPost, a.cfg.Endpoint, strings.NewReader(query.Encode()))
+	if err != nil {
+		return fmt.Errorf("build Aliyun SMS request: %w", err)
+	}
+	req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
+
+	res, err := a.client.Do(req)
+	if err != nil {
+		return fmt.Errorf("send Aliyun SMS: %w", err)
+	}
+	defer func() { _ = res.Body.Close() }()
+
+	var body struct {
+		Code    string `json:"Code"`
+		Message string `json:"Message"`
+	}
+	if err := json.NewDecoder(res.Body).Decode(&body); err != nil {
+		return fmt.Errorf("decode Aliyun SMS response: %w", err)
+	}
+	if body.Code != "OK" {
+		return fmt.Errorf("notify: Aliyun SMS gateway refused: %s: %s", body.Code, body.Message)
+	}
+	return nil
+}
+
+// sign computes Dysmsapi's RPC-style V2 signature: HMAC-SHA1 over
+// "<method>&<percent-encoded '/'>&<percent-encoded, sorted query string>",
+// keyed by "<AccessKeySecret>&".
+//
+// Verified 2026-09-21 against Alibaba Cloud's "Request syntax and signature
+// method V2 for RPC APIs" documentation
+// (https://www.alibabacloud.com/help/en/sdk/product-overview/rpc-mechanism):
+// StringToSign = percentEncode(HTTPMethod) + "&" + percentEncode("/") + "&"
+// + percentEncode(CanonicalizedQueryString), HMAC-SHA1 keyed by
+// "<AccessKeySecret>&", Base64-encoded. Cross-checked against Aliyun's own
+// published known-answer vector for this scheme (see
+// TestAliyunSignatureMatchesAliyunsPublishedVector) and, independently,
+// against a from-scratch Python re-implementation -- both byte-exact.
+//
+// This is deliberately V2, not V3. As of this writing Aliyun's current
+// Dysmsapi SendSms API reference documents only the V3 scheme (header-based
+// HMAC-SHA256, with a signed x-acs-date and a body content-sha256), and the
+// V2 signing-mechanism page above is itself titled "(Not recommended)" and
+// banners that V2 is discontinued in favor of V3. This implementation
+// targets V2 anyway because that same V2 page (last updated Jul 2026)
+// still carries a live, worked SendSms example, and V2 requests to SendSms
+// are still accepted. Migrating this to V3 -- a materially different
+// scheme, not a tweak to this function -- is out of scope here and would
+// be its own follow-up task, not something this comment should be read as
+// having already handled.
+func (a *aliyunSMSSender) sign(method string, query url.Values) string {
+	keys := make([]string, 0, len(query))
+	for k := range query {
+		keys = append(keys, k)
+	}
+	sort.Strings(keys)
+
+	pairs := make([]string, 0, len(keys))
+	for _, k := range keys {
+		pairs = append(pairs, percentEncode(k)+"="+percentEncode(query.Get(k)))
+	}
+	canonical := strings.Join(pairs, "&")
+
+	toSign := method + "&" + percentEncode("/") + "&" + percentEncode(canonical)
+
+	mac := hmac.New(sha1.New, []byte(a.cfg.AccessKeySecret+"&"))
+	mac.Write([]byte(toSign))
+	return base64.StdEncoding.EncodeToString(mac.Sum(nil))
+}
+
+// percentEncode follows Aliyun's RFC 3986 variant, confirmed against the
+// current documentation's own reference implementation:
+//
+//	URLEncoder.encode(str, UTF-8).replace("+", "%20").replace("*", "%2A").replace("%7E", "~")
+//
+// i.e. url.QueryEscape's output is adjusted because Aliyun additionally
+// requires '~' left un-encoded and '*' encoded (the reverse of Go's
+// default), and a literal space encoded as %20 rather than QueryEscape's
+// '+'.
+func percentEncode(s string) string {
+	encoded := url.QueryEscape(s)
+	encoded = strings.ReplaceAll(encoded, "+", "%20")
+	encoded = strings.ReplaceAll(encoded, "*", "%2A")
+	encoded = strings.ReplaceAll(encoded, "%7E", "~")
+	return encoded
+}
+
+func randomNonce() (string, error) {
+	raw := make([]byte, 16)
+	if _, err := rand.Read(raw); err != nil {
+		return "", fmt.Errorf("generate signature nonce: %w", err)
+	}
+	return base64.RawURLEncoding.EncodeToString(raw), nil
+}

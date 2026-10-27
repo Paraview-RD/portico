@@ -95,8 +95,12 @@ type updateSettingsRequest struct {
 	RegistrationVerification *bool `json:"registrationVerification"`
 	// Requiring a valid invitation code on top of RegistrationEnabled. See
 	// docs/adr/0001-invitation-code-lifecycle-and-authorization-model.md.
-	InvitationOnlyRegistration *bool   `json:"invitationOnlyRegistration"`
-	SystemName                 *string `json:"systemName"`
+	InvitationOnlyRegistration *bool `json:"invitationOnlyRegistration"`
+	// Lets an account with a bound phone number sign in with an SMS code
+	// instead of a password. Refused where this deployment has no way to
+	// send SMS, same reasoning as RegistrationVerification above.
+	SMSLoginEnabled *bool   `json:"smsLoginEnabled"`
+	SystemName      *string `json:"systemName"`
 
 	// Branding, all optional. Empty string is a real value here too — it
 	// means "not customized" and falls back to the default — so omitting
@@ -155,6 +159,7 @@ func (req updateSettingsRequest) applyTo(current service.Settings) service.Setti
 	overlayBool(&current.ShowGuides, req.ShowGuides)
 	overlayBool(&current.RegistrationVerification, req.RegistrationVerification)
 	overlayBool(&current.InvitationOnlyRegistration, req.InvitationOnlyRegistration)
+	overlayBool(&current.SMSLoginEnabled, req.SMSLoginEnabled)
 	if req.SystemName != nil {
 		current.SystemName = *req.SystemName
 	}

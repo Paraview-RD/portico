@@ -260,6 +260,11 @@ func (h *Handler) RegistrationStatus(w http.ResponseWriter, r *http.Request) {
 		"tenant":         tenant.Code,
 		"tenantName":     tenant.Name,
 		"branding":       brandingOf(settings),
+		// The sign-in screen needs to know whether to offer the SMS-code
+		// tab, the same as it already needs registrationEnabled for its
+		// own tab. Both conditions matter: the tenant switched it on AND
+		// this deployment can actually send SMS.
+		"smsLoginEnabled": settings.SMSLoginEnabled && h.settings.CanDeliverSMS(),
 	})
 }
 
@@ -348,6 +353,14 @@ type meResponse struct {
 	// a menu that flickers, and a 404 is deliberately indistinguishable from
 	// a deployment that has no such feature.
 	MayManageTenants bool `json:"mayManageTenants"`
+
+	// SMSAvailable is whether this deployment can actually send SMS at all
+	// -- not whether SMS login is turned on, which is a separate, tenant-
+	// level decision that says nothing about phone verification. My profile
+	// uses this alone to decide whether to offer binding a phone number:
+	// verifying one is meaningless without a channel to prove it over,
+	// regardless of whether this tenant also uses SMS to sign in.
+	SMSAvailable bool `json:"smsAvailable"`
 }
 
 // Me returns the caller's own profile.
@@ -382,6 +395,7 @@ func (h *Handler) Me(w http.ResponseWriter, r *http.Request) {
 		TenantCode:        code,
 		TenantName:        name,
 		MayManageTenants:  h.mayManageTenants(r, principal),
+		SMSAvailable:      h.settings.CanDeliverSMS(),
 	})
 }
 

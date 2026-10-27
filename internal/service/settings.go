@@ -81,6 +81,11 @@ const (
 	// can move from closed to invitation-only to fully open without a gap
 	// where the two settings disagree about which one wins.
 	SettingInvitationOnlyRegistration = "invitation_only_registration"
+	// SettingSMSLoginEnabled turns on the standalone phone-number + SMS-code
+	// login method. Off by default, and refused at the point of turning it
+	// on if this deployment cannot actually send SMS -- see
+	// SettingsService.Update, same reasoning as SettingRegistrationVerification.
+	SettingSMSLoginEnabled = "sms_login_enabled"
 	// SettingSystemName is shown in the UI header.
 	SettingSystemName = "system_name"
 	// SettingLockoutThreshold is how many consecutive failed sign-ins lock
@@ -182,8 +187,12 @@ type Settings struct {
 	// self-registration. Meaningless on its own if RegistrationEnabled is
 	// false — that switch is still the one that refuses registration
 	// outright.
-	InvitationOnlyRegistration bool   `json:"invitationOnlyRegistration"`
-	SystemName                 string `json:"systemName"`
+	InvitationOnlyRegistration bool `json:"invitationOnlyRegistration"`
+	// SMSLoginEnabled turns on phone-number + SMS-code sign-in as an
+	// alternative to username/password. Requires this deployment to have a
+	// real SMS sender configured; see SettingsService.Update.
+	SMSLoginEnabled bool   `json:"smsLoginEnabled"`
+	SystemName      string `json:"systemName"`
 
 	// Branding. All empty by default; each is "not customized" until an
 	// administrator sets it. See the SettingBranding* keys above for what
@@ -509,6 +518,22 @@ func (s *SettingsService) CanDeliver() bool {
 	return s.deliverable != nil && len(s.deliverable()) > 0
 }
 
+// CanDeliverSMS reports whether this deployment has a real SMS sender
+// configured, independent of whether email is also configured. CanDeliver
+// answers "can it send anything" and is not specific enough for a setting
+// that only needs SMS.
+func (s *SettingsService) CanDeliverSMS() bool {
+	if s.deliverable == nil {
+		return false
+	}
+	for _, channel := range s.deliverable() {
+		if channel == model.RecoverySMS {
+			return true
+		}
+	}
+	return false
+}
+
 // NewSettingsService returns a service whose defaults come from the process
 // configuration, so an operator can set a starting value via environment
 // variable and adjust it later from the UI.
@@ -617,6 +642,8 @@ func (s *SettingsService) Get(ctx context.Context, tenantID string) (Settings, e
 			loaded.RegistrationVerification = row.Value == "true"
 		case SettingInvitationOnlyRegistration:
 			loaded.InvitationOnlyRegistration = row.Value == "true"
+		case SettingSMSLoginEnabled:
+			loaded.SMSLoginEnabled = row.Value == "true"
 		case SettingSystemName:
 			loaded.SystemName = row.Value
 		case SettingBrandingLogoURL:
@@ -740,6 +767,14 @@ func (s *SettingsService) Update(ctx context.Context, tenantID string, next Sett
 			"Requiring verification needs a way to send it. Configure PORTICO_SMTP_HOST and restart, "+
 				"or leave verification off.")
 	}
+	// Same refusal as RegistrationVerification, and for the same reason:
+	// turning this on when nothing can send SMS would accept the setting
+	// and then strand a login screen offering a button nobody can use.
+	if next.SMSLoginEnabled && !s.CanDeliverSMS() {
+		return Settings{}, httpx.UnprocessableEntity("NO_SMS_CHANNEL",
+			"SMS login needs a way to send SMS. Configure the Aliyun SMS transport and restart, "+
+				"or leave SMS login off.")
+	}
 	if next.LockoutThreshold < 0 || next.LockoutThreshold > MaxLockoutThreshold {
 		return Settings{}, httpx.BadRequest("INVALID_SETTINGS",
 			fmt.Sprintf("Lockout threshold must be between 0 and %d; 0 switches lockout off.",
@@ -844,6 +879,7 @@ func (s *SettingsService) Update(ctx context.Context, tenantID string, next Sett
 		SettingShowGuides:                 strconv.FormatBool(next.ShowGuides),
 		SettingRegistrationVerification:   strconv.FormatBool(next.RegistrationVerification),
 		SettingInvitationOnlyRegistration: strconv.FormatBool(next.InvitationOnlyRegistration),
+		SettingSMSLoginEnabled:            strconv.FormatBool(next.SMSLoginEnabled),
 		SettingSystemName:                 next.SystemName,
 
 		SettingBrandingLogoURL:           next.BrandingLogoURL,

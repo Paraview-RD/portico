@@ -27,17 +27,34 @@ type ProfileInput struct {
 	Email       string
 }
 
+// ErrPhoneChangeRequiresVerification is what this endpoint answers when
+// in.Phone would bind a new number without proof it was ever asked for.
+//
+// Email has no equivalent: changing it is still unverified, a known gap
+// (see the doc comment below) that this endpoint's scope does not close.
+// Phone gets one because a text message is cheap enough to require for
+// every deployment that has SMS configured at all, where requiring a click
+// on a mail link would be the same V0.2 item email already is.
+var ErrPhoneChangeRequiresVerification = httpx.BadRequest("PHONE_CHANGE_REQUIRES_VERIFICATION",
+	"Verify this phone number first, using the code sent to it, before it can be saved.")
+
 // UpdateOwnProfile lets a signed-in user maintain their own details (§3.5).
 //
 // Phone and email are sign-in identifiers and password-recovery
 // destinations, so they go through the same validation and the same
 // per-tenant uniqueness as when an administrator sets them.
 //
-// Changing either is not verified: a user may set an address they do not
-// control. That is bounded — recovery for their own account would then be
-// delivered somewhere they cannot read, which locks them out rather than
-// letting them in, and the unique index stops them taking an address another
-// account in the tenant already holds. Verified changes are a V0.2 item.
+// Email is not verified: a user may set an address they do not control.
+// That is bounded — recovery for their own account would then be delivered
+// somewhere they cannot read, which locks them out rather than letting them
+// in, and the unique index stops them taking an address another account in
+// the tenant already holds. Verified email changes are a V0.2 item.
+//
+// Phone is different: binding a new number this way is refused outright.
+// Proving it first is PhoneVerificationService's job (RequestPhoneChange,
+// ConfirmPhoneChange) — clearing an existing number, or submitting the one
+// already on file, still goes straight through here, since neither binds
+// anything unproven.
 func (s *UserService) UpdateOwnProfile(ctx context.Context, actor auth.Principal, in ProfileInput, ip string) (model.User, error) {
 	in.DisplayName = strings.TrimSpace(in.DisplayName)
 	if in.DisplayName == "" {
@@ -55,6 +72,10 @@ func (s *UserService) UpdateOwnProfile(ctx context.Context, actor auth.Principal
 			return model.User{}, ErrUserNotFound
 		}
 		return model.User{}, fmt.Errorf("get user: %w", err)
+	}
+
+	if in.Phone != current.Phone && in.Phone != "" {
+		return model.User{}, ErrPhoneChangeRequiresVerification
 	}
 
 	// The existing role and organization are carried through unchanged

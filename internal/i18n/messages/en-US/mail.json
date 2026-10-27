@@ -7,7 +7,6 @@
   "recovery.email.action": "Choose a new password",
   "recovery.email.expiry": "The link works once and expires in {{.Minutes}} minutes.",
   "recovery.email.ignore": "If this was not you, no action is needed — the password has not changed.",
-  "recovery.sms": "Reset your {{.Tenant}} password: {{.Link}} (expires in {{.Minutes}} minutes)",
 
   "verification.email.subject": "Confirm your {{.Tenant}} account",
   "verification.email.title": "Confirm your address",
@@ -15,7 +14,6 @@
   "verification.email.action": "Confirm my address",
   "verification.email.expiry": "The link works once and expires in {{.Hours}} hours.",
   "verification.email.ignore": "If you did not register, no action is needed — the account cannot be used until somebody opens that link.",
-  "verification.sms": "Confirm your {{.Tenant}} account: {{.Link}} (expires in {{.Hours}} hours)",
 
   "trial.confirm.subject": "Confirm your Portico trial",
   "trial.confirm.title": "Confirm your trial",

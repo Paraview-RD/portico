@@ -183,6 +183,26 @@ Configuration is entirely environment variables:
   PORTICO_RESEND_API_KEY           required when the transport is resend
   PORTICO_MAIL_FROM                sender address for the resend transport,
                                    on a domain verified with Resend
+  PORTICO_ALIYUN_SMS_ACCESS_KEY_ID
+                                   Aliyun SMS. Unset means SMS login,
+  PORTICO_ALIYUN_SMS_ACCESS_KEY_SECRET
+                                   password recovery over SMS, and
+  PORTICO_ALIYUN_SMS_SIGN_NAME
+                                   registration verification over SMS
+                                   are all unavailable
+  PORTICO_ALIYUN_SMS_TEMPLATE_LOGIN_CODE
+                                   template code for each kind of
+  PORTICO_ALIYUN_SMS_TEMPLATE_RECOVERY
+                                   message; each is optional --
+  PORTICO_ALIYUN_SMS_TEMPLATE_VERIFICATION
+                                   a deployment may have Aliyun
+                                   approval for only some
+  PORTICO_ALIYUN_SMS_TEMPLATE_PHONE_VERIFICATION
+                                   template code for the code sent
+                                   before a phone number is bound
+  PORTICO_SMS_LOGIN_DEPLOYMENT_DAILY_CAP
+                                   default 1000; the whole deployment's
+                                   shared daily SMS login code budget
   PORTICO_DEFAULT_LOCALE           language of messages sent to somebody whose
                                    own preference and whose tenant's default
                                    both say nothing: en-US (default) | zh-CN.

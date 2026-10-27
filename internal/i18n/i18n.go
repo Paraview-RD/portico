@@ -112,15 +112,13 @@ const (
 	// Every email is written as parts rather than as one body, because each
 	// is rendered twice — as text and as HTML — from one description, and a
 	// paragraph that has to appear in both cannot be a paragraph of markup.
-	// See internal/mailfmt. The SMS messages stay one string each: there is
-	// only one way to render 160 characters.
+	// See internal/mailfmt.
 	KeyRecoveryEmailSubject = "recovery.email.subject"
 	KeyRecoveryEmailTitle   = "recovery.email.title"
 	KeyRecoveryEmailIntro   = "recovery.email.intro"
 	KeyRecoveryEmailAction  = "recovery.email.action"
 	KeyRecoveryEmailExpiry  = "recovery.email.expiry"
 	KeyRecoveryEmailIgnore  = "recovery.email.ignore"
-	KeyRecoverySMS          = "recovery.sms"
 
 	KeyVerificationEmailSubject = "verification.email.subject"
 	KeyVerificationEmailTitle   = "verification.email.title"
@@ -128,7 +126,6 @@ const (
 	KeyVerificationEmailAction  = "verification.email.action"
 	KeyVerificationEmailExpiry  = "verification.email.expiry"
 	KeyVerificationEmailIgnore  = "verification.email.ignore"
-	KeyVerificationSMS          = "verification.sms"
 
 	KeyTrialConfirmSubject = "trial.confirm.subject"
 	KeyTrialConfirmTitle   = "trial.confirm.title"

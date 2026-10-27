@@ -31,6 +31,8 @@ export const errorsEnUS = {
     "New accounts here must confirm an address, and this deployment cannot send one. An administrator has to configure a mail relay or switch the requirement off.",
   NO_DELIVERY_CHANNEL:
     "Requiring confirmation needs a way to send it. Configure a mail relay first, or leave it off.",
+  NO_SMS_CHANNEL:
+    "SMS login needs a way to send SMS. Configure the Aliyun SMS transport first, or leave SMS login off.",
   ACCOUNT_CLOSED:
     "This account was closed by its owner. An administrator can reinstate it.",
   ACCOUNT_LOCKED:
@@ -51,6 +53,17 @@ export const errorsEnUS = {
     "This account is still on its default password, which must be replaced before signing in.",
   PASSWORD_NOT_EXPIRED:
     "This password has not expired. Sign in and change it from your profile.",
+  MISSING_PHONE: "A phone number is required.",
+  SMS_LOGIN_UNAVAILABLE:
+    "SMS login is not available. Ask an administrator to enable it, or sign in with a password.",
+  INVALID_SMS_CODE: "That code is incorrect or has expired.",
+  PHONE_VERIFICATION_UNAVAILABLE:
+    "Verifying a phone number is not available. Ask an administrator to configure SMS delivery.",
+  INVALID_PHONE_VERIFICATION_CODE: "That code is incorrect or has expired.",
+  PHONE_UNCHANGED: "That is already this account's phone number.",
+  PHONE_CHANGE_REQUIRES_VERIFICATION:
+    "Verify this phone number first, using the code sent to it, before it can be saved.",
+  MISSING_CODE: "A phone number and code are required.",
   // --- Webhook snapshots ---
   SNAPSHOT_IN_PROGRESS:
     "A snapshot for this subscription is still being delivered. Wait for it to finish, or disable the subscription to abandon it.",
